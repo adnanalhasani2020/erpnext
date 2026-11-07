@@ -68,6 +68,29 @@ void main() {
     expect(() => ErpWarehouse.fromJson({'warehouse_name': 'Main Store'}), throwsFormatException);
   });
 
+  test('parses ERPNext Customer fields', () {
+    final customer = ErpCustomer.fromJson({'name': 'CUST-001', 'customer_name': 'Test Customer', 'customer_type': 'Company', 'customer_group': 'Commercial', 'territory': 'Yemen'});
+    expect(customer.id, 'CUST-001');
+    expect(customer.name, 'Test Customer');
+    expect(customer.group, 'Commercial');
+  });
+
+  test('rejects Customer without its document name', () {
+    expect(() => ErpCustomer.fromJson({'customer_name': 'Missing ID'}), throwsFormatException);
+  });
+
+  test('parses ERPNext Sales Invoice fields and monetary values', () {
+    final invoice = ErpSalesInvoice.fromJson({'name': 'SINV-0001', 'customer': 'CUST-001', 'customer_name': 'Test Customer', 'posting_date': '2026-11-07', 'due_date': '2026-11-14', 'currency': 'YER', 'grand_total': '1250.50', 'outstanding_amount': 500, 'status': 'Partly Paid'});
+    expect(invoice.id, 'SINV-0001');
+    expect(invoice.customerName, 'Test Customer');
+    expect(invoice.grandTotal, 1250.5);
+    expect(invoice.outstandingAmount, 500);
+    expect(invoice.status, 'Partly Paid');
+  });
+
+  test('rejects Sales Invoice without required customer data', () {
+    expect(() => ErpSalesInvoice.fromJson({'name': 'SINV-0002'}), throwsFormatException);
+  });
   companyModelTests();
   testWidgets('renders the Arabic ERPNext login screen', (tester) async {
     await tester.pumpWidget(const ErpNextMobileApp());
