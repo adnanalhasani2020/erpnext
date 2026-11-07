@@ -662,7 +662,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
           NavigationDestination(icon: Icon(Icons.sell_outlined), selectedIcon: Icon(Icons.sell), label: 'الأصناف'),
           NavigationDestination(icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2), label: 'الأرصدة'),
           NavigationDestination(icon: Icon(Icons.warehouse_outlined), selectedIcon: Icon(Icons.warehouse), label: 'المستودعات'),
-          NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'المبيعات'),
+          NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'المعاملات'),
         ],
       ),
     );
@@ -841,8 +841,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
   Widget _buildSalesPage() {
     return ListView(padding: const EdgeInsets.all(18), children: [
       Row(children: [
-        Expanded(child: Row(children: [const CircleAvatar(child: Icon(Icons.receipt_long_outlined)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('المبيعات', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)), Text('العملاء وفواتير المبيعات للعرض فقط', style: Theme.of(context).textTheme.bodySmall)]))])),
+        Expanded(child: Row(children: [const CircleAvatar(child: Icon(Icons.receipt_long_outlined)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('المعاملات', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)), Text('المبيعات والمشتريات والعملاء والموردون للعرض فقط', style: Theme.of(context).textTheme.bodySmall)]))])),
         IconButton(tooltip: 'تحديث المبيعات', onPressed: _salesLoading ? null : _loadSales, icon: const Icon(Icons.refresh)),
+        IconButton(tooltip: 'تحديث المشتريات', onPressed: _purchaseLoading ? null : _loadPurchases, icon: const Icon(Icons.shopping_cart_outlined)),
       ]),
       if (_salesLoading) const LinearProgressIndicator(),
       if (_salesError != null) _errorCard(_salesError!),
@@ -863,6 +864,26 @@ class _MobileHomePageState extends State<MobileHomePage> {
         leading: const CircleAvatar(child: Icon(Icons.person_outline)),
         title: Text(customer.name),
         subtitle: Text([customer.id, if (customer.group != null) customer.group!, if (customer.territory != null) customer.territory!].join(' • ')),
+      ))),
+      const Divider(height: 28),
+      if (_purchaseLoading) const LinearProgressIndicator(),
+      if (_purchaseError != null) _errorCard(_purchaseError!),
+      Text('فواتير المشتريات (' + _purchaseInvoices.length.toString() + ')', style: Theme.of(context).textTheme.titleMedium),
+      if (_purchaseInvoices.isEmpty && !_purchaseLoading) const Card(child: ListTile(title: Text('لا توجد فواتير مشتريات ظاهرة'))),
+      ..._purchaseInvoices.map((invoice) => Card(child: ListTile(
+        leading: const CircleAvatar(child: Icon(Icons.shopping_cart_outlined)),
+        title: Text(invoice.id),
+        subtitle: Text(invoice.supplierName + ' • ' + (invoice.postingDate ?? '—') + '\n' + (invoice.status ?? 'حالة غير محددة') + ' • متبقٍ: ' + invoice.outstandingAmount.toStringAsFixed(2) + ' ' + (invoice.currency ?? '')),
+        isThreeLine: true,
+        trailing: Text(invoice.grandTotal.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
+      ))),
+      const SizedBox(height: 18),
+      Text('الموردون (' + _suppliers.length.toString() + ')', style: Theme.of(context).textTheme.titleMedium),
+      if (_suppliers.isEmpty && !_purchaseLoading) const Card(child: ListTile(title: Text('لا توجد بيانات موردين ظاهرة'))),
+      ..._suppliers.map((supplier) => Card(child: ListTile(
+        leading: const CircleAvatar(child: Icon(Icons.local_shipping_outlined)),
+        title: Text(supplier.name),
+        subtitle: Text([supplier.id, if (supplier.group != null) supplier.group!, if (supplier.type != null) supplier.type!].join(' • ')),
       ))),
       const SizedBox(height: 10),
       Text('هذه الشاشة للقراءة فقط؛ لا تنشئ أو تعدّل أو ترحّل الفواتير.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
