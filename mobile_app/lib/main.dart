@@ -175,11 +175,43 @@ class _MobileHomePageState extends State<MobileHomePage> {
     });
   }
 
+  Future<void> _searchItems(String value) async {
+    final query = value.trim();
+    if (_inventoryLoading || _loadingMoreItems) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _itemSearch = query;
+      _items = const [];
+      _itemsOffset = 0;
+      _itemsHasMore = false;
+      _inventoryLoading = true;
+      _inventoryError = null;
+    });
+    try {
+      final page = await _api.fetchItems(search: query.isEmpty ? null : query);
+      if (!mounted) return;
+      setState(() {
+        _items = page;
+        _itemsOffset = page.length;
+        _itemsHasMore = page.length == FrappeApi.pageSize;
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _inventoryError =
+              'تعذر البحث في الأصناف: ${error.toString().replaceFirst('Exception: ', '')}';
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _inventoryLoading = false);
+    }
+  }
+
   Future<void> _loadMoreItems() async {
     if (_loadingMoreItems || !_itemsHasMore) return;
     setState(() => _loadingMoreItems = true);
     try {
-      final page = await _api.fetchItems(start: _itemsOffset);
+      final page = await _api.fetchItems(start: _itemsOffset, search: _itemSearch.isEmpty ? null : _itemSearch);
       if (!mounted) return;
       setState(() {
         _items = [..._items, ...page];
@@ -441,19 +473,33 @@ class _MobileHomePageState extends State<MobileHomePage> {
       const SizedBox(height: 16),
       TextField(
         controller: _itemSearchController,
+        textInputAction: TextInputAction.search,
         decoration: InputDecoration(
-          labelText: 'ابحث بالاسم أو الرمز أو المجموعة',
+          labelText: 'ابحث بالاسم أو الرمز',
           prefixIcon: const Icon(Icons.search),
-          suffixIcon: _itemSearch.isEmpty ? null : IconButton(
-            tooltip: 'مسح البحث',
-            onPressed: () { _itemSearchController.clear(); setState(() => _itemSearch = ''); },
-            icon: const Icon(Icons.clear),
-          ),
+          suffixIcon: _itemSearchController.text.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: 'مسح البحث',
+                  onPressed: () {
+                    _itemSearchController.clear();
+                    _searchItems('');
+                  },
+                  icon: const Icon(Icons.clear),
+                ),
         ),
-        onChanged: (value) => setState(() => _itemSearch = value),
+        onSubmitted: _searchItems,
+      ),
+      const SizedBox(height: 8),
+      FilledButton.tonalIcon(
+        onPressed: _inventoryLoading || _loadingMoreItems
+            ? null
+            : () => _searchItems(_itemSearchController.text),
+        icon: const Icon(Icons.search),
+        label: const Text('بحث في جميع الأصناف بالخادم'),
       ),
       const SizedBox(height: 10),
-      Text('المعروض ${filtered.length} من ${_items.length} صنف محمّل'),
+      Text('المعروض ${filtered.length} من ${_items.length} صنف في نتيجة البحث الحالية'),
       if (_inventoryLoading) const LinearProgressIndicator(),
       if (_inventoryError != null) _errorCard(_inventoryError!),
       if (filtered.isEmpty && !_inventoryLoading)
