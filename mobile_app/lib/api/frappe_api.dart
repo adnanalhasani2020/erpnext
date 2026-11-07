@@ -18,14 +18,14 @@ class FrappeApi {
   }) {
     final parameters = <String, String>{
       'fields': jsonEncode(fields),
-      'limit_page_length': '${pageLength < 1 ? 1 : pageLength}',
-      'limit_start': '${start < 0 ? 0 : start}',
+      'limit_page_length': (pageLength < 1 ? 1 : pageLength).toString(),
+      'limit_start': (start < 0 ? 0 : start).toString(),
       'order_by': orderBy,
     };
     if (filters != null && filters.isNotEmpty) {
       parameters['filters'] = jsonEncode(filters);
     }
-    return Uri.parse('${baseUrl.replaceFirst(RegExp(r'/+
+    final endpoint = baseUrl.replaceFirst(RegExp(r'/+
   String _baseUrl = '';
 
   void configure(String value) {
@@ -283,8 +283,9 @@ class _ApiResponse {
   final int statusCode;
   final String body;
 }
-), '')}/api/resource/${Uri.encodeComponent(resource)}')
-        .replace(queryParameters: parameters);
+), '') +
+        '/api/resource/' + Uri.encodeComponent(resource);
+    return Uri.parse(endpoint).replace(queryParameters: parameters);
   }
 
   final Map<String, String> _cookies = {};
