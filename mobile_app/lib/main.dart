@@ -580,8 +580,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
 
   Future<void> _loadInventory() async {
     if (!mounted || _inventoryLoading) return;
-
-    if (_inventoryLoading) return;
     setState(() { _inventoryLoading = true; _inventoryError = null; });
     final errors = <String>[];
 
@@ -618,8 +616,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
 
   Future<void> _loadSales() async {
     if (!mounted || _salesLoading) return;
-
-    if (_salesLoading) return;
     setState(() { _salesLoading = true; _salesError = null; });
     final errors = <String>[];
     try {
@@ -642,8 +638,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
 
   Future<void> _loadPurchases() async {
     if (!mounted || _purchaseLoading) return;
-
-    if (_purchaseLoading) return;
     setState(() { _purchaseLoading = true; _purchaseError = null; });
     final errors = <String>[];
     try {
