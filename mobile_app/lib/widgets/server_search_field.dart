@@ -5,12 +5,14 @@ class ServerSearchField extends StatelessWidget {
     required this.controller,
     required this.label,
     required this.onSearch,
+    this.loading = false,
     super.key,
   });
 
   final TextEditingController controller;
   final String label;
   final ValueChanged<String> onSearch;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -21,6 +23,7 @@ class ServerSearchField extends StatelessWidget {
           valueListenable: controller,
           builder: (context, value, child) => TextField(
             controller: controller,
+            enabled: !loading,
             textInputAction: TextInputAction.search,
             decoration: InputDecoration(
               labelText: label,
@@ -29,7 +32,7 @@ class ServerSearchField extends StatelessWidget {
                   ? null
                   : IconButton(
                       tooltip: 'مسح البحث',
-                      onPressed: () {
+                      onPressed: loading ? null : () {
                         controller.clear();
                         onSearch('');
                       },
@@ -42,9 +45,11 @@ class ServerSearchField extends StatelessWidget {
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
-            onPressed: () => onSearch(controller.text),
-            icon: const Icon(Icons.search),
-            label: const Text('بحث في الخادم'),
+            onPressed: loading ? null : () => onSearch(controller.text),
+            icon: loading
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                : const Icon(Icons.search),
+            label: Text(loading ? 'جارٍ البحث...' : 'بحث في الخادم'),
           ),
         ),
       ],

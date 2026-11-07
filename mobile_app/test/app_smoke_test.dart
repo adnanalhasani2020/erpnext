@@ -209,6 +209,27 @@ void main() {
     expect(() => ErpInvoiceLine.fromJson({'qty': 2, 'amount': 10}), throwsFormatException);
   });
   companyModelTests();
+  testWidgets('server search field disables editing and shows progress while loading', (tester) async {
+    final controller = TextEditingController(text: 'Acme');
+    String? submitted;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: ServerSearchField(
+          controller: controller,
+          label: 'بحث في العملاء',
+          loading: true,
+          onSearch: (value) => submitted = value,
+        ),
+      ),
+    ));
+    expect(tester.widget<TextField>(find.byType(TextField)).enabled, isFalse);
+    expect(find.text('جارٍ البحث...'), findsOneWidget);
+    await tester.tap(find.text('جارٍ البحث...'));
+    expect(submitted, isNull);
+    await tester.pumpWidget(const SizedBox());
+    controller.dispose();
+  });
+
   testWidgets('server search field submits the entered query', (tester) async {
     final controller = TextEditingController();
     String? submitted;
