@@ -150,7 +150,7 @@ class FrappeApi {
   }
 
   Future<List<ErpSalesInvoice>> fetchSalesInvoices() async {
-    final uri = Uri.parse('$_baseUrl/api/resource/Sales Invoice').replace(queryParameters: {
+    final uri = Uri.parse('$_baseUrl/api/resource/Sales%20Invoice').replace(queryParameters: {
       'fields': jsonEncode(['name', 'customer', 'customer_name', 'posting_date', 'due_date', 'currency', 'grand_total', 'outstanding_amount', 'status']),
       'limit_page_length': '100', 'order_by': 'posting_date desc',
     });
