@@ -87,7 +87,7 @@ class FrappeApi {
     final uri = Uri.parse('$_baseUrl/api/resource/Item').replace(queryParameters: {
       'fields': jsonEncode(['item_code', 'item_name', 'item_group', 'stock_uom', 'is_stock_item']),
       'filters': jsonEncode([['disabled', '=', 0]]),
-      'limit_page_length': '30',
+      'limit_page_length': '100',
       'order_by': 'modified desc',
     });
     final response = await _sendUri('GET', uri);
@@ -104,7 +104,7 @@ class FrappeApi {
     final uri = Uri.parse('$_baseUrl/api/resource/Warehouse').replace(queryParameters: {
       'fields': jsonEncode(['name', 'warehouse_name', 'company', 'is_group']),
       'filters': jsonEncode([['disabled', '=', 0], ['is_group', '=', 0]]),
-      'limit_page_length': '30',
+      'limit_page_length': '100',
       'order_by': 'warehouse_name asc',
     });
     final response = await _sendUri('GET', uri);
@@ -272,6 +272,7 @@ class ErpStockBalance {
   final double reservedQty;
   final double projectedQty;
   final String? stockUom;
+  double get availableQty => actualQty - reservedQty;
 
   factory ErpStockBalance.fromJson(Map<String, dynamic> json) {
     final itemCode = json['item_code'];
@@ -310,6 +311,12 @@ class _MobileHomePageState extends State<MobileHomePage> {
   final _urlController = TextEditingController();
   final _userController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _itemSearchController = TextEditingController();
+  final _warehouseSearchController = TextEditingController();
+  String _itemSearch = '';
+  String _warehouseSearch = '';
+  String? _selectedWarehouse;
+  int _selectedTab = 0;
   bool _busy = false;
   String? _error;
   String? _user;
@@ -328,6 +335,8 @@ class _MobileHomePageState extends State<MobileHomePage> {
     _urlController.dispose();
     _userController.dispose();
     _passwordController.dispose();
+    _itemSearchController.dispose();
+    _warehouseSearchController.dispose();
     super.dispose();
   }
 
@@ -401,6 +410,12 @@ class _MobileHomePageState extends State<MobileHomePage> {
     if (!mounted) return;
     setState(() {
       _user = null;
+      _selectedTab = 0;
+      _selectedWarehouse = null;
+      _itemSearch = '';
+      _warehouseSearch = '';
+      _itemSearchController.clear();
+      _warehouseSearchController.clear();
       _busy = false;
       _companies = const [];
       _companyError = null;
@@ -417,10 +432,189 @@ class _MobileHomePageState extends State<MobileHomePage> {
       body: SafeArea(
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 220),
-          child: _user == null ? _buildLogin() : _buildDashboard(),
+          child: _user == null ? _buildLogin() : _buildSelectedPage(),
         ),
       ),
+      bottomNavigationBar: _user == null ? null : NavigationBar(
+        selectedIndex: _selectedTab,
+        onDestinationSelected: (index) => setState(() => _selectedTab = index),
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'الرئيسية'),
+          NavigationDestination(icon: Icon(Icons.sell_outlined), selectedIcon: Icon(Icons.sell), label: 'الأصناف'),
+          NavigationDestination(icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2), label: 'الأرصدة'),
+          NavigationDestination(icon: Icon(Icons.warehouse_outlined), selectedIcon: Icon(Icons.warehouse), label: 'المستودعات'),
+        ],
+      ),
     );
+  }
+
+
+  Widget _buildSelectedPage() {
+    switch (_selectedTab) {
+      case 1: return _buildItemsPage();
+      case 2: return _buildStockPage();
+      case 3: return _buildWarehousesPage();
+      default: return _buildDashboard();
+    }
+  }
+
+  Widget _pageHeader(String title, String subtitle, IconData icon) => Row(children: [
+    CircleAvatar(child: Icon(icon)),
+    const SizedBox(width: 12),
+    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+      Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+    ])),
+    IconButton(tooltip: 'تحديث البيانات', onPressed: _inventoryLoading ? null : _loadInventory, icon: const Icon(Icons.refresh)),
+  ]);
+
+  Widget _errorCard(String message) => Card(
+    child: Padding(padding: const EdgeInsets.all(14), child: Text(message, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+  );
+
+  Widget _buildItemsPage() {
+    final query = _itemSearch.trim().toLowerCase();
+    final filtered = _items.where((item) =>
+      item.code.toLowerCase().contains(query) || item.name.toLowerCase().contains(query) ||
+      (item.group ?? '').toLowerCase().contains(query)
+    ).toList(growable: false);
+    return ListView(padding: const EdgeInsets.all(18), children: [
+      _pageHeader('الأصناف', 'بحث في الأصناف المحمّلة من ERPNext', Icons.sell_outlined),
+      const SizedBox(height: 16),
+      TextField(
+        controller: _itemSearchController,
+        decoration: InputDecoration(
+          labelText: 'ابحث بالاسم أو الرمز أو المجموعة',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: _itemSearch.isEmpty ? null : IconButton(
+            tooltip: 'مسح البحث',
+            onPressed: () { _itemSearchController.clear(); setState(() => _itemSearch = ''); },
+            icon: const Icon(Icons.clear),
+          ),
+        ),
+        onChanged: (value) => setState(() => _itemSearch = value),
+      ),
+      const SizedBox(height: 10),
+      Text('المعروض ${filtered.length} من ${_items.length} صنف محمّل'),
+      if (_inventoryLoading) const LinearProgressIndicator(),
+      if (_inventoryError != null) _errorCard(_inventoryError!),
+      if (filtered.isEmpty && !_inventoryLoading)
+        const Card(child: ListTile(leading: Icon(Icons.search_off), title: Text('لا توجد أصناف مطابقة'))),
+      ...filtered.map((item) => Card(child: ListTile(
+        leading: CircleAvatar(child: Icon(item.isStockItem ? Icons.inventory_2_outlined : Icons.miscellaneous_services_outlined)),
+        title: Text(item.name),
+        subtitle: Text([item.code, if (item.group != null) item.group!, if (item.stockUom != null) item.stockUom!].join(' • ')),
+        trailing: const Icon(Icons.chevron_left),
+        onTap: () => _showItemDetails(item),
+      ))),
+    ]);
+  }
+
+  void _showItemDetails(ErpItem item) {
+    final balances = _stockBalances.where((row) => row.itemCode == item.code).toList(growable: false);
+    showModalBottomSheet<void>(
+      context: context, showDragHandle: true, isScrollControlled: true,
+      builder: (context) => SafeArea(child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(item.name, style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 8),
+          Text('رمز الصنف: ${item.code}'),
+          Text('المجموعة: ${item.group ?? '—'}'),
+          Text('وحدة القياس: ${item.stockUom ?? '—'}'),
+          Text(item.isStockItem ? 'صنف مخزني' : 'صنف غير مخزني'),
+          const Divider(height: 24),
+          Text('الأرصدة حسب المستودع', style: Theme.of(context).textTheme.titleMedium),
+          if (balances.isEmpty) const Text('لا توجد أرصدة ظاهرة لهذا الصنف.'),
+          ...balances.map((balance) => ListTile(
+            contentPadding: EdgeInsets.zero,
+            title: Text(balance.warehouse),
+            subtitle: Text('محجوز: ${balance.reservedQty} • متوقع: ${balance.projectedQty}'),
+            trailing: Text('${balance.actualQty} ${balance.stockUom ?? ''}'),
+          )),
+        ]),
+      )),
+    );
+  }
+
+  Widget _buildStockPage() {
+    final selected = _selectedWarehouse;
+    final filtered = _stockBalances.where((row) => selected == null || row.warehouse == selected).toList(growable: false);
+    final totalActual = filtered.fold<double>(0, (sum, row) => sum + row.actualQty);
+    final totalReserved = filtered.fold<double>(0, (sum, row) => sum + row.reservedQty);
+    return ListView(padding: const EdgeInsets.all(18), children: [
+      _pageHeader('أرصدة المخزون', 'الكمية الفعلية والمحجوزة والمتاحة تقديرياً', Icons.inventory_2_outlined),
+      const SizedBox(height: 16),
+      DropdownButtonFormField<String>(
+        value: _selectedWarehouse, isExpanded: true,
+        decoration: const InputDecoration(labelText: 'تصفية حسب المستودع'),
+        items: [
+          const DropdownMenuItem<String>(value: null, child: Text('كل المستودعات')),
+          ..._warehouses.map((warehouse) => DropdownMenuItem<String>(value: warehouse.id, child: Text(warehouse.name, overflow: TextOverflow.ellipsis))),
+        ],
+        onChanged: (value) => setState(() => _selectedWarehouse = value),
+      ),
+      const SizedBox(height: 12),
+      Row(children: [
+        Expanded(child: _CountCard(label: 'عدد الأرصدة', count: filtered.length, icon: Icons.inventory_outlined)),
+        const SizedBox(width: 8),
+        Expanded(child: _CountCard(label: 'المستودعات', count: selected == null ? _warehouses.length : 1, icon: Icons.warehouse_outlined)),
+      ]),
+      Text('مجموع الكميات الفعلية: ${totalActual.toStringAsFixed(2)} • المحجوز: ${totalReserved.toStringAsFixed(2)}'),
+      if (_inventoryLoading) const LinearProgressIndicator(),
+      if (_inventoryError != null) _errorCard(_inventoryError!),
+      if (filtered.isEmpty && !_inventoryLoading)
+        const Card(child: ListTile(title: Text('لا توجد أرصدة مطابقة لهذا المستودع'))),
+      ...filtered.map((balance) => Card(child: ListTile(
+        title: Text(balance.itemCode),
+        subtitle: Text('${balance.warehouse}\nمحجوز: ${balance.reservedQty} • متوقع: ${balance.projectedQty}'),
+        isThreeLine: true,
+        trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+          Text(balance.actualQty.toStringAsFixed(2), style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+          Text('متاح: ${balance.availableQty.toStringAsFixed(2)}', style: Theme.of(context).textTheme.bodySmall),
+          Text(balance.stockUom ?? '—', style: Theme.of(context).textTheme.bodySmall),
+        ]),
+      ))),
+    ]);
+  }
+
+  Widget _buildWarehousesPage() {
+    final query = _warehouseSearch.trim().toLowerCase();
+    final filtered = _warehouses.where((warehouse) =>
+      warehouse.name.toLowerCase().contains(query) || warehouse.id.toLowerCase().contains(query) ||
+      (warehouse.company ?? '').toLowerCase().contains(query)
+    ).toList(growable: false);
+    return ListView(padding: const EdgeInsets.all(18), children: [
+      _pageHeader('المستودعات', 'المستودعات الفعلية المتاحة للمستخدم', Icons.warehouse_outlined),
+      const SizedBox(height: 16),
+      TextField(
+        controller: _warehouseSearchController,
+        decoration: InputDecoration(
+          labelText: 'ابحث عن مستودع أو شركة',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: _warehouseSearch.isEmpty ? null : IconButton(
+            onPressed: () { _warehouseSearchController.clear(); setState(() => _warehouseSearch = ''); },
+            icon: const Icon(Icons.clear),
+          ),
+        ),
+        onChanged: (value) => setState(() => _warehouseSearch = value),
+      ),
+      const SizedBox(height: 10),
+      Text('${filtered.length} مستودع من ${_warehouses.length} مستودع محمّل'),
+      if (_inventoryLoading) const LinearProgressIndicator(),
+      if (_inventoryError != null) _errorCard(_inventoryError!),
+      if (filtered.isEmpty && !_inventoryLoading)
+        const Card(child: ListTile(title: Text('لا توجد مستودعات مطابقة'))),
+      ...filtered.map((warehouse) {
+        final count = _stockBalances.where((row) => row.warehouse == warehouse.id).length;
+        return Card(child: ListTile(
+          leading: const CircleAvatar(child: Icon(Icons.warehouse_outlined)),
+          title: Text(warehouse.name),
+          subtitle: Text('${warehouse.company ?? 'شركة غير محددة'} • $count أرصدة'),
+          onTap: () => setState(() { _selectedWarehouse = warehouse.id; _selectedTab = 2; }),
+        ));
+      }),
+    ]);
   }
 
   Widget _buildLogin() {

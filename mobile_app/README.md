@@ -9,9 +9,9 @@ Arabic-first Android companion app for the ERPNext instance in this repository.
 - Session-cookie handling in memory only; credentials and cookies are not written to disk.
 - Logged-in user verification through `/api/method/frappe.auth.get_logged_user`.
 - Logout through `/api/method/logout`.
-- Dashboard shell for future ERP modules.
+- Dashboard with separate Arabic tabs for items, stock balances, and warehouses.\n- Item and warehouse local search over records loaded from the server.\n- Read-only stock balances by warehouse from ERPNext `Bin`, including actual, reserved, projected, and calculated available quantities.
 
-The sales, stock, purchasing, and accounting tiles are placeholders. They do not yet implement business operations.
+Sales, purchasing, and accounting are still placeholders. The current stock views are read-only; they do not create stock movements or modify quantities. Item and warehouse search currently filters records loaded into the app (up to 100 items and warehouses per request), not the full server catalogue.
 
 ## Requirements
 

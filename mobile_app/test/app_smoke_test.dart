@@ -38,6 +38,17 @@ void main() {
     expect(balance.stockUom, 'Nos');
   });
 
+
+  test('calculates available stock after reserved quantity', () {
+    final balance = ErpStockBalance.fromJson({'item_code': 'ITEM-002', 'warehouse': 'Main Store', 'actual_qty': 10, 'reserved_qty': 3});
+    expect(balance.availableQty, 7);
+  });
+
+  test('preserves negative available stock instead of hiding shortage', () {
+    final balance = ErpStockBalance.fromJson({'item_code': 'ITEM-003', 'warehouse': 'Main Store', 'actual_qty': 2, 'reserved_qty': 5});
+    expect(balance.availableQty, -3);
+  });
+
   test('rejects Bin row without item or warehouse', () {
     expect(() => ErpStockBalance.fromJson({'actual_qty': 2}), throwsFormatException);
   });
