@@ -3,6 +3,38 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('parses ERPNext Item fields', () {
+    final item = ErpItem.fromJson({
+      'item_code': 'ITEM-001',
+      'item_name': 'Test Item',
+      'item_group': 'Products',
+      'stock_uom': 'Nos',
+      'is_stock_item': 1,
+    });
+    expect(item.code, 'ITEM-001');
+    expect(item.name, 'Test Item');
+    expect(item.isStockItem, isTrue);
+  });
+
+  test('rejects Item without item_code', () {
+    expect(() => ErpItem.fromJson({'item_name': 'Missing code'}), throwsFormatException);
+  });
+
+  test('parses ERPNext Warehouse fields', () {
+    final warehouse = ErpWarehouse.fromJson({
+      'name': 'Main Store - EX',
+      'warehouse_name': 'Main Store',
+      'company': 'Example Ltd',
+    });
+    expect(warehouse.id, 'Main Store - EX');
+    expect(warehouse.name, 'Main Store');
+    expect(warehouse.company, 'Example Ltd');
+  });
+
+  test('rejects Warehouse without its ERPNext name', () {
+    expect(() => ErpWarehouse.fromJson({'warehouse_name': 'Main Store'}), throwsFormatException);
+  });
+
   companyModelTests();
   testWidgets('renders the Arabic ERPNext login screen', (tester) async {
     await tester.pumpWidget(const ErpNextMobileApp());
