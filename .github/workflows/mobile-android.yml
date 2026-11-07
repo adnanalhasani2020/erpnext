@@ -2,11 +2,14 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Optional release tag, for example mobile-v0.1.0"
+        required: false
+        type: string
   push:
     branches:
       - feature/flutter-mobile-foundation
-    tags:
-      - "mobile-v*"
     paths:
       - "mobile_app/**"
       - ".github/workflows/mobile-android.yml"
@@ -57,11 +60,12 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish GitHub Release for version tags
-        if: startsWith(github.ref, 'refs/tags/mobile-v')
+      - name: Publish GitHub Release
+        if: ${{ inputs.release_tag != '' }}
         uses: softprops/action-gh-release@v2
         with:
-          name: ERPNext Mobile ${{ github.ref_name }}
+          tag_name: ${{ inputs.release_tag }}
+          name: ERPNext Mobile ${{ inputs.release_tag }}
           generate_release_notes: true
           prerelease: true
           files: mobile_app/build/app/outputs/flutter-apk/app-debug.apk
