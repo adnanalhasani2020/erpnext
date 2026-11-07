@@ -4,6 +4,7 @@ import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
 import 'widgets/count_card.dart';
 import 'widgets/load_more_button.dart';
+import 'widgets/server_search_field.dart';
 
 export 'api/frappe_api.dart';
 
@@ -839,27 +840,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
       if (_salesLoading) const LinearProgressIndicator(),
       if (_salesError != null) _errorCard(_salesError!),
       const SizedBox(height: 12),
-      TextField(
+      ServerSearchField(
         controller: _salesInvoiceSearchController,
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          labelText: 'بحث في فواتير المبيعات',
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: _salesInvoiceSearchController.text.isEmpty ? null : IconButton(
-            tooltip: 'مسح البحث',
-            onPressed: () { _salesInvoiceSearchController.clear(); _searchSalesInvoices(''); },
-            icon: const Icon(Icons.clear),
-          ),
-        ),
-        onSubmitted: _searchSalesInvoices,
-      ),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton.icon(
-          onPressed: () => _searchSalesInvoices(_salesInvoiceSearchController.text),
-          icon: const Icon(Icons.search),
-          label: const Text('بحث في الخادم'),
-        ),
+        label: 'بحث في فواتير المبيعات',
+        onSearch: _searchSalesInvoices,
       ),
       Text('فواتير المبيعات (${_salesInvoices.length})', style: Theme.of(context).textTheme.titleMedium),
       if (_salesInvoices.isEmpty && !_salesLoading) const Card(child: ListTile(title: Text('لا توجد فواتير ظاهرة أو تعذر تحميلها'))),
@@ -873,27 +857,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
       ))),
       if (_salesInvoicesHasMore || _loadingMoreSalesInvoices) LoadMoreButton(_loadingMoreSalesInvoices, 'تحميل المزيد من فواتير المبيعات', _loadMoreSalesInvoices),
       const SizedBox(height: 18),
-      TextField(
+      ServerSearchField(
         controller: _customerSearchController,
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          labelText: 'بحث في العملاء',
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: _customerSearchController.text.isEmpty ? null : IconButton(
-            tooltip: 'مسح البحث',
-            onPressed: () { _customerSearchController.clear(); _searchCustomers(''); },
-            icon: const Icon(Icons.clear),
-          ),
-        ),
-        onSubmitted: _searchCustomers,
-      ),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton.icon(
-          onPressed: () => _searchCustomers(_customerSearchController.text),
-          icon: const Icon(Icons.search),
-          label: const Text('بحث في الخادم'),
-        ),
+        label: 'بحث في العملاء',
+        onSearch: _searchCustomers,
       ),
       Text('العملاء (${_customers.length})', style: Theme.of(context).textTheme.titleMedium),
       if (_customers.isEmpty && !_salesLoading) const Card(child: ListTile(title: Text('لا توجد بيانات عملاء ظاهرة'))),
@@ -906,27 +873,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
       const Divider(height: 28),
       if (_purchaseLoading) const LinearProgressIndicator(),
       if (_purchaseError != null) _errorCard(_purchaseError!),
-      TextField(
+      ServerSearchField(
         controller: _purchaseInvoiceSearchController,
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          labelText: 'بحث في فواتير المشتريات',
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: _purchaseInvoiceSearchController.text.isEmpty ? null : IconButton(
-            tooltip: 'مسح البحث',
-            onPressed: () { _purchaseInvoiceSearchController.clear(); _searchPurchaseInvoices(''); },
-            icon: const Icon(Icons.clear),
-          ),
-        ),
-        onSubmitted: _searchPurchaseInvoices,
-      ),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton.icon(
-          onPressed: () => _searchPurchaseInvoices(_purchaseInvoiceSearchController.text),
-          icon: const Icon(Icons.search),
-          label: const Text('بحث في الخادم'),
-        ),
+        label: 'بحث في فواتير المشتريات',
+        onSearch: _searchPurchaseInvoices,
       ),
       Text('فواتير المشتريات (${_purchaseInvoices.length})', style: Theme.of(context).textTheme.titleMedium),
       if (_purchaseInvoices.isEmpty && !_purchaseLoading) const Card(child: ListTile(title: Text('لا توجد فواتير مشتريات ظاهرة'))),
@@ -940,27 +890,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
       ))),
       if (_purchaseInvoicesHasMore || _loadingMorePurchaseInvoices) LoadMoreButton(_loadingMorePurchaseInvoices, 'تحميل المزيد من فواتير المشتريات', _loadMorePurchaseInvoices),
       const SizedBox(height: 18),
-      TextField(
+      ServerSearchField(
         controller: _supplierSearchController,
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          labelText: 'بحث في الموردين',
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: _supplierSearchController.text.isEmpty ? null : IconButton(
-            tooltip: 'مسح البحث',
-            onPressed: () { _supplierSearchController.clear(); _searchSuppliers(''); },
-            icon: const Icon(Icons.clear),
-          ),
-        ),
-        onSubmitted: _searchSuppliers,
-      ),
-      Align(
-        alignment: Alignment.centerLeft,
-        child: TextButton.icon(
-          onPressed: () => _searchSuppliers(_supplierSearchController.text),
-          icon: const Icon(Icons.search),
-          label: const Text('بحث في الخادم'),
-        ),
+        label: 'بحث في الموردين',
+        onSearch: _searchSuppliers,
       ),
       Text('الموردون (${_suppliers.length})', style: Theme.of(context).textTheme.titleMedium),
       if (_suppliers.isEmpty && !_purchaseLoading) const Card(child: ListTile(title: Text('لا توجد بيانات موردين ظاهرة'))),
