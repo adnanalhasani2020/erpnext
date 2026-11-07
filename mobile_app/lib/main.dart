@@ -82,6 +82,41 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().map(ErpCompany.fromJson).toList(growable: false);
   }
 
+
+  Future<List<ErpItem>> fetchItems() async {
+    final uri = Uri.parse('$_baseUrl/api/resource/Item').replace(queryParameters: {
+      'fields': jsonEncode(['item_code', 'item_name', 'item_group', 'stock_uom', 'is_stock_item']),
+      'filters': jsonEncode([['disabled', '=', 0]]),
+      'limit_page_length': '30',
+      'order_by': 'modified desc',
+    });
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر جلب الأصناف. تحقق من صلاحية قراءة Item.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة الأصناف من ERPNext غير متوقعة.');
+    return rows.whereType<Map<String, dynamic>>().map(ErpItem.fromJson).toList(growable: false);
+  }
+
+  Future<List<ErpWarehouse>> fetchWarehouses() async {
+    final uri = Uri.parse('$_baseUrl/api/resource/Warehouse').replace(queryParameters: {
+      'fields': jsonEncode(['name', 'warehouse_name', 'company', 'is_group']),
+      'filters': jsonEncode([['disabled', '=', 0], ['is_group', '=', 0]]),
+      'limit_page_length': '30',
+      'order_by': 'warehouse_name asc',
+    });
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر جلب المستودعات. تحقق من صلاحية قراءة Warehouse.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة المستودعات من ERPNext غير متوقعة.');
+    return rows.whereType<Map<String, dynamic>>().map(ErpWarehouse.fromJson).toList(growable: false);
+  }
+
   Future<String> currentUser() async {
     final response = await _send('GET', '/api/method/frappe.auth.get_logged_user');
     final data = _decode(response.body);
@@ -165,6 +200,51 @@ class ErpCompany {
   }
 }
 
+
+class ErpItem {
+  const ErpItem({required this.code, required this.name, this.group, this.stockUom, this.isStockItem = false});
+  final String code;
+  final String name;
+  final String? group;
+  final String? stockUom;
+  final bool isStockItem;
+
+  factory ErpItem.fromJson(Map<String, dynamic> json) {
+    final code = json['item_code'];
+    final name = json['item_name'];
+    if (code is! String || code.isEmpty || name is! String || name.isEmpty) {
+      throw const FormatException('بيانات الصنف الأساسية ناقصة.');
+    }
+    return ErpItem(
+      code: code,
+      name: name,
+      group: json['item_group'] is String ? json['item_group'] as String : null,
+      stockUom: json['stock_uom'] is String ? json['stock_uom'] as String : null,
+      isStockItem: json['is_stock_item'] == 1 || json['is_stock_item'] == true,
+    );
+  }
+}
+
+class ErpWarehouse {
+  const ErpWarehouse({required this.id, required this.name, this.company});
+  final String id;
+  final String name;
+  final String? company;
+
+  factory ErpWarehouse.fromJson(Map<String, dynamic> json) {
+    final id = json['name'];
+    final name = json['warehouse_name'];
+    if (id is! String || id.isEmpty || name is! String || name.isEmpty) {
+      throw const FormatException('بيانات المستودع الأساسية ناقصة.');
+    }
+    return ErpWarehouse(
+      id: id,
+      name: name,
+      company: json['company'] is String ? json['company'] as String : null,
+    );
+  }
+}
+
 class _ApiResponse {
   const _ApiResponse(this.statusCode, this.body);
   final int statusCode;
@@ -189,6 +269,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
   List<ErpCompany> _companies = const [];
   String? _companyError;
   bool _companiesLoading = false;
+  List<ErpItem> _items = const [];
+  List<ErpWarehouse> _warehouses = const [];
+  String? _inventoryError;
+  bool _inventoryLoading = false;
 
   @override
   void dispose() {
@@ -213,6 +297,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         _companyError = null;
       });
       await _loadCompanies();
+      await _loadInventory();
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
@@ -238,6 +323,28 @@ class _MobileHomePageState extends State<MobileHomePage> {
     }
   }
 
+
+  Future<void> _loadInventory() async {
+    setState(() { _inventoryLoading = true; _inventoryError = null; });
+    try {
+      final results = await Future.wait([_api.fetchItems(), _api.fetchWarehouses()]);
+      if (!mounted) return;
+      setState(() {
+        _items = results[0] as List<ErpItem>;
+        _warehouses = results[1] as List<ErpWarehouse>;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _items = const [];
+        _warehouses = const [];
+        _inventoryError = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) setState(() => _inventoryLoading = false);
+    }
+  }
+
   Future<void> _logout() async {
     setState(() => _busy = true);
     await _api.logout();
@@ -247,6 +354,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
       _busy = false;
       _companies = const [];
       _companyError = null;
+      _items = const [];
+      _warehouses = const [];
+      _inventoryError = null;
     });
   }
 
@@ -386,6 +496,43 @@ class _MobileHomePageState extends State<MobileHomePage> {
             subtitle: company.abbr == null ? null : Text('الاختصار: ${company.abbr}'),
           ))),
         ],
+
+        const SizedBox(height: 18),
+        Row(children: [
+          Expanded(child: Text('بيانات المخزون', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))),
+          IconButton(tooltip: 'تحديث بيانات المخزون', onPressed: _inventoryLoading ? null : _loadInventory, icon: const Icon(Icons.refresh)),
+        ]),
+        if (_inventoryLoading)
+          const LinearProgressIndicator()
+        else if (_inventoryError != null)
+          Card(child: Padding(padding: const EdgeInsets.all(14), child: Text(_inventoryError!, style: TextStyle(color: scheme.error))))
+        else ...[
+          Row(children: [
+            Expanded(child: _CountCard(label: 'الأصناف', count: _items.length, icon: Icons.inventory_2_outlined)),
+            const SizedBox(width: 10),
+            Expanded(child: _CountCard(label: 'المستودعات', count: _warehouses.length, icon: Icons.warehouse_outlined)),
+          ]),
+          if (_items.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text('أحدث الأصناف', style: Theme.of(context).textTheme.titleSmall),
+            ..._items.take(8).map((item) => ListTile(
+              dense: true,
+              leading: const Icon(Icons.sell_outlined),
+              title: Text(item.name),
+              subtitle: Text([item.code, if (item.group != null) item.group!, if (item.stockUom != null) item.stockUom!].join(' • ')),
+            )),
+          ],
+          if (_warehouses.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text('المستودعات', style: Theme.of(context).textTheme.titleSmall),
+            ..._warehouses.take(8).map((warehouse) => ListTile(
+              dense: true,
+              leading: const Icon(Icons.warehouse_outlined),
+              title: Text(warehouse.name),
+              subtitle: warehouse.company == null ? null : Text(warehouse.company!),
+            )),
+          ],
+        ],
         const SizedBox(height: 18),
         Text('الوحدات القادمة',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
@@ -400,6 +547,29 @@ class _MobileHomePageState extends State<MobileHomePage> {
       ],
     );
   }
+}
+
+
+class _CountCard extends StatelessWidget {
+  const _CountCard({required this.label, required this.count, required this.icon});
+  final String label;
+  final int count;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) => Card(
+    child: Padding(
+      padding: const EdgeInsets.all(14),
+      child: Row(children: [
+        Icon(icon, size: 26),
+        const SizedBox(width: 10),
+        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
+          Text('$count', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+        ])),
+      ]),
+    ),
+  );
 }
 
 class _ModuleTile extends StatelessWidget {
