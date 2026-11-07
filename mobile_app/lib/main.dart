@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
+import 'widgets/count_card.dart';
 
 export 'api/frappe_api.dart';
 
@@ -369,9 +370,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
       ),
       const SizedBox(height: 12),
       Row(children: [
-        Expanded(child: _CountCard(label: 'عدد الأرصدة', count: filtered.length, icon: Icons.inventory_outlined)),
+        Expanded(child: CountCard(label: 'عدد الأرصدة', count: filtered.length, icon: Icons.inventory_outlined)),
         const SizedBox(width: 8),
-        Expanded(child: _CountCard(label: 'المستودعات', count: selected == null ? _warehouses.length : 1, icon: Icons.warehouse_outlined)),
+        Expanded(child: CountCard(label: 'المستودعات', count: selected == null ? _warehouses.length : 1, icon: Icons.warehouse_outlined)),
       ]),
       Text('مجموع الكميات الفعلية: ${totalActual.toStringAsFixed(2)} • المحجوز: ${totalReserved.toStringAsFixed(2)}'),
       if (_inventoryLoading) const LinearProgressIndicator(),
@@ -680,9 +681,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
           Card(child: Padding(padding: const EdgeInsets.all(14), child: Text(_inventoryError!, style: TextStyle(color: scheme.error)))),
         ...[
           Row(children: [
-            Expanded(child: _CountCard(label: 'الأصناف', count: _items.length, icon: Icons.inventory_2_outlined)),
+            Expanded(child: CountCard(label: 'الأصناف', count: _items.length, icon: Icons.inventory_2_outlined)),
             const SizedBox(width: 10),
-            Expanded(child: _CountCard(label: 'المستودعات', count: _warehouses.length, icon: Icons.warehouse_outlined)),
+            Expanded(child: CountCard(label: 'المستودعات', count: _warehouses.length, icon: Icons.warehouse_outlined)),
           ]),
           if (_items.isNotEmpty) ...[
             const SizedBox(height: 8),
@@ -738,28 +739,5 @@ class _MobileHomePageState extends State<MobileHomePage> {
       ],
     );
   }
-}
-
-
-class _CountCard extends StatelessWidget {
-  const _CountCard({required this.label, required this.count, required this.icon});
-  final String label;
-  final int count;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) => Card(
-    child: Padding(
-      padding: const EdgeInsets.all(14),
-      child: Row(children: [
-        Icon(icon, size: 26),
-        const SizedBox(width: 10),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(label, style: Theme.of(context).textTheme.bodySmall),
-          Text('$count', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-        ])),
-      ]),
-    ),
-  );
 }
 
