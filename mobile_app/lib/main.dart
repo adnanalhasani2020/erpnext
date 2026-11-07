@@ -1119,10 +1119,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
           IconButton(tooltip: 'تحديث بيانات المخزون', onPressed: _inventoryLoading ? null : _loadInventory, icon: const Icon(Icons.refresh)),
         ]),
         if (_inventoryLoading)
-          const LinearProgressIndicator()
-        else if (_inventoryError != null)
-          Card(child: Padding(padding: const EdgeInsets.all(14), child: Text(_inventoryError!, style: TextStyle(color: scheme.error))))
-        else ...[
+          const LinearProgressIndicator(),
+        if (_inventoryError != null)
+          Card(child: Padding(padding: const EdgeInsets.all(14), child: Text(_inventoryError!, style: TextStyle(color: scheme.error)))),
+        ...[
           Row(children: [
             Expanded(child: _CountCard(label: 'الأصناف', count: _items.length, icon: Icons.inventory_2_outlined)),
             const SizedBox(width: 10),
