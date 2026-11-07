@@ -62,6 +62,26 @@ class FrappeApi {
     return currentUser();
   }
 
+  Future<List<ErpCompany>> fetchCompanies() async {
+    final uri = Uri.parse('$_baseUrl/api/resource/Company').replace(
+      queryParameters: {
+        'fields': jsonEncode(['name', 'abbr']),
+        'limit_page_length': '20',
+        'order_by': 'name asc',
+      },
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر جلب الشركات. تحقق من صلاحية قراءة Company.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) {
+      throw Exception('استجابة الشركات من ERPNext غير متوقعة.');
+    }
+    return rows.whereType<Map<String, dynamic>>().map(ErpCompany.fromJson).toList(growable: false);
+  }
+
   Future<String> currentUser() async {
     final response = await _send('GET', '/api/method/frappe.auth.get_logged_user');
     final data = _decode(response.body);
@@ -84,8 +104,11 @@ class FrappeApi {
     _cookies.clear();
   }
 
-  Future<_ApiResponse> _send(String method, String path) async {
-    final request = await _client.openUrl(method, Uri.parse('$_baseUrl$path'));
+  Future<_ApiResponse> _send(String method, String path) =>
+      _sendUri(method, Uri.parse('$_baseUrl$path'));
+
+  Future<_ApiResponse> _sendUri(String method, Uri uri) async {
+    final request = await _client.openUrl(method, uri);
     if (_cookies.isNotEmpty) {
       request.headers.set(
         HttpHeaders.cookieHeader,
@@ -127,6 +150,21 @@ class FrappeApi {
   void dispose() => _client.close(force: true);
 }
 
+class ErpCompany {
+  const ErpCompany({required this.name, this.abbr});
+  final String name;
+  final String? abbr;
+
+  factory ErpCompany.fromJson(Map<String, dynamic> json) {
+    final name = json['name'];
+    if (name is! String || name.isEmpty) {
+      throw const FormatException('اسم الشركة مفقود في استجابة ERPNext.');
+    }
+    final abbr = json['abbr'];
+    return ErpCompany(name: name, abbr: abbr is String ? abbr : null);
+  }
+}
+
 class _ApiResponse {
   const _ApiResponse(this.statusCode, this.body);
   final int statusCode;
@@ -148,6 +186,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
   bool _busy = false;
   String? _error;
   String? _user;
+  List<ErpCompany> _companies = const [];
+  String? _companyError;
+  bool _companiesLoading = false;
 
   @override
   void dispose() {
@@ -165,7 +206,13 @@ class _MobileHomePageState extends State<MobileHomePage> {
       _api.configure(_urlController.text);
       final user = await _api.login(_userController.text, _passwordController.text);
       if (!mounted) return;
-      setState(() { _user = user; _passwordController.clear(); });
+      setState(() {
+        _user = user;
+        _passwordController.clear();
+        _companiesLoading = true;
+        _companyError = null;
+      });
+      await _loadCompanies();
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
@@ -174,11 +221,33 @@ class _MobileHomePageState extends State<MobileHomePage> {
     }
   }
 
+  Future<void> _loadCompanies() async {
+    setState(() { _companiesLoading = true; _companyError = null; });
+    try {
+      final companies = await _api.fetchCompanies();
+      if (!mounted) return;
+      setState(() => _companies = companies);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _companies = const [];
+        _companyError = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) setState(() => _companiesLoading = false);
+    }
+  }
+
   Future<void> _logout() async {
     setState(() => _busy = true);
     await _api.logout();
     if (!mounted) return;
-    setState(() { _user = null; _busy = false; });
+    setState(() {
+      _user = null;
+      _busy = false;
+      _companies = const [];
+      _companyError = null;
+    });
   }
 
   @override
@@ -298,6 +367,25 @@ class _MobileHomePageState extends State<MobileHomePage> {
             ]),
           ),
         ),
+        const SizedBox(height: 18),
+        Row(children: [
+          Expanded(child: Text('شركات النظام', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))),
+          IconButton(tooltip: 'تحديث الشركات', onPressed: _companiesLoading ? null : _loadCompanies, icon: const Icon(Icons.refresh)),
+        ]),
+        if (_companiesLoading)
+          const LinearProgressIndicator()
+        else if (_companyError != null)
+          Card(child: Padding(padding: const EdgeInsets.all(14), child: Text(_companyError!, style: TextStyle(color: scheme.error))))
+        else if (_companies.isEmpty)
+          const Card(child: ListTile(leading: Icon(Icons.info_outline), title: Text('لا توجد شركات ظاهرة لهذا المستخدم'), subtitle: Text('قد لا توجد شركات أو قد تكون صلاحية القراءة محدودة.')))
+        else ...[
+          Text('تم جلب ${_companies.length} شركة من الخادم.'),
+          ..._companies.map((company) => Card(child: ListTile(
+            leading: const CircleAvatar(child: Icon(Icons.business_outlined)),
+            title: Text(company.name),
+            subtitle: company.abbr == null ? null : Text('الاختصار: ${company.abbr}'),
+          ))),
+        ],
         const SizedBox(height: 18),
         Text('الوحدات القادمة',
             style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
