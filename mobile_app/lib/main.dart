@@ -67,10 +67,16 @@ class _MobileHomePageState extends State<MobileHomePage> {
   bool _inventoryLoading = false;
   List<ErpCustomer> _customers = const [];
   List<ErpSalesInvoice> _salesInvoices = const [];
+  int _customersOffset = 0, _salesInvoicesOffset = 0;
+  bool _customersHasMore = false, _salesInvoicesHasMore = false;
+  bool _loadingMoreCustomers = false, _loadingMoreSalesInvoices = false;
   String? _salesError;
   bool _salesLoading = false;
   List<ErpSupplier> _suppliers = const [];
   List<ErpPurchaseInvoice> _purchaseInvoices = const [];
+  int _suppliersOffset = 0, _purchaseInvoicesOffset = 0;
+  bool _suppliersHasMore = false, _purchaseInvoicesHasMore = false;
+  bool _loadingMoreSuppliers = false, _loadingMorePurchaseInvoices = false;
   String? _purchaseError;
   bool _purchaseLoading = false;
 
@@ -230,14 +236,14 @@ class _MobileHomePageState extends State<MobileHomePage> {
     try {
       final customers = await _api.fetchCustomers();
       if (!mounted) return;
-      setState(() => _customers = customers);
+      setState(() { _customers = customers; _customersOffset = customers.length; _customersHasMore = customers.length == FrappeApi.pageSize; });
     } catch (error) {
       errors.add('العملاء: ${error.toString().replaceFirst('Exception: ', '')}');
     }
     try {
       final invoices = await _api.fetchSalesInvoices();
       if (!mounted) return;
-      setState(() => _salesInvoices = invoices);
+      setState(() { _salesInvoices = invoices; _salesInvoicesOffset = invoices.length; _salesInvoicesHasMore = invoices.length == FrappeApi.pageSize; });
     } catch (error) {
       errors.add('الفواتير: ${error.toString().replaceFirst('Exception: ', '')}');
     }
@@ -252,19 +258,91 @@ class _MobileHomePageState extends State<MobileHomePage> {
     try {
       final suppliers = await _api.fetchSuppliers();
       if (!mounted) return;
-      setState(() => _suppliers = suppliers);
+      setState(() { _suppliers = suppliers; _suppliersOffset = suppliers.length; _suppliersHasMore = suppliers.length == FrappeApi.pageSize; });
     } catch (error) {
       errors.add('الموردون: ${error.toString().replaceFirst('Exception: ', '')}');
     }
     try {
       final invoices = await _api.fetchPurchaseInvoices();
       if (!mounted) return;
-      setState(() => _purchaseInvoices = invoices);
+      setState(() { _purchaseInvoices = invoices; _purchaseInvoicesOffset = invoices.length; _purchaseInvoicesHasMore = invoices.length == FrappeApi.pageSize; });
     } catch (error) {
       errors.add('فواتير المشتريات: ${error.toString().replaceFirst('Exception: ', '')}');
     }
     if (!mounted) return;
     setState(() { _purchaseError = errors.isEmpty ? null : errors.join('\n'); _purchaseLoading = false; });
+  }
+
+  Future<void> _loadMoreCustomers() async {
+    if (_loadingMoreCustomers || !_customersHasMore) return;
+    setState(() => _loadingMoreCustomers = true);
+    try {
+      final page = await _api.fetchCustomers(start: _customersOffset);
+      if (!mounted) return;
+      setState(() {
+        _customers = [..._customers, ...page];
+        _customersOffset += page.length;
+        _customersHasMore = page.length == FrappeApi.pageSize;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _salesError = 'تعذر تحميل بقية العملاء: ${error.toString().replaceFirst('Exception: ', '')}');
+    } finally {
+      if (mounted) setState(() => _loadingMoreCustomers = false);
+    }
+  }
+
+  Future<void> _loadMoreSalesInvoices() async {
+    if (_loadingMoreSalesInvoices || !_salesInvoicesHasMore) return;
+    setState(() => _loadingMoreSalesInvoices = true);
+    try {
+      final page = await _api.fetchSalesInvoices(start: _salesInvoicesOffset);
+      if (!mounted) return;
+      setState(() {
+        _salesInvoices = [..._salesInvoices, ...page];
+        _salesInvoicesOffset += page.length;
+        _salesInvoicesHasMore = page.length == FrappeApi.pageSize;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _salesError = 'تعذر تحميل بقية فواتير المبيعات: ${error.toString().replaceFirst('Exception: ', '')}');
+    } finally {
+      if (mounted) setState(() => _loadingMoreSalesInvoices = false);
+    }
+  }
+
+  Future<void> _loadMoreSuppliers() async {
+    if (_loadingMoreSuppliers || !_suppliersHasMore) return;
+    setState(() => _loadingMoreSuppliers = true);
+    try {
+      final page = await _api.fetchSuppliers(start: _suppliersOffset);
+      if (!mounted) return;
+      setState(() {
+        _suppliers = [..._suppliers, ...page];
+        _suppliersOffset += page.length;
+        _suppliersHasMore = page.length == FrappeApi.pageSize;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _purchaseError = 'تعذر تحميل بقية الموردين: ${error.toString().replaceFirst('Exception: ', '')}');
+    } finally {
+      if (mounted) setState(() => _loadingMoreSuppliers = false);
+    }
+  }
+
+  Future<void> _loadMorePurchaseInvoices() async {
+    if (_loadingMorePurchaseInvoices || !_purchaseInvoicesHasMore) return;
+    setState(() => _loadingMorePurchaseInvoices = true);
+    try {
+      final page = await _api.fetchPurchaseInvoices(start: _purchaseInvoicesOffset);
+      if (!mounted) return;
+      setState(() {
+        _purchaseInvoices = [..._purchaseInvoices, ...page];
+        _purchaseInvoicesOffset += page.length;
+        _purchaseInvoicesHasMore = page.length == FrappeApi.pageSize;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _purchaseError = 'تعذر تحميل بقية فواتير المشتريات: ${error.toString().replaceFirst('Exception: ', '')}');
+    } finally {
+      if (mounted) setState(() => _loadingMorePurchaseInvoices = false);
+    }
   }
 
   Future<void> _logout() async {
@@ -291,9 +369,15 @@ class _MobileHomePageState extends State<MobileHomePage> {
       _inventoryError = null;
       _customers = const [];
       _salesInvoices = const [];
+      _customersOffset = 0; _salesInvoicesOffset = 0;
+      _customersHasMore = false; _salesInvoicesHasMore = false;
+      _loadingMoreCustomers = false; _loadingMoreSalesInvoices = false;
       _salesError = null;
       _suppliers = const [];
       _purchaseInvoices = const [];
+      _suppliersOffset = 0; _purchaseInvoicesOffset = 0;
+      _suppliersHasMore = false; _purchaseInvoicesHasMore = false;
+      _loadingMoreSuppliers = false; _loadingMorePurchaseInvoices = false;
       _purchaseError = null;
     });
   }
@@ -554,6 +638,15 @@ class _MobileHomePageState extends State<MobileHomePage> {
     );
   }
 
+  Widget _loadMoreButton(bool loading, String label, VoidCallback onPressed) =>
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: FilledButton.tonal(
+          onPressed: loading ? null : onPressed,
+          child: Text(loading ? 'جارٍ التحميل...' : label),
+        ),
+      );
+
   Widget _buildSalesPage() {
     return ListView(padding: const EdgeInsets.all(18), children: [
       Row(children: [
@@ -574,6 +667,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         trailing: Text(invoice.grandTotal.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
         onTap: () => _showInvoiceDetails('Sales Invoice', invoice.id),
       ))),
+      if (_salesInvoicesHasMore || _loadingMoreSalesInvoices) _loadMoreButton(_loadingMoreSalesInvoices, 'تحميل المزيد من فواتير المبيعات', _loadMoreSalesInvoices),
       const SizedBox(height: 18),
       Text('العملاء (${_customers.length})', style: Theme.of(context).textTheme.titleMedium),
       if (_customers.isEmpty && !_salesLoading) const Card(child: ListTile(title: Text('لا توجد بيانات عملاء ظاهرة'))),
@@ -582,6 +676,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         title: Text(customer.name),
         subtitle: Text([customer.id, if (customer.group != null) customer.group!, if (customer.territory != null) customer.territory!].join(' • ')),
       ))),
+      if (_customersHasMore || _loadingMoreCustomers) _loadMoreButton(_loadingMoreCustomers, 'تحميل المزيد من العملاء', _loadMoreCustomers),
       const Divider(height: 28),
       if (_purchaseLoading) const LinearProgressIndicator(),
       if (_purchaseError != null) _errorCard(_purchaseError!),
@@ -595,6 +690,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         trailing: Text(invoice.grandTotal.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
         onTap: () => _showInvoiceDetails('Purchase Invoice', invoice.id),
       ))),
+      if (_purchaseInvoicesHasMore || _loadingMorePurchaseInvoices) _loadMoreButton(_loadingMorePurchaseInvoices, 'تحميل المزيد من فواتير المشتريات', _loadMorePurchaseInvoices),
       const SizedBox(height: 18),
       Text('الموردون (${_suppliers.length})', style: Theme.of(context).textTheme.titleMedium),
       if (_suppliers.isEmpty && !_purchaseLoading) const Card(child: ListTile(title: Text('لا توجد بيانات موردين ظاهرة'))),
@@ -603,6 +699,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         title: Text(supplier.name),
         subtitle: Text([supplier.id, if (supplier.group != null) supplier.group!, if (supplier.type != null) supplier.type!].join(' • ')),
       ))),
+      if (_suppliersHasMore || _loadingMoreSuppliers) _loadMoreButton(_loadingMoreSuppliers, 'تحميل المزيد من الموردين', _loadMoreSuppliers),
       const SizedBox(height: 10),
       Text('هذه الشاشة للقراءة فقط؛ لا تنشئ أو تعدّل أو ترحّل الفواتير.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
     ]);
