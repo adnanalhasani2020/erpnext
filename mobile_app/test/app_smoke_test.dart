@@ -1,6 +1,7 @@
 import 'package:erpnext_mobile/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:erpnext_mobile/widgets/load_more_button.dart';
 
 void main() {
   test('rejects server URLs containing credentials, query, or fragment', () {
@@ -186,6 +187,29 @@ void main() {
     expect(() => ErpInvoiceLine.fromJson({'qty': 2, 'amount': 10}), throwsFormatException);
   });
   companyModelTests();
+  testWidgets('load-more button invokes its callback', (tester) async {
+    var tapped = false;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: LoadMoreButton(false, 'تحميل المزيد', () => tapped = true),
+      ),
+    ));
+    await tester.tap(find.text('تحميل المزيد'));
+    expect(tapped, isTrue);
+  });
+
+  testWidgets('load-more button disables itself while loading', (tester) async {
+    var tapped = false;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: LoadMoreButton(true, 'تحميل المزيد', () => tapped = true),
+      ),
+    ));
+    expect(find.text('جارٍ التحميل...'), findsOneWidget);
+    await tester.tap(find.byType(FilledButton));
+    expect(tapped, isFalse);
+  });
+
   testWidgets('renders the Arabic ERPNext login screen', (tester) async {
     await tester.pumpWidget(const ErpNextMobileApp());
 
