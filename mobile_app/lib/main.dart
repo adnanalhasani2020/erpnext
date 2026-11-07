@@ -191,7 +191,7 @@ class FrappeApi {
     if (documentType != 'Sales Invoice' && documentType != 'Purchase Invoice') {
       throw ArgumentError.value(documentType, 'documentType', 'نوع المستند غير مدعوم.');
     }
-    final path = '/api/resource/' + Uri.encodeComponent(documentType) + '/' + Uri.encodeComponent(name);
+    final path = '/api/resource/${Uri.encodeComponent(documentType)}/${Uri.encodeComponent(name)}';
     final response = await _send('GET', path);
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -544,8 +544,11 @@ class _MobileHomePageState extends State<MobileHomePage> {
         _companyError = null;
       });
       await _loadCompanies();
+      if (!mounted) return;
       await _loadInventory();
+      if (!mounted) return;
       await _loadSales();
+      if (!mounted) return;
       await _loadPurchases();
     } catch (error) {
       if (!mounted) return;
@@ -556,6 +559,8 @@ class _MobileHomePageState extends State<MobileHomePage> {
   }
 
   Future<void> _loadCompanies() async {
+    if (!mounted) return;
+
     setState(() { _companiesLoading = true; _companyError = null; });
     try {
       final companies = await _api.fetchCompanies();
@@ -574,6 +579,8 @@ class _MobileHomePageState extends State<MobileHomePage> {
 
 
   Future<void> _loadInventory() async {
+    if (!mounted || _inventoryLoading) return;
+
     if (_inventoryLoading) return;
     setState(() { _inventoryLoading = true; _inventoryError = null; });
     final errors = <String>[];
@@ -610,6 +617,8 @@ class _MobileHomePageState extends State<MobileHomePage> {
   }
 
   Future<void> _loadSales() async {
+    if (!mounted || _salesLoading) return;
+
     if (_salesLoading) return;
     setState(() { _salesLoading = true; _salesError = null; });
     final errors = <String>[];
@@ -618,20 +627,22 @@ class _MobileHomePageState extends State<MobileHomePage> {
       if (!mounted) return;
       setState(() => _customers = customers);
     } catch (error) {
-      errors.add('العملاء: ' + error.toString().replaceFirst('Exception: ', ''));
+      errors.add('العملاء: ${error.toString().replaceFirst('Exception: ', '')}');
     }
     try {
       final invoices = await _api.fetchSalesInvoices();
       if (!mounted) return;
       setState(() => _salesInvoices = invoices);
     } catch (error) {
-      errors.add('الفواتير: ' + error.toString().replaceFirst('Exception: ', ''));
+      errors.add('الفواتير: ${error.toString().replaceFirst('Exception: ', '')}');
     }
     if (!mounted) return;
     setState(() { _salesError = errors.isEmpty ? null : errors.join('\n'); _salesLoading = false; });
   }
 
   Future<void> _loadPurchases() async {
+    if (!mounted || _purchaseLoading) return;
+
     if (_purchaseLoading) return;
     setState(() { _purchaseLoading = true; _purchaseError = null; });
     final errors = <String>[];
@@ -640,14 +651,14 @@ class _MobileHomePageState extends State<MobileHomePage> {
       if (!mounted) return;
       setState(() => _suppliers = suppliers);
     } catch (error) {
-      errors.add('الموردون: ' + error.toString().replaceFirst('Exception: ', ''));
+      errors.add('الموردون: ${error.toString().replaceFirst('Exception: ', '')}');
     }
     try {
       final invoices = await _api.fetchPurchaseInvoices();
       if (!mounted) return;
       setState(() => _purchaseInvoices = invoices);
     } catch (error) {
-      errors.add('فواتير المشتريات: ' + error.toString().replaceFirst('Exception: ', ''));
+      errors.add('فواتير المشتريات: ${error.toString().replaceFirst('Exception: ', '')}');
     }
     if (!mounted) return;
     setState(() { _purchaseError = errors.isEmpty ? null : errors.join('\n'); _purchaseLoading = false; });
@@ -902,26 +913,26 @@ class _MobileHomePageState extends State<MobileHomePage> {
               final currency = document['currency'] is String ? document['currency'] as String : '';
               String amount(String field) {
                 final value = document[field];
-                if (value is num) return value.toStringAsFixed(2) + ' ' + currency;
-                return (value?.toString() ?? '—') + ' ' + currency;
+                if (value is num) return '${value.toStringAsFixed(2)} $currency';
+                return '${value?.toString() ?? '—'} $currency';
               }
               return ConstrainedBox(
                 constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.82),
                 child: ListView(shrinkWrap: true, children: [
                   Text(invoiceId, style: Theme.of(context).textTheme.titleLarge),
-                  Text(documentType + ' • ' + (document['status']?.toString() ?? 'حالة غير محددة')),
+                  Text('$documentType • ${document['status']?.toString() ?? 'حالة غير محددة'}'),
                   const Divider(height: 24),
                   ListTile(title: const Text('الإجمالي'), trailing: Text(amount('grand_total'))),
                   ListTile(title: const Text('المبلغ المتبقي'), trailing: Text(amount('outstanding_amount'))),
                   ListTile(title: const Text('تاريخ الفاتورة'), trailing: Text(document['posting_date']?.toString() ?? '—')),
                   ListTile(title: const Text('تاريخ الاستحقاق'), trailing: Text(document['due_date']?.toString() ?? '—')),
                   const Divider(height: 24),
-                  Text('بنود الفاتورة (' + lines.length.toString() + ')', style: Theme.of(context).textTheme.titleMedium),
+                  Text('بنود الفاتورة (${lines.length})', style: Theme.of(context).textTheme.titleMedium),
                   if (lines.isEmpty) const ListTile(title: Text('لا توجد بنود ظاهرة أو لا تتوفر صلاحية قراءتها.')),
                   ...lines.map((line) => Card(child: ListTile(
                     title: Text(line.itemName),
-                    subtitle: Text(line.itemCode + ' • الكمية: ' + line.qty.toStringAsFixed(2) + ' ' + (line.uom ?? '') + (line.warehouse == null ? '' : ' • ' + line.warehouse!)),
-                    trailing: Text(line.amount.toStringAsFixed(2) + ' ' + currency),
+                    subtitle: Text('${line.itemCode} • الكمية: ${line.qty.toStringAsFixed(2)} ${line.uom ?? ''}${line.warehouse == null ? '' : ' • ${line.warehouse}'}'),
+                    trailing: Text('${line.amount.toStringAsFixed(2)} $currency'),
                   ))),
                   const SizedBox(height: 8),
                   const Text('تفاصيل للعرض فقط. لا يتم تعديل الفاتورة أو ترحيلها من هذه الشاشة.', textAlign: TextAlign.center),
@@ -944,18 +955,18 @@ class _MobileHomePageState extends State<MobileHomePage> {
       if (_salesLoading) const LinearProgressIndicator(),
       if (_salesError != null) _errorCard(_salesError!),
       const SizedBox(height: 12),
-      Text('فواتير المبيعات (' + _salesInvoices.length.toString() + ')', style: Theme.of(context).textTheme.titleMedium),
+      Text('فواتير المبيعات (${_salesInvoices.length})', style: Theme.of(context).textTheme.titleMedium),
       if (_salesInvoices.isEmpty && !_salesLoading) const Card(child: ListTile(title: Text('لا توجد فواتير ظاهرة أو تعذر تحميلها'))),
       ..._salesInvoices.map((invoice) => Card(child: ListTile(
         leading: const CircleAvatar(child: Icon(Icons.receipt_long_outlined)),
         title: Text(invoice.id),
-        subtitle: Text(invoice.customerName + ' • ' + (invoice.postingDate ?? '—') + '\n' + (invoice.status ?? 'حالة غير محددة') + ' • متبقٍ: ' + invoice.outstandingAmount.toStringAsFixed(2) + ' ' + (invoice.currency ?? '')),
+        subtitle: Text('${invoice.customerName} • ${invoice.postingDate ?? '—'}\n${invoice.status ?? 'حالة غير محددة'} • متبقٍ: ${invoice.outstandingAmount.toStringAsFixed(2)} ${invoice.currency ?? ''}'),
         isThreeLine: true,
         trailing: Text(invoice.grandTotal.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
         onTap: () => _showInvoiceDetails('Sales Invoice', invoice.id),
       ))),
       const SizedBox(height: 18),
-      Text('العملاء (' + _customers.length.toString() + ')', style: Theme.of(context).textTheme.titleMedium),
+      Text('العملاء (${_customers.length})', style: Theme.of(context).textTheme.titleMedium),
       if (_customers.isEmpty && !_salesLoading) const Card(child: ListTile(title: Text('لا توجد بيانات عملاء ظاهرة'))),
       ..._customers.map((customer) => Card(child: ListTile(
         leading: const CircleAvatar(child: Icon(Icons.person_outline)),
@@ -965,18 +976,18 @@ class _MobileHomePageState extends State<MobileHomePage> {
       const Divider(height: 28),
       if (_purchaseLoading) const LinearProgressIndicator(),
       if (_purchaseError != null) _errorCard(_purchaseError!),
-      Text('فواتير المشتريات (' + _purchaseInvoices.length.toString() + ')', style: Theme.of(context).textTheme.titleMedium),
+      Text('فواتير المشتريات (${_purchaseInvoices.length})', style: Theme.of(context).textTheme.titleMedium),
       if (_purchaseInvoices.isEmpty && !_purchaseLoading) const Card(child: ListTile(title: Text('لا توجد فواتير مشتريات ظاهرة'))),
       ..._purchaseInvoices.map((invoice) => Card(child: ListTile(
         leading: const CircleAvatar(child: Icon(Icons.shopping_cart_outlined)),
         title: Text(invoice.id),
-        subtitle: Text(invoice.supplierName + ' • ' + (invoice.postingDate ?? '—') + '\n' + (invoice.status ?? 'حالة غير محددة') + ' • متبقٍ: ' + invoice.outstandingAmount.toStringAsFixed(2) + ' ' + (invoice.currency ?? '')),
+        subtitle: Text('${invoice.supplierName} • ${invoice.postingDate ?? '—'}\n${invoice.status ?? 'حالة غير محددة'} • متبقٍ: ${invoice.outstandingAmount.toStringAsFixed(2)} ${invoice.currency ?? ''}'),
         isThreeLine: true,
         trailing: Text(invoice.grandTotal.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
         onTap: () => _showInvoiceDetails('Purchase Invoice', invoice.id),
       ))),
       const SizedBox(height: 18),
-      Text('الموردون (' + _suppliers.length.toString() + ')', style: Theme.of(context).textTheme.titleMedium),
+      Text('الموردون (${_suppliers.length})', style: Theme.of(context).textTheme.titleMedium),
       if (_suppliers.isEmpty && !_purchaseLoading) const Card(child: ListTile(title: Text('لا توجد بيانات موردين ظاهرة'))),
       ..._suppliers.map((supplier) => Card(child: ListTile(
         leading: const CircleAvatar(child: Icon(Icons.local_shipping_outlined)),
