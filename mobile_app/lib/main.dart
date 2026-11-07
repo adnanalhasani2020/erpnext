@@ -874,6 +874,66 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ]);
   }
 
+  void _showInvoiceDetails(String documentType, String invoiceId) {
+    showModalBottomSheet<void>(
+      context: context, isScrollControlled: true, showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+          child: FutureBuilder<Map<String, dynamic>>(
+            future: _api.fetchInvoiceDocument(documentType, invoiceId),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const SizedBox(height: 220, child: Center(child: CircularProgressIndicator()));
+              }
+              if (snapshot.hasError) {
+                return SizedBox(height: 180, child: Center(child: Text('تعذر تحميل تفاصيل الفاتورة: ${snapshot.error}')));
+              }
+              final document = snapshot.data ?? const <String, dynamic>{};
+              final rawItems = document['items'];
+              final lines = <ErpInvoiceLine>[];
+              if (rawItems is List) {
+                for (final row in rawItems) {
+                  if (row is Map<String, dynamic>) {
+                    try { lines.add(ErpInvoiceLine.fromJson(row)); } catch (_) {}
+                  }
+                }
+              }
+              final currency = document['currency'] is String ? document['currency'] as String : '';
+              String amount(String field) {
+                final value = document[field];
+                if (value is num) return value.toStringAsFixed(2) + ' ' + currency;
+                return (value?.toString() ?? '—') + ' ' + currency;
+              }
+              return ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.82),
+                child: ListView(shrinkWrap: true, children: [
+                  Text(invoiceId, style: Theme.of(context).textTheme.titleLarge),
+                  Text(documentType + ' • ' + (document['status']?.toString() ?? 'حالة غير محددة')),
+                  const Divider(height: 24),
+                  ListTile(title: const Text('الإجمالي'), trailing: Text(amount('grand_total'))),
+                  ListTile(title: const Text('المبلغ المتبقي'), trailing: Text(amount('outstanding_amount'))),
+                  ListTile(title: const Text('تاريخ الفاتورة'), trailing: Text(document['posting_date']?.toString() ?? '—')),
+                  ListTile(title: const Text('تاريخ الاستحقاق'), trailing: Text(document['due_date']?.toString() ?? '—')),
+                  const Divider(height: 24),
+                  Text('بنود الفاتورة (' + lines.length.toString() + ')', style: Theme.of(context).textTheme.titleMedium),
+                  if (lines.isEmpty) const ListTile(title: Text('لا توجد بنود ظاهرة أو لا تتوفر صلاحية قراءتها.')),
+                  ...lines.map((line) => Card(child: ListTile(
+                    title: Text(line.itemName),
+                    subtitle: Text(line.itemCode + ' • الكمية: ' + line.qty.toStringAsFixed(2) + ' ' + (line.uom ?? '') + (line.warehouse == null ? '' : ' • ' + line.warehouse!)),
+                    trailing: Text(line.amount.toStringAsFixed(2) + ' ' + currency),
+                  ))),
+                  const SizedBox(height: 8),
+                  const Text('تفاصيل للعرض فقط. لا يتم تعديل الفاتورة أو ترحيلها من هذه الشاشة.', textAlign: TextAlign.center),
+                ]),
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSalesPage() {
     return ListView(padding: const EdgeInsets.all(18), children: [
       Row(children: [
@@ -892,6 +952,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         subtitle: Text(invoice.customerName + ' • ' + (invoice.postingDate ?? '—') + '\n' + (invoice.status ?? 'حالة غير محددة') + ' • متبقٍ: ' + invoice.outstandingAmount.toStringAsFixed(2) + ' ' + (invoice.currency ?? '')),
         isThreeLine: true,
         trailing: Text(invoice.grandTotal.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
+        onTap: () => _showInvoiceDetails('Sales Invoice', invoice.id),
       ))),
       const SizedBox(height: 18),
       Text('العملاء (' + _customers.length.toString() + ')', style: Theme.of(context).textTheme.titleMedium),
@@ -912,6 +973,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         subtitle: Text(invoice.supplierName + ' • ' + (invoice.postingDate ?? '—') + '\n' + (invoice.status ?? 'حالة غير محددة') + ' • متبقٍ: ' + invoice.outstandingAmount.toStringAsFixed(2) + ' ' + (invoice.currency ?? '')),
         isThreeLine: true,
         trailing: Text(invoice.grandTotal.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
+        onTap: () => _showInvoiceDetails('Purchase Invoice', invoice.id),
       ))),
       const SizedBox(height: 18),
       Text('الموردون (' + _suppliers.length.toString() + ')', style: Theme.of(context).textTheme.titleMedium),
