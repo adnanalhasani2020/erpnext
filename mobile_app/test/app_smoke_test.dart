@@ -2,6 +2,7 @@ import 'package:erpnext_mobile/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:erpnext_mobile/widgets/load_more_button.dart';
+import 'package:erpnext_mobile/widgets/server_search_field.dart';
 
 void main() {
   test('rejects server URLs containing credentials, query, or fragment', () {
@@ -235,6 +236,43 @@ void main() {
     expect(() => ErpInvoiceLine.fromJson({'qty': 2, 'amount': 10}), throwsFormatException);
   });
   companyModelTests();
+  testWidgets('server search field submits the entered query', (tester) async {
+    final controller = TextEditingController();
+    String? submitted;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: ServerSearchField(
+          controller: controller,
+          label: 'بحث في العملاء',
+          onSearch: (value) => submitted = value,
+        ),
+      ),
+    ));
+    await tester.enterText(find.byType(TextField), 'Acme');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    expect(submitted, 'Acme');
+    controller.dispose();
+  });
+
+  testWidgets('server search field clears the query through its clear action', (tester) async {
+    final controller = TextEditingController(text: 'Acme');
+    String? submitted;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: ServerSearchField(
+          controller: controller,
+          label: 'بحث في العملاء',
+          onSearch: (value) => submitted = value,
+        ),
+      ),
+    ));
+    await tester.tap(find.byTooltip('مسح البحث'));
+    await tester.pump();
+    expect(controller.text, isEmpty);
+    expect(submitted, isEmpty);
+    controller.dispose();
+  });
+
   testWidgets('load-more button invokes its callback', (tester) async {
     var tapped = false;
     await tester.pumpWidget(MaterialApp(

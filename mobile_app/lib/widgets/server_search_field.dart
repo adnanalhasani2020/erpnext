@@ -17,24 +17,27 @@ class ServerSearchField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        TextField(
-          controller: controller,
-          textInputAction: TextInputAction.search,
-          decoration: InputDecoration(
-            labelText: label,
-            prefixIcon: const Icon(Icons.search),
-            suffixIcon: controller.text.isEmpty
-                ? null
-                : IconButton(
-                    tooltip: 'مسح البحث',
-                    onPressed: () {
-                      controller.clear();
-                      onSearch('');
-                    },
-                    icon: const Icon(Icons.clear),
-                  ),
+        ValueListenableBuilder<TextEditingValue>(
+          valueListenable: controller,
+          builder: (context, value, child) => TextField(
+            controller: controller,
+            textInputAction: TextInputAction.search,
+            decoration: InputDecoration(
+              labelText: label,
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: value.text.isEmpty
+                  ? null
+                  : IconButton(
+                      tooltip: 'مسح البحث',
+                      onPressed: () {
+                        controller.clear();
+                        onSearch('');
+                      },
+                      icon: const Icon(Icons.clear),
+                    ),
+            ),
+            onSubmitted: onSearch,
           ),
-          onSubmitted: onSearch,
         ),
         Align(
           alignment: Alignment.centerLeft,
