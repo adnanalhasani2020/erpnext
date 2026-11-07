@@ -5,11 +5,11 @@ on:
   push:
     branches:
       - feature/flutter-mobile-foundation
+    tags:
+      - "mobile-v*"
     paths:
       - "mobile_app/**"
       - ".github/workflows/mobile-android.yml"
-  push_tags:
-    - "mobile-v*"
 
 permissions:
   contents: write
