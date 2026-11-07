@@ -404,6 +404,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
   List<ErpStockBalance> _stockBalances = const [];
   String? _inventoryError;
   bool _inventoryLoading = false;
+  List<ErpCustomer> _customers = const [];
+  List<ErpSalesInvoice> _salesInvoices = const [];
+  String? _salesError;
+  bool _salesLoading = false;
 
   @override
   void dispose() {
@@ -431,6 +435,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       });
       await _loadCompanies();
       await _loadInventory();
+      await _loadSales();
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
@@ -493,6 +498,28 @@ class _MobileHomePageState extends State<MobileHomePage> {
     });
   }
 
+  Future<void> _loadSales() async {
+    if (_salesLoading) return;
+    setState(() { _salesLoading = true; _salesError = null; });
+    final errors = <String>[];
+    try {
+      final customers = await _api.fetchCustomers();
+      if (!mounted) return;
+      setState(() => _customers = customers);
+    } catch (error) {
+      errors.add('العملاء: ' + error.toString().replaceFirst('Exception: ', ''));
+    }
+    try {
+      final invoices = await _api.fetchSalesInvoices();
+      if (!mounted) return;
+      setState(() => _salesInvoices = invoices);
+    } catch (error) {
+      errors.add('الفواتير: ' + error.toString().replaceFirst('Exception: ', ''));
+    }
+    if (!mounted) return;
+    setState(() { _salesError = errors.isEmpty ? null : errors.join('\n'); _salesLoading = false; });
+  }
+
   Future<void> _logout() async {
     setState(() => _busy = true);
     await _api.logout();
@@ -512,6 +539,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
       _warehouses = const [];
       _stockBalances = const [];
       _inventoryError = null;
+      _customers = const [];
+      _salesInvoices = const [];
+      _salesError = null;
     });
   }
 
