@@ -161,6 +161,32 @@ class FrappeApi {
     if (rows is! List) throw Exception('استجابة فواتير المبيعات من ERPNext غير متوقعة.');
     return rows.whereType<Map<String, dynamic>>().map(ErpSalesInvoice.fromJson).toList(growable: false);
   }
+  Future<List<ErpSupplier>> fetchSuppliers() async {
+    final uri = Uri.parse('$_baseUrl/api/resource/Supplier').replace(queryParameters: {
+      'fields': jsonEncode(['name', 'supplier_name', 'supplier_group', 'supplier_type']),
+      'filters': jsonEncode([['disabled', '=', 0]]),
+      'limit_page_length': '100', 'order_by': 'supplier_name asc',
+    });
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر جلب الموردين. تحقق من صلاحية قراءة Supplier.'));
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة الموردين من ERPNext غير متوقعة.');
+    return rows.whereType<Map<String, dynamic>>().map(ErpSupplier.fromJson).toList(growable: false);
+  }
+
+  Future<List<ErpPurchaseInvoice>> fetchPurchaseInvoices() async {
+    final uri = Uri.parse('$_baseUrl/api/resource/Purchase%20Invoice').replace(queryParameters: {
+      'fields': jsonEncode(['name', 'supplier', 'supplier_name', 'posting_date', 'due_date', 'currency', 'grand_total', 'outstanding_amount', 'status']),
+      'limit_page_length': '100', 'order_by': 'posting_date desc',
+    });
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر جلب فواتير المشتريات. تحقق من صلاحية قراءة Purchase Invoice.'));
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة فواتير المشتريات من ERPNext غير متوقعة.');
+    return rows.whereType<Map<String, dynamic>>().map(ErpPurchaseInvoice.fromJson).toList(growable: false);
+  }
   Future<String> currentUser() async {
     final response = await _send('GET', '/api/method/frappe.auth.get_logged_user');
     final data = _decode(response.body);
@@ -229,6 +255,50 @@ class FrappeApi {
   void dispose() => _client.close(force: true);
 }
 
+class ErpSupplier {
+  const ErpSupplier({required this.id, required this.name, this.group, this.type});
+  final String id;
+  final String name;
+  final String? group;
+  final String? type;
+  factory ErpSupplier.fromJson(Map<String, dynamic> json) {
+    final id = json['name'];
+    final name = json['supplier_name'];
+    if (id is! String || id.isEmpty || name is! String || name.isEmpty) throw const FormatException('بيانات المورد الأساسية ناقصة.');
+    return ErpSupplier(id: id, name: name,
+      group: json['supplier_group'] is String ? json['supplier_group'] as String : null,
+      type: json['supplier_type'] is String ? json['supplier_type'] as String : null);
+  }
+}
+
+class ErpPurchaseInvoice {
+  const ErpPurchaseInvoice({required this.id, required this.supplier, required this.supplierName, this.postingDate, this.dueDate, this.currency, required this.grandTotal, required this.outstandingAmount, this.status});
+  final String id;
+  final String supplier;
+  final String supplierName;
+  final String? postingDate;
+  final String? dueDate;
+  final String? currency;
+  final double grandTotal;
+  final double outstandingAmount;
+  final String? status;
+  factory ErpPurchaseInvoice.fromJson(Map<String, dynamic> json) {
+    final id = json['name'];
+    final supplier = json['supplier'];
+    final supplierName = json['supplier_name'];
+    if (id is! String || id.isEmpty || supplier is! String || supplier.isEmpty || supplierName is! String || supplierName.isEmpty) throw const FormatException('بيانات فاتورة المشتريات الأساسية ناقصة.');
+    double amount(dynamic value) {
+      if (value is num) return value.toDouble();
+      return double.tryParse(value?.toString() ?? '') ?? 0;
+    }
+    return ErpPurchaseInvoice(id: id, supplier: supplier, supplierName: supplierName,
+      postingDate: json['posting_date'] is String ? json['posting_date'] as String : null,
+      dueDate: json['due_date'] is String ? json['due_date'] as String : null,
+      currency: json['currency'] is String ? json['currency'] as String : null,
+      grandTotal: amount(json['grand_total']), outstandingAmount: amount(json['outstanding_amount']),
+      status: json['status'] is String ? json['status'] as String : null);
+  }
+}
 class ErpCustomer {
   const ErpCustomer({required this.id, required this.name, this.type, this.group, this.territory});
   final String id;
