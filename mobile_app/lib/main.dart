@@ -562,6 +562,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
           NavigationDestination(icon: Icon(Icons.sell_outlined), selectedIcon: Icon(Icons.sell), label: 'الأصناف'),
           NavigationDestination(icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2), label: 'الأرصدة'),
           NavigationDestination(icon: Icon(Icons.warehouse_outlined), selectedIcon: Icon(Icons.warehouse), label: 'المستودعات'),
+          NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'المبيعات'),
         ],
       ),
     );
@@ -573,6 +574,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       case 1: return _buildItemsPage();
       case 2: return _buildStockPage();
       case 3: return _buildWarehousesPage();
+      case 4: return _buildSalesPage();
       default: return _buildDashboard();
     }
   }
@@ -733,6 +735,37 @@ class _MobileHomePageState extends State<MobileHomePage> {
           onTap: () => setState(() { _selectedWarehouse = warehouse.id; _selectedTab = 2; }),
         ));
       }),
+    ]);
+  }
+
+  Widget _buildSalesPage() {
+    return ListView(padding: const EdgeInsets.all(18), children: [
+      Row(children: [
+        Expanded(child: _pageHeader('المبيعات', 'العملاء وفواتير المبيعات للعرض فقط', Icons.receipt_long_outlined)),
+        IconButton(tooltip: 'تحديث المبيعات', onPressed: _salesLoading ? null : _loadSales, icon: const Icon(Icons.refresh)),
+      ]),
+      if (_salesLoading) const LinearProgressIndicator(),
+      if (_salesError != null) _errorCard(_salesError!),
+      const SizedBox(height: 12),
+      Text('فواتير المبيعات (' + _salesInvoices.length.toString() + ')', style: Theme.of(context).textTheme.titleMedium),
+      if (_salesInvoices.isEmpty && !_salesLoading) const Card(child: ListTile(title: Text('لا توجد فواتير ظاهرة أو تعذر تحميلها'))),
+      ..._salesInvoices.map((invoice) => Card(child: ListTile(
+        leading: const CircleAvatar(child: Icon(Icons.receipt_long_outlined)),
+        title: Text(invoice.id),
+        subtitle: Text(invoice.customerName + ' • ' + (invoice.postingDate ?? '—') + '\n' + (invoice.status ?? 'حالة غير محددة') + ' • متبقٍ: ' + invoice.outstandingAmount.toStringAsFixed(2) + ' ' + (invoice.currency ?? '')),
+        isThreeLine: true,
+        trailing: Text(invoice.grandTotal.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
+      ))),
+      const SizedBox(height: 18),
+      Text('العملاء (' + _customers.length.toString() + ')', style: Theme.of(context).textTheme.titleMedium),
+      if (_customers.isEmpty && !_salesLoading) const Card(child: ListTile(title: Text('لا توجد بيانات عملاء ظاهرة'))),
+      ..._customers.map((customer) => Card(child: ListTile(
+        leading: const CircleAvatar(child: Icon(Icons.person_outline)),
+        title: Text(customer.name),
+        subtitle: Text([customer.id, if (customer.group != null) customer.group!, if (customer.territory != null) customer.territory!].join(' • ')),
+      ))),
+      const SizedBox(height: 10),
+      Text('هذه الشاشة للقراءة فقط؛ لا تنشئ أو تعدّل أو ترحّل الفواتير.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
     ]);
   }
 
