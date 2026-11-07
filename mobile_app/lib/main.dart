@@ -521,9 +521,11 @@ class _MobileHomePageState extends State<MobileHomePage> {
   }
 
   Future<void> _logout() async {
-    setState(() => _busy = true);
-    await _api.logout();
-    if (!mounted) return;
+    final logoutRequest = _api.logout();
+    if (!mounted) {
+      await logoutRequest;
+      return;
+    }
     setState(() {
       _user = null;
       _selectedTab = 0;
@@ -532,32 +534,61 @@ class _MobileHomePageState extends State<MobileHomePage> {
       _warehouseSearch = '';
       _itemSearchController.clear();
       _warehouseSearchController.clear();
-      _customerSearch = ''; _salesInvoiceSearch = ''; _supplierSearch = ''; _purchaseInvoiceSearch = '';
-      _customerSearchController.clear(); _salesInvoiceSearchController.clear();
-      _supplierSearchController.clear(); _purchaseInvoiceSearchController.clear();
-      _busy = false;
+      _customerSearch = '';
+      _salesInvoiceSearch = '';
+      _supplierSearch = '';
+      _purchaseInvoiceSearch = '';
+      _customerSearchController.clear();
+      _salesInvoiceSearchController.clear();
+      _supplierSearchController.clear();
+      _purchaseInvoiceSearchController.clear();
+      _passwordController.clear();
+      _error = null;
+      _busy = true;
       _companies = const [];
       _companyError = null;
+      _companiesLoading = false;
       _items = const [];
       _warehouses = const [];
       _stockBalances = const [];
-      _itemsOffset = 0; _warehousesOffset = 0; _stockOffset = 0;
-      _itemsHasMore = false; _warehousesHasMore = false; _stockHasMore = false;
-      _loadingMoreItems = false; _loadingMoreWarehouses = false; _loadingMoreStock = false;
+      _itemsOffset = 0;
+      _warehousesOffset = 0;
+      _stockOffset = 0;
+      _itemsHasMore = false;
+      _warehousesHasMore = false;
+      _stockHasMore = false;
+      _loadingMoreItems = false;
+      _loadingMoreWarehouses = false;
+      _loadingMoreStock = false;
       _inventoryError = null;
+      _inventoryLoading = false;
       _customers = const [];
       _salesInvoices = const [];
-      _customersOffset = 0; _salesInvoicesOffset = 0;
-      _customersHasMore = false; _salesInvoicesHasMore = false;
-      _loadingMoreCustomers = false; _loadingMoreSalesInvoices = false;
+      _customersOffset = 0;
+      _salesInvoicesOffset = 0;
+      _customersHasMore = false;
+      _salesInvoicesHasMore = false;
+      _loadingMoreCustomers = false;
+      _loadingMoreSalesInvoices = false;
+      _searchingCustomers = false;
+      _searchingSalesInvoices = false;
+      _salesLoading = false;
       _salesError = null;
       _suppliers = const [];
       _purchaseInvoices = const [];
-      _suppliersOffset = 0; _purchaseInvoicesOffset = 0;
-      _suppliersHasMore = false; _purchaseInvoicesHasMore = false;
-      _loadingMoreSuppliers = false; _loadingMorePurchaseInvoices = false;
+      _suppliersOffset = 0;
+      _purchaseInvoicesOffset = 0;
+      _suppliersHasMore = false;
+      _purchaseInvoicesHasMore = false;
+      _loadingMoreSuppliers = false;
+      _loadingMorePurchaseInvoices = false;
+      _searchingSuppliers = false;
+      _searchingPurchaseInvoices = false;
+      _purchaseLoading = false;
       _purchaseError = null;
     });
+    await logoutRequest;
+    if (mounted) setState(() => _busy = false);
   }
 
   @override

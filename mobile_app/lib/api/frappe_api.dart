@@ -38,6 +38,9 @@ class FrappeApi {
 
   final Map<String, String> _cookies = {};
   String _baseUrl = '';
+  int _sessionGeneration = 0;
+
+  int get sessionGeneration => _sessionGeneration;
 
   void configure(String value) {
     final normalized = value.trim().replaceFirst(RegExp(r'/+$'), '');
@@ -49,11 +52,16 @@ class FrappeApi {
                 (uri.host == 'localhost' || uri.host == '127.0.0.1' || uri.host == '10.0.2.2')))) {
       throw const FormatException('أدخل رابطاً صحيحاً يبدأ بـ https://');
     }
-    if (_baseUrl != normalized) _cookies.clear();
+    if (_baseUrl != normalized) {
+      _cookies.clear();
+      _sessionGeneration++;
+    }
     _baseUrl = normalized;
   }
 
   Future<String> login(String username, String password) async {
+    _sessionGeneration++;
+    final generation = _sessionGeneration;
     if (username.trim().isEmpty || password.isEmpty) {
       throw const FormatException('أدخل اسم المستخدم وكلمة المرور.');
     }
@@ -62,8 +70,12 @@ class FrappeApi {
         ContentType('application', 'x-www-form-urlencoded', charset: 'utf-8');
     request.write(Uri(queryParameters: {'usr': username.trim(), 'pwd': password}).query);
     final response = await request.close().timeout(const Duration(seconds: 45));
+    final body = await utf8.decoder.bind(response).join().timeout(const Duration(seconds: 45));
+    if (generation != _sessionGeneration) {
+      throw const HttpException('انتهت صلاحية محاولة تسجيل الدخول.');
+    }
     _captureCookies(response);
-    final data = _decode(await utf8.decoder.bind(response).join().timeout(const Duration(seconds: 45)));
+    final data = _decode(body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(_message(data, 'تعذر تسجيل الدخول (${response.statusCode})'));
     }
@@ -244,6 +256,7 @@ class FrappeApi {
   }
 
   Future<void> logout() async {
+    _sessionGeneration++;
     if (_cookies.isNotEmpty) {
       try {
         await _send('POST', '/api/method/logout');
@@ -256,6 +269,7 @@ class FrappeApi {
       _sendUri(method, Uri.parse('$_baseUrl$path'));
 
   Future<_ApiResponse> _sendUri(String method, Uri uri) async {
+    final generation = _sessionGeneration;
     final request = await _client.openUrl(method, uri);
     if (_cookies.isNotEmpty) {
       request.headers.set(
@@ -268,8 +282,11 @@ class FrappeApi {
       }
     }
     final response = await request.close().timeout(const Duration(seconds: 45));
-    _captureCookies(response);
     final body = await utf8.decoder.bind(response).join().timeout(const Duration(seconds: 45));
+    if (generation != _sessionGeneration) {
+      return _ApiResponse(401, jsonEncode({'message': 'تم تجاهل استجابة من جلسة سابقة.'}));
+    }
+    _captureCookies(response);
     return _ApiResponse(response.statusCode, body);
   }
 

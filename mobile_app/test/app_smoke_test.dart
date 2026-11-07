@@ -5,6 +5,27 @@ import 'package:erpnext_mobile/widgets/load_more_button.dart';
 import 'package:erpnext_mobile/widgets/server_search_field.dart';
 
 void main() {
+  test('advances the session generation when the server changes', () {
+    final api = FrappeApi();
+    api.configure('https://first.example.com');
+    final firstGeneration = api.sessionGeneration;
+    api.configure('https://first.example.com/');
+    expect(api.sessionGeneration, firstGeneration);
+    api.configure('https://second.example.com');
+    expect(api.sessionGeneration, greaterThan(firstGeneration));
+    api.dispose();
+  });
+
+  test('invalidates the current session immediately on logout', () async {
+    final api = FrappeApi();
+    api.configure('https://erp.example.com');
+    final generation = api.sessionGeneration;
+    final logout = api.logout();
+    expect(api.sessionGeneration, generation + 1);
+    await logout;
+    api.dispose();
+  });
+
   test('rejects server URLs containing credentials, query, or fragment', () {
     final api = FrappeApi();
     expect(() => api.configure('https://user:pass@example.com'), throwsFormatException);
