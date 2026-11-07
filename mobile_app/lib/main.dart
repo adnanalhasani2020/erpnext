@@ -117,6 +117,24 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().map(ErpWarehouse.fromJson).toList(growable: false);
   }
 
+
+  Future<List<ErpStockBalance>> fetchStockBalances() async {
+    final uri = Uri.parse('$_baseUrl/api/resource/Bin').replace(queryParameters: {
+      'fields': jsonEncode(['item_code', 'warehouse', 'actual_qty', 'reserved_qty', 'projected_qty', 'stock_uom']),
+      'filters': jsonEncode([['actual_qty', '!=', 0]]),
+      'limit_page_length': '100',
+      'order_by': 'item_code asc',
+    });
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر جلب أرصدة المخزون. تحقق من صلاحية قراءة Bin.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة أرصدة المخزون من ERPNext غير متوقعة.');
+    return rows.whereType<Map<String, dynamic>>().map(ErpStockBalance.fromJson).toList(growable: false);
+  }
+
   Future<String> currentUser() async {
     final response = await _send('GET', '/api/method/frappe.auth.get_logged_user');
     final data = _decode(response.body);
@@ -245,6 +263,35 @@ class ErpWarehouse {
   }
 }
 
+
+class ErpStockBalance {
+  const ErpStockBalance({required this.itemCode, required this.warehouse, required this.actualQty, this.reservedQty = 0, this.projectedQty = 0, this.stockUom});
+  final String itemCode;
+  final String warehouse;
+  final double actualQty;
+  final double reservedQty;
+  final double projectedQty;
+  final String? stockUom;
+
+  factory ErpStockBalance.fromJson(Map<String, dynamic> json) {
+    final itemCode = json['item_code'];
+    final warehouse = json['warehouse'];
+    final actual = json['actual_qty'];
+    if (itemCode is! String || itemCode.isEmpty || warehouse is! String || warehouse.isEmpty || (actual is! num && actual is! String)) {
+      throw const FormatException('بيانات رصيد المخزون الأساسية ناقصة.');
+    }
+    double numberValue(dynamic value) {
+      if (value is num) return value.toDouble();
+      return double.tryParse(value?.toString() ?? '') ?? 0;
+    }
+    return ErpStockBalance(
+      itemCode: itemCode, warehouse: warehouse, actualQty: numberValue(actual),
+      reservedQty: numberValue(json['reserved_qty']), projectedQty: numberValue(json['projected_qty']),
+      stockUom: json['stock_uom'] is String ? json['stock_uom'] as String : null,
+    );
+  }
+}
+
 class _ApiResponse {
   const _ApiResponse(this.statusCode, this.body);
   final int statusCode;
@@ -271,6 +318,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   bool _companiesLoading = false;
   List<ErpItem> _items = const [];
   List<ErpWarehouse> _warehouses = const [];
+  List<ErpStockBalance> _stockBalances = const [];
   String? _inventoryError;
   bool _inventoryLoading = false;
 
@@ -327,17 +375,19 @@ class _MobileHomePageState extends State<MobileHomePage> {
   Future<void> _loadInventory() async {
     setState(() { _inventoryLoading = true; _inventoryError = null; });
     try {
-      final results = await Future.wait([_api.fetchItems(), _api.fetchWarehouses()]);
+      final results = await Future.wait([_api.fetchItems(), _api.fetchWarehouses(), _api.fetchStockBalances()]);
       if (!mounted) return;
       setState(() {
         _items = results[0] as List<ErpItem>;
         _warehouses = results[1] as List<ErpWarehouse>;
+        _stockBalances = results[2] as List<ErpStockBalance>;
       });
     } catch (error) {
       if (!mounted) return;
       setState(() {
         _items = const [];
         _warehouses = const [];
+        _stockBalances = const [];
         _inventoryError = error.toString().replaceFirst('Exception: ', '');
       });
     } finally {
@@ -356,6 +406,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       _companyError = null;
       _items = const [];
       _warehouses = const [];
+      _stockBalances = const [];
       _inventoryError = null;
     });
   }
@@ -522,6 +573,26 @@ class _MobileHomePageState extends State<MobileHomePage> {
               subtitle: Text([item.code, if (item.group != null) item.group!, if (item.stockUom != null) item.stockUom!].join(' • ')),
             )),
           ],
+
+          if (_stockBalances.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text('أرصدة الأصناف حسب المستودع', style: Theme.of(context).textTheme.titleSmall),
+            ..._stockBalances.take(30).map((balance) => ListTile(
+              dense: true,
+              leading: const Icon(Icons.inventory_outlined),
+              title: Text(balance.itemCode),
+              subtitle: Text(balance.warehouse),
+              trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text(balance.actualQty.toStringAsFixed(2), style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                Text(balance.stockUom ?? '—', style: Theme.of(context).textTheme.bodySmall),
+              ]),
+            )),
+            if (_stockBalances.length > 30) Text('يُعرض أول 30 رصيداً من أصل ${_stockBalances.length}.'),
+          ] else ...[
+            const SizedBox(height: 8),
+            const Text('لا توجد أرصدة فعلية غير صفرية ظاهرة للمستخدم.'),
+          ],
+
           if (_warehouses.isNotEmpty) ...[
             const SizedBox(height: 8),
             Text('المستودعات', style: Theme.of(context).textTheme.titleSmall),
