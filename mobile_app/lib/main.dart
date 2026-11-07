@@ -60,6 +60,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
   List<ErpItem> _items = const [];
   List<ErpWarehouse> _warehouses = const [];
   List<ErpStockBalance> _stockBalances = const [];
+  int _itemsOffset = 0, _warehousesOffset = 0, _stockOffset = 0;
+  bool _itemsHasMore = false, _warehousesHasMore = false, _stockHasMore = false;
+  bool _loadingMoreItems = false, _loadingMoreWarehouses = false, _loadingMoreStock = false;
   String? _inventoryError;
   bool _inventoryLoading = false;
   List<ErpCustomer> _customers = const [];
@@ -138,7 +141,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     try {
       final items = await _api.fetchItems();
       if (!mounted) return;
-      setState(() => _items = items);
+      setState(() { _items = items; _itemsOffset = items.length; _itemsHasMore = items.length == FrappeApi.pageSize; });
     } catch (error) {
       errors.add('الأصناف: ${error.toString().replaceFirst('Exception: ', '')}');
     }
@@ -146,7 +149,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     try {
       final warehouses = await _api.fetchWarehouses();
       if (!mounted) return;
-      setState(() => _warehouses = warehouses);
+      setState(() { _warehouses = warehouses; _warehousesOffset = warehouses.length; _warehousesHasMore = warehouses.length == FrappeApi.pageSize; });
     } catch (error) {
       errors.add('المستودعات: ${error.toString().replaceFirst('Exception: ', '')}');
     }
@@ -154,7 +157,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     try {
       final balances = await _api.fetchStockBalances();
       if (!mounted) return;
-      setState(() => _stockBalances = balances);
+      setState(() { _stockBalances = balances; _stockOffset = balances.length; _stockHasMore = balances.length == FrappeApi.pageSize; });
     } catch (error) {
       errors.add('الأرصدة: ${error.toString().replaceFirst('Exception: ', '')}');
     }
@@ -164,6 +167,60 @@ class _MobileHomePageState extends State<MobileHomePage> {
       _inventoryError = errors.isEmpty ? null : errors.join('\n');
       _inventoryLoading = false;
     });
+  }
+
+  Future<void> _loadMoreItems() async {
+    if (_loadingMoreItems || !_itemsHasMore) return;
+    setState(() => _loadingMoreItems = true);
+    try {
+      final page = await _api.fetchItems(start: _itemsOffset);
+      if (!mounted) return;
+      setState(() {
+        _items = [..._items, ...page];
+        _itemsOffset += page.length;
+        _itemsHasMore = page.length == FrappeApi.pageSize;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _inventoryError = 'تعذر تحميل بقية الأصناف: ${error.toString().replaceFirst('Exception: ', '')}');
+    } finally {
+      if (mounted) setState(() => _loadingMoreItems = false);
+    }
+  }
+
+  Future<void> _loadMoreWarehouses() async {
+    if (_loadingMoreWarehouses || !_warehousesHasMore) return;
+    setState(() => _loadingMoreWarehouses = true);
+    try {
+      final page = await _api.fetchWarehouses(start: _warehousesOffset);
+      if (!mounted) return;
+      setState(() {
+        _warehouses = [..._warehouses, ...page];
+        _warehousesOffset += page.length;
+        _warehousesHasMore = page.length == FrappeApi.pageSize;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _inventoryError = 'تعذر تحميل بقية المستودعات: ${error.toString().replaceFirst('Exception: ', '')}');
+    } finally {
+      if (mounted) setState(() => _loadingMoreWarehouses = false);
+    }
+  }
+
+  Future<void> _loadMoreStock() async {
+    if (_loadingMoreStock || !_stockHasMore) return;
+    setState(() => _loadingMoreStock = true);
+    try {
+      final page = await _api.fetchStockBalances(start: _stockOffset);
+      if (!mounted) return;
+      setState(() {
+        _stockBalances = [..._stockBalances, ...page];
+        _stockOffset += page.length;
+        _stockHasMore = page.length == FrappeApi.pageSize;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _inventoryError = 'تعذر تحميل بقية الأرصدة: ${error.toString().replaceFirst('Exception: ', '')}');
+    } finally {
+      if (mounted) setState(() => _loadingMoreStock = false);
+    }
   }
 
   Future<void> _loadSales() async {
@@ -228,6 +285,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
       _items = const [];
       _warehouses = const [];
       _stockBalances = const [];
+      _itemsOffset = 0; _warehousesOffset = 0; _stockOffset = 0;
+      _itemsHasMore = false; _warehousesHasMore = false; _stockHasMore = false;
+      _loadingMoreItems = false; _loadingMoreWarehouses = false; _loadingMoreStock = false;
       _inventoryError = null;
       _customers = const [];
       _salesInvoices = const [];
@@ -321,6 +381,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         trailing: const Icon(Icons.chevron_left),
         onTap: () => _showItemDetails(item),
       ))),
+      if (_itemsHasMore || _loadingMoreItems) Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: FilledButton.tonal(onPressed: _loadingMoreItems ? null : _loadMoreItems, child: Text(_loadingMoreItems ? 'جارٍ تحميل المزيد...' : 'تحميل المزيد من الأصناف'))),
     ]);
   }
 
@@ -389,6 +450,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
           Text(balance.stockUom ?? '—', style: Theme.of(context).textTheme.bodySmall),
         ]),
       ))),
+      if (_stockHasMore || _loadingMoreStock) Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: FilledButton.tonal(onPressed: _loadingMoreStock ? null : _loadMoreStock, child: Text(_loadingMoreStock ? 'جارٍ تحميل المزيد...' : 'تحميل المزيد من الأرصدة'))),
     ]);
   }
 
@@ -428,6 +490,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
           onTap: () => setState(() { _selectedWarehouse = warehouse.id; _selectedTab = 2; }),
         ));
       }),
+      if (_warehousesHasMore || _loadingMoreWarehouses) Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: FilledButton.tonal(onPressed: _loadingMoreWarehouses ? null : _loadMoreWarehouses, child: Text(_loadingMoreWarehouses ? 'جارٍ تحميل المزيد...' : 'تحميل المزيد من المستودعات'))),
     ]);
   }
 
