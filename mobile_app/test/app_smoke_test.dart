@@ -27,6 +27,27 @@ void main() {
     expect(uri.queryParameters['filters'], '[["disabled","=",0]]');
   });
 
+  test('builds server-side OR search filters with pagination', () {
+    final uri = FrappeApi.buildResourcePageUri(
+      baseUrl: 'https://erp.example.com',
+      resource: 'Item',
+      fields: ['item_code', 'item_name'],
+      filters: [['disabled', '=', 0]],
+      orFilters: [
+        ['item_code', 'like', '%coffee%'],
+        ['item_name', 'like', '%coffee%'],
+      ],
+      orderBy: 'modified desc',
+      start: 100,
+    );
+    expect(
+      uri.queryParameters['or_filters'],
+      '[["item_code","like","%coffee%"],["item_name","like","%coffee%"]]',
+    );
+    expect(uri.queryParameters['limit_start'], '100');
+    expect(uri.queryParameters['filters'], '[["disabled","=",0]]');
+  });
+
   test('clamps invalid pagination offsets and page lengths', () {
     final uri = FrappeApi.buildResourcePageUri(
       baseUrl: 'https://erp.example.com',
