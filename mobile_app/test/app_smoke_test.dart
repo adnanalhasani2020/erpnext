@@ -1,8 +1,40 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:erpnext_mobile/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('rejects server URLs containing credentials, query, or fragment', () {
+    final api = FrappeApi();
+    expect(() => api.configure('https://user:pass@example.com'), throwsFormatException);
+    expect(() => api.configure('https://erp.example.com?token=secret'), throwsFormatException);
+    expect(() => api.configure('https://erp.example.com#fragment'), throwsFormatException);
+    api.dispose();
+  });
+
+  test('requests the requested ERPNext page offset', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final requestHandled = server.first.then((request) async {
+      expect(request.uri.path, '/api/resource/Item');
+      expect(request.uri.queryParameters['limit_page_length'], '100');
+      expect(request.uri.queryParameters['limit_start'], '200');
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'data': []}));
+      await request.response.close();
+    });
+    final api = FrappeApi();
+    try {
+      api.configure('http://localhost:${server.port}');
+      expect(await api.fetchItems(start: 200), isEmpty);
+      await requestHandled;
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
   test('parses ERPNext Item fields', () {
     final item = ErpItem.fromJson({
       'item_code': 'ITEM-001',
