@@ -91,6 +91,29 @@ void main() {
   test('rejects Sales Invoice without required customer data', () {
     expect(() => ErpSalesInvoice.fromJson({'name': 'SINV-0002'}), throwsFormatException);
   });
+  test('parses ERPNext Supplier fields', () {
+    final supplier = ErpSupplier.fromJson({'name': 'SUP-001', 'supplier_name': 'Test Supplier', 'supplier_group': 'Local', 'supplier_type': 'Company'});
+    expect(supplier.id, 'SUP-001');
+    expect(supplier.name, 'Test Supplier');
+    expect(supplier.group, 'Local');
+  });
+
+  test('rejects Supplier without its name', () {
+    expect(() => ErpSupplier.fromJson({'name': 'SUP-001'}), throwsFormatException);
+  });
+
+  test('parses ERPNext Purchase Invoice fields', () {
+    final invoice = ErpPurchaseInvoice.fromJson({'name': 'PINV-0001', 'supplier': 'SUP-001', 'supplier_name': 'Test Supplier', 'posting_date': '2026-11-07', 'due_date': '2026-11-14', 'currency': 'YER', 'grand_total': 2400, 'outstanding_amount': '1200.50', 'status': 'Partly Paid'});
+    expect(invoice.id, 'PINV-0001');
+    expect(invoice.supplierName, 'Test Supplier');
+    expect(invoice.grandTotal, 2400);
+    expect(invoice.outstandingAmount, 1200.5);
+    expect(invoice.status, 'Partly Paid');
+  });
+
+  test('rejects Purchase Invoice without supplier data', () {
+    expect(() => ErpPurchaseInvoice.fromJson({'name': 'PINV-0002'}), throwsFormatException);
+  });
   companyModelTests();
   testWidgets('renders the Arabic ERPNext login screen', (tester) async {
     await tester.pumpWidget(const ErpNextMobileApp());
