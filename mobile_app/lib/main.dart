@@ -546,7 +546,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       _pageHeader('أرصدة المخزون', 'الكمية الفعلية والمحجوزة والمتاحة تقديرياً', Icons.inventory_2_outlined),
       const SizedBox(height: 16),
       DropdownButtonFormField<String>(
-        value: _selectedWarehouse, isExpanded: true,
+        initialValue: _selectedWarehouse, isExpanded: true,
         decoration: const InputDecoration(labelText: 'تصفية حسب المستودع'),
         items: [
           const DropdownMenuItem<String>(value: null, child: Text('كل المستودعات')),
