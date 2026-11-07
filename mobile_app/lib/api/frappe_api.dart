@@ -17,7 +17,7 @@ class FrappeApi {
         uri.hasQuery || uri.hasFragment ||
         (uri.scheme != 'https' &&
             !(uri.scheme == 'http' &&
-                (uri.host == 'localhost' || uri.host == '10.0.2.2')))) {
+                (uri.host == 'localhost' || uri.host == '127.0.0.1' || uri.host == '10.0.2.2')))) {
       throw const FormatException('أدخل رابطاً صحيحاً يبدأ بـ https://');
     }
     if (_baseUrl != normalized) _cookies.clear();
