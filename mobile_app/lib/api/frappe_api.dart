@@ -156,10 +156,11 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().map(ErpStockBalance.fromJson).toList(growable: false);
   }
 
-  Future<List<ErpCustomer>> fetchCustomers({int start = 0}) async {
+  Future<List<ErpCustomer>> fetchCustomers({int start = 0, String? search}) async {
     final uri = Uri.parse('$_baseUrl/api/resource/Customer').replace(queryParameters: {
       'fields': jsonEncode(['name', 'customer_name', 'customer_type', 'customer_group', 'territory']),
       'filters': jsonEncode([['disabled', '=', 0]]),
+      if (search != null && search.trim().isNotEmpty) 'or_filters': jsonEncode(["name","customer_name"].map((field) => [field, 'like', '%${search.trim()}%']).toList()),
       'limit_page_length': pageSize.toString(),
       'limit_start': (start < 0 ? 0 : start).toString(), 'order_by': 'customer_name asc',
     });
@@ -171,10 +172,11 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().map(ErpCustomer.fromJson).toList(growable: false);
   }
 
-  Future<List<ErpSalesInvoice>> fetchSalesInvoices({int start = 0}) async {
+  Future<List<ErpSalesInvoice>> fetchSalesInvoices({int start = 0, String? search}) async {
     final uri = Uri.parse('$_baseUrl/api/resource/Sales%20Invoice').replace(queryParameters: {
       'fields': jsonEncode(['name', 'customer', 'customer_name', 'posting_date', 'due_date', 'currency', 'grand_total', 'outstanding_amount', 'status']),
       'limit_page_length': pageSize.toString(),
+      if (search != null && search.trim().isNotEmpty) 'or_filters': jsonEncode(["name","customer","customer_name"].map((field) => [field, 'like', '%${search.trim()}%']).toList()),
       'limit_start': (start < 0 ? 0 : start).toString(), 'order_by': 'posting_date desc',
     });
     final response = await _sendUri('GET', uri);
@@ -184,10 +186,11 @@ class FrappeApi {
     if (rows is! List) throw Exception('استجابة فواتير المبيعات من ERPNext غير متوقعة.');
     return rows.whereType<Map<String, dynamic>>().map(ErpSalesInvoice.fromJson).toList(growable: false);
   }
-  Future<List<ErpSupplier>> fetchSuppliers({int start = 0}) async {
+  Future<List<ErpSupplier>> fetchSuppliers({int start = 0, String? search}) async {
     final uri = Uri.parse('$_baseUrl/api/resource/Supplier').replace(queryParameters: {
       'fields': jsonEncode(['name', 'supplier_name', 'supplier_group', 'supplier_type']),
       'filters': jsonEncode([['disabled', '=', 0]]),
+      if (search != null && search.trim().isNotEmpty) 'or_filters': jsonEncode(["name","supplier_name"].map((field) => [field, 'like', '%${search.trim()}%']).toList()),
       'limit_page_length': pageSize.toString(),
       'limit_start': (start < 0 ? 0 : start).toString(), 'order_by': 'supplier_name asc',
     });
@@ -199,10 +202,11 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().map(ErpSupplier.fromJson).toList(growable: false);
   }
 
-  Future<List<ErpPurchaseInvoice>> fetchPurchaseInvoices({int start = 0}) async {
+  Future<List<ErpPurchaseInvoice>> fetchPurchaseInvoices({int start = 0, String? search}) async {
     final uri = Uri.parse('$_baseUrl/api/resource/Purchase%20Invoice').replace(queryParameters: {
       'fields': jsonEncode(['name', 'supplier', 'supplier_name', 'posting_date', 'due_date', 'currency', 'grand_total', 'outstanding_amount', 'status']),
       'limit_page_length': pageSize.toString(),
+      if (search != null && search.trim().isNotEmpty) 'or_filters': jsonEncode(["name","supplier","supplier_name"].map((field) => [field, 'like', '%${search.trim()}%']).toList()),
       'limit_start': (start < 0 ? 0 : start).toString(), 'order_by': 'posting_date desc',
     });
     final response = await _sendUri('GET', uri);

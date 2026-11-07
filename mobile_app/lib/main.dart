@@ -48,6 +48,14 @@ class _MobileHomePageState extends State<MobileHomePage> {
   final _passwordController = TextEditingController();
   final _itemSearchController = TextEditingController();
   final _warehouseSearchController = TextEditingController();
+  final _customerSearchController = TextEditingController();
+  final _salesInvoiceSearchController = TextEditingController();
+  final _supplierSearchController = TextEditingController();
+  final _purchaseInvoiceSearchController = TextEditingController();
+  String _customerSearch = '';
+  String _salesInvoiceSearch = '';
+  String _supplierSearch = '';
+  String _purchaseInvoiceSearch = '';
   String _itemSearch = '';
   String _warehouseSearch = '';
   String? _selectedWarehouse;
@@ -89,6 +97,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
     _passwordController.dispose();
     _itemSearchController.dispose();
     _warehouseSearchController.dispose();
+    _customerSearchController.dispose();
+    _salesInvoiceSearchController.dispose();
+    _supplierSearchController.dispose();
+    _purchaseInvoiceSearchController.dispose();
     super.dispose();
   }
 
@@ -306,11 +318,123 @@ class _MobileHomePageState extends State<MobileHomePage> {
     setState(() { _purchaseError = errors.isEmpty ? null : errors.join('\n'); _purchaseLoading = false; });
   }
 
+
+  Future<void> _searchCustomers(String value) async {
+    final query = value.trim();
+    if (_salesLoading || _loadingMoreCustomers) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _customerSearch = query;
+      _customers = const [];
+      _customersOffset = 0;
+      _customersHasMore = false;
+      _salesError = null;
+    });
+    try {
+      final page = await _api.fetchCustomers(search: query.isEmpty ? null : query);
+      if (!mounted) return;
+      setState(() {
+        _customers = page;
+        _customersOffset = page.length;
+        _customersHasMore = page.length == FrappeApi.pageSize;
+      });
+    } catch (exception) {
+      if (mounted) {
+        setState(() => _salesError =
+            'تعذر البحث في العملاء: ${exception.toString().replaceFirst('Exception: ', '')}');
+      }
+    }
+  }
+
+
+  Future<void> _searchSalesInvoices(String value) async {
+    final query = value.trim();
+    if (_salesLoading || _loadingMoreSalesInvoices) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _salesInvoiceSearch = query;
+      _salesInvoices = const [];
+      _salesInvoicesOffset = 0;
+      _salesInvoicesHasMore = false;
+      _salesError = null;
+    });
+    try {
+      final page = await _api.fetchSalesInvoices(search: query.isEmpty ? null : query);
+      if (!mounted) return;
+      setState(() {
+        _salesInvoices = page;
+        _salesInvoicesOffset = page.length;
+        _salesInvoicesHasMore = page.length == FrappeApi.pageSize;
+      });
+    } catch (exception) {
+      if (mounted) {
+        setState(() => _salesError =
+            'تعذر البحث في فواتير المبيعات: ${exception.toString().replaceFirst('Exception: ', '')}');
+      }
+    }
+  }
+
+
+  Future<void> _searchSuppliers(String value) async {
+    final query = value.trim();
+    if (_purchaseLoading || _loadingMoreSuppliers) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _supplierSearch = query;
+      _suppliers = const [];
+      _suppliersOffset = 0;
+      _suppliersHasMore = false;
+      _purchaseError = null;
+    });
+    try {
+      final page = await _api.fetchSuppliers(search: query.isEmpty ? null : query);
+      if (!mounted) return;
+      setState(() {
+        _suppliers = page;
+        _suppliersOffset = page.length;
+        _suppliersHasMore = page.length == FrappeApi.pageSize;
+      });
+    } catch (exception) {
+      if (mounted) {
+        setState(() => _purchaseError =
+            'تعذر البحث في الموردين: ${exception.toString().replaceFirst('Exception: ', '')}');
+      }
+    }
+  }
+
+
+  Future<void> _searchPurchaseInvoices(String value) async {
+    final query = value.trim();
+    if (_purchaseLoading || _loadingMorePurchaseInvoices) return;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _purchaseInvoiceSearch = query;
+      _purchaseInvoices = const [];
+      _purchaseInvoicesOffset = 0;
+      _purchaseInvoicesHasMore = false;
+      _purchaseError = null;
+    });
+    try {
+      final page = await _api.fetchPurchaseInvoices(search: query.isEmpty ? null : query);
+      if (!mounted) return;
+      setState(() {
+        _purchaseInvoices = page;
+        _purchaseInvoicesOffset = page.length;
+        _purchaseInvoicesHasMore = page.length == FrappeApi.pageSize;
+      });
+    } catch (exception) {
+      if (mounted) {
+        setState(() => _purchaseError =
+            'تعذر البحث في فواتير المشتريات: ${exception.toString().replaceFirst('Exception: ', '')}');
+      }
+    }
+  }
+
   Future<void> _loadMoreCustomers() async {
     if (_loadingMoreCustomers || !_customersHasMore) return;
     setState(() => _loadingMoreCustomers = true);
     try {
-      final page = await _api.fetchCustomers(start: _customersOffset);
+      final page = await _api.fetchCustomers(start: _customersOffset, search: _customerSearch.isEmpty ? null : _customerSearch);
       if (!mounted) return;
       setState(() {
         _customers = [..._customers, ...page];
@@ -328,7 +452,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     if (_loadingMoreSalesInvoices || !_salesInvoicesHasMore) return;
     setState(() => _loadingMoreSalesInvoices = true);
     try {
-      final page = await _api.fetchSalesInvoices(start: _salesInvoicesOffset);
+      final page = await _api.fetchSalesInvoices(start: _salesInvoicesOffset, search: _salesInvoiceSearch.isEmpty ? null : _salesInvoiceSearch);
       if (!mounted) return;
       setState(() {
         _salesInvoices = [..._salesInvoices, ...page];
@@ -346,7 +470,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     if (_loadingMoreSuppliers || !_suppliersHasMore) return;
     setState(() => _loadingMoreSuppliers = true);
     try {
-      final page = await _api.fetchSuppliers(start: _suppliersOffset);
+      final page = await _api.fetchSuppliers(start: _suppliersOffset, search: _supplierSearch.isEmpty ? null : _supplierSearch);
       if (!mounted) return;
       setState(() {
         _suppliers = [..._suppliers, ...page];
@@ -364,7 +488,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     if (_loadingMorePurchaseInvoices || !_purchaseInvoicesHasMore) return;
     setState(() => _loadingMorePurchaseInvoices = true);
     try {
-      final page = await _api.fetchPurchaseInvoices(start: _purchaseInvoicesOffset);
+      final page = await _api.fetchPurchaseInvoices(start: _purchaseInvoicesOffset, search: _purchaseInvoiceSearch.isEmpty ? null : _purchaseInvoiceSearch);
       if (!mounted) return;
       setState(() {
         _purchaseInvoices = [..._purchaseInvoices, ...page];
@@ -390,6 +514,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
       _warehouseSearch = '';
       _itemSearchController.clear();
       _warehouseSearchController.clear();
+      _customerSearch = ''; _salesInvoiceSearch = ''; _supplierSearch = ''; _purchaseInvoiceSearch = '';
+      _customerSearchController.clear(); _salesInvoiceSearchController.clear();
+      _supplierSearchController.clear(); _purchaseInvoiceSearchController.clear();
       _busy = false;
       _companies = const [];
       _companyError = null;
@@ -695,6 +822,28 @@ class _MobileHomePageState extends State<MobileHomePage> {
       if (_salesLoading) const LinearProgressIndicator(),
       if (_salesError != null) _errorCard(_salesError!),
       const SizedBox(height: 12),
+      TextField(
+        controller: _salesInvoiceSearchController,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          labelText: 'بحث في فواتير المبيعات',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: _salesInvoiceSearchController.text.isEmpty ? null : IconButton(
+            tooltip: 'مسح البحث',
+            onPressed: () { _salesInvoiceSearchController.clear(); _searchSalesInvoices(''); },
+            icon: const Icon(Icons.clear),
+          ),
+        ),
+        onSubmitted: _searchSalesInvoices,
+      ),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: () => _searchSalesInvoices(_salesInvoiceSearchController.text),
+          icon: const Icon(Icons.search),
+          label: const Text('بحث في الخادم'),
+        ),
+      ),
       Text('فواتير المبيعات (${_salesInvoices.length})', style: Theme.of(context).textTheme.titleMedium),
       if (_salesInvoices.isEmpty && !_salesLoading) const Card(child: ListTile(title: Text('لا توجد فواتير ظاهرة أو تعذر تحميلها'))),
       ..._salesInvoices.map((invoice) => Card(child: ListTile(
@@ -707,6 +856,28 @@ class _MobileHomePageState extends State<MobileHomePage> {
       ))),
       if (_salesInvoicesHasMore || _loadingMoreSalesInvoices) LoadMoreButton(_loadingMoreSalesInvoices, 'تحميل المزيد من فواتير المبيعات', _loadMoreSalesInvoices),
       const SizedBox(height: 18),
+      TextField(
+        controller: _customerSearchController,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          labelText: 'بحث في العملاء',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: _customerSearchController.text.isEmpty ? null : IconButton(
+            tooltip: 'مسح البحث',
+            onPressed: () { _customerSearchController.clear(); _searchCustomers(''); },
+            icon: const Icon(Icons.clear),
+          ),
+        ),
+        onSubmitted: _searchCustomers,
+      ),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: () => _searchCustomers(_customerSearchController.text),
+          icon: const Icon(Icons.search),
+          label: const Text('بحث في الخادم'),
+        ),
+      ),
       Text('العملاء (${_customers.length})', style: Theme.of(context).textTheme.titleMedium),
       if (_customers.isEmpty && !_salesLoading) const Card(child: ListTile(title: Text('لا توجد بيانات عملاء ظاهرة'))),
       ..._customers.map((customer) => Card(child: ListTile(
@@ -718,6 +889,28 @@ class _MobileHomePageState extends State<MobileHomePage> {
       const Divider(height: 28),
       if (_purchaseLoading) const LinearProgressIndicator(),
       if (_purchaseError != null) _errorCard(_purchaseError!),
+      TextField(
+        controller: _purchaseInvoiceSearchController,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          labelText: 'بحث في فواتير المشتريات',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: _purchaseInvoiceSearchController.text.isEmpty ? null : IconButton(
+            tooltip: 'مسح البحث',
+            onPressed: () { _purchaseInvoiceSearchController.clear(); _searchPurchaseInvoices(''); },
+            icon: const Icon(Icons.clear),
+          ),
+        ),
+        onSubmitted: _searchPurchaseInvoices,
+      ),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: () => _searchPurchaseInvoices(_purchaseInvoiceSearchController.text),
+          icon: const Icon(Icons.search),
+          label: const Text('بحث في الخادم'),
+        ),
+      ),
       Text('فواتير المشتريات (${_purchaseInvoices.length})', style: Theme.of(context).textTheme.titleMedium),
       if (_purchaseInvoices.isEmpty && !_purchaseLoading) const Card(child: ListTile(title: Text('لا توجد فواتير مشتريات ظاهرة'))),
       ..._purchaseInvoices.map((invoice) => Card(child: ListTile(
@@ -730,6 +923,28 @@ class _MobileHomePageState extends State<MobileHomePage> {
       ))),
       if (_purchaseInvoicesHasMore || _loadingMorePurchaseInvoices) LoadMoreButton(_loadingMorePurchaseInvoices, 'تحميل المزيد من فواتير المشتريات', _loadMorePurchaseInvoices),
       const SizedBox(height: 18),
+      TextField(
+        controller: _supplierSearchController,
+        textInputAction: TextInputAction.search,
+        decoration: InputDecoration(
+          labelText: 'بحث في الموردين',
+          prefixIcon: const Icon(Icons.search),
+          suffixIcon: _supplierSearchController.text.isEmpty ? null : IconButton(
+            tooltip: 'مسح البحث',
+            onPressed: () { _supplierSearchController.clear(); _searchSuppliers(''); },
+            icon: const Icon(Icons.clear),
+          ),
+        ),
+        onSubmitted: _searchSuppliers,
+      ),
+      Align(
+        alignment: Alignment.centerLeft,
+        child: TextButton.icon(
+          onPressed: () => _searchSuppliers(_supplierSearchController.text),
+          icon: const Icon(Icons.search),
+          label: const Text('بحث في الخادم'),
+        ),
+      ),
       Text('الموردون (${_suppliers.length})', style: Theme.of(context).textTheme.titleMedium),
       if (_suppliers.isEmpty && !_purchaseLoading) const Card(child: ListTile(title: Text('لا توجد بيانات موردين ظاهرة'))),
       ..._suppliers.map((supplier) => Card(child: ListTile(
