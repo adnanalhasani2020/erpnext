@@ -12,6 +12,7 @@ class FrappeApi {
     required String resource,
     required List<String> fields,
     List<List<dynamic>>? filters,
+    List<List<dynamic>>? orFilters,
     required String orderBy,
     int start = 0,
     int pageLength = pageSize,
@@ -24,6 +25,9 @@ class FrappeApi {
     };
     if (filters != null && filters.isNotEmpty) {
       parameters['filters'] = jsonEncode(filters);
+    }
+    if (orFilters != null && orFilters.isNotEmpty) {
+      parameters['or_filters'] = jsonEncode(orFilters);
     }
     final normalizedBase = baseUrl.endsWith('/')
         ? baseUrl.substring(0, baseUrl.length - 1)
@@ -90,12 +94,18 @@ class FrappeApi {
   }
 
 
-  Future<List<ErpItem>> fetchItems({int start = 0}) async {
+  Future<List<ErpItem>> fetchItems({int start = 0, String? search}) async {
     final uri = buildResourcePageUri(
       baseUrl: _baseUrl,
       resource: 'Item',
       fields: ['item_code', 'item_name', 'item_group', 'stock_uom', 'is_stock_item'],
       filters: [['disabled', '=', 0]],
+      orFilters: search == null || search.trim().isEmpty
+          ? null
+          : [
+              ['item_code', 'like', '%${search.trim()}%'],
+              ['item_name', 'like', '%${search.trim()}%'],
+            ],
       orderBy: 'modified desc',
       start: start,
     );
