@@ -20,6 +20,28 @@ void main() {
     expect(() => ErpItem.fromJson({'item_name': 'Missing code'}), throwsFormatException);
   });
 
+
+  test('parses ERPNext Bin stock balance fields', () {
+    final balance = ErpStockBalance.fromJson({
+      'item_code': 'ITEM-001',
+      'warehouse': 'Main Store - EX',
+      'actual_qty': 12.5,
+      'reserved_qty': 2,
+      'projected_qty': 15,
+      'stock_uom': 'Nos',
+    });
+    expect(balance.itemCode, 'ITEM-001');
+    expect(balance.warehouse, 'Main Store - EX');
+    expect(balance.actualQty, 12.5);
+    expect(balance.reservedQty, 2);
+    expect(balance.projectedQty, 15);
+    expect(balance.stockUom, 'Nos');
+  });
+
+  test('rejects Bin row without item or warehouse', () {
+    expect(() => ErpStockBalance.fromJson({'actual_qty': 2}), throwsFormatException);
+  });
+
   test('parses ERPNext Warehouse fields', () {
     final warehouse = ErpWarehouse.fromJson({
       'name': 'Main Store - EX',
