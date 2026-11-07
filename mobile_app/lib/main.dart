@@ -56,6 +56,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
   String _salesInvoiceSearch = '';
   String _supplierSearch = '';
   String _purchaseInvoiceSearch = '';
+  bool _searchingCustomers = false;
+  bool _searchingSalesInvoices = false;
+  bool _searchingSuppliers = false;
+  bool _searchingPurchaseInvoices = false;
   String _itemSearch = '';
   String _warehouseSearch = '';
   String? _selectedWarehouse;
@@ -279,14 +283,14 @@ class _MobileHomePageState extends State<MobileHomePage> {
     setState(() { _salesLoading = true; _salesError = null; });
     final errors = <String>[];
     try {
-      final customers = await _api.fetchCustomers();
+      final customers = await _api.fetchCustomers(search: _customerSearch.isEmpty ? null : _customerSearch);
       if (!mounted) return;
       setState(() { _customers = customers; _customersOffset = customers.length; _customersHasMore = customers.length == FrappeApi.pageSize; });
     } catch (error) {
       errors.add('العملاء: ${error.toString().replaceFirst('Exception: ', '')}');
     }
     try {
-      final invoices = await _api.fetchSalesInvoices();
+      final invoices = await _api.fetchSalesInvoices(search: _salesInvoiceSearch.isEmpty ? null : _salesInvoiceSearch);
       if (!mounted) return;
       setState(() { _salesInvoices = invoices; _salesInvoicesOffset = invoices.length; _salesInvoicesHasMore = invoices.length == FrappeApi.pageSize; });
     } catch (error) {
@@ -301,14 +305,14 @@ class _MobileHomePageState extends State<MobileHomePage> {
     setState(() { _purchaseLoading = true; _purchaseError = null; });
     final errors = <String>[];
     try {
-      final suppliers = await _api.fetchSuppliers();
+      final suppliers = await _api.fetchSuppliers(search: _supplierSearch.isEmpty ? null : _supplierSearch);
       if (!mounted) return;
       setState(() { _suppliers = suppliers; _suppliersOffset = suppliers.length; _suppliersHasMore = suppliers.length == FrappeApi.pageSize; });
     } catch (error) {
       errors.add('الموردون: ${error.toString().replaceFirst('Exception: ', '')}');
     }
     try {
-      final invoices = await _api.fetchPurchaseInvoices();
+      final invoices = await _api.fetchPurchaseInvoices(search: _purchaseInvoiceSearch.isEmpty ? null : _purchaseInvoiceSearch);
       if (!mounted) return;
       setState(() { _purchaseInvoices = invoices; _purchaseInvoicesOffset = invoices.length; _purchaseInvoicesHasMore = invoices.length == FrappeApi.pageSize; });
     } catch (error) {
@@ -321,9 +325,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
 
   Future<void> _searchCustomers(String value) async {
     final query = value.trim();
-    if (_salesLoading || _loadingMoreCustomers) return;
+    if (_salesLoading || _loadingMoreCustomers || _searchingCustomers) return;
     FocusScope.of(context).unfocus();
     setState(() {
+      _searchingCustomers = true;
       _customerSearch = query;
       _customers = const [];
       _customersOffset = 0;
@@ -343,15 +348,18 @@ class _MobileHomePageState extends State<MobileHomePage> {
         setState(() => _salesError =
             'تعذر البحث في العملاء: ${exception.toString().replaceFirst('Exception: ', '')}');
       }
+    } finally {
+      if (mounted) setState(() => _searchingCustomers = false);
     }
   }
 
 
   Future<void> _searchSalesInvoices(String value) async {
     final query = value.trim();
-    if (_salesLoading || _loadingMoreSalesInvoices) return;
+    if (_salesLoading || _loadingMoreSalesInvoices || _searchingSalesInvoices) return;
     FocusScope.of(context).unfocus();
     setState(() {
+      _searchingSalesInvoices = true;
       _salesInvoiceSearch = query;
       _salesInvoices = const [];
       _salesInvoicesOffset = 0;
@@ -371,15 +379,18 @@ class _MobileHomePageState extends State<MobileHomePage> {
         setState(() => _salesError =
             'تعذر البحث في فواتير المبيعات: ${exception.toString().replaceFirst('Exception: ', '')}');
       }
+    } finally {
+      if (mounted) setState(() => _searchingSalesInvoices = false);
     }
   }
 
 
   Future<void> _searchSuppliers(String value) async {
     final query = value.trim();
-    if (_purchaseLoading || _loadingMoreSuppliers) return;
+    if (_purchaseLoading || _loadingMoreSuppliers || _searchingSuppliers) return;
     FocusScope.of(context).unfocus();
     setState(() {
+      _searchingSuppliers = true;
       _supplierSearch = query;
       _suppliers = const [];
       _suppliersOffset = 0;
@@ -399,15 +410,18 @@ class _MobileHomePageState extends State<MobileHomePage> {
         setState(() => _purchaseError =
             'تعذر البحث في الموردين: ${exception.toString().replaceFirst('Exception: ', '')}');
       }
+    } finally {
+      if (mounted) setState(() => _searchingSuppliers = false);
     }
   }
 
 
   Future<void> _searchPurchaseInvoices(String value) async {
     final query = value.trim();
-    if (_purchaseLoading || _loadingMorePurchaseInvoices) return;
+    if (_purchaseLoading || _loadingMorePurchaseInvoices || _searchingPurchaseInvoices) return;
     FocusScope.of(context).unfocus();
     setState(() {
+      _searchingPurchaseInvoices = true;
       _purchaseInvoiceSearch = query;
       _purchaseInvoices = const [];
       _purchaseInvoicesOffset = 0;
@@ -427,8 +441,11 @@ class _MobileHomePageState extends State<MobileHomePage> {
         setState(() => _purchaseError =
             'تعذر البحث في فواتير المشتريات: ${exception.toString().replaceFirst('Exception: ', '')}');
       }
+    } finally {
+      if (mounted) setState(() => _searchingPurchaseInvoices = false);
     }
   }
+
 
   Future<void> _loadMoreCustomers() async {
     if (_loadingMoreCustomers || !_customersHasMore) return;
