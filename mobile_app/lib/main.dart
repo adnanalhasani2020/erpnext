@@ -187,6 +187,20 @@ class FrappeApi {
     if (rows is! List) throw Exception('استجابة فواتير المشتريات من ERPNext غير متوقعة.');
     return rows.whereType<Map<String, dynamic>>().map(ErpPurchaseInvoice.fromJson).toList(growable: false);
   }
+  Future<Map<String, dynamic>> fetchInvoiceDocument(String documentType, String name) async {
+    if (documentType != 'Sales Invoice' && documentType != 'Purchase Invoice') {
+      throw ArgumentError.value(documentType, 'documentType', 'نوع المستند غير مدعوم.');
+    }
+    final path = '/api/resource/' + Uri.encodeComponent(documentType) + '/' + Uri.encodeComponent(name);
+    final response = await _send('GET', path);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل تفاصيل الفاتورة. تحقق من صلاحية قراءة المستند.'));
+    }
+    final document = data['data'];
+    if (document is! Map<String, dynamic>) throw Exception('تفاصيل الفاتورة من ERPNext غير متوقعة.');
+    return document;
+  }
   Future<String> currentUser() async {
     final response = await _send('GET', '/api/method/frappe.auth.get_logged_user');
     final data = _decode(response.body);
@@ -255,6 +269,28 @@ class FrappeApi {
   void dispose() => _client.close(force: true);
 }
 
+class ErpInvoiceLine {
+  const ErpInvoiceLine({required this.itemCode, required this.itemName, required this.qty, required this.rate, required this.amount, this.uom, this.warehouse});
+  final String itemCode;
+  final String itemName;
+  final double qty;
+  final double rate;
+  final double amount;
+  final String? uom;
+  final String? warehouse;
+  factory ErpInvoiceLine.fromJson(Map<String, dynamic> json) {
+    final code = json['item_code'];
+    final name = json['item_name'];
+    if (code is! String || code.isEmpty || name is! String || name.isEmpty) throw const FormatException('بيانات بند الفاتورة الأساسية ناقصة.');
+    double number(dynamic value) {
+      if (value is num) return value.toDouble();
+      return double.tryParse(value?.toString() ?? '') ?? 0;
+    }
+    return ErpInvoiceLine(itemCode: code, itemName: name, qty: number(json['qty']), rate: number(json['rate']), amount: number(json['amount']),
+      uom: json['uom'] is String ? json['uom'] as String : null,
+      warehouse: json['warehouse'] is String ? json['warehouse'] as String : null);
+  }
+}
 class ErpSupplier {
   const ErpSupplier({required this.id, required this.name, this.group, this.type});
   final String id;
