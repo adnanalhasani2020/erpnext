@@ -4,30 +4,37 @@ import 'dart:io';
 import '../models/erp_models.dart';
 
 class FrappeApi {
-  final HttpClient _client = HttpClient();
+  static const int pageSize = 100;
+
+  final HttpClient _client = HttpClient()..connectionTimeout = const Duration(seconds: 20);
   final Map<String, String> _cookies = {};
   String _baseUrl = '';
 
   void configure(String value) {
     final normalized = value.trim().replaceFirst(RegExp(r'/+$'), '');
     final uri = Uri.tryParse(normalized);
-    if (uri == null || !uri.hasAuthority ||
+    if (uri == null || !uri.hasAuthority || uri.userInfo.isNotEmpty ||
+        uri.hasQuery || uri.hasFragment ||
         (uri.scheme != 'https' &&
             !(uri.scheme == 'http' &&
                 (uri.host == 'localhost' || uri.host == '10.0.2.2')))) {
       throw const FormatException('أدخل رابطاً صحيحاً يبدأ بـ https://');
     }
+    if (_baseUrl != normalized) _cookies.clear();
     _baseUrl = normalized;
   }
 
   Future<String> login(String username, String password) async {
+    if (username.trim().isEmpty || password.isEmpty) {
+      throw const FormatException('أدخل اسم المستخدم وكلمة المرور.');
+    }
     final request = await _client.postUrl(Uri.parse('$_baseUrl/api/method/login'));
     request.headers.contentType =
         ContentType('application', 'x-www-form-urlencoded', charset: 'utf-8');
     request.write(Uri(queryParameters: {'usr': username.trim(), 'pwd': password}).query);
-    final response = await request.close();
+    final response = await request.close().timeout(const Duration(seconds: 45));
     _captureCookies(response);
-    final data = _decode(await utf8.decoder.bind(response).join());
+    final data = _decode(await utf8.decoder.bind(response).join().timeout(const Duration(seconds: 45)));
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(_message(data, 'تعذر تسجيل الدخول (${response.statusCode})'));
     }
@@ -58,11 +65,12 @@ class FrappeApi {
   }
 
 
-  Future<List<ErpItem>> fetchItems() async {
+  Future<List<ErpItem>> fetchItems({int start = 0}) async {
     final uri = Uri.parse('$_baseUrl/api/resource/Item').replace(queryParameters: {
       'fields': jsonEncode(['item_code', 'item_name', 'item_group', 'stock_uom', 'is_stock_item']),
       'filters': jsonEncode([['disabled', '=', 0]]),
-      'limit_page_length': '100',
+      'limit_page_length': '$pageSize',
+      'limit_start': '${start < 0 ? 0 : start}',
       'order_by': 'modified desc',
     });
     final response = await _sendUri('GET', uri);
@@ -75,11 +83,12 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().map(ErpItem.fromJson).toList(growable: false);
   }
 
-  Future<List<ErpWarehouse>> fetchWarehouses() async {
+  Future<List<ErpWarehouse>> fetchWarehouses({int start = 0}) async {
     final uri = Uri.parse('$_baseUrl/api/resource/Warehouse').replace(queryParameters: {
       'fields': jsonEncode(['name', 'warehouse_name', 'company', 'is_group']),
       'filters': jsonEncode([['disabled', '=', 0], ['is_group', '=', 0]]),
-      'limit_page_length': '100',
+      'limit_page_length': '$pageSize',
+      'limit_start': '${start < 0 ? 0 : start}',
       'order_by': 'warehouse_name asc',
     });
     final response = await _sendUri('GET', uri);
@@ -93,11 +102,12 @@ class FrappeApi {
   }
 
 
-  Future<List<ErpStockBalance>> fetchStockBalances() async {
+  Future<List<ErpStockBalance>> fetchStockBalances({int start = 0}) async {
     final uri = Uri.parse('$_baseUrl/api/resource/Bin').replace(queryParameters: {
       'fields': jsonEncode(['item_code', 'warehouse', 'actual_qty', 'reserved_qty', 'projected_qty', 'stock_uom']),
       'filters': jsonEncode([['actual_qty', '!=', 0]]),
-      'limit_page_length': '100',
+      'limit_page_length': '$pageSize',
+      'limit_start': '${start < 0 ? 0 : start}',
       'order_by': 'item_code asc',
     });
     final response = await _sendUri('GET', uri);
@@ -110,11 +120,12 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().map(ErpStockBalance.fromJson).toList(growable: false);
   }
 
-  Future<List<ErpCustomer>> fetchCustomers() async {
+  Future<List<ErpCustomer>> fetchCustomers({int start = 0}) async {
     final uri = Uri.parse('$_baseUrl/api/resource/Customer').replace(queryParameters: {
       'fields': jsonEncode(['name', 'customer_name', 'customer_type', 'customer_group', 'territory']),
       'filters': jsonEncode([['disabled', '=', 0]]),
-      'limit_page_length': '100', 'order_by': 'customer_name asc',
+      'limit_page_length': '$pageSize',
+      'limit_start': '${start < 0 ? 0 : start}', 'order_by': 'customer_name asc',
     });
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);
@@ -124,10 +135,11 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().map(ErpCustomer.fromJson).toList(growable: false);
   }
 
-  Future<List<ErpSalesInvoice>> fetchSalesInvoices() async {
+  Future<List<ErpSalesInvoice>> fetchSalesInvoices({int start = 0}) async {
     final uri = Uri.parse('$_baseUrl/api/resource/Sales%20Invoice').replace(queryParameters: {
       'fields': jsonEncode(['name', 'customer', 'customer_name', 'posting_date', 'due_date', 'currency', 'grand_total', 'outstanding_amount', 'status']),
-      'limit_page_length': '100', 'order_by': 'posting_date desc',
+      'limit_page_length': '$pageSize',
+      'limit_start': '${start < 0 ? 0 : start}', 'order_by': 'posting_date desc',
     });
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);
@@ -136,11 +148,12 @@ class FrappeApi {
     if (rows is! List) throw Exception('استجابة فواتير المبيعات من ERPNext غير متوقعة.');
     return rows.whereType<Map<String, dynamic>>().map(ErpSalesInvoice.fromJson).toList(growable: false);
   }
-  Future<List<ErpSupplier>> fetchSuppliers() async {
+  Future<List<ErpSupplier>> fetchSuppliers({int start = 0}) async {
     final uri = Uri.parse('$_baseUrl/api/resource/Supplier').replace(queryParameters: {
       'fields': jsonEncode(['name', 'supplier_name', 'supplier_group', 'supplier_type']),
       'filters': jsonEncode([['disabled', '=', 0]]),
-      'limit_page_length': '100', 'order_by': 'supplier_name asc',
+      'limit_page_length': '$pageSize',
+      'limit_start': '${start < 0 ? 0 : start}', 'order_by': 'supplier_name asc',
     });
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);
@@ -150,10 +163,11 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().map(ErpSupplier.fromJson).toList(growable: false);
   }
 
-  Future<List<ErpPurchaseInvoice>> fetchPurchaseInvoices() async {
+  Future<List<ErpPurchaseInvoice>> fetchPurchaseInvoices({int start = 0}) async {
     final uri = Uri.parse('$_baseUrl/api/resource/Purchase%20Invoice').replace(queryParameters: {
       'fields': jsonEncode(['name', 'supplier', 'supplier_name', 'posting_date', 'due_date', 'currency', 'grand_total', 'outstanding_amount', 'status']),
-      'limit_page_length': '100', 'order_by': 'posting_date desc',
+      'limit_page_length': '$pageSize',
+      'limit_start': '${start < 0 ? 0 : start}', 'order_by': 'posting_date desc',
     });
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);
@@ -213,9 +227,10 @@ class FrappeApi {
         request.headers.set('X-Frappe-CSRF-Token', csrfToken);
       }
     }
-    final response = await request.close();
+    final response = await request.close().timeout(const Duration(seconds: 45));
     _captureCookies(response);
-    return _ApiResponse(response.statusCode, await utf8.decoder.bind(response).join());
+    final body = await utf8.decoder.bind(response).join().timeout(const Duration(seconds: 45));
+    return _ApiResponse(response.statusCode, body);
   }
 
   void _captureCookies(HttpClientResponse response) {
