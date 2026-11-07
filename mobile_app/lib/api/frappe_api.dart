@@ -28,7 +28,7 @@ class FrappeApi {
     final normalizedBase = baseUrl.endsWith('/')
         ? baseUrl.substring(0, baseUrl.length - 1)
         : baseUrl;
-    final endpoint = normalizedBase + '/api/resource/' + Uri.encodeComponent(resource);
+    final endpoint = '$normalizedBase/api/resource/${Uri.encodeComponent(resource)}';
     return Uri.parse(endpoint).replace(queryParameters: parameters);
   }
 
