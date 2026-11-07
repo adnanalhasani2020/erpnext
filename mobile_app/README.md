@@ -23,6 +23,7 @@ The sales, stock, purchasing, and accounting tiles are placeholders. They do not
 
 ```bash
 cd mobile_app
+flutter create --platforms=android --org com.adnanalhasani.erpnext --project-name erpnext_mobile .
 flutter pub get
 flutter run
 ```
