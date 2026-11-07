@@ -684,15 +684,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
     );
   }
 
-  Widget _loadMoreButton(bool loading, String label, VoidCallback onPressed) =>
-      Padding(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        child: FilledButton.tonal(
-          onPressed: loading ? null : onPressed,
-          child: Text(loading ? 'جارٍ التحميل...' : label),
-        ),
-      );
-
   Widget _buildSalesPage() {
     return ListView(padding: const EdgeInsets.all(18), children: [
       Row(children: [
@@ -713,7 +704,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         trailing: Text(invoice.grandTotal.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
         onTap: () => _showInvoiceDetails('Sales Invoice', invoice.id),
       ))),
-      if (_salesInvoicesHasMore || _loadingMoreSalesInvoices) _loadMoreButton(_loadingMoreSalesInvoices, 'تحميل المزيد من فواتير المبيعات', _loadMoreSalesInvoices),
+      if (_salesInvoicesHasMore || _loadingMoreSalesInvoices) LoadMoreButton(_loadingMoreSalesInvoices, 'تحميل المزيد من فواتير المبيعات', _loadMoreSalesInvoices),
       const SizedBox(height: 18),
       Text('العملاء (${_customers.length})', style: Theme.of(context).textTheme.titleMedium),
       if (_customers.isEmpty && !_salesLoading) const Card(child: ListTile(title: Text('لا توجد بيانات عملاء ظاهرة'))),
@@ -722,7 +713,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         title: Text(customer.name),
         subtitle: Text([customer.id, if (customer.group != null) customer.group!, if (customer.territory != null) customer.territory!].join(' • ')),
       ))),
-      if (_customersHasMore || _loadingMoreCustomers) _loadMoreButton(_loadingMoreCustomers, 'تحميل المزيد من العملاء', _loadMoreCustomers),
+      if (_customersHasMore || _loadingMoreCustomers) LoadMoreButton(_loadingMoreCustomers, 'تحميل المزيد من العملاء', _loadMoreCustomers),
       const Divider(height: 28),
       if (_purchaseLoading) const LinearProgressIndicator(),
       if (_purchaseError != null) _errorCard(_purchaseError!),
@@ -736,7 +727,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         trailing: Text(invoice.grandTotal.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
         onTap: () => _showInvoiceDetails('Purchase Invoice', invoice.id),
       ))),
-      if (_purchaseInvoicesHasMore || _loadingMorePurchaseInvoices) _loadMoreButton(_loadingMorePurchaseInvoices, 'تحميل المزيد من فواتير المشتريات', _loadMorePurchaseInvoices),
+      if (_purchaseInvoicesHasMore || _loadingMorePurchaseInvoices) LoadMoreButton(_loadingMorePurchaseInvoices, 'تحميل المزيد من فواتير المشتريات', _loadMorePurchaseInvoices),
       const SizedBox(height: 18),
       Text('الموردون (${_suppliers.length})', style: Theme.of(context).textTheme.titleMedium),
       if (_suppliers.isEmpty && !_purchaseLoading) const Card(child: ListTile(title: Text('لا توجد بيانات موردين ظاهرة'))),
@@ -745,7 +736,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         title: Text(supplier.name),
         subtitle: Text([supplier.id, if (supplier.group != null) supplier.group!, if (supplier.type != null) supplier.type!].join(' • ')),
       ))),
-      if (_suppliersHasMore || _loadingMoreSuppliers) _loadMoreButton(_loadingMoreSuppliers, 'تحميل المزيد من الموردين', _loadMoreSuppliers),
+      if (_suppliersHasMore || _loadingMoreSuppliers) LoadMoreButton(_loadingMoreSuppliers, 'تحميل المزيد من الموردين', _loadMoreSuppliers),
       const SizedBox(height: 10),
       Text('هذه الشاشة للقراءة فقط؛ لا تنشئ أو تعدّل أو ترحّل الفواتير.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
     ]);
