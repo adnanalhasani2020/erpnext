@@ -114,6 +114,19 @@ void main() {
   test('rejects Purchase Invoice without supplier data', () {
     expect(() => ErpPurchaseInvoice.fromJson({'name': 'PINV-0002'}), throwsFormatException);
   });
+  test('parses invoice line item values', () {
+    final line = ErpInvoiceLine.fromJson({'item_code': 'ITEM-1', 'item_name': 'Sample item', 'qty': '2.5', 'uom': 'Nos', 'rate': 10, 'amount': '25', 'warehouse': 'Main - EX'});
+    expect(line.itemCode, 'ITEM-1');
+    expect(line.itemName, 'Sample item');
+    expect(line.qty, 2.5);
+    expect(line.rate, 10);
+    expect(line.amount, 25);
+    expect(line.warehouse, 'Main - EX');
+  });
+
+  test('rejects invoice line without item identity', () {
+    expect(() => ErpInvoiceLine.fromJson({'qty': 2, 'amount': 10}), throwsFormatException);
+  });
   companyModelTests();
   testWidgets('renders the Arabic ERPNext login screen', (tester) async {
     await tester.pumpWidget(const ErpNextMobileApp());
