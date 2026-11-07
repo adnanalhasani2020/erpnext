@@ -17,6 +17,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: mobile-android-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build-android:
     runs-on: ubuntu-latest
@@ -39,6 +43,10 @@ jobs:
       - name: Generate Android platform project
         working-directory: mobile_app
         run: flutter create --platforms=android --org com.adnanalhasani.erpnext --project-name erpnext_mobile .
+
+      - name: Remove Flutter-generated placeholder test
+        working-directory: mobile_app
+        run: rm -f test/widget_test.dart
 
       - name: Resolve dependencies
         working-directory: mobile_app
