@@ -478,6 +478,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
   List<ErpSalesInvoice> _salesInvoices = const [];
   String? _salesError;
   bool _salesLoading = false;
+  List<ErpSupplier> _suppliers = const [];
+  List<ErpPurchaseInvoice> _purchaseInvoices = const [];
+  String? _purchaseError;
+  bool _purchaseLoading = false;
 
   @override
   void dispose() {
@@ -506,6 +510,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       await _loadCompanies();
       await _loadInventory();
       await _loadSales();
+      await _loadPurchases();
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
@@ -590,6 +595,28 @@ class _MobileHomePageState extends State<MobileHomePage> {
     setState(() { _salesError = errors.isEmpty ? null : errors.join('\n'); _salesLoading = false; });
   }
 
+  Future<void> _loadPurchases() async {
+    if (_purchaseLoading) return;
+    setState(() { _purchaseLoading = true; _purchaseError = null; });
+    final errors = <String>[];
+    try {
+      final suppliers = await _api.fetchSuppliers();
+      if (!mounted) return;
+      setState(() => _suppliers = suppliers);
+    } catch (error) {
+      errors.add('الموردون: ' + error.toString().replaceFirst('Exception: ', ''));
+    }
+    try {
+      final invoices = await _api.fetchPurchaseInvoices();
+      if (!mounted) return;
+      setState(() => _purchaseInvoices = invoices);
+    } catch (error) {
+      errors.add('فواتير المشتريات: ' + error.toString().replaceFirst('Exception: ', ''));
+    }
+    if (!mounted) return;
+    setState(() { _purchaseError = errors.isEmpty ? null : errors.join('\n'); _purchaseLoading = false; });
+  }
+
   Future<void> _logout() async {
     setState(() => _busy = true);
     await _api.logout();
@@ -612,6 +639,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
       _customers = const [];
       _salesInvoices = const [];
       _salesError = null;
+      _suppliers = const [];
+      _purchaseInvoices = const [];
+      _purchaseError = null;
     });
   }
 
