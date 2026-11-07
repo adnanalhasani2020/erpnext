@@ -109,6 +109,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
     super.dispose();
   }
 
+  bool _isCurrentSession(int generation) =>
+      mounted && _user != null && _api.sessionGeneration == generation;
+
   Future<void> _login() async {
     FocusScope.of(context).unfocus();
     setState(() { _busy = true; _error = null; });
@@ -139,54 +142,58 @@ class _MobileHomePageState extends State<MobileHomePage> {
 
   Future<void> _loadCompanies() async {
     if (!mounted) return;
+    final sessionGeneration = _api.sessionGeneration;
 
     setState(() { _companiesLoading = true; _companyError = null; });
     try {
       final companies = await _api.fetchCompanies();
-      if (!mounted) return;
+      if (!_isCurrentSession(sessionGeneration)) return;
       setState(() => _companies = companies);
     } catch (error) {
-      if (!mounted) return;
+      if (!_isCurrentSession(sessionGeneration)) return;
       setState(() {
         _companies = const [];
         _companyError = error.toString().replaceFirst('Exception: ', '');
       });
     } finally {
-      if (mounted) setState(() => _companiesLoading = false);
+      if (_isCurrentSession(sessionGeneration)) setState(() => _companiesLoading = false);
     }
   }
 
 
   Future<void> _loadInventory() async {
     if (!mounted || _inventoryLoading) return;
+    final sessionGeneration = _api.sessionGeneration;
     setState(() { _inventoryLoading = true; _inventoryError = null; });
     final errors = <String>[];
 
     try {
       final items = await _api.fetchItems();
-      if (!mounted) return;
+      if (!_isCurrentSession(sessionGeneration)) return;
       setState(() { _items = items; _itemsOffset = items.length; _itemsHasMore = items.length == FrappeApi.pageSize; });
     } catch (error) {
       errors.add('الأصناف: ${error.toString().replaceFirst('Exception: ', '')}');
     }
 
+    if (!_isCurrentSession(sessionGeneration)) return;
     try {
       final warehouses = await _api.fetchWarehouses();
-      if (!mounted) return;
+      if (!_isCurrentSession(sessionGeneration)) return;
       setState(() { _warehouses = warehouses; _warehousesOffset = warehouses.length; _warehousesHasMore = warehouses.length == FrappeApi.pageSize; });
     } catch (error) {
       errors.add('المستودعات: ${error.toString().replaceFirst('Exception: ', '')}');
     }
 
+    if (!_isCurrentSession(sessionGeneration)) return;
     try {
       final balances = await _api.fetchStockBalances();
-      if (!mounted) return;
+      if (!_isCurrentSession(sessionGeneration)) return;
       setState(() { _stockBalances = balances; _stockOffset = balances.length; _stockHasMore = balances.length == FrappeApi.pageSize; });
     } catch (error) {
       errors.add('الأرصدة: ${error.toString().replaceFirst('Exception: ', '')}');
     }
 
-    if (!mounted) return;
+    if (!_isCurrentSession(sessionGeneration)) return;
     setState(() {
       _inventoryError = errors.isEmpty ? null : errors.join('\n');
       _inventoryLoading = false;
@@ -196,6 +203,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   Future<void> _searchItems(String value) async {
     final query = value.trim();
     if (_inventoryLoading || _loadingMoreItems) return;
+    final sessionGeneration = _api.sessionGeneration;
     FocusScope.of(context).unfocus();
     setState(() {
       _itemSearch = query;
@@ -207,119 +215,126 @@ class _MobileHomePageState extends State<MobileHomePage> {
     });
     try {
       final page = await _api.fetchItems(search: query.isEmpty ? null : query);
-      if (!mounted) return;
+      if (!_isCurrentSession(sessionGeneration)) return;
       setState(() {
         _items = page;
         _itemsOffset = page.length;
         _itemsHasMore = page.length == FrappeApi.pageSize;
       });
     } catch (error) {
-      if (mounted) {
+      if (_isCurrentSession(sessionGeneration)) {
         setState(() {
           _inventoryError =
               'تعذر البحث في الأصناف: ${error.toString().replaceFirst('Exception: ', '')}';
         });
       }
     } finally {
-      if (mounted) setState(() => _inventoryLoading = false);
+      if (_isCurrentSession(sessionGeneration)) setState(() => _inventoryLoading = false);
     }
   }
 
   Future<void> _loadMoreItems() async {
     if (_loadingMoreItems || !_itemsHasMore) return;
+    final sessionGeneration = _api.sessionGeneration;
     setState(() => _loadingMoreItems = true);
     try {
       final page = await _api.fetchItems(start: _itemsOffset, search: _itemSearch.isEmpty ? null : _itemSearch);
-      if (!mounted) return;
+      if (!_isCurrentSession(sessionGeneration)) return;
       setState(() {
         _items = [..._items, ...page];
         _itemsOffset += page.length;
         _itemsHasMore = page.length == FrappeApi.pageSize;
       });
     } catch (error) {
-      if (mounted) setState(() => _inventoryError = 'تعذر تحميل بقية الأصناف: ${error.toString().replaceFirst('Exception: ', '')}');
+      if (_isCurrentSession(sessionGeneration)) setState(() => _inventoryError = 'تعذر تحميل بقية الأصناف: ${error.toString().replaceFirst('Exception: ', '')}');
     } finally {
-      if (mounted) setState(() => _loadingMoreItems = false);
+      if (_isCurrentSession(sessionGeneration)) setState(() => _loadingMoreItems = false);
     }
   }
 
   Future<void> _loadMoreWarehouses() async {
     if (_loadingMoreWarehouses || !_warehousesHasMore) return;
+    final sessionGeneration = _api.sessionGeneration;
     setState(() => _loadingMoreWarehouses = true);
     try {
       final page = await _api.fetchWarehouses(start: _warehousesOffset);
-      if (!mounted) return;
+      if (!_isCurrentSession(sessionGeneration)) return;
       setState(() {
         _warehouses = [..._warehouses, ...page];
         _warehousesOffset += page.length;
         _warehousesHasMore = page.length == FrappeApi.pageSize;
       });
     } catch (error) {
-      if (mounted) setState(() => _inventoryError = 'تعذر تحميل بقية المستودعات: ${error.toString().replaceFirst('Exception: ', '')}');
+      if (_isCurrentSession(sessionGeneration)) setState(() => _inventoryError = 'تعذر تحميل بقية المستودعات: ${error.toString().replaceFirst('Exception: ', '')}');
     } finally {
-      if (mounted) setState(() => _loadingMoreWarehouses = false);
+      if (_isCurrentSession(sessionGeneration)) setState(() => _loadingMoreWarehouses = false);
     }
   }
 
   Future<void> _loadMoreStock() async {
     if (_loadingMoreStock || !_stockHasMore) return;
+    final sessionGeneration = _api.sessionGeneration;
     setState(() => _loadingMoreStock = true);
     try {
       final page = await _api.fetchStockBalances(start: _stockOffset);
-      if (!mounted) return;
+      if (!_isCurrentSession(sessionGeneration)) return;
       setState(() {
         _stockBalances = [..._stockBalances, ...page];
         _stockOffset += page.length;
         _stockHasMore = page.length == FrappeApi.pageSize;
       });
     } catch (error) {
-      if (mounted) setState(() => _inventoryError = 'تعذر تحميل بقية الأرصدة: ${error.toString().replaceFirst('Exception: ', '')}');
+      if (_isCurrentSession(sessionGeneration)) setState(() => _inventoryError = 'تعذر تحميل بقية الأرصدة: ${error.toString().replaceFirst('Exception: ', '')}');
     } finally {
-      if (mounted) setState(() => _loadingMoreStock = false);
+      if (_isCurrentSession(sessionGeneration)) setState(() => _loadingMoreStock = false);
     }
   }
 
   Future<void> _loadSales() async {
     if (!mounted || _salesLoading) return;
+    final sessionGeneration = _api.sessionGeneration;
     setState(() { _salesLoading = true; _salesError = null; });
     final errors = <String>[];
     try {
       final customers = await _api.fetchCustomers(search: _customerSearch.isEmpty ? null : _customerSearch);
-      if (!mounted) return;
+      if (!_isCurrentSession(sessionGeneration)) return;
       setState(() { _customers = customers; _customersOffset = customers.length; _customersHasMore = customers.length == FrappeApi.pageSize; });
     } catch (error) {
       errors.add('العملاء: ${error.toString().replaceFirst('Exception: ', '')}');
     }
+    if (!_isCurrentSession(sessionGeneration)) return;
     try {
       final invoices = await _api.fetchSalesInvoices(search: _salesInvoiceSearch.isEmpty ? null : _salesInvoiceSearch);
-      if (!mounted) return;
+      if (!_isCurrentSession(sessionGeneration)) return;
       setState(() { _salesInvoices = invoices; _salesInvoicesOffset = invoices.length; _salesInvoicesHasMore = invoices.length == FrappeApi.pageSize; });
     } catch (error) {
       errors.add('الفواتير: ${error.toString().replaceFirst('Exception: ', '')}');
     }
-    if (!mounted) return;
+    if (!_isCurrentSession(sessionGeneration)) return;
     setState(() { _salesError = errors.isEmpty ? null : errors.join('\n'); _salesLoading = false; });
   }
 
   Future<void> _loadPurchases() async {
     if (!mounted || _purchaseLoading) return;
+    final sessionGeneration = _api.sessionGeneration;
     setState(() { _purchaseLoading = true; _purchaseError = null; });
     final errors = <String>[];
     try {
       final suppliers = await _api.fetchSuppliers(search: _supplierSearch.isEmpty ? null : _supplierSearch);
-      if (!mounted) return;
+      if (!_isCurrentSession(sessionGeneration)) return;
       setState(() { _suppliers = suppliers; _suppliersOffset = suppliers.length; _suppliersHasMore = suppliers.length == FrappeApi.pageSize; });
     } catch (error) {
       errors.add('الموردون: ${error.toString().replaceFirst('Exception: ', '')}');
     }
+    if (!_isCurrentSession(sessionGeneration)) return;
     try {
       final invoices = await _api.fetchPurchaseInvoices(search: _purchaseInvoiceSearch.isEmpty ? null : _purchaseInvoiceSearch);
-      if (!mounted) return;
+      if (!_isCurrentSession(sessionGeneration)) return;
       setState(() { _purchaseInvoices = invoices; _purchaseInvoicesOffset = invoices.length; _purchaseInvoicesHasMore = invoices.length == FrappeApi.pageSize; });
     } catch (error) {
       errors.add('فواتير المشتريات: ${error.toString().replaceFirst('Exception: ', '')}');
     }
-    if (!mounted) return;
+    if (!_isCurrentSession(sessionGeneration)) return;
     setState(() { _purchaseError = errors.isEmpty ? null : errors.join('\n'); _purchaseLoading = false; });
   }
 
@@ -327,6 +342,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   Future<void> _searchCustomers(String value) async {
     final query = value.trim();
     if (_salesLoading || _loadingMoreCustomers || _searchingCustomers) return;
+    final sessionGeneration = _api.sessionGeneration;
     FocusScope.of(context).unfocus();
     setState(() {
       _searchingCustomers = true;
@@ -338,19 +354,19 @@ class _MobileHomePageState extends State<MobileHomePage> {
     });
     try {
       final page = await _api.fetchCustomers(search: query.isEmpty ? null : query);
-      if (!mounted) return;
+      if (!_isCurrentSession(sessionGeneration)) return;
       setState(() {
         _customers = page;
         _customersOffset = page.length;
         _customersHasMore = page.length == FrappeApi.pageSize;
       });
     } catch (exception) {
-      if (mounted) {
+      if (_isCurrentSession(sessionGeneration)) {
         setState(() => _salesError =
             'تعذر البحث في العملاء: ${exception.toString().replaceFirst('Exception: ', '')}');
       }
     } finally {
-      if (mounted) setState(() => _searchingCustomers = false);
+      if (_isCurrentSession(sessionGeneration)) setState(() => _searchingCustomers = false);
     }
   }
 
@@ -358,6 +374,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   Future<void> _searchSalesInvoices(String value) async {
     final query = value.trim();
     if (_salesLoading || _loadingMoreSalesInvoices || _searchingSalesInvoices) return;
+    final sessionGeneration = _api.sessionGeneration;
     FocusScope.of(context).unfocus();
     setState(() {
       _searchingSalesInvoices = true;
@@ -369,19 +386,19 @@ class _MobileHomePageState extends State<MobileHomePage> {
     });
     try {
       final page = await _api.fetchSalesInvoices(search: query.isEmpty ? null : query);
-      if (!mounted) return;
+      if (!_isCurrentSession(sessionGeneration)) return;
       setState(() {
         _salesInvoices = page;
         _salesInvoicesOffset = page.length;
         _salesInvoicesHasMore = page.length == FrappeApi.pageSize;
       });
     } catch (exception) {
-      if (mounted) {
+      if (_isCurrentSession(sessionGeneration)) {
         setState(() => _salesError =
             'تعذر البحث في فواتير المبيعات: ${exception.toString().replaceFirst('Exception: ', '')}');
       }
     } finally {
-      if (mounted) setState(() => _searchingSalesInvoices = false);
+      if (_isCurrentSession(sessionGeneration)) setState(() => _searchingSalesInvoices = false);
     }
   }
 
@@ -389,6 +406,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   Future<void> _searchSuppliers(String value) async {
     final query = value.trim();
     if (_purchaseLoading || _loadingMoreSuppliers || _searchingSuppliers) return;
+    final sessionGeneration = _api.sessionGeneration;
     FocusScope.of(context).unfocus();
     setState(() {
       _searchingSuppliers = true;
@@ -400,19 +418,19 @@ class _MobileHomePageState extends State<MobileHomePage> {
     });
     try {
       final page = await _api.fetchSuppliers(search: query.isEmpty ? null : query);
-      if (!mounted) return;
+      if (!_isCurrentSession(sessionGeneration)) return;
       setState(() {
         _suppliers = page;
         _suppliersOffset = page.length;
         _suppliersHasMore = page.length == FrappeApi.pageSize;
       });
     } catch (exception) {
-      if (mounted) {
+      if (_isCurrentSession(sessionGeneration)) {
         setState(() => _purchaseError =
             'تعذر البحث في الموردين: ${exception.toString().replaceFirst('Exception: ', '')}');
       }
     } finally {
-      if (mounted) setState(() => _searchingSuppliers = false);
+      if (_isCurrentSession(sessionGeneration)) setState(() => _searchingSuppliers = false);
     }
   }
 
@@ -420,6 +438,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   Future<void> _searchPurchaseInvoices(String value) async {
     final query = value.trim();
     if (_purchaseLoading || _loadingMorePurchaseInvoices || _searchingPurchaseInvoices) return;
+    final sessionGeneration = _api.sessionGeneration;
     FocusScope.of(context).unfocus();
     setState(() {
       _searchingPurchaseInvoices = true;
@@ -431,92 +450,96 @@ class _MobileHomePageState extends State<MobileHomePage> {
     });
     try {
       final page = await _api.fetchPurchaseInvoices(search: query.isEmpty ? null : query);
-      if (!mounted) return;
+      if (!_isCurrentSession(sessionGeneration)) return;
       setState(() {
         _purchaseInvoices = page;
         _purchaseInvoicesOffset = page.length;
         _purchaseInvoicesHasMore = page.length == FrappeApi.pageSize;
       });
     } catch (exception) {
-      if (mounted) {
+      if (_isCurrentSession(sessionGeneration)) {
         setState(() => _purchaseError =
             'تعذر البحث في فواتير المشتريات: ${exception.toString().replaceFirst('Exception: ', '')}');
       }
     } finally {
-      if (mounted) setState(() => _searchingPurchaseInvoices = false);
+      if (_isCurrentSession(sessionGeneration)) setState(() => _searchingPurchaseInvoices = false);
     }
   }
 
 
   Future<void> _loadMoreCustomers() async {
     if (_loadingMoreCustomers || !_customersHasMore) return;
+    final sessionGeneration = _api.sessionGeneration;
     setState(() => _loadingMoreCustomers = true);
     try {
       final page = await _api.fetchCustomers(start: _customersOffset, search: _customerSearch.isEmpty ? null : _customerSearch);
-      if (!mounted) return;
+      if (!_isCurrentSession(sessionGeneration)) return;
       setState(() {
         _customers = [..._customers, ...page];
         _customersOffset += page.length;
         _customersHasMore = page.length == FrappeApi.pageSize;
       });
     } catch (error) {
-      if (mounted) setState(() => _salesError = 'تعذر تحميل بقية العملاء: ${error.toString().replaceFirst('Exception: ', '')}');
+      if (_isCurrentSession(sessionGeneration)) setState(() => _salesError = 'تعذر تحميل بقية العملاء: ${error.toString().replaceFirst('Exception: ', '')}');
     } finally {
-      if (mounted) setState(() => _loadingMoreCustomers = false);
+      if (_isCurrentSession(sessionGeneration)) setState(() => _loadingMoreCustomers = false);
     }
   }
 
   Future<void> _loadMoreSalesInvoices() async {
     if (_loadingMoreSalesInvoices || !_salesInvoicesHasMore) return;
+    final sessionGeneration = _api.sessionGeneration;
     setState(() => _loadingMoreSalesInvoices = true);
     try {
       final page = await _api.fetchSalesInvoices(start: _salesInvoicesOffset, search: _salesInvoiceSearch.isEmpty ? null : _salesInvoiceSearch);
-      if (!mounted) return;
+      if (!_isCurrentSession(sessionGeneration)) return;
       setState(() {
         _salesInvoices = [..._salesInvoices, ...page];
         _salesInvoicesOffset += page.length;
         _salesInvoicesHasMore = page.length == FrappeApi.pageSize;
       });
     } catch (error) {
-      if (mounted) setState(() => _salesError = 'تعذر تحميل بقية فواتير المبيعات: ${error.toString().replaceFirst('Exception: ', '')}');
+      if (_isCurrentSession(sessionGeneration)) setState(() => _salesError = 'تعذر تحميل بقية فواتير المبيعات: ${error.toString().replaceFirst('Exception: ', '')}');
     } finally {
-      if (mounted) setState(() => _loadingMoreSalesInvoices = false);
+      if (_isCurrentSession(sessionGeneration)) setState(() => _loadingMoreSalesInvoices = false);
     }
   }
 
   Future<void> _loadMoreSuppliers() async {
     if (_loadingMoreSuppliers || !_suppliersHasMore) return;
+    final sessionGeneration = _api.sessionGeneration;
     setState(() => _loadingMoreSuppliers = true);
     try {
       final page = await _api.fetchSuppliers(start: _suppliersOffset, search: _supplierSearch.isEmpty ? null : _supplierSearch);
-      if (!mounted) return;
+      if (!_isCurrentSession(sessionGeneration)) return;
       setState(() {
         _suppliers = [..._suppliers, ...page];
         _suppliersOffset += page.length;
         _suppliersHasMore = page.length == FrappeApi.pageSize;
       });
     } catch (error) {
-      if (mounted) setState(() => _purchaseError = 'تعذر تحميل بقية الموردين: ${error.toString().replaceFirst('Exception: ', '')}');
+      if (_isCurrentSession(sessionGeneration)) setState(() => _purchaseError = 'تعذر تحميل بقية الموردين: ${error.toString().replaceFirst('Exception: ', '')}');
     } finally {
-      if (mounted) setState(() => _loadingMoreSuppliers = false);
+      if (_isCurrentSession(sessionGeneration)) setState(() => _loadingMoreSuppliers = false);
     }
   }
 
   Future<void> _loadMorePurchaseInvoices() async {
     if (_loadingMorePurchaseInvoices || !_purchaseInvoicesHasMore) return;
+    final sessionGeneration = _api.sessionGeneration;
     setState(() => _loadingMorePurchaseInvoices = true);
     try {
       final page = await _api.fetchPurchaseInvoices(start: _purchaseInvoicesOffset, search: _purchaseInvoiceSearch.isEmpty ? null : _purchaseInvoiceSearch);
-      if (!mounted) return;
+      if (!_isCurrentSession(sessionGeneration)) return;
       setState(() {
         _purchaseInvoices = [..._purchaseInvoices, ...page];
         _purchaseInvoicesOffset += page.length;
         _purchaseInvoicesHasMore = page.length == FrappeApi.pageSize;
       });
     } catch (error) {
-      if (mounted) setState(() => _purchaseError = 'تعذر تحميل بقية فواتير المشتريات: ${error.toString().replaceFirst('Exception: ', '')}');
+      if (_isCurrentSession(sessionGeneration)) setState(() => _purchaseError = 'تعذر تحميل بقية فواتير المشتريات: ${error.toString().replaceFirst('Exception: ', '')}');
     } finally {
-      if (mounted) setState(() => _loadingMorePurchaseInvoices = false);
+      if (_isCurrentSession(sessionGeneration)) setState(() => _loadingMorePurchaseInvoices = false);
     }
   }
 

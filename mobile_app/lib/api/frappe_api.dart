@@ -61,6 +61,7 @@ class FrappeApi {
 
   Future<String> login(String username, String password) async {
     _sessionGeneration++;
+    _cookies.clear();
     final generation = _sessionGeneration;
     if (username.trim().isEmpty || password.isEmpty) {
       throw const FormatException('أدخل اسم المستخدم وكلمة المرور.');
