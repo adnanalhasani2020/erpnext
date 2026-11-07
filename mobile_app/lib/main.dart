@@ -382,26 +382,39 @@ class _MobileHomePageState extends State<MobileHomePage> {
 
 
   Future<void> _loadInventory() async {
+    if (_inventoryLoading) return;
     setState(() { _inventoryLoading = true; _inventoryError = null; });
+    final errors = <String>[];
+
     try {
-      final results = await Future.wait([_api.fetchItems(), _api.fetchWarehouses(), _api.fetchStockBalances()]);
+      final items = await _api.fetchItems();
       if (!mounted) return;
-      setState(() {
-        _items = results[0] as List<ErpItem>;
-        _warehouses = results[1] as List<ErpWarehouse>;
-        _stockBalances = results[2] as List<ErpStockBalance>;
-      });
+      setState(() => _items = items);
     } catch (error) {
-      if (!mounted) return;
-      setState(() {
-        _items = const [];
-        _warehouses = const [];
-        _stockBalances = const [];
-        _inventoryError = error.toString().replaceFirst('Exception: ', '');
-      });
-    } finally {
-      if (mounted) setState(() => _inventoryLoading = false);
+      errors.add('الأصناف: ${error.toString().replaceFirst('Exception: ', '')}');
     }
+
+    try {
+      final warehouses = await _api.fetchWarehouses();
+      if (!mounted) return;
+      setState(() => _warehouses = warehouses);
+    } catch (error) {
+      errors.add('المستودعات: ${error.toString().replaceFirst('Exception: ', '')}');
+    }
+
+    try {
+      final balances = await _api.fetchStockBalances();
+      if (!mounted) return;
+      setState(() => _stockBalances = balances);
+    } catch (error) {
+      errors.add('الأرصدة: ${error.toString().replaceFirst('Exception: ', '')}');
+    }
+
+    if (!mounted) return;
+    setState(() {
+      _inventoryError = errors.isEmpty ? null : errors.join('\n');
+      _inventoryLoading = false;
+    });
   }
 
   Future<void> _logout() async {
