@@ -11,7 +11,9 @@ on:
     branches:
       - feature/flutter-mobile-foundation
     paths:
-      - "mobile_app/**"
+      - "mobile_app/lib/**"
+      - "mobile_app/test/**"
+      - "mobile_app/pubspec.yaml"
       - ".github/workflows/mobile-android.yml"
 
 permissions:
