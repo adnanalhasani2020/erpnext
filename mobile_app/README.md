@@ -1,23 +1,31 @@
 # ERPNext Mobile (Flutter)
 
-Arabic-first Android companion app for the ERPNext instance in this repository.
+Arabic-first Android companion app for an ERPNext instance.
 
-## Current scope
+## Implemented
 
-- Arabic right-to-left login screen and configurable ERPNext server URL.
-- Login through Frappe's `/api/method/login` endpoint.
-- Session-cookie handling in memory only; credentials and cookies are not written to disk.
-- Logged-in user verification through `/api/method/frappe.auth.get_logged_user`.
-- Logout through `/api/method/logout`.
-- Dashboard with separate Arabic tabs for items, stock balances, and warehouses.\n- Item and warehouse local search over records loaded from the server.\n- Read-only stock balances by warehouse from ERPNext `Bin`, including actual, reserved, projected, and calculated available quantities.
+- Arabic right-to-left login using Frappe `/api/method/login`.
+- Session cookies are held in memory only; credentials and cookies are not written to disk.
+- Logged-in user verification and logout through Frappe API methods.
+- Company list on the dashboard.
+- Separate item, stock balance, warehouse, and sales screens.
+- Item and warehouse local search over the records currently loaded.
+- Read-only stock balances from ERPNext `Bin`, including actual, reserved, projected, and calculated available quantities.
+- Read-only customer and Sales Invoice lists, including invoice status, total, and outstanding amount.
+- Inventory and sales resources load independently. A permission error for one resource does not clear successful data from the other resources.
 
-Sales, purchasing, and accounting are still placeholders. The current stock views are read-only; they do not create stock movements or modify quantities. Item and warehouse search currently filters records loaded into the app (up to 100 items and warehouses per request), not the full server catalogue.
+## Current limits
+
+- Item, warehouse, Bin, Customer, and Sales Invoice lists are currently limited to 100 records per request; search is local to those loaded records.
+- Sales invoices and stock balances are read-only. The app does not create, submit, cancel, or modify ERPNext documents or stock movements.
+- Purchase, supplier, accounting, payment, and reporting workflows are not implemented yet.
+- A successful APK build does not prove connection to a live ERPNext server. A real site and appropriately permissioned test account are required for integration testing.
 
 ## Requirements
 
-- Flutter stable (Dart 3.4 or newer).
+- Flutter stable with Dart 3.4 or newer.
 - A reachable ERPNext/Frappe site with HTTPS.
-- A valid ERPNext user account.
+- A valid ERPNext user account with read permissions for the resources being used.
 
 ## Run locally
 
@@ -28,9 +36,7 @@ flutter pub get
 flutter run
 ```
 
-Enter the HTTPS base URL of the ERPNext site, for example `https://erp.example.com`. Do not enter an API key or database password in the app.
-
-For local Android emulator development only, `http://10.0.2.2` is accepted. Production connections must use HTTPS.
+Enter the HTTPS base URL of the ERPNext site. For Android emulator development only, `http://10.0.2.2` is accepted.
 
 ## Build
 
@@ -43,6 +49,6 @@ The APK is written to `build/app/outputs/flutter-apk/app-debug.apk`.
 ## Security notes
 
 - Never embed Supabase service-role keys, database passwords, or Frappe administrator credentials in the APK.
-- The app talks to Frappe's API. It must not connect directly to PostgreSQL/Supabase.
-- The current session cookie is held in memory and is cleared when the app process exits.
-- A production release still needs security review, API permission testing, and a properly configured signing key.
+- The app communicates with Frappe's API; it must not connect directly to PostgreSQL or Supabase.
+- The current session cookie is held in memory and cleared on logout or when the app process exits.
+- A production release still requires security review, release signing, API permission testing, and live-server integration testing.
