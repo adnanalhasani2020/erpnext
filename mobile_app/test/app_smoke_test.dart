@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  companyModelTests();
   testWidgets('renders the Arabic ERPNext login screen', (tester) async {
     await tester.pumpWidget(const ErpNextMobileApp());
 
@@ -21,5 +22,18 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('أدخل رابطاً صحيحاً'), findsOneWidget);
+  });
+}
+
+
+void companyModelTests() {
+  test('parses a Company returned by the Frappe resource API', () {
+    final company = ErpCompany.fromJson({'name': 'Example Ltd', 'abbr': 'EX'});
+    expect(company.name, 'Example Ltd');
+    expect(company.abbr, 'EX');
+  });
+
+  test('rejects a Company response without a name', () {
+    expect(() => ErpCompany.fromJson({'abbr': 'EX'}), throwsFormatException);
   });
 }
