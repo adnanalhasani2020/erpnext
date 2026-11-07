@@ -91,6 +91,10 @@ class FrappeApi {
         HttpHeaders.cookieHeader,
         _cookies.entries.map((entry) => '${entry.key}=${entry.value}').join('; '),
       );
+      final csrfToken = _cookies['csrf_token'];
+      if (csrfToken != null && csrfToken.isNotEmpty) {
+        request.headers.set('X-Frappe-CSRF-Token', csrfToken);
+      }
     }
     final response = await request.close();
     _captureCookies(response);
