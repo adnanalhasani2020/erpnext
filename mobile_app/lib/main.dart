@@ -741,7 +741,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   Widget _buildSalesPage() {
     return ListView(padding: const EdgeInsets.all(18), children: [
       Row(children: [
-        Expanded(child: _pageHeader('المبيعات', 'العملاء وفواتير المبيعات للعرض فقط', Icons.receipt_long_outlined)),
+        Expanded(child: Row(children: [const CircleAvatar(child: Icon(Icons.receipt_long_outlined)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('المبيعات', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)), Text('العملاء وفواتير المبيعات للعرض فقط', style: Theme.of(context).textTheme.bodySmall)]))])),
         IconButton(tooltip: 'تحديث المبيعات', onPressed: _salesLoading ? null : _loadSales, icon: const Icon(Icons.refresh)),
       ]),
       if (_salesLoading) const LinearProgressIndicator(),
