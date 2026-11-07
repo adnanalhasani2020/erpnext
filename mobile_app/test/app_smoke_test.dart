@@ -26,7 +26,7 @@ void main() {
     });
     final api = FrappeApi();
     try {
-      api.configure('http://localhost:${server.port}');
+      api.configure('http://127.0.0.1:${server.port}');
       expect(await api.fetchItems(start: 200), isEmpty);
       await requestHandled;
     } finally {
