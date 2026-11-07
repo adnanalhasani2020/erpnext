@@ -1,6 +1,3 @@
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:erpnext_mobile/main.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,25 +11,33 @@ void main() {
     api.dispose();
   });
 
-  test('requests the requested ERPNext page offset', () async {
-    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-    final requestHandled = server.first.then((request) async {
-      expect(request.uri.path, '/api/resource/Item');
-      expect(request.uri.queryParameters['limit_page_length'], '100');
-      expect(request.uri.queryParameters['limit_start'], '200');
-      request.response.headers.contentType = ContentType.json;
-      request.response.write(jsonEncode({'data': []}));
-      await request.response.close();
-    });
-    final api = FrappeApi();
-    try {
-      api.configure('http://127.0.0.1:${server.port}');
-      expect(await api.fetchItems(start: 200), isEmpty);
-      await requestHandled;
-    } finally {
-      api.dispose();
-      await server.close(force: true);
-    }
+  test('builds ERPNext resource page URLs with a safe offset', () {
+    final uri = FrappeApi.buildResourcePageUri(
+      baseUrl: 'https://erp.example.com/',
+      resource: 'Item',
+      fields: ['item_code', 'item_name'],
+      filters: [['disabled', '=', 0]],
+      orderBy: 'modified desc',
+      start: 200,
+    );
+    expect(uri.path, '/api/resource/Item');
+    expect(uri.queryParameters['limit_page_length'], '100');
+    expect(uri.queryParameters['limit_start'], '200');
+    expect(uri.queryParameters['order_by'], 'modified desc');
+    expect(uri.queryParameters['filters'], '[["disabled","=",0]]');
+  });
+
+  test('clamps invalid pagination offsets and page lengths', () {
+    final uri = FrappeApi.buildResourcePageUri(
+      baseUrl: 'https://erp.example.com',
+      resource: 'Item',
+      fields: ['item_code'],
+      orderBy: 'name asc',
+      start: -5,
+      pageLength: 0,
+    );
+    expect(uri.queryParameters['limit_start'], '0');
+    expect(uri.queryParameters['limit_page_length'], '1');
   });
 
   test('parses ERPNext Item fields', () {
