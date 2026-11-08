@@ -643,7 +643,7 @@ class FrappeApi {
   Future<Map<String, dynamic>> submitPurchaseInvoice(Map<String, dynamic> doc) =>
       _submitMobileDocument(doc, 'Purchase Invoice');
 
-  Future<Map<String, dynamic>> createPurchaseReturn(String invoiceName, {List<double?>? quantities}) async {
+  Future<Map<String, dynamic>> createPurchaseReturn(String invoiceName, {Map<String, double?>? quantitiesBySourceItem}) async {
     final source = await fetchInvoiceDocument('Purchase Invoice', invoiceName);
     if (source['docstatus'] != 1 || source['is_return'] == 1 || source['is_return'] == true) {
       throw const FormatException('المرتجع يتطلب فاتورة مشتريات أصلية مرحلة.');
@@ -671,13 +671,11 @@ class FrappeApi {
       throw Exception('لم يؤكد ERPNext بيانات مرتجع المشتريات.');
     }
     final mappedItems = (raw['items'] as List).whereType<Map<String, dynamic>>().toList();
-    if (quantities != null) {
-      if (quantities.length != mappedItems.length) {
-        throw const FormatException('عدد كميات المرتجع لا يطابق بنود الفاتورة التي جهزها ERPNext.');
-      }
+    if (quantitiesBySourceItem != null) {
       final selectedItems = <Map<String, dynamic>>[];
       for (var index = 0; index < mappedItems.length; index++) {
-        final requested = quantities[index];
+        final sourceItemName = mappedItems[index]['purchase_invoice_item']?.toString();
+        final requested = sourceItemName == null ? null : quantitiesBySourceItem[sourceItemName];
         if (requested == null || requested == 0) continue;
         if (!requested.isFinite || requested < 0) {
           throw const FormatException('أدخل كمية مرتجع صحيحة موجبة أو اترك البند دون إرجاع.');
