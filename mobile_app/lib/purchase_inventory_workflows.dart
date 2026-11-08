@@ -777,8 +777,9 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
 }
 
 class StockWorkflowPage extends StatefulWidget {
-  const StockWorkflowPage({super.key, required this.api, required this.companies, required this.suppliers, required this.items, required this.warehouses, this.onChanged});
+  const StockWorkflowPage({super.key, required this.api, required this.companies, required this.suppliers, required this.items, required this.warehouses, this.initialItemCode, this.onChanged});
   final FrappeApi api;
+  final String? initialItemCode;
   final List<ErpCompany> companies;
   final List<ErpSupplier> suppliers;
   final List<ErpItem> items;
@@ -812,7 +813,13 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
   String? selectedMovementItem;
   String? selectedMovementWarehouse;
   String? selectedMovementCompany;
-  @override void initState() { super.initState(); load(); }
+  @override void initState() {
+    super.initState();
+    selectedMovementItem = widget.initialItemCode?.trim().isNotEmpty == true
+        ? widget.initialItemCode!.trim()
+        : null;
+    load();
+  }
   @override void dispose() { super.dispose(); }
   void notice(String s) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s))); }
   Future<bool> confirm(String title, String message, {String actionLabel = 'ترحيل'}) async => await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: Text(title), content: Text(message), actions: [
