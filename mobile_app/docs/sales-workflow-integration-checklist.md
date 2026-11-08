@@ -9,6 +9,7 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 - [ ] If testing multiple companies, create at least two companies and one stock warehouse per company; verify the mobile composer only offers warehouses owned by the selected company and clears the prior warehouse when the company changes.
 - [ ] Confirm warehouses without a company value are never offered for stock issue.
 - [ ] Configure one enabled Cash account and one enabled Bank account for that company.
+- [ ] If the company has more than 100 eligible Cash/Bank accounts, verify the mobile payment-account picker can load accounts from later pages without including disabled, group, or other account types.
 - [ ] Create one stock item with a selling price and opening stock in a non-group warehouse.
 - [ ] Create one non-stock service item.
 - [ ] Create one customer with valid receivable and payment terms.
