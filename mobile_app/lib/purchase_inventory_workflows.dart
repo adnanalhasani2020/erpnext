@@ -15,6 +15,18 @@ class PurchaseWorkflowPage extends StatefulWidget {
 }
 
 class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
+  bool _actionInProgress = false;
+
+  Future<void> _runExclusive(Future<void> Function() action) async {
+    if (_actionInProgress || !mounted) return;
+    setState(() => _actionInProgress = true);
+    try {
+      await action();
+    } finally {
+      if (mounted) setState(() => _actionInProgress = false);
+    }
+  }
+
   List<ErpPurchaseInvoice> rows = [];
   List<Map<String, dynamic>> supplierPayments = [];
   List<Map<String, dynamic>> supplierLedger = [];
@@ -243,7 +255,10 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('تأكيد')),
   ])) == true;
 
-  Future<void> compose({Map<String, dynamic>? draft}) async {
+  Future<void> compose({Map<String, dynamic>? draft}) =>
+      _runExclusive(() => _compose(draft: draft));
+
+  Future<void> _compose({Map<String, dynamic>? draft}) async {
     if (widget.companies.isEmpty || widget.suppliers.isEmpty || widget.items.isEmpty) {
       notice('تأكد من تحميل الشركات والموردين والأصناف وصلاحيات قراءتها.');
       return;
