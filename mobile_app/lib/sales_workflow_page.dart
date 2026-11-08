@@ -282,6 +282,7 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
 
 class _SalesLineDraft {
   ErpItem? item;
+  Map<String, dynamic>? sourceRow;
   ErpWarehouse? warehouse;
   final qty = TextEditingController(text: '1');
   final rate = TextEditingController(text: '0');
@@ -341,7 +342,7 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
     final rawItems = draft?['items'];
     if (rawItems is List) {
       for (final raw in rawItems.whereType<Map<String, dynamic>>()) {
-        final line = _SalesLineDraft();
+        final line = _SalesLineDraft()..sourceRow = Map<String, dynamic>.from(raw);
         final code = raw['item_code']?.toString();
         line.item = _firstOrNull(_availableItems.where((x) => x.code == code));
         if (line.item == null && code != null) {
@@ -387,12 +388,16 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
         'transaction_date': today,
         if (widget.doctype == 'Quotation') 'quotation_to': 'Customer',
         if (widget.doctype == 'Sales Order') ...{'order_type': 'Sales', 'delivery_date': today},
-        'items': _lines.map((line) => {
-          'item_code': line.item!.code,
-          'qty': double.parse(line.qty.text.trim()),
-          'rate': double.parse(line.rate.text.trim()),
-          if (widget.doctype == 'Sales Order' && line.item!.isStockItem) 'warehouse': line.warehouse!.id,
-          if (widget.doctype == 'Sales Order') 'delivery_date': today,
+        'items': _lines.map((line) {
+          final row = Map<String, dynamic>.from(line.sourceRow ?? const <String, dynamic>{})
+            ..['item_code'] = line.item!.code
+            ..['qty'] = double.parse(line.qty.text.trim())
+            ..['rate'] = double.parse(line.rate.text.trim());
+          if (widget.doctype == 'Sales Order' && line.item!.isStockItem) {
+            row['warehouse'] = line.warehouse!.id;
+          }
+          if (widget.doctype == 'Sales Order') row['delivery_date'] = today;
+          return row;
         }).toList(),
       };
       if (widget.initialDraft == null) {
