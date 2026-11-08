@@ -1079,6 +1079,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         items: _items,
         warehouses: _warehouses,
         companies: _companies,
+        initialDraft: initialDraft,
         onCompleted: (submitted) {
           _loadSales();
           if (submitted) _loadInventory();
