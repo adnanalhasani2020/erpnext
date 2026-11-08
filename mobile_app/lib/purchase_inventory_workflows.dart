@@ -421,7 +421,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     finally { if (mounted) setState(() => loadingMore = false); }
   }
   Future<List<Map<String, dynamic>>?> _stockItemLinesDialog({
-    required String title, bool includeRate = false, bool allowZeroQuantity = false,
+    required String title, bool includeRate = false, bool allowZeroQuantity = false, bool requirePositiveRate = false,
   }) async {
     if (widget.items.isEmpty) return null;
     final lines = <Map<String, dynamic>>[];
@@ -484,7 +484,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                 final rate = double.tryParse((row['rate'] as TextEditingController).text.trim());
                 if (qty == null || !qty.isFinite ||
                     (allowZeroQuantity ? qty < 0 : qty <= 0) ||
-                    (includeRate && (rate == null || !rate.isFinite || rate < 0))) return;
+                    (includeRate && (rate == null || !rate.isFinite || (requirePositiveRate ? rate <= 0 : rate < 0)))) return;
                 result.add({'item_code': row['item'], 'qty': qty, if (includeRate) 'valuation_rate': rate});
               }
               if (result.isNotEmpty) Navigator.pop(dialogContext, result);
@@ -560,6 +560,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       if (values != true || !mounted) return;
       final items = await _stockItemLinesDialog(
         title: 'أصناف حركة المخزون', includeRate: purpose == 'Material Receipt',
+        requirePositiveRate: purpose == 'Material Receipt',
       );
       if (items == null || !mounted) return;
       final doc = await widget.api.createStockEntry(
