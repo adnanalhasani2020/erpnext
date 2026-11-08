@@ -715,7 +715,11 @@ class FrappeApi {
     if (inserted.statusCode < 200 || inserted.statusCode >= 300) throw Exception(_message(insertedData, 'تعذر حفظ سند الصرف.'));
     final created = insertedData['data'];
     if (created is! Map<String, dynamic> || created['name'] is! String) throw Exception('لم يتم تأكيد حفظ سند الصرف.');
-    return _submitMobileDocument(created, 'Payment Entry');
+    try {
+      return await _submitMobileDocument(created, 'Payment Entry');
+    } catch (error) {
+      throw Exception('تم حفظ سند الصرف ' + created['name'].toString() + ' كمسودة ولم يؤكد ترحيله. راجع هذا السند قبل تسجيل دفعة أخرى. ' + error.toString().replaceFirst('Exception: ', ''));
+    }
   }
 
   Future<Map<String, dynamic>> _submitMobileDocument(Map<String, dynamic> doc, String doctype) async {
