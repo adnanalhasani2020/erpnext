@@ -200,7 +200,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
                       isExpanded: true,
                       decoration: const InputDecoration(labelText: 'العميل'),
                       items: widget.customers.map((customer) => DropdownMenuItem(value: customer, child: Text('${customer.name} • ${customer.id}', overflow: TextOverflow.ellipsis))).toList(),
-                      onChanged: _saving ? null : (value) => setState(() => _customer = value),
+                      onChanged: _saving || _pendingDraft != null ? null : (value) => setState(() => _customer = value),
                       validator: (value) => value == null ? 'اختر العميل.' : null,
                     ),
                     const SizedBox(height: 10),
@@ -301,7 +301,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
             const SizedBox(width: 10),
             Expanded(child: TextFormField(
               controller: line.rate,
-              enabled: !_saving,
+              enabled: !_saving && _pendingDraft == null,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(labelText: 'سعر الوحدة'),
               validator: (value) => _validatePositive(value, 'سعر'),
