@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
+import 'sales_invoice_composer.dart';
 import 'models/erp_models.dart';
 import 'widgets/count_card.dart';
 import 'widgets/load_more_button.dart';
@@ -917,6 +918,28 @@ class _MobileHomePageState extends State<MobileHomePage> {
     );
   }
 
+  Future<void> _openSalesInvoiceComposer() async {
+    if (_customers.isEmpty || _items.isEmpty || _companies.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لا يمكن إنشاء فاتورة قبل تحميل العملاء والأصناف والشركات. تحقق من صلاحيات القراءة ثم حدّث البيانات.')),
+      );
+      return;
+    }
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => SalesInvoiceComposer(
+        api: _api,
+        customers: _customers,
+        items: _items,
+        warehouses: _warehouses,
+        companies: _companies,
+        onCompleted: (submitted) {
+          _loadSales();
+          if (submitted) _loadInventory();
+        },
+      ),
+    ));
+  }
+
   Widget _buildSalesPage() {
     return ListView(padding: const EdgeInsets.all(18), children: [
       Row(children: [
@@ -924,6 +947,14 @@ class _MobileHomePageState extends State<MobileHomePage> {
         IconButton(tooltip: 'تحديث المبيعات', onPressed: _salesLoading ? null : _loadSales, icon: const Icon(Icons.refresh)),
         IconButton(tooltip: 'تحديث المشتريات', onPressed: _purchaseLoading ? null : _loadPurchases, icon: const Icon(Icons.shopping_cart_outlined)),
       ]),
+      Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: FilledButton.icon(
+          onPressed: _salesLoading || _inventoryLoading ? null : _openSalesInvoiceComposer,
+          icon: const Icon(Icons.add_shopping_cart),
+          label: const Text('إنشاء فاتورة مبيعات'),
+        ),
+      ),
       if (_salesLoading) const LinearProgressIndicator(),
       if (_salesError != null) _errorCard(_salesError!),
       const SizedBox(height: 12),
