@@ -315,16 +315,14 @@ class _MobileHomePageState extends State<MobileHomePage> {
     }
   }
 
-  Future<void> _searchStockBalances(String value, {String? warehouse}) async {
+  Future<void> _searchStockBalances(String value, {bool updateWarehouse = false, String? warehouse}) async {
     final query = value.trim();
     if (_loadingMoreStock || _inventoryLoading) return;
     final sessionGeneration = _api.sessionGeneration;
     FocusScope.of(context).unfocus();
     setState(() {
       _stockSearch = query;
-      if (warehouse != null || _selectedWarehouse != warehouse) {
-        _selectedWarehouse = warehouse;
-      }
+      if (updateWarehouse) _selectedWarehouse = warehouse;
       _stockBalances = const [];
       _stockOffset = 0;
       _stockHasMore = false;
@@ -842,7 +840,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
           const DropdownMenuItem<String>(value: null, child: Text('كل المستودعات')),
           ..._warehouses.map((warehouse) => DropdownMenuItem<String>(value: warehouse.id, child: Text(warehouse.name, overflow: TextOverflow.ellipsis))),
         ],
-        onChanged: (value) => _searchStockBalances(_stockSearchController.text, warehouse: value),
+        onChanged: (value) => _searchStockBalances(_stockSearchController.text, updateWarehouse: true, warehouse: value),
       ),
       const SizedBox(height: 12),
       ServerSearchField(
