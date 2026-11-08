@@ -4,6 +4,16 @@ import 'package:erpnext_mobile/api/frappe_api.dart';
 import 'package:erpnext_mobile/models/erp_models.dart';
 import 'package:erpnext_mobile/sales_invoice_composer.dart';
 
+List<DropdownMenuItem<T>> dropdownItems<T>(WidgetTester tester) {
+  final dropdown = tester.widget<DropdownButton<T>>(
+    find.descendant(
+      of: find.byType(DropdownButtonFormField<T>),
+      matching: find.byType(DropdownButton<T>),
+    ),
+  );
+  return dropdown.items ?? const <DropdownMenuItem<T>>[];
+}
+
 void main() {
   test('rejects an empty Sales Invoice before making a network request', () async {
     final api = FrappeApi();
@@ -177,7 +187,7 @@ void main() {
     var companyField = tester.widget<DropdownButtonFormField<ErpCompany>>(
       find.byType(DropdownButtonFormField<ErpCompany>),
     );
-    final companyA = companyField.items!
+    final companyA = dropdownItems<ErpCompany>(tester)
         .singleWhere((item) => item.value?.name == 'Company A')
         .value!;
     companyField.onChanged!(companyA);
@@ -186,7 +196,7 @@ void main() {
     var itemField = tester.widget<DropdownButtonFormField<ErpItem>>(
       find.byType(DropdownButtonFormField<ErpItem>),
     );
-    final stockItem = itemField.items!
+    final stockItem = dropdownItems<ErpItem>(tester)
         .singleWhere((item) => item.value?.code == 'ITEM-1')
         .value!;
     itemField.onChanged!(stockItem);
@@ -195,7 +205,7 @@ void main() {
     final warehouseField = tester.widget<DropdownButtonFormField<ErpWarehouse>>(
       find.byType(DropdownButtonFormField<ErpWarehouse>),
     );
-    final availableWarehouseIds = warehouseField.items!
+    final availableWarehouseIds = dropdownItems<ErpWarehouse>(tester)
         .where((item) => item.value != null)
         .map((item) => item.value!.id)
         .toList();
@@ -223,7 +233,7 @@ void main() {
     );
     expect(switchedWarehouseField.initialValue, isNull);
     expect(
-      switchedWarehouseField.items!
+      dropdownItems<ErpWarehouse>(tester)
           .where((item) => item.value != null)
           .map((item) => item.value!.id),
       ['WH-B'],
