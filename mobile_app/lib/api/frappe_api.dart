@@ -1043,8 +1043,9 @@ class FrappeApi {
       if (row is! Map<String, dynamic> || row['item_code'] is! String ||
           (row['item_code'] as String).trim().isEmpty || row['qty'] is! num ||
           !(row['qty'] as num).isFinite || (row['qty'] as num) <= 0 ||
-          row['rate'] is! num || !(row['rate'] as num).isFinite || (row['rate'] as num) < 0) {
-        throw const FormatException('تحقق من رمز الصنف والكمية والسعر في كل بند.');
+          row['rate'] is! num || !(row['rate'] as num).isFinite || (row['rate'] as num) < 0 ||
+          !((row['qty'] as num) * (row['rate'] as num)).isFinite) {
+        throw const FormatException('تحقق من رمز الصنف والكمية والسعر، وتأكد أن إجمالي البند ضمن النطاق الرقمي.');
       }
     }
   }
@@ -1370,7 +1371,12 @@ class FrappeApi {
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر إنشاء حركة المخزون.'));
     final created = data['data'];
-    if (created is! Map<String, dynamic> || created['name'] is! String) throw Exception('لم يتم تأكيد إنشاء حركة المخزون.');
+    if (created is! Map<String, dynamic> ||
+        created['doctype'] != 'Stock Entry' ||
+        created['name'] is! String ||
+        created['docstatus'] != 0) {
+      throw Exception('لم يؤكد ERPNext إنشاء مسودة حركة المخزون؛ حدّث قائمة المستندات قبل إعادة المحاولة.');
+    }
     return created;
   }
 
@@ -1387,6 +1393,7 @@ class FrappeApi {
           (row['item_code'] as String).trim().isEmpty || row['qty'] is! num ||
           !(row['qty'] as num).isFinite || (row['qty'] as num) <= 0 ||
           row['rate'] is! num || !(row['rate'] as num).isFinite || (row['rate'] as num) < 0 ||
+          !((row['qty'] as num) * (row['rate'] as num)).isFinite ||
           row['warehouse'] is! String || (row['warehouse'] as String).trim().isEmpty) {
         throw const FormatException('بيانات استلام البضائع غير مكتملة: الصنف والكمية والسعر والمستودع مطلوبة.');
       }
@@ -1395,7 +1402,12 @@ class FrappeApi {
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر إنشاء سند استلام المشتريات.'));
     final created = data['data'];
-    if (created is! Map<String, dynamic> || created['name'] is! String) throw Exception('لم يتم تأكيد إنشاء سند استلام المشتريات.');
+    if (created is! Map<String, dynamic> ||
+        created['doctype'] != 'Purchase Receipt' ||
+        created['name'] is! String ||
+        created['docstatus'] != 0) {
+      throw Exception('لم يؤكد ERPNext إنشاء مسودة سند استلام المشتريات؛ حدّث قائمة المستندات قبل إعادة المحاولة.');
+    }
     return created;
   }
 
@@ -1425,7 +1437,12 @@ class FrappeApi {
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر إنشاء تسوية المخزون.'));
     final created = data['data'];
-    if (created is! Map<String, dynamic> || created['name'] is! String) throw Exception('لم يتم تأكيد إنشاء مسودة التسوية.');
+    if (created is! Map<String, dynamic> ||
+        created['doctype'] != 'Stock Reconciliation' ||
+        created['name'] is! String ||
+        created['docstatus'] != 0) {
+      throw Exception('لم يؤكد ERPNext إنشاء مسودة تسوية المخزون؛ حدّث قائمة المستندات قبل إعادة المحاولة.');
+    }
     return created;
   }
 
