@@ -767,10 +767,19 @@ class FrappeApi {
       if (fromWarehouse != null) 'from_warehouse': fromWarehouse,
       if (toWarehouse != null) 'to_warehouse': toWarehouse,
       if (remarks != null && remarks.trim().isNotEmpty) 'remarks': remarks.trim(),
-      'items': items.map((row) => <String, dynamic>{
-        ...row,
-        if (purpose == 'Material Receipt' || purpose == 'Material Transfer') 't_warehouse': toWarehouse,
-        if (purpose == 'Material Issue' || purpose == 'Material Transfer') 's_warehouse': fromWarehouse,
+      'items': items.map((row) {
+        final item = Map<String, dynamic>.from(row);
+        final valuationRate = item.remove('valuation_rate');
+        if (valuationRate != null && purpose == 'Material Receipt') {
+          item['basic_rate'] = valuationRate;
+        }
+        if (purpose == 'Material Receipt' || purpose == 'Material Transfer') {
+          item['t_warehouse'] = toWarehouse;
+        }
+        if (purpose == 'Material Issue' || purpose == 'Material Transfer') {
+          item['s_warehouse'] = fromWarehouse;
+        }
+        return item;
       }).toList(),
     };
     final response = await _sendJson('POST', '/api/resource/Stock%20Entry', payload);
