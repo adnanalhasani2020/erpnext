@@ -27,6 +27,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
   int ledgerRequestId = 0;
   String? ledgerError;
   bool loading = false;
+  bool reloadPending = false;
+  int listRequestId = 0;
   bool loadingMore = false;
   bool hasMore = false;
   bool loadingMorePayments = false;
@@ -38,31 +40,54 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
   @override void initState() { super.initState(); load(); }
   @override void dispose() { search.dispose(); super.dispose(); }
   Future<void> load() async {
-    if (loading) return;
+    if (loading) {
+      reloadPending = true;
+      return;
+    }
+    final requestId = ++listRequestId;
+    final query = search.text.trim().isEmpty ? null : search.text.trim();
     setState(() { loading = true; error = null; });
     final errors = <String>[];
-    final query = search.text.trim().isEmpty ? null : search.text.trim();
     try {
       final result = await widget.api.fetchPurchaseInvoices(start: 0, search: query);
-      if (mounted) setState(() { rows = result; offset = result.length; hasMore = result.length == FrappeApi.pageSize; });
+      if (mounted && requestId == listRequestId) {
+        setState(() {
+          rows = result;
+          offset = result.length;
+          hasMore = result.length == FrappeApi.pageSize;
+        });
+      }
     } catch (e) {
-      errors.add('الفواتير: ${e.toString().replaceFirst('Exception: ', '')}');
+      if (requestId == listRequestId) {
+        errors.add('الفواتير: ${e.toString().replaceFirst('Exception: ', '')}');
+      }
     }
     try {
       final result = await widget.api.fetchSupplierPayments(start: 0, search: query);
-      if (mounted) setState(() {
-        supplierPayments = result;
-        paymentOffset = result.length;
-        hasMorePayments = result.length == FrappeApi.pageSize;
-      });
+      if (mounted && requestId == listRequestId) {
+        setState(() {
+          supplierPayments = result;
+          paymentOffset = result.length;
+          hasMorePayments = result.length == FrappeApi.pageSize;
+        });
+      }
     } catch (e) {
-      errors.add('دفعات الموردين: ${e.toString().replaceFirst('Exception: ', '')}');
+      if (requestId == listRequestId) {
+        errors.add('دفعات الموردين: ${e.toString().replaceFirst('Exception: ', '')}');
+      }
     }
-    if (mounted) setState(() {
-      error = errors.isEmpty ? null : errors.join('\n');
-      loading = false;
-    });
+    if (mounted && requestId == listRequestId) {
+      setState(() {
+        error = errors.isEmpty ? null : errors.join('\\n');
+        loading = false;
+      });
+      if (reloadPending) {
+        reloadPending = false;
+        await load();
+      }
+    }
   }
+
   Future<void> loadSupplierLedger({bool append = false}) async {
     final supplier = selectedLedgerSupplier;
     if (supplier == null || supplier.isEmpty) return;
@@ -127,19 +152,23 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
 
   Future<void> loadMorePayments() async {
     if (loading || loadingMorePayments || !hasMorePayments) return;
+    final requestId = listRequestId;
+    final query = search.text.trim().isEmpty ? null : search.text.trim();
+    final start = paymentOffset;
     setState(() => loadingMorePayments = true);
     try {
-      final result = await widget.api.fetchSupplierPayments(
-        start: paymentOffset,
-        search: search.text.trim().isEmpty ? null : search.text.trim(),
-      );
-      if (mounted) setState(() {
-        supplierPayments = [...supplierPayments, ...result];
-        paymentOffset += result.length;
-        hasMorePayments = result.length == FrappeApi.pageSize;
-      });
+      final result = await widget.api.fetchSupplierPayments(start: start, search: query);
+      if (mounted && requestId == listRequestId) {
+        setState(() {
+          supplierPayments = [...supplierPayments, ...result];
+          paymentOffset = start + result.length;
+          hasMorePayments = result.length == FrappeApi.pageSize;
+        });
+      }
     } catch (e) {
-      if (mounted) setState(() => error = 'دفعات الموردين: ${e.toString().replaceFirst('Exception: ', '')}');
+      if (mounted && requestId == listRequestId) {
+        setState(() => error = 'دفعات الموردين: ${e.toString().replaceFirst('Exception: ', '')}');
+      }
     } finally {
       if (mounted) setState(() => loadingMorePayments = false);
     }
@@ -186,23 +215,28 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
   }
   Future<void> loadMoreInvoices() async {
     if (loading || loadingMore || !hasMore) return;
+    final requestId = listRequestId;
+    final query = search.text.trim().isEmpty ? null : search.text.trim();
+    final start = offset;
     setState(() => loadingMore = true);
     try {
-      final result = await widget.api.fetchPurchaseInvoices(
-        start: offset,
-        search: search.text.trim().isEmpty ? null : search.text.trim(),
-      );
-      if (mounted) setState(() {
-        rows = [...rows, ...result];
-        offset += result.length;
-        hasMore = result.length == FrappeApi.pageSize;
-      });
+      final result = await widget.api.fetchPurchaseInvoices(start: start, search: query);
+      if (mounted && requestId == listRequestId) {
+        setState(() {
+          rows = [...rows, ...result];
+          offset = start + result.length;
+          hasMore = result.length == FrappeApi.pageSize;
+        });
+      }
     } catch (e) {
-      if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted && requestId == listRequestId) {
+        setState(() => error = e.toString().replaceFirst('Exception: ', ''));
+      }
     } finally {
       if (mounted) setState(() => loadingMore = false);
     }
   }
+
   void notice(String value) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(value))); }
   Future<bool> confirm(String title, String message) async => await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: Text(title), content: Text(message), actions: [
     TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
