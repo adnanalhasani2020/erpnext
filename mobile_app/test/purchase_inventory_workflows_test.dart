@@ -976,4 +976,70 @@ void main() {
     }
   });
 
+
+  test('purchase invoice and receipt reject finite line values whose totals overflow', () async {
+    final api = FrappeApi();
+    await expectLater(
+      api.createPurchaseInvoice({
+        'doctype': 'Purchase Invoice', 'company': 'COMP-1', 'supplier': 'SUP-1',
+        'items': [{'item_code': 'ITEM-1', 'qty': 1e308, 'rate': 1e308}],
+      }),
+      throwsFormatException,
+    );
+    await expectLater(
+      api.createPurchaseReceipt({
+        'doctype': 'Purchase Receipt', 'company': 'COMP-1', 'supplier': 'SUP-1',
+        'items': [{
+          'item_code': 'ITEM-1', 'qty': 1e308, 'rate': 1e308,
+          'warehouse': 'WH-1',
+        }],
+      }),
+      throwsFormatException,
+    );
+    api.dispose();
+  });
+
+  test('purchase receipt and stock creation require confirmed draft document identity', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      await request.drain<void>();
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'data': {
+        'doctype': 'Wrong Doctype', 'name': 'DRAFT-1', 'docstatus': 1,
+      }}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:' + server.port.toString());
+    try {
+      await expectLater(
+        api.createPurchaseReceipt({
+          'doctype': 'Purchase Receipt', 'company': 'COMP-1', 'supplier': 'SUP-1',
+          'items': [{'item_code': 'ITEM-1', 'qty': 1, 'rate': 2, 'warehouse': 'WH-1'}],
+        }),
+        throwsException,
+      );
+      await expectLater(
+        api.createStockEntry(
+          company: 'COMP-1',
+          purpose: 'Material Transfer',
+          fromWarehouse: 'WH-1',
+          toWarehouse: 'WH-2',
+          items: [{'item_code': 'ITEM-1', 'qty': 1}],
+        ),
+        throwsException,
+      );
+      await expectLater(
+        api.createStockReconciliation(
+          company: 'COMP-1',
+          warehouse: 'WH-1',
+          items: [{'item_code': 'ITEM-1', 'qty': 1}],
+        ),
+        throwsException,
+      );
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
 }
