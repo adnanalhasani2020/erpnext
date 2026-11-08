@@ -505,7 +505,7 @@ class FrappeApi {
   }
 
   Future<Map<String, dynamic>> submitSalesWorkflowDocument(String doctype, String name) async {
-    final actionKey = 'submit-sales-doc:${name}';
+    final actionKey = 'submit-sales-doc:$name';
     if (!_inFlightSalesActions.add(actionKey)) {
       throw const FormatException('ترحيل مستند المبيعات قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
     }
@@ -527,7 +527,7 @@ class FrappeApi {
   }
 
   Future<Map<String, dynamic>> cancelSalesWorkflowDocument(String doctype, String name) async {
-    final actionKey = 'cancel-sales-doc:${name}';
+    final actionKey = 'cancel-sales-doc:$name';
     if (!_inFlightSalesActions.add(actionKey)) {
       throw const FormatException('إلغاء مستند المبيعات قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
     }
@@ -723,7 +723,7 @@ class FrappeApi {
     required double amount,
     String? bankAccount,
   }) async {
-    final actionKey = 'receipt:${invoiceName}';
+    final actionKey = 'receipt:$invoiceName';
     if (!_inFlightSalesActions.add(actionKey)) {
       throw const FormatException('تسجيل دفعة هذه الفاتورة قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
     }
@@ -882,7 +882,7 @@ class FrappeApi {
   }
 
   Future<Map<String, dynamic>> createSalesReturn(String invoiceName) async {
-    final actionKey = 'return:${invoiceName}';
+    final actionKey = 'return:$invoiceName';
     if (!_inFlightSalesActions.add(actionKey)) {
       throw const FormatException('إنشاء مرتجع هذه الفاتورة قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
     }
