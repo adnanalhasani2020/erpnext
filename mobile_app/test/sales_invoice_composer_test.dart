@@ -15,6 +15,10 @@ void main() {
       api.submitSalesInvoice({'doctype': 'Sales Invoice'}),
       throwsFormatException,
     );
+    await expectLater(
+      api.cancelSalesInvoice({'doctype': 'Sales Invoice', 'name': 'SINV-1', 'docstatus': 0}),
+      throwsFormatException,
+    );
     api.dispose();
   });
 
