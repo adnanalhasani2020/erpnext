@@ -201,7 +201,7 @@ class FrappeApi {
 
   Future<List<ErpSalesInvoice>> fetchSalesInvoices({int start = 0, String? search}) async {
     final uri = Uri.parse('$_baseUrl/api/resource/Sales%20Invoice').replace(queryParameters: {
-      'fields': jsonEncode(['name', 'customer', 'customer_name', 'posting_date', 'due_date', 'currency', 'grand_total', 'outstanding_amount', 'status']),
+      'fields': jsonEncode(['name', 'customer', 'customer_name', 'posting_date', 'due_date', 'currency', 'grand_total', 'outstanding_amount', 'status', 'is_return', 'return_against']),
       'limit_page_length': pageSize.toString(),
       if (search != null && search.trim().isNotEmpty) 'or_filters': jsonEncode(["name","customer","customer_name"].map((field) => [field, 'like', '%${search.trim()}%']).toList()),
       'limit_start': (start < 0 ? 0 : start).toString(), 'order_by': 'posting_date desc, name desc',
