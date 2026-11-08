@@ -17,6 +17,13 @@ class PurchaseWorkflowPage extends StatefulWidget {
 class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
   List<ErpPurchaseInvoice> rows = [];
   List<Map<String, dynamic>> supplierPayments = [];
+  List<Map<String, dynamic>> supplierLedger = [];
+  String? selectedLedgerSupplier;
+  bool ledgerLoading = false;
+  bool ledgerLoadingMore = false;
+  bool ledgerHasMore = false;
+  int ledgerOffset = 0;
+  String? ledgerError;
   bool loading = false;
   bool loadingMore = false;
   bool hasMore = false;
@@ -54,6 +61,33 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       loading = false;
     });
   }
+  Future<void> loadSupplierLedger({bool append = false}) async {
+    final supplier = selectedLedgerSupplier;
+    if (supplier == null || supplier.isEmpty) return;
+    if (append && (ledgerLoadingMore || !ledgerHasMore)) return;
+    if (!append && ledgerLoading) return;
+    setState(() {
+      if (append) { ledgerLoadingMore = true; } else { ledgerLoading = true; ledgerError = null; }
+    });
+    try {
+      final result = await widget.api.fetchSupplierLedger(
+        supplier: supplier,
+        start: append ? ledgerOffset : 0,
+      );
+      if (!mounted) return;
+      setState(() {
+        supplierLedger = append ? [...supplierLedger, ...result] : result;
+        ledgerOffset = (append ? ledgerOffset : 0) + result.length;
+        ledgerHasMore = result.length == FrappeApi.pageSize;
+        ledgerError = null;
+      });
+    } catch (e) {
+      if (mounted) setState(() => ledgerError = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() { ledgerLoading = false; ledgerLoadingMore = false; });
+    }
+  }
+
   Future<void> loadMorePayments() async {
     if (loading || loadingMorePayments || !hasMorePayments) return;
     setState(() => loadingMorePayments = true);
@@ -557,6 +591,60 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
           onPressed: loadingMorePayments ? null : loadMorePayments,
           icon: loadingMorePayments ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.expand_more),
           label: const Text('تحميل دفعات إضافية'),
+        )),
+      const Divider(height: 32),
+      Text('كشف حساب المورد', style: Theme.of(context).textTheme.titleMedium),
+      const Text('يعرض القيود المحاسبية المرحلة للمورد من دفتر الأستاذ العام في ERPNext.'),
+      DropdownButtonFormField<String>(
+        initialValue: selectedLedgerSupplier,
+        isExpanded: true,
+        decoration: const InputDecoration(labelText: 'اختر المورد'),
+        items: widget.suppliers.map((supplier) => DropdownMenuItem(
+          value: supplier.id,
+          child: Text('${supplier.name} (${supplier.id})', overflow: TextOverflow.ellipsis),
+        )).toList(),
+        onChanged: (value) {
+          setState(() {
+            selectedLedgerSupplier = value;
+            supplierLedger = [];
+            ledgerOffset = 0;
+            ledgerHasMore = false;
+            ledgerError = null;
+          });
+          loadSupplierLedger();
+        },
+      ),
+      Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: TextButton.icon(
+          onPressed: selectedLedgerSupplier == null || ledgerLoading ? null : () => loadSupplierLedger(),
+          icon: const Icon(Icons.refresh),
+          label: const Text('تحديث كشف الحساب'),
+        ),
+      ),
+      if (ledgerLoading) const LinearProgressIndicator(),
+      if (ledgerError != null) Text(ledgerError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+      if (selectedLedgerSupplier != null && supplierLedger.isEmpty && !ledgerLoading && ledgerError == null)
+        const ListTile(leading: Icon(Icons.account_balance_outlined), title: Text('لا توجد قيود ظاهرة لهذا المورد.')),
+      ...supplierLedger.map((entry) {
+        final debit = double.tryParse(entry['debit']?.toString() ?? '') ?? 0;
+        final credit = double.tryParse(entry['credit']?.toString() ?? '') ?? 0;
+        return Card(child: ListTile(
+          leading: const Icon(Icons.receipt_long_outlined),
+          title: Text('${entry['voucher_type'] ?? 'قيد'} • ${entry['voucher_no'] ?? '—'}'),
+          subtitle: Text('${entry['posting_date'] ?? '—'} • ${entry['account'] ?? ''}\n${entry['remarks'] ?? entry['against'] ?? ''}'),
+          isThreeLine: true,
+          trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+            Text('مدين ${debit.toStringAsFixed(2)}'),
+            Text('دائن ${credit.toStringAsFixed(2)}'),
+          ]),
+        ));
+      }),
+      if (ledgerHasMore || ledgerLoadingMore)
+        Center(child: TextButton.icon(
+          onPressed: ledgerLoadingMore ? null : () => loadSupplierLedger(append: true),
+          icon: ledgerLoadingMore ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.expand_more),
+          label: const Text('تحميل قيود إضافية'),
         )),
       const SizedBox(height: 90),
     ]),
