@@ -27,7 +27,7 @@ void main() {
           api: api,
           companies: const [],
           suppliers: const [],
-          items: const [],
+          items: const [ErpItem(code: 'ITEM-42', name: 'صنف تجريبي')],
           warehouses: const [],
           initialItemCode: 'ITEM-42',
         ),
