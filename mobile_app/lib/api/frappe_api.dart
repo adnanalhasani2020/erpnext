@@ -135,7 +135,7 @@ class FrappeApi {
     final uri = buildResourcePageUri(
       baseUrl: _baseUrl,
       resource: 'Item',
-      fields: ['item_code', 'item_name', 'item_group', 'stock_uom', 'is_stock_item'],
+      fields: ['item_code', 'item_name', 'item_group', 'stock_uom', 'is_stock_item', 'has_serial_no', 'has_batch_no'],
       filters: [['disabled', '=', 0]],
       orFilters: search == null || search.trim().isEmpty
           ? null
