@@ -609,6 +609,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       _supplierSearchController.clear();
       _purchaseInvoiceSearchController.clear();
       _passwordController.clear();
+      _showPassword = false;
       _error = null;
       _busy = true;
       _companies = const [];
