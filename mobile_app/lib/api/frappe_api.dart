@@ -1290,9 +1290,11 @@ class FrappeApi {
     // Never submit a stale object supplied by the screen. Re-read the canonical
     // server document immediately before submission and verify its identity/state.
     final name = (doc['name'] as String).trim();
-    final current = doctype == 'Payment Entry'
-        ? await _fetchPaymentEntryDraft(name)
-        : await fetchStockDocument(doctype, name);
+    final current = switch (doctype) {
+      'Payment Entry' => await _fetchPaymentEntryDraft(name),
+      'Purchase Invoice' => await fetchInvoiceDocument('Purchase Invoice', name),
+      _ => await fetchStockDocument(doctype, name),
+    };
     if (current['doctype'] != doctype || current['name'] != name || current['docstatus'] != 0) {
       throw const FormatException('تغيرت حالة المسودة على الخادم؛ حدّث قائمة المستندات قبل محاولة الترحيل.');
     }
