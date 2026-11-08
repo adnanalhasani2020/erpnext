@@ -439,6 +439,23 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
           ],
           if (doc['docstatus'] == 1 && (doc['is_return'] == 1 || doc['is_return'] == true))
             const ListTile(leading: Icon(Icons.check_circle_outline), title: Text('المرتجع مرحّل بالفعل')),
+          if (doc['docstatus'] == 1 && doc['is_return'] != 1 && doc['is_return'] != true)
+            OutlinedButton.icon(
+              onPressed: () async {
+                if (!await confirm('إلغاء فاتورة المشتريات', 'سيطلب التطبيق من ERPNext إلغاء الفاتورة وعكس أثرها المحاسبي والمخزني وفق قواعد النظام. قد يرفض ERPNext الإلغاء إذا وُجدت دفعات أو مرتجعات أو مستندات مرتبطة.')) return;
+                try {
+                  final canceled = await widget.api.cancelPurchaseInvoice(name);
+                  if (sheet.mounted) Navigator.pop(sheet);
+                  notice('أكد ERPNext إلغاء الفاتورة ' + (canceled['name'] ?? name).toString());
+                  await load();
+                  widget.onChanged?.call();
+                } catch (e) {
+                  notice(e.toString().replaceFirst('Exception: ', ''));
+                }
+              },
+              icon: const Icon(Icons.cancel_outlined),
+              label: const Text('إلغاء الفاتورة المرحلة'),
+            ),
         ]))));
     } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
   }
