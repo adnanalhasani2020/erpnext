@@ -542,10 +542,10 @@ class FrappeApi {
     final source = await fetchSalesWorkflowDocument(sourceDoctype, sourceName);
     if (source['docstatus'] != 1) throw const FormatException('يجب ترحيل المستند الأصلي قبل إنشاء المستند التالي.');
     final method = switch ('\$sourceDoctype>\$targetDoctype') {
-      'Quotation>Sales Order' => 'erpnext.selling.doctype.quotation.quotation.make_sales_order',
-      'Sales Order>Delivery Note' => 'erpnext.selling.doctype.sales_order.sales_order.make_delivery_note',
-      'Sales Order>Sales Invoice' => 'erpnext.selling.doctype.sales_order.sales_order.make_sales_invoice',
-      'Delivery Note>Sales Invoice' => 'erpnext.stock.doctype.delivery_note.delivery_note.make_sales_invoice',
+      'Quotation>Sales Order' => 'erpnext.selling.doctype.quotation.mapper.make_sales_order',
+      'Sales Order>Delivery Note' => 'erpnext.selling.doctype.sales_order.mapper.make_delivery_note',
+      'Sales Order>Sales Invoice' => 'erpnext.selling.doctype.sales_order.mapper.make_sales_invoice',
+      'Delivery Note>Sales Invoice' => 'erpnext.stock.doctype.delivery_note.mapper.make_sales_invoice',
       _ => throw const FormatException('مسار التحويل غير مدعوم.'),
     };
     final mapped = await _sendJson('POST', '/api/method/\$method', {'source_name': sourceName});
