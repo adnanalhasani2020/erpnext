@@ -818,7 +818,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
               for (final row in rows) {
                 final source = row['source'] as Map<String, dynamic>;
                 final code = source['item_code'].toString();
-                final item = widget.items.where((x) => x.code == code).firstOrNull;
+                final matchingItems = widget.items.where((x) => x.code == code).toList();
+                final item = matchingItems.isEmpty ? null : matchingItems.first;
                 final remaining = (double.tryParse(source['qty']?.toString() ?? '') ?? 0) -
                     (double.tryParse(source['received_qty']?.toString() ?? '') ?? 0);
                 final qty = double.tryParse((row['qty'] as TextEditingController).text.trim());
