@@ -720,6 +720,198 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     }
   }
 
+  Future<List<Map<String, dynamic>>?> _purchaseOrderReceiptLinesDialog(
+      Map<String, dynamic> order) async {
+    final orderItems = (order['items'] as List? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .where((row) {
+          final ordered = double.tryParse(row['qty']?.toString() ?? '') ?? 0;
+          final received = double.tryParse(row['received_qty']?.toString() ?? '') ?? 0;
+          return ordered - received > 0.000001 &&
+              row['name'] is String && row['item_code'] is String;
+        }).toList();
+    if (orderItems.isEmpty) {
+      notice('لا توجد كميات متبقية للاستلام في أمر الشراء.');
+      return null;
+    }
+    final rows = <Map<String, dynamic>>[];
+    for (final source in orderItems) {
+      final remaining = (double.tryParse(source['qty']?.toString() ?? '') ?? 0) -
+          (double.tryParse(source['received_qty']?.toString() ?? '') ?? 0);
+      final itemCode = source['item_code'].toString();
+      final item = widget.items.where((x) => x.code == itemCode).firstOrNull;
+      final suggestedWarehouse = source['warehouse']?.toString();
+      final availableWarehouses = widget.warehouses.where((w) =>
+          w.company == null || w.company == order['company']).toList();
+      rows.add({
+        'source': source,
+        'qty': TextEditingController(text: remaining.toString()),
+        'rate': TextEditingController(text: (source['rate'] ?? 0).toString()),
+        'warehouse': availableWarehouses.any((w) => w.id == suggestedWarehouse)
+            ? suggestedWarehouse
+            : null,
+      });
+      if (item == null) {
+        // Keep the row visible; the master-data validation below will explain
+        // when the selected company's item list is incomplete.
+      }
+    }
+    try {
+      return await showDialog<List<Map<String, dynamic>>>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(builder: (context, refresh) => AlertDialog(
+          title: Text('استلام من أمر الشراء \${order['name']}'),
+          content: SizedBox(width: 520, child: SingleChildScrollView(child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('تظهر الكميات المتبقية فقط. لا يمكن استلام كمية أكبر من المتبقي في كل بند.'),
+              ...List.generate(rows.length, (index) {
+                final row = rows[index];
+                final source = row['source'] as Map<String, dynamic>;
+                final code = source['item_code'].toString();
+                final item = widget.items.where((x) => x.code == code).firstOrNull;
+                final remaining = (double.tryParse(source['qty']?.toString() ?? '') ?? 0) -
+                    (double.tryParse(source['received_qty']?.toString() ?? '') ?? 0);
+                final warehouses = widget.warehouses.where((w) =>
+                    w.company == null || w.company == order['company']).toList();
+                return Card(margin: const EdgeInsets.only(bottom: 8), child: Padding(
+                  padding: const EdgeInsets.all(10), child: Column(children: [
+                    Row(children: [
+                      Expanded(child: Text('\${source['item_name'] ?? code}',
+                          style: const TextStyle(fontWeight: FontWeight.w600))),
+                      if (rows.length > 1) IconButton(
+                        tooltip: 'استبعاد البند',
+                        onPressed: () => refresh(() {
+                          final removed = rows.removeAt(index);
+                          (removed['qty'] as TextEditingController).dispose();
+                          (removed['rate'] as TextEditingController).dispose();
+                        }),
+                        icon: const Icon(Icons.delete_outline),
+                      ),
+                    ]),
+                    Text('المتبقي من أمر الشراء: \${remaining.toStringAsFixed(3)}'
+                        '\${item == null ? ' • الصنف غير موجود ضمن البيانات المحمّلة' : ''}'),
+                    _field(row['qty'] as TextEditingController, 'الكمية المستلمة', number: true),
+                    _field(row['rate'] as TextEditingController, 'سعر الوحدة', number: true),
+                    DropdownButtonFormField<String>(
+                      value: row['warehouse'] as String?,
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: 'مستودع الاستلام'),
+                      items: [
+                        const DropdownMenuItem<String>(value: null, child: Text('اختر المستودع')),
+                        ...warehouses.map((w) => DropdownMenuItem(value: w.id,
+                          child: Text('\${w.name} (\${w.id})', overflow: TextOverflow.ellipsis))),
+                      ],
+                      onChanged: (v) => refresh(() => row['warehouse'] = v),
+                    ),
+                  ]),
+                ));
+              }),
+            ],
+          ))),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+            FilledButton(onPressed: () {
+              final result = <Map<String, dynamic>>[];
+              for (final row in rows) {
+                final source = row['source'] as Map<String, dynamic>;
+                final code = source['item_code'].toString();
+                final item = widget.items.where((x) => x.code == code).firstOrNull;
+                final remaining = (double.tryParse(source['qty']?.toString() ?? '') ?? 0) -
+                    (double.tryParse(source['received_qty']?.toString() ?? '') ?? 0);
+                final qty = double.tryParse((row['qty'] as TextEditingController).text.trim());
+                final rate = double.tryParse((row['rate'] as TextEditingController).text.trim());
+                if (item == null || item.hasSerialNo || item.hasBatchNo) {
+                  notice('الصنف \${item?.name ?? code} غير متاح أو يتطلب أرقاماً تسلسلية / دفعات غير مدعومة في هذه الشاشة.');
+                  return;
+                }
+                if (qty == null || !qty.isFinite || qty <= 0 || qty > remaining + 0.000001 ||
+                    rate == null || !rate.isFinite || rate < 0 ||
+                    row['warehouse'] is! String || (row['warehouse'] as String).isEmpty) {
+                  notice('تحقق من الكمية المتبقية والسعر ومستودع كل بند.');
+                  return;
+                }
+                result.add({
+                  'item_code': code,
+                  'qty': qty,
+                  'rate': rate,
+                  'warehouse': row['warehouse'],
+                  'purchase_order': order['name'],
+                  'purchase_order_item': source['name'],
+                });
+              }
+              if (result.isNotEmpty) Navigator.pop(dialogContext, result);
+            }, child: const Text('إنشاء سند الاستلام')),
+          ],
+        )),
+      );
+    } finally {
+      for (final row in rows) {
+        (row['qty'] as TextEditingController).dispose();
+        (row['rate'] as TextEditingController).dispose();
+      }
+    }
+  }
+
+  Future<void> purchaseReceiptFromOrder() async {
+    try {
+      final orders = await widget.api.fetchPurchaseOrders();
+      if (!mounted) return;
+      if (orders.isEmpty) {
+        notice('لا توجد أوامر شراء مرحلة متاحة، أو لا تتوفر صلاحية قراءتها.');
+        return;
+      }
+      var selected = orders.first['name'].toString();
+      final orderName = await showDialog<String>(
+        context: context,
+        builder: (c) => StatefulBuilder(builder: (context, refresh) => AlertDialog(
+          title: const Text('اختيار أمر شراء'),
+          content: DropdownButtonFormField<String>(
+            value: selected,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'أمر الشراء المرحّل'),
+            items: orders.map((order) => DropdownMenuItem(
+              value: order['name'].toString(),
+              child: Text('\${order['name']} • \${order['supplier_name'] ?? order['supplier'] ?? ''}',
+                  overflow: TextOverflow.ellipsis),
+            )).toList(),
+            onChanged: (v) => refresh(() { if (v != null) selected = v; }),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c), child: const Text('إلغاء')),
+            FilledButton(onPressed: () => Navigator.pop(c, selected), child: const Text('متابعة')),
+          ],
+        )),
+      );
+      if (orderName == null || !mounted) return;
+      final order = await widget.api.fetchPurchaseOrderDocument(orderName);
+      final lines = await _purchaseOrderReceiptLinesDialog(order);
+      if (lines == null || !mounted) return;
+      final doc = await widget.api.createPurchaseReceipt({
+        'doctype': 'Purchase Receipt',
+        'company': order['company'],
+        'supplier': order['supplier'],
+        'posting_date': DateTime.now().toIso8601String().substring(0, 10),
+        'items': lines,
+      });
+      if (await confirm('ترحيل سند الاستلام',
+          'تم إنشاء \${doc['name'] ?? ''} وربطه بأمر الشراء \${orderName}. سيتم تحديث الكميات المستلمة في الأمر والمخزون.')) {
+        try {
+          final submitted = await widget.api.submitPurchaseReceipt(doc);
+          notice('تم ترحيل سند الاستلام \${submitted['name'] ?? doc['name']}');
+          await load();
+          widget.onChanged?.call();
+        } catch (e) {
+          notice('حُفظ سند الاستلام \${doc['name'] ?? ''} كمسودة. راجعه قبل إنشاء سند آخر. \${e.toString().replaceFirst('Exception: ', '')}');
+        }
+      } else {
+        notice('حُفظت مسودة سند الاستلام \${doc['name'] ?? ''}');
+      }
+    } catch (e) {
+      notice(e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
   Future<void> purchaseReceipt() async {
     if (widget.companies.isEmpty || widget.suppliers.isEmpty || widget.items.isEmpty || widget.warehouses.isEmpty) {
       notice('حمّل الشركات والموردين والأصناف والمستودعات أولاً.');
