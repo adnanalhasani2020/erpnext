@@ -275,16 +275,81 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
               catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
             }, child: const Text('تسجيل دفعة المورد')),
             OutlinedButton(onPressed: () async {
-              if (!await confirm('إنشاء مرتجع كامل', 'سيجهز ERPNext مسودة مرتجع بجميع بنود وكميات الفاتورة الأصلية. المرتجع الجزئي غير مدعوم من هذه الشاشة حالياً؛ لا تتابع إذا كنت تريد إرجاع جزء من البضاعة فقط. لن يتم ترحيل المرتجع إلا بعد مراجعته.')) return;
-              try { final result = await widget.api.createPurchaseReturn(name); if (sheet.mounted) Navigator.pop(sheet); notice('تم إنشاء مسودة المرتجع ' + (result['name'] ?? '').toString()); await load(); }
-              catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
-            }, child: const Text('إنشاء مرتجع كامل')),
+              final quantities = await _purchaseReturnQuantitiesDialog(doc);
+              if (quantities == null || quantities.isEmpty) return;
+              try {
+                final result = await widget.api.createPurchaseReturn(name, quantitiesBySourceItem: quantities);
+                if (sheet.mounted) Navigator.pop(sheet);
+                notice('تم إنشاء مسودة المرتجع ' + (result['name'] ?? '').toString());
+                await load();
+              } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
+            }, child: const Text('إنشاء مرتجع / إرجاع جزئي')),
           ],
           if (doc['docstatus'] == 1 && (doc['is_return'] == 1 || doc['is_return'] == true))
             const ListTile(leading: Icon(Icons.check_circle_outline), title: Text('المرتجع مرحّل بالفعل')),
         ]))));
     } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
   }
+  Future<Map<String, double?>?> _purchaseReturnQuantitiesDialog(Map<String, dynamic> invoice) async {
+    final sourceItems = (invoice['items'] as List? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .where((row) => row['name'] is String && (row['name'] as String).isNotEmpty)
+        .toList();
+    if (sourceItems.isEmpty) {
+      notice('لا توجد بنود مصدر صالحة لتجهيز المرتجع.');
+      return null;
+    }
+    final controllers = <String, TextEditingController>{};
+    for (final row in sourceItems) {
+      final name = row['name'].toString();
+      final quantity = double.tryParse(row['qty']?.toString() ?? '') ?? 0;
+      controllers[name] = TextEditingController(text: quantity.abs().toString());
+    }
+    try {
+      return await showDialog<Map<String, double?>>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('كميات مرتجع المشتريات'),
+          content: SizedBox(width: 480, child: SingleChildScrollView(child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('اكتب الكمية التي تريد إرجاعها لكل بند. اكتب صفر لتجاوز البند. سيتحقق ERPNext من الكمية المتبقية بعد المرتجعات السابقة.'),
+              const SizedBox(height: 12),
+              ...sourceItems.map((row) {
+                final name = row['name'].toString();
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text((row['item_name'] ?? row['item_code'] ?? name).toString(),
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Text('الكمية الأصلية: \${row['qty'] ?? '—'}'),
+                    _field(controllers[name]!, 'الكمية المراد إرجاعها (صفر للتجاوز)', number: true),
+                  ]),
+                );
+              }),
+            ],
+          ))),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+            FilledButton(onPressed: () {
+              final result = <String, double?>{};
+              for (final entry in controllers.entries) {
+                final value = double.tryParse(entry.value.text.trim());
+                if (value == null || !value.isFinite || value < 0) return;
+                result[entry.key] = value;
+              }
+              if (result.values.any((value) => value != null && value > 0)) {
+                Navigator.pop(dialogContext, result);
+              }
+            }, child: const Text('إنشاء مسودة المرتجع')),
+          ],
+        ),
+      );
+    } finally {
+      for (final controller in controllers.values) { controller.dispose(); }
+    }
+  }
+
   Future<double?> _numberDialog(String title) async {
     final c = TextEditingController();
     try { return await showDialog<double>(context: context, builder: (ctx) => AlertDialog(title: Text(title), content: TextField(controller: c, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'المبلغ')), actions: [
