@@ -22,6 +22,7 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 - [ ] Verify API endpoints do not follow HTTP redirects and never forward session cookies to another host; a redirect should surface as a request failure.
 - [ ] Confirm the dashboard shows only records allowed by the user's permissions.
 - [ ] Remove read permission for one resource and confirm its failure does not hide unrelated resources.
+- [ ] Sign out while a resource request is still in flight; confirm its late response cannot restore cookies or repopulate the signed-out session.
 - [ ] Sign out and confirm the session is no longer usable.
 - [ ] Confirm no password or session cookie is persisted by the mobile app.
 
