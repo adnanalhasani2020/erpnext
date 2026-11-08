@@ -701,6 +701,10 @@ class FrappeApi {
         raw['party_type'] != 'Supplier' || raw['party'] != invoice['supplier']) {
       throw Exception('بيانات سند الصرف لا تطابق المورد المطلوب.');
     }
+    if (bankAccount != null && bankAccount.trim().isNotEmpty &&
+        raw['paid_from'] != bankAccount.trim()) {
+      throw Exception('حساب الصندوق أو البنك الذي جهزه ERPNext لا يطابق الحساب الذي اخترته.');
+    }
     final refs = raw['references'];
     if (refs is! List || refs.isEmpty) throw Exception('لم يربط ERPNext سند الصرف بالفاتورة.');
     var allocated = 0.0;
