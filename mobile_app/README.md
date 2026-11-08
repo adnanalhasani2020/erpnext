@@ -34,7 +34,7 @@ Arabic-first Android companion app for an ERPNext instance.
 
 ## ERPNext integration validation
 
-Before using purchase invoices, supplier payments, debit notes, stock entries, reconciliations, sales invoices, customer receipts, or returns operationally, validate them on a disposable ERPNext test site. Check permissions, taxes, payment allocations, stock ledger effects, valuation, and company/warehouse isolation. Automated Flutter tests do not replace live-site integration tests. Automated Flutter tests do not replace validation of ERPNext permissions, accounting entries, payment allocations, or stock ledgers.
+Before using purchase invoices, supplier payments, debit notes, stock entries, reconciliations, sales invoices, customer receipts, or returns operationally, validate them on a disposable ERPNext test site. Check permissions, taxes, payment allocations, stock ledger effects, valuation, and company/warehouse isolation. Automated Flutter tests do not replace live-site integration tests or validation of ERPNext permissions, accounting entries, payment allocations, and stock ledgers.
 
 ## Requirements
 
