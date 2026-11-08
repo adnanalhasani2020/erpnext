@@ -83,6 +83,32 @@ void main() {
       );
     });
 
+    test('allows a return draft to be submitted but never treated as a customer invoice payment', () {
+      expect(
+        InvoiceActionPolicy.canSubmitSalesDraft(
+          documentType: 'Sales Invoice',
+          docStatus: 0,
+        ),
+        isTrue,
+      );
+      expect(
+        InvoiceActionPolicy.canReceiveCustomerPayment(
+          documentType: 'Sales Invoice',
+          docStatus: 0,
+          outstandingAmount: 100,
+        ),
+        isFalse,
+      );
+      expect(
+        InvoiceActionPolicy.canCreateSalesReturn(
+          documentType: 'Sales Invoice',
+          docStatus: 1,
+          isReturn: true,
+        ),
+        isFalse,
+      );
+    });
+
     test('hides payment, cancellation, and return actions for ineligible states', () {
       expect(
         InvoiceActionPolicy.canReceiveCustomerPayment(
