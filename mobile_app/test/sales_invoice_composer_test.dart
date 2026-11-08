@@ -164,6 +164,7 @@ void main() {
         warehouses: const [
           ErpWarehouse(id: 'WH-A', name: 'مستودع الشركة أ', company: 'Company A'),
           ErpWarehouse(id: 'WH-B', name: 'مستودع الشركة ب', company: 'Company B'),
+          ErpWarehouse(id: 'WH-UNKNOWN', name: 'مستودع دون شركة'),
         ],
         companies: const [
           ErpCompany(name: 'Company A'),
