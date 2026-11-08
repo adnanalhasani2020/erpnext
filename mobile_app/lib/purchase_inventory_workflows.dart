@@ -776,6 +776,30 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       await load(); widget.onChanged?.call();
     } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
   }
+  Future<void> showMovementDetails(Map<String, dynamic> movement) async {
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (sheet) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: ListView(shrinkWrap: true, children: [
+            Text('تفاصيل حركة المخزون', style: Theme.of(context).textTheme.titleLarge),
+            ListTile(title: const Text('الصنف'), subtitle: Text((movement['item_code'] ?? '—').toString())),
+            ListTile(title: const Text('الشركة'), subtitle: Text((movement['company'] ?? '—').toString())),
+            ListTile(title: const Text('المستودع'), subtitle: Text((movement['warehouse'] ?? '—').toString())),
+            ListTile(title: const Text('التاريخ والوقت'), subtitle: Text('${movement['posting_date'] ?? '—'} • ${movement['posting_time'] ?? '—'}')),
+            ListTile(title: const Text('الكمية المتغيرة'), subtitle: Text((movement['actual_qty'] ?? '—').toString())),
+            ListTile(title: const Text('الرصيد بعد الحركة'), subtitle: Text((movement['qty_after_transaction'] ?? '—').toString())),
+            ListTile(title: const Text('المستند المصدر'), subtitle: Text('${movement['voucher_type'] ?? '—'} • ${movement['voucher_no'] ?? '—'}')),
+            ListTile(title: const Text('مرجع سجل المخزون'), subtitle: Text((movement['name'] ?? '—').toString())),
+          ]),
+        ),
+      ),
+    );
+  }
+
   Future<void> loadMoreMovements() async {
     if (loadingMore || !hasMore) return;
     setState(() => loadingMore = true);
@@ -1379,7 +1403,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       ...movements.map((x) => Card(child: ListTile(leading: const Icon(Icons.swap_horiz),
         title: Text((x['item_code'] ?? '—').toString() + ' • ' + (x['warehouse'] ?? '—').toString()),
         subtitle: Text((x['posting_date'] ?? '').toString() + ' • ' + (x['voucher_type'] ?? '').toString() + ' • ' + (x['voucher_no'] ?? '').toString()),
-        trailing: Text((x['actual_qty'] ?? 0).toString())))),
+        trailing: Text((x['actual_qty'] ?? 0).toString()),
+        onTap: () => showMovementDetails(x)))),
       if (hasMore || loadingMore) Center(child: TextButton.icon(onPressed: loadingMore ? null : loadMoreMovements, icon: loadingMore ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.expand_more), label: const Text('تحميل حركات إضافية'))),
     ]),
   );
