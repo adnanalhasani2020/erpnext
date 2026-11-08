@@ -19,6 +19,7 @@ on:
     branches:
       - feature/flutter-mobile-foundation
       - feature/flutter-sales-invoice-workflow
+      - feature/flutter-purchases-stock-workflows
     paths:
       - "mobile_app/lib/**"
       - "mobile_app/test/**"
