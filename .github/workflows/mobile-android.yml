@@ -73,6 +73,10 @@ jobs:
           wrapper = Path("android/gradle/wrapper/gradle-wrapper.properties")
           properties = wrapper.read_text()
           properties = properties.replace("-all.zip", "-bin.zip")
+          properties = properties.replace(
+              "services.gradle.org/distributions/",
+              "downloads.gradle.org/distributions/",
+          )
           if "networkTimeout=" not in properties:
               properties += "\nnetworkTimeout=120000"
           if "retries=" not in properties:
