@@ -322,7 +322,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text((row['item_name'] ?? row['item_code'] ?? name).toString(),
                       style: const TextStyle(fontWeight: FontWeight.w600)),
-                    Text('الكمية الأصلية: \${row['qty'] ?? '—'}'),
+                    Text('الكمية الأصلية: ${row['qty'] ?? '—'}'),
                     _field(controllers[name]!, 'الكمية المراد إرجاعها (صفر للتجاوز)', number: true),
                   ]),
                 );
