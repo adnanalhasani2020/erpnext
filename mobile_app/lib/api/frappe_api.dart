@@ -350,6 +350,57 @@ class FrappeApi {
     }
   }
 
+  Future<Map<String, dynamic>> updateDraftSalesInvoice({
+    required String invoiceName,
+    required Map<String, dynamic> changes,
+  }) async {
+    final normalizedName = invoiceName.trim();
+    if (normalizedName.isEmpty || changes['items'] is! List || (changes['items'] as List).isEmpty) {
+      throw const FormatException('رقم المسودة والبنود المطلوبة للتعديل غير مكتملة.');
+    }
+    final customer = changes['customer'];
+    final company = changes['company'];
+    if (customer is! String || customer.trim().isEmpty ||
+        company is! String || company.trim().isEmpty) {
+      throw const FormatException('حدد الشركة والعميل قبل حفظ التعديلات.');
+    }
+    for (final rawItem in changes['items'] as List) {
+      if (rawItem is! Map<String, dynamic> ||
+          rawItem['item_code'] is! String ||
+          (rawItem['item_code'] as String).trim().isEmpty) {
+        throw const FormatException('يوجد بند فاتورة دون رمز صنف صحيح.');
+      }
+      final qty = rawItem['qty'];
+      final rate = rawItem['rate'];
+      if (qty is! num || !qty.isFinite || qty <= 0 ||
+          rate is! num || !rate.isFinite || rate <= 0) {
+        throw const FormatException('تحقق من كمية وسعر كل بند في الفاتورة.');
+      }
+    }
+
+    final current = await fetchInvoiceDocument('Sales Invoice', normalizedName);
+    if (current['docstatus'] != 0) {
+      throw const FormatException('لا يمكن تعديل فاتورة إلا إذا كانت مسودة غير مرحلة.');
+    }
+    final payload = Map<String, dynamic>.from(current);
+    payload['customer'] = customer;
+    payload['company'] = company;
+    payload['posting_date'] = changes['posting_date'] ?? current['posting_date'];
+    payload['update_stock'] = changes['update_stock'] == true || changes['update_stock'] == 1 ? 1 : 0;
+    payload['items'] = changes['items'];
+
+    final response = await _sendJson('POST', '/api/method/frappe.client.save', {'doc': payload});
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر حفظ تعديلات مسودة فاتورة المبيعات.'));
+    }
+    final saved = data['message'];
+    if (saved is! Map<String, dynamic> || saved['name'] != normalizedName || saved['docstatus'] != 0) {
+      throw Exception('استجابة تحديث المسودة غير مؤكدة؛ افتح الفاتورة وتحقق من حالتها قبل إعادة المحاولة.');
+    }
+    return saved;
+  }
+
   Future<Map<String, dynamic>> createSalesReturn(String invoiceName) async {
     final normalizedName = invoiceName.trim();
     if (normalizedName.isEmpty) {
