@@ -23,6 +23,7 @@ void main() {
       api.receiveSalesInvoicePayment(invoiceName: 'SINV-1', amount: 0),
       throwsFormatException,
     );
+    await expectLater(api.createSalesReturn('  '), throwsFormatException);
     api.dispose();
   });
 
