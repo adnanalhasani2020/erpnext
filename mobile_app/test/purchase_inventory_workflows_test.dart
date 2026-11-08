@@ -913,4 +913,37 @@ void main() {
     );
     api.dispose();
   });
+
+  test('stock movement history filters by company, item and warehouse', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      expect(request.method, 'GET');
+      expect(request.uri.pathSegments, containsAll(['api', 'resource', 'Stock Ledger Entry']));
+      final filters = jsonDecode(request.uri.queryParameters['filters']!) as List;
+      expect(filters, [
+        ['item_code', '=', 'ITEM-1'],
+        ['warehouse', '=', 'WH-1'],
+        ['company', '=', 'COMP-1'],
+      ]);
+      expect(request.uri.queryParameters['limit_start'], '0');
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'data': [{
+        'name': 'SLE-1', 'item_code': 'ITEM-1', 'warehouse': 'WH-1',
+        'company': 'COMP-1', 'actual_qty': -2, 'qty_after_transaction': 8,
+      }]}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      final rows = await api.fetchStockMovements(
+        itemCode: 'ITEM-1', warehouse: 'WH-1', company: 'COMP-1',
+      );
+      expect(rows.single['name'], 'SLE-1');
+      expect(rows.single['company'], 'COMP-1');
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
 }
