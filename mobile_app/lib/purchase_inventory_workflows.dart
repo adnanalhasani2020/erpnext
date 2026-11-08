@@ -19,6 +19,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
   List<Map<String, dynamic>> supplierPayments = [];
   List<Map<String, dynamic>> supplierLedger = [];
   String? selectedLedgerSupplier;
+  String? selectedLedgerCompany;
   bool ledgerLoading = false;
   bool ledgerLoadingMore = false;
   bool ledgerHasMore = false;
@@ -72,6 +73,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     try {
       final result = await widget.api.fetchSupplierLedger(
         supplier: supplier,
+        company: selectedLedgerCompany,
         start: append ? ledgerOffset : 0,
       );
       if (!mounted) return;
@@ -623,6 +625,28 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
         onChanged: (value) {
           setState(() {
             selectedLedgerSupplier = value;
+            supplierLedger = [];
+            ledgerOffset = 0;
+            ledgerHasMore = false;
+            ledgerError = null;
+          });
+          loadSupplierLedger();
+        },
+      ),
+      DropdownButtonFormField<String>(
+        initialValue: selectedLedgerCompany,
+        isExpanded: true,
+        decoration: const InputDecoration(labelText: 'تصفية حسب الشركة'),
+        items: [
+          const DropdownMenuItem<String>(value: null, child: Text('كل الشركات')),
+          ...widget.companies.map((company) => DropdownMenuItem(
+            value: company.name,
+            child: Text(company.name, overflow: TextOverflow.ellipsis),
+          )),
+        ],
+        onChanged: (value) {
+          setState(() {
+            selectedLedgerCompany = value;
             supplierLedger = [];
             ledgerOffset = 0;
             ledgerHasMore = false;
