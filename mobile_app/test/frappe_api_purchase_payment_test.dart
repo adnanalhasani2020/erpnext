@@ -31,9 +31,9 @@ void main() {
             },
           };
         } else if (request.method == 'POST' &&
-            segments.length == 4 &&
-            segments[2] == 'method' &&
-            segments[3] == 'erpnext.accounts.doctype.payment_entry.payment_entry.get_payment_entry') {
+            segments.length == 3 &&
+            segments[1] == 'method' &&
+            segments[2] == 'erpnext.accounts.doctype.payment_entry.payment_entry.get_payment_entry') {
           response = {
             'message': {
               'doctype': 'Payment Entry',
@@ -93,9 +93,9 @@ void main() {
             },
           };
         } else if (request.method == 'POST' &&
-            segments.length == 4 &&
-            segments[2] == 'method' &&
-            segments[3] == 'frappe.client.submit') {
+            segments.length == 3 &&
+            segments[1] == 'method' &&
+            segments[2] == 'frappe.client.submit') {
           response = {
             'message': {
               'doctype': 'Payment Entry',
