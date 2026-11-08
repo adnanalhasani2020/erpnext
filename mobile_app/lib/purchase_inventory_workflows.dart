@@ -146,9 +146,10 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
 }
 
 class StockWorkflowPage extends StatefulWidget {
-  const StockWorkflowPage({super.key, required this.api, required this.companies, required this.items, required this.warehouses, this.onChanged});
+  const StockWorkflowPage({super.key, required this.api, required this.companies, required this.suppliers, required this.items, required this.warehouses, this.onChanged});
   final FrappeApi api;
   final List<ErpCompany> companies;
+  final List<ErpSupplier> suppliers;
   final List<ErpItem> items;
   final List<ErpWarehouse> warehouses;
   final VoidCallback? onChanged;
@@ -216,6 +217,54 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     finally { company.dispose(); item.dispose(); from.dispose(); to.dispose(); qty.dispose(); rate.dispose(); }
   }
 
+  Future<void> purchaseReceipt() async {
+    if (widget.companies.isEmpty || widget.suppliers.isEmpty || widget.items.isEmpty || widget.warehouses.isEmpty) {
+      notice('حمّل الشركات والموردين والأصناف والمستودعات أولاً.'); return;
+    }
+    final company = TextEditingController(text: widget.companies.first.name);
+    final supplier = TextEditingController(text: widget.suppliers.first.id);
+    final item = TextEditingController(text: widget.items.first.code);
+    final warehouse = TextEditingController();
+    final qty = TextEditingController(text: '1');
+    final rate = TextEditingController(text: '0');
+    try {
+      final ok = await showDialog<bool>(context: context, builder: (c) => AlertDialog(
+        title: const Text('استلام بضاعة من مورد'),
+        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+          _field(company, 'الشركة'), _field(supplier, 'رمز المورد'), _field(item, 'رمز الصنف'),
+          _field(warehouse, 'رمز مستودع الاستلام'), _field(qty, 'الكمية المستلمة', number: true),
+          _field(rate, 'سعر الوحدة', number: true),
+          const Text('ينشئ هذا الإجراء Purchase Receipt مستقلاً، ولا يرحّل فاتورة المورد تلقائياً.', style: TextStyle(fontSize: 12)),
+        ])),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
+          FilledButton(onPressed: () {
+            final q = double.tryParse(qty.text.trim()), r = double.tryParse(rate.text.trim());
+            if (company.text.trim().isNotEmpty && supplier.text.trim().isNotEmpty && item.text.trim().isNotEmpty &&
+                warehouse.text.trim().isNotEmpty && q != null && q > 0 && r != null && r >= 0) Navigator.pop(c, true);
+          }, child: const Text('إنشاء سند الاستلام')),
+        ],
+      ));
+      if (ok != true || !mounted) return;
+      final doc = await widget.api.createPurchaseReceipt({
+        'doctype': 'Purchase Receipt', 'company': company.text.trim(), 'supplier': supplier.text.trim(),
+        'posting_date': DateTime.now().toIso8601String().substring(0, 10),
+        'items': [{'item_code': item.text.trim(), 'qty': double.parse(qty.text.trim()),
+          'rate': double.parse(rate.text.trim()), 'warehouse': warehouse.text.trim()}],
+      });
+      if (await confirm('ترحيل سند الاستلام', 'تم إنشاء سند الاستلام ' + (doc['name'] ?? '').toString() + '. الترحيل سيضيف الكمية للمخزون.')) {
+        try {
+          final result = await widget.api.submitPurchaseReceipt(doc);
+          notice('تم ترحيل سند الاستلام ' + (result['name'] ?? doc['name']).toString());
+          await load(); widget.onChanged?.call();
+        } catch (e) {
+          notice('حُفظ سند الاستلام ' + (doc['name'] ?? '').toString() + ' كمسودة. راجعه قبل إنشاء سند آخر. ' + e.toString().replaceFirst('Exception: ', ''));
+        }
+      } else { notice('حُفظت مسودة سند الاستلام ' + (doc['name'] ?? '').toString()); }
+    } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
+    finally { company.dispose(); supplier.dispose(); item.dispose(); warehouse.dispose(); qty.dispose(); rate.dispose(); }
+  }
+
   Future<void> reconcile() async {
     if (widget.companies.isEmpty || widget.items.isEmpty || widget.warehouses.isEmpty) { notice('حمّل الشركات والأصناف والمستودعات أولاً.'); return; }
     final company = TextEditingController(text: widget.companies.first.name), warehouse = TextEditingController(), item = TextEditingController(text: widget.items.firstWhere((x) => x.isStockItem, orElse: () => widget.items.first).code), qty = TextEditingController(text: '0'), rate = TextEditingController(text: '0');
@@ -247,6 +296,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       const Text('الاستلام والصرف والتحويل والجرد تُنفّذ بمستندات ERPNext الرسمية. لا يتم تعديل Bin مباشرة.'),
       Wrap(spacing: 8, runSpacing: 8, children: [
         FilledButton.tonal(onPressed: () => movement('Material Receipt'), child: const Text('استلام مخزون')),
+        FilledButton.tonal(onPressed: purchaseReceipt, child: const Text('استلام مشتريات')),
         FilledButton.tonal(onPressed: () => movement('Material Issue'), child: const Text('صرف / تسليم')),
         FilledButton.tonal(onPressed: () => movement('Material Transfer'), child: const Text('تحويل')),
         FilledButton.icon(onPressed: reconcile, icon: const Icon(Icons.fact_check_outlined), label: const Text('جرد وتسوية')),
