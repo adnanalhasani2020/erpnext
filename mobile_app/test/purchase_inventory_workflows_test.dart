@@ -749,4 +749,71 @@ void main() {
     }
   });
 
+
+  test('draft deletion verifies document status and uses Frappe delete endpoint', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    var deleted = false;
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      if (request.method == 'GET' && request.uri.path.endsWith('/PINV-DRAFT')) {
+        request.response.write(jsonEncode({'data': {
+          'doctype': 'Purchase Invoice', 'name': 'PINV-DRAFT', 'docstatus': 0,
+        }}));
+      } else if (request.method == 'POST' && request.uri.path.endsWith('frappe.client.delete')) {
+        final body = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+        expect(body, {'doctype': 'Purchase Invoice', 'name': 'PINV-DRAFT'});
+        deleted = true;
+        request.response.write(jsonEncode({'message': 'Successfully deleted'}));
+      } else {
+        request.response.statusCode = 404;
+        request.response.write(jsonEncode({'message': 'unexpected path: ${request.uri.path}'}));
+      }
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      await api.deleteDraftDocument(doctype: 'Purchase Invoice', name: 'PINV-DRAFT');
+      expect(deleted, isTrue);
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
+  test('draft deletion refuses submitted documents before calling delete', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    var deleteCalled = false;
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      if (request.method == 'GET') {
+        request.response.write(jsonEncode({'data': {
+          'doctype': 'Stock Entry', 'name': 'STE-1', 'docstatus': 1,
+        }}));
+      } else {
+        deleteCalled = true;
+        request.response.statusCode = 500;
+      }
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      await expectLater(
+        api.deleteDraftDocument(doctype: 'Stock Entry', name: 'STE-1'),
+        throwsFormatException,
+      );
+      expect(deleteCalled, isFalse);
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
+  test('draft deletion rejects unsupported doctypes without network access', () async {
+    final api = FrappeApi();
+    await expectLater(
+      api.deleteDraftDocument(doctype: 'Sales Invoice', name: 'SINV-1'),
+      throwsFormatException,
+    );
+    api.dispose();
+  });
 }
