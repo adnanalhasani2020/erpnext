@@ -406,7 +406,7 @@ void main() {
     await tester.pumpWidget(const ErpNextMobileApp());
 
     expect(find.text('ERPNext للجوال'), findsOneWidget);
-    expect(find.text('رابط الخادم'), findsOneWidget);
+    expect(find.text('رابط خادم ERPNext'), findsOneWidget);
     expect(find.text('تسجيل الدخول'), findsOneWidget);
   });
 
