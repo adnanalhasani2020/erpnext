@@ -222,9 +222,18 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
           ],
           if (doc['docstatus'] == 1 && doc['is_return'] != 1 && doc['is_return'] != true) ...[
             OutlinedButton(onPressed: () async {
-              final amount = await _numberDialog('مبلغ دفعة المورد');
-              if (amount == null) return;
-              try { final result = await widget.api.payPurchaseInvoice(invoiceName: name, amount: amount); if (sheet.mounted) Navigator.pop(sheet); notice('تم ترحيل سند الصرف ' + (result['name'] ?? '').toString()); await load(); }
+              final payment = await _supplierPaymentDialog((doc['company'] ?? '').toString());
+              if (payment == null) return;
+              try {
+                final result = await widget.api.payPurchaseInvoice(
+                  invoiceName: name,
+                  amount: payment['amount'] as double,
+                  bankAccount: payment['account'] as String,
+                );
+                if (sheet.mounted) Navigator.pop(sheet);
+                notice('تم ترحيل سند الصرف ' + (result['name'] ?? '').toString());
+                await load();
+              }
               catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
             }, child: const Text('تسجيل دفعة المورد')),
             OutlinedButton(onPressed: () async {
@@ -245,6 +254,59 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       FilledButton(onPressed: () { final n = double.tryParse(c.text.trim()); if (n != null && n > 0 && n.isFinite) Navigator.pop(ctx, n); }, child: const Text('تأكيد')),
     ])); } finally { c.dispose(); }
   }
+  Future<Map<String, dynamic>?> _supplierPaymentDialog(String company) async {
+    try {
+      final accounts = await widget.api.fetchPaymentAccounts(company);
+      if (!mounted) return null;
+      if (accounts.isEmpty) {
+        notice('لا توجد حسابات صندوق أو بنك مفعّلة لهذه الشركة في ERPNext.');
+        return null;
+      }
+      final amount = TextEditingController();
+      var account = accounts.first.name;
+      try {
+        return await showDialog<Map<String, dynamic>>(
+          context: context,
+          builder: (c) => StatefulBuilder(builder: (context, refresh) => AlertDialog(
+            title: const Text('تسجيل دفعة المورد'),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextField(
+                controller: amount,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'مبلغ الدفعة'),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: account,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'حساب الصندوق / البنك'),
+                items: accounts.map((x) => DropdownMenuItem(
+                  value: x.name,
+                  child: Text('\${x.accountName} • \${x.accountType}', overflow: TextOverflow.ellipsis),
+                )).toList(),
+                onChanged: (v) => refresh(() { if (v != null) account = v; }),
+              ),
+            ]),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(c), child: const Text('إلغاء')),
+              FilledButton(onPressed: () {
+                final value = double.tryParse(amount.text.trim());
+                if (value != null && value > 0 && value.isFinite) {
+                  Navigator.pop(c, {'amount': value, 'account': account});
+                }
+              }, child: const Text('تأكيد الدفعة')),
+            ],
+          )),
+        );
+      } finally {
+        amount.dispose();
+      }
+    } catch (e) {
+      notice(e.toString().replaceFirst('Exception: ', ''));
+      return null;
+    }
+  }
+
   Widget _field(TextEditingController c, String label, {bool number = false}) => Padding(padding: const EdgeInsets.only(bottom: 8), child: TextField(controller: c, keyboardType: number ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text, decoration: InputDecoration(labelText: label)));
   @override Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('إدارة المشتريات'), actions: [IconButton(onPressed: load, icon: const Icon(Icons.refresh))]),
