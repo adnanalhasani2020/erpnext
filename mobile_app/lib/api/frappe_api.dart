@@ -400,7 +400,7 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().map(ErpPurchaseInvoice.fromJson).toList(growable: false);
   }
 
-  static const Set<String> salesWorkflowDoctypes = {'Quotation', 'Sales Order', 'Delivery Note'};
+  static const Set<String> salesWorkflowDoctypes = {'Quotation', 'Sales Order', 'Delivery Note', 'Sales Invoice'};
 
   String _salesWorkflowResource(String doctype) {
     if (!salesWorkflowDoctypes.contains(doctype)) {
@@ -450,6 +450,9 @@ class FrappeApi {
 
   void _validateSalesWorkflowDraft(String doctype, Map<String, dynamic> doc) {
     _salesWorkflowResource(doctype);
+    if (doctype != 'Quotation' && doctype != 'Sales Order') {
+      throw const FormatException('يُنشأ إذن التسليم والفاتورة من مستندات المبيعات الأصلية لضمان صحة الربط والكميات.');
+    }
     if (doctype == 'Delivery Note') {
       throw const FormatException('يتم إنشاء إذن التسليم من أمر البيع المرحّل لضمان ربط البنود والكميات.');
     }
