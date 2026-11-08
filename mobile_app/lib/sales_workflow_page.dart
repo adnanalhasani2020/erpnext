@@ -208,6 +208,10 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
           if (target == 'Sales Invoice') {
             widget.onChanged();
             widget.onSalesInvoiceDraftCreated(created);
+          } else if (target == 'Sales Order') {
+            _selectTab(1);
+          } else if (target == 'Delivery Note') {
+            _selectTab(2);
           }
         } catch (error) { _notice(error.toString().replaceFirst('Exception: ', '')); }
       },
