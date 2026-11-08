@@ -473,7 +473,13 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
             TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
             FilledButton(onPressed: () {
               final result = <Map<String, dynamic>>[];
+              final seenItems = <String>{};
               for (final row in lines) {
+                final itemCode = row['item'] as String;
+                if (allowZeroQuantity && !seenItems.add(itemCode)) {
+                  notice('لا تكرر الصنف نفسه في تسوية الجرد؛ اجمع كميته في سطر واحد.');
+                  return;
+                }
                 final qty = double.tryParse((row['qty'] as TextEditingController).text.trim());
                 final rate = double.tryParse((row['rate'] as TextEditingController).text.trim());
                 if (qty == null || !qty.isFinite ||
