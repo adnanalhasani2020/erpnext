@@ -285,6 +285,20 @@ class FrappeApi {
     if (submitted is Map<String, dynamic>) return submitted;
     return document;
   }
+  Future<Map<String, dynamic>> cancelSalesInvoice(Map<String, dynamic> document) async {
+    if (document['name'] is! String || document['name'].toString().isEmpty || document['docstatus'] != 1) {
+      throw const FormatException('لا يمكن إلغاء هذه الفاتورة؛ يجب أن تكون مرحّلة.');
+    }
+    final response = await _sendJson('POST', '/api/method/frappe.client.cancel', {'doc': document});
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر إلغاء فاتورة المبيعات (' + response.statusCode.toString() + ').'));
+    }
+    final cancelled = data['message'];
+    if (cancelled is Map<String, dynamic>) return cancelled;
+    return document;
+  }
+
   Future<Map<String, dynamic>> fetchInvoiceDocument(String documentType, String name) async {
     if (documentType != 'Sales Invoice' && documentType != 'Purchase Invoice') {
       throw ArgumentError.value(documentType, 'documentType', 'نوع المستند غير مدعوم.');
