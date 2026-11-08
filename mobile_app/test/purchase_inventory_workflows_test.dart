@@ -688,4 +688,65 @@ void main() {
     }
   });
 
+  test('supplier payment details verify submitted supplier payment and preserve invoice allocations', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      expect(request.method, 'GET');
+      expect(request.uri.path, '/api/resource/Payment%20Entry/PAY-SUP-1');
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'data': {
+        'doctype': 'Payment Entry',
+        'name': 'PAY-SUP-1',
+        'payment_type': 'Pay',
+        'party_type': 'Supplier',
+        'party': 'SUP-1',
+        'party_name': 'Supplier One',
+        'docstatus': 1,
+        'paid_amount': 125.5,
+        'references': [{
+          'reference_doctype': 'Purchase Invoice',
+          'reference_name': 'PINV-1',
+          'allocated_amount': 125.5,
+        }],
+      }}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      final payment = await api.fetchSupplierPaymentDocument('PAY-SUP-1');
+      expect(payment['party'], 'SUP-1');
+      expect((payment['references'] as List).single['reference_name'], 'PINV-1');
+      expect((payment['references'] as List).single['allocated_amount'], 125.5);
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
+  test('supplier payment details reject drafts and non-supplier payment entries', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'data': {
+        'doctype': 'Payment Entry',
+        'name': 'PAY-DRAFT',
+        'payment_type': 'Receive',
+        'party_type': 'Customer',
+        'docstatus': 0,
+        'references': [],
+      }}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      await expectLater(
+        api.fetchSupplierPaymentDocument('PAY-DRAFT'),
+        throwsFormatException,
+      );
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
 }
