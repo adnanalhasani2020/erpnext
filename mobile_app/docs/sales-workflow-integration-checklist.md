@@ -6,6 +6,8 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 
 - [ ] Use a non-administrator test user with only the roles and DocType permissions intended for mobile operators.
 - [ ] Create or select one company with a default receivable account, income account, cost center, and a valid price list.
+- [ ] If testing multiple companies, create at least two companies and one stock warehouse per company; verify the mobile composer only offers warehouses owned by the selected company and clears the prior warehouse when the company changes.
+- [ ] Confirm warehouses without a company value are never offered for stock issue.
 - [ ] Configure one enabled Cash account and one enabled Bank account for that company.
 - [ ] Create one stock item with a selling price and opening stock in a non-group warehouse.
 - [ ] Create one non-stock service item.
@@ -15,6 +17,7 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 ## Authentication and access
 
 - [ ] Sign in with the test user's credentials over HTTPS.
+- [ ] Verify API endpoints do not follow HTTP redirects and never forward session cookies to another host; a redirect should surface as a request failure.
 - [ ] Confirm the dashboard shows only records allowed by the user's permissions.
 - [ ] Remove read permission for one resource and confirm its failure does not hide unrelated resources.
 - [ ] Sign out and confirm the session is no longer usable.
