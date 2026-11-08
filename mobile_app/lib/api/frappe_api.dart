@@ -297,6 +297,41 @@ class FrappeApi {
     return document;
   }
 
+  Future<List<Map<String, dynamic>>> fetchSupplierLedger({
+    required String supplier, int start = 0, String? company,
+  }) async {
+    if (supplier.trim().isEmpty) {
+      throw const FormatException('حدد المورد لعرض كشف حسابه.');
+    }
+    final filters = <List<dynamic>>[
+      ['party_type', '=', 'Supplier'],
+      ['party', '=', supplier.trim()],
+      ['is_cancelled', '=', 0],
+    ];
+    if (company != null && company.trim().isNotEmpty) {
+      filters.add(['company', '=', company.trim()]);
+    }
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'GL Entry',
+      fields: const [
+        'name', 'posting_date', 'account', 'against', 'debit', 'credit',
+        'voucher_type', 'voucher_no', 'remarks', 'company', 'party',
+      ],
+      filters: filters,
+      orderBy: 'posting_date desc, creation desc, name desc',
+      start: start,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل كشف حساب المورد. تحقق من صلاحية قراءة GL Entry.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة كشف حساب المورد غير متوقعة.');
+    return rows.whereType<Map<String, dynamic>>().toList(growable: false);
+  }
+
   Future<List<Map<String, dynamic>>> fetchSupplierPayments({int start = 0, String? search}) async {
     final uri = buildResourcePageUri(
       baseUrl: _baseUrl,
