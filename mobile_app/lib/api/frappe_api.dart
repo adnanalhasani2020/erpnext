@@ -263,7 +263,7 @@ class FrappeApi {
     final response = await _sendJson('POST', '/api/resource/Sales%20Invoice', invoice);
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(data, 'تعذر حفظ فاتورة المبيعات (' + response.statusCode.toString() + ').'));
+      throw Exception(_message(data, 'تعذر حفظ فاتورة المبيعات (${response.statusCode}).'));
     }
     final document = data['data'];
     if (document is! Map<String, dynamic> || document['name'] is! String) {
@@ -279,7 +279,7 @@ class FrappeApi {
     final response = await _sendJson('POST', '/api/method/frappe.client.submit', {'doc': document});
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(data, 'تم حفظ المسودة، لكن تعذر ترحيل الفاتورة (' + response.statusCode.toString() + ').'));
+      throw Exception(_message(data, 'تم حفظ المسودة، لكن تعذر ترحيل الفاتورة (${response.statusCode}).'));
     }
     final submitted = data['message'];
     if (submitted is Map<String, dynamic>) return submitted;
@@ -499,7 +499,7 @@ class FrappeApi {
     final response = await _sendJson('POST', '/api/method/frappe.client.cancel', {'doc': document});
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(data, 'تعذر إلغاء فاتورة المبيعات (' + response.statusCode.toString() + ').'));
+      throw Exception(_message(data, 'تعذر إلغاء فاتورة المبيعات (${response.statusCode}).'));
     }
     final cancelled = data['message'];
     if (cancelled is Map<String, dynamic>) return cancelled;
