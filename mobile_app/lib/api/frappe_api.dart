@@ -270,6 +270,7 @@ class FrappeApi {
       orFilters: search == null || search.trim().isEmpty ? null : [
         ['name', 'like', '%${search.trim()}%'],
         ['supplier', 'like', '%${search.trim()}%'],
+        ['supplier_name', 'like', '%${search.trim()}%'],
       ],
       orderBy: 'transaction_date desc, name desc',
       start: start,
