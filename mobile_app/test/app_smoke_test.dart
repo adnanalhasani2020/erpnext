@@ -93,6 +93,18 @@ void main() {
     expect(uri.queryParameters['order_by'], 'item_code asc, warehouse asc');
   });
 
+  test('supports stable tie-breakers in paginated resource ordering', () {
+    final uri = FrappeApi.buildResourcePageUri(
+      baseUrl: 'https://erp.example.com',
+      resource: 'Item',
+      fields: ['item_code', 'item_name'],
+      orderBy: 'modified desc, item_code asc',
+      start: 200,
+    );
+    expect(uri.queryParameters['order_by'], 'modified desc, item_code asc');
+    expect(uri.queryParameters['limit_start'], '200');
+  });
+
   test('clamps invalid pagination offsets and page lengths', () {
     final uri = FrappeApi.buildResourcePageUri(
       baseUrl: 'https://erp.example.com',

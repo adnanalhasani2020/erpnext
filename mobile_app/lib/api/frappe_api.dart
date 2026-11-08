@@ -119,7 +119,7 @@ class FrappeApi {
               ['item_code', 'like', '%${search.trim()}%'],
               ['item_name', 'like', '%${search.trim()}%'],
             ],
-      orderBy: 'modified desc',
+      orderBy: 'modified desc, item_code asc',
       start: start,
     );
     final response = await _sendUri('GET', uri);
@@ -138,7 +138,7 @@ class FrappeApi {
       'filters': jsonEncode([['disabled', '=', 0], ['is_group', '=', 0]]),
       'limit_page_length': pageSize.toString(),
       'limit_start': (start < 0 ? 0 : start).toString(),
-      'order_by': 'warehouse_name asc',
+      'order_by': 'warehouse_name asc, name asc',
     });
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);
@@ -180,7 +180,7 @@ class FrappeApi {
       'filters': jsonEncode([['disabled', '=', 0]]),
       if (search != null && search.trim().isNotEmpty) 'or_filters': jsonEncode(["name","customer_name"].map((field) => [field, 'like', '%${search.trim()}%']).toList()),
       'limit_page_length': pageSize.toString(),
-      'limit_start': (start < 0 ? 0 : start).toString(), 'order_by': 'customer_name asc',
+      'limit_start': (start < 0 ? 0 : start).toString(), 'order_by': 'customer_name asc, name asc',
     });
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);
@@ -195,7 +195,7 @@ class FrappeApi {
       'fields': jsonEncode(['name', 'customer', 'customer_name', 'posting_date', 'due_date', 'currency', 'grand_total', 'outstanding_amount', 'status']),
       'limit_page_length': pageSize.toString(),
       if (search != null && search.trim().isNotEmpty) 'or_filters': jsonEncode(["name","customer","customer_name"].map((field) => [field, 'like', '%${search.trim()}%']).toList()),
-      'limit_start': (start < 0 ? 0 : start).toString(), 'order_by': 'posting_date desc',
+      'limit_start': (start < 0 ? 0 : start).toString(), 'order_by': 'posting_date desc, name desc',
     });
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);
@@ -210,7 +210,7 @@ class FrappeApi {
       'filters': jsonEncode([['disabled', '=', 0]]),
       if (search != null && search.trim().isNotEmpty) 'or_filters': jsonEncode(["name","supplier_name"].map((field) => [field, 'like', '%${search.trim()}%']).toList()),
       'limit_page_length': pageSize.toString(),
-      'limit_start': (start < 0 ? 0 : start).toString(), 'order_by': 'supplier_name asc',
+      'limit_start': (start < 0 ? 0 : start).toString(), 'order_by': 'supplier_name asc, name asc',
     });
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);
@@ -225,7 +225,7 @@ class FrappeApi {
       'fields': jsonEncode(['name', 'supplier', 'supplier_name', 'posting_date', 'due_date', 'currency', 'grand_total', 'outstanding_amount', 'status']),
       'limit_page_length': pageSize.toString(),
       if (search != null && search.trim().isNotEmpty) 'or_filters': jsonEncode(["name","supplier","supplier_name"].map((field) => [field, 'like', '%${search.trim()}%']).toList()),
-      'limit_start': (start < 0 ? 0 : start).toString(), 'order_by': 'posting_date desc',
+      'limit_start': (start < 0 ? 0 : start).toString(), 'order_by': 'posting_date desc, name desc',
     });
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);
