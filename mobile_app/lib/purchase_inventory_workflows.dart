@@ -188,7 +188,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       try { loadedDrafts.addAll(await widget.api.fetchDraftStockDocuments(type)); }
       catch (e) { draftErrors.add(type + ': ' + e.toString().replaceFirst('Exception: ', '')); }
     }
-    if (mounted) setState(() { drafts = loadedDrafts; draftError = draftErrors.isEmpty ? null : draftErrors.join('\\n'); });
+    if (mounted) setState(() { drafts = loadedDrafts; draftError = draftErrors.isEmpty ? null : draftErrors.join('\n'); });
     if (mounted) setState(() => loading = false);
   }
   Future<void> submitDraft(Map<String, dynamic> summary) async {
