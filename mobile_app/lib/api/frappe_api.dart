@@ -751,7 +751,7 @@ class FrappeApi {
   }
 
   Future<Map<String, dynamic>> _submitMobileDocument(Map<String, dynamic> doc, String doctype) async {
-    if (doc['doctype'] != doctype || doc['name'] is! String || doc['docstatus'] == 1) {
+    if (doc['doctype'] != doctype || doc['name'] is! String || doc['docstatus'] != 0) {
       throw FormatException('لا يمكن ترحيل المستند من النوع أو الحالة الحالية.');
     }
     final response = await _sendJson('POST', '/api/method/frappe.client.submit', {'doc': doc});
