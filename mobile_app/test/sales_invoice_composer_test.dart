@@ -11,7 +11,7 @@ List<DropdownMenuItem<T>> dropdownItems<T>(WidgetTester tester) {
       matching: find.byType(DropdownButton<T>),
     ),
   );
-  return dropdown.items ?? const <DropdownMenuItem<T>>[];
+  return dropdown.items ?? <DropdownMenuItem<T>>[];
 }
 
 void main() {
