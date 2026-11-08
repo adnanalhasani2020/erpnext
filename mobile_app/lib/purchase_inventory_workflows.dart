@@ -111,6 +111,20 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     }
   }
 
+  void resetSupplierLedgerForFilterChange() {
+    // Invalidate in-flight refreshes even when the supplier is cleared and
+    // loadSupplierLedger therefore has no request to start.
+    ledgerRequestId++;
+    setState(() {
+      supplierLedger = [];
+      ledgerOffset = 0;
+      ledgerHasMore = false;
+      ledgerError = null;
+      ledgerLoading = false;
+      ledgerLoadingMore = false;
+    });
+  }
+
   Future<void> loadMorePayments() async {
     if (loading || loadingMorePayments || !hasMorePayments) return;
     setState(() => loadingMorePayments = true);
@@ -644,13 +658,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
           child: Text('${supplier.name} (${supplier.id})', overflow: TextOverflow.ellipsis),
         )).toList(),
         onChanged: (value) {
-          setState(() {
-            selectedLedgerSupplier = value;
-            supplierLedger = [];
-            ledgerOffset = 0;
-            ledgerHasMore = false;
-            ledgerError = null;
-          });
+          setState(() => selectedLedgerSupplier = value);
+          resetSupplierLedgerForFilterChange();
           loadSupplierLedger();
         },
       ),
@@ -666,13 +675,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
           )),
         ],
         onChanged: (value) {
-          setState(() {
-            selectedLedgerCompany = value;
-            supplierLedger = [];
-            ledgerOffset = 0;
-            ledgerHasMore = false;
-            ledgerError = null;
-          });
+          setState(() => selectedLedgerCompany = value);
+          resetSupplierLedgerForFilterChange();
           loadSupplierLedger();
         },
       ),
