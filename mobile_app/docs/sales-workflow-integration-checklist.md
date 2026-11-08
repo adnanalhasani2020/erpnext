@@ -57,6 +57,19 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 - [ ] Cancel a submitted invoice only where ERPNext permits it; verify cancellation and reversal entries.
 - [ ] Confirm a return is clearly labeled in the mobile list and points to its original invoice.
 
+## Sales quotation, order, delivery, and billing lifecycle
+
+- [ ] Create a Quotation with multiple stock and service rows; verify customer, company, quantities, rates, taxes, and totals against ERPNext Desk.
+- [ ] Save and reopen a Quotation draft; edit the same document and verify its name and item rows remain stable.
+- [ ] Submit a Quotation and convert it to a Sales Order; verify source quotation and source item references are preserved.
+- [ ] Create a Sales Order with stock items; verify each stock row uses a warehouse belonging to the selected company and has a delivery date.
+- [ ] Submit the Sales Order; verify ERPNext reservations, status, and ordered quantities according to the site's stock settings.
+- [ ] Convert the submitted Sales Order into a Delivery Note; verify only remaining deliverable quantities are mapped and partial deliveries can be completed in later notes.
+- [ ] Submit the Delivery Note; verify Stock Ledger Entry and Bin changes exactly once.
+- [ ] Create a Sales Invoice from the Sales Order and from a submitted Delivery Note; verify source links, billed quantities, taxes, and outstanding amounts.
+- [ ] Verify ERPNext rejects invalid permissions, closed/cancelled source documents, over-delivery, and invalid company/warehouse combinations without creating misleading success states.
+- [ ] Cancel a submitted Quotation, Sales Order, or Delivery Note only when ERPNext allows it; verify linked documents and stock/accounting reversals.
+
 ## Automated mobile-client regression checks
 
 - [ ] Run `flutter analyze --no-pub` from `mobile_app/`.
