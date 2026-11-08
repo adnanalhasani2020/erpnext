@@ -117,10 +117,12 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const SizedBox(height: 220, child: Center(child: CircularProgressIndicator()));
           }
-          if (snapshot.hasError) return Padding(
-            padding: const EdgeInsets.all(20),
-            child: Text('تعذر تحميل المستند: ${snapshot.error}'),
-          );
+          if (snapshot.hasError) {
+            return Padding(
+              padding: const EdgeInsets.all(20),
+              child: Text('تعذر تحميل المستند: ${snapshot.error}'),
+            );
+          }
           final doc = snapshot.data!;
           final status = (doc['docstatus'] as num?)?.toInt() ?? 0;
           final items = doc['items'] is List ? (doc['items'] as List).whereType<Map<String, dynamic>>().toList() : <Map<String, dynamic>>[];
@@ -262,10 +264,12 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
               padding: const EdgeInsets.all(12),
               itemCount: _rows.length + (_hasMore ? 1 : 0),
               itemBuilder: (context, index) {
-                if (index == _rows.length) return Center(child: TextButton.icon(
-                  onPressed: _loading ? null : () => _load(),
-                  icon: const Icon(Icons.expand_more), label: const Text('تحميل المزيد'),
-                ));
+                if (index == _rows.length) {
+                  return Center(child: TextButton.icon(
+                    onPressed: _loading ? null : () => _load(),
+                    icon: const Icon(Icons.expand_more), label: const Text('تحميل المزيد'),
+                  ));
+                }
                 final row = _rows[index];
                 final total = double.tryParse(row['grand_total']?.toString() ?? '') ?? 0;
                 final status = (row['docstatus'] as num?)?.toInt() ?? 0;
@@ -431,7 +435,7 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
       key: _key,
       child: ListView(padding: const EdgeInsets.all(16), children: [
         DropdownButtonFormField<ErpCompany>(
-          value: _company, isExpanded: true,
+          initialValue: _company, isExpanded: true,
           decoration: const InputDecoration(labelText: 'الشركة'),
           items: _availableCompanies.map((x) => DropdownMenuItem(value: x, child: Text(x.name))).toList(),
           onChanged: _saving ? null : (v) => setState(() { _company = v; for (final line in _lines) { line.warehouse = null; } }),
@@ -439,7 +443,7 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
         ),
         const SizedBox(height: 12),
         DropdownButtonFormField<ErpCustomer>(
-          value: _customer, isExpanded: true,
+          initialValue: _customer, isExpanded: true,
           decoration: const InputDecoration(labelText: 'العميل'),
           items: _availableCustomers.map((x) => DropdownMenuItem(value: x, child: Text('${x.name} • ${x.id}', overflow: TextOverflow.ellipsis))).toList(),
           onChanged: _saving ? null : (v) => setState(() => _customer = v),
@@ -460,7 +464,7 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
                 IconButton(onPressed: _saving || _lines.length == 1 ? null : () => setState(() { _lines.removeAt(i).dispose(); }), icon: const Icon(Icons.delete_outline)),
               ]),
               DropdownButtonFormField<ErpItem>(
-                value: line.item, isExpanded: true,
+                initialValue: line.item, isExpanded: true,
                 decoration: const InputDecoration(labelText: 'الصنف'),
                 items: _availableItems.map((x) => DropdownMenuItem(value: x, child: Text('${x.name} • ${x.code}', overflow: TextOverflow.ellipsis))).toList(),
                 onChanged: _saving ? null : (v) => setState(() { line.item = v; line.warehouse = null; }),
@@ -469,7 +473,7 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
               if (widget.doctype == 'Sales Order' && line.item?.isStockItem == true) ...[
                 const SizedBox(height: 8),
                 DropdownButtonFormField<ErpWarehouse>(
-                  value: line.warehouse, isExpanded: true,
+                  initialValue: line.warehouse, isExpanded: true,
                   decoration: const InputDecoration(labelText: 'مستودع التسليم'),
                   items: _availableWarehouses.where((w) => w.company == _company?.name).map((w) => DropdownMenuItem(value: w, child: Text(w.name, overflow: TextOverflow.ellipsis))).toList(),
                   onChanged: _saving ? null : (v) => setState(() => line.warehouse = v),
