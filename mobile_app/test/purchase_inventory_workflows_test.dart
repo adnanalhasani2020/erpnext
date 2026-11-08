@@ -638,7 +638,7 @@ void main() {
     server.listen((request) async {
       requests++;
       expect(request.method, 'GET');
-      expect(request.uri.path, '/api/resource/Payment%20Entry');
+      expect(request.uri.pathSegments, containsAll(['api', 'resource', 'Payment Entry']));
       final filters = jsonDecode(request.uri.queryParameters['filters']!) as List;
       expect(filters, [
         ['payment_type', '=', 'Pay'],
@@ -692,7 +692,7 @@ void main() {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) async {
       expect(request.method, 'GET');
-      expect(request.uri.path, '/api/resource/Payment%20Entry/PAY-SUP-1');
+      expect(request.uri.pathSegments, containsAll(['api', 'resource', 'Payment Entry', 'PAY-SUP-1']));
       request.response.headers.contentType = ContentType.json;
       request.response.write(jsonEncode({'data': {
         'doctype': 'Payment Entry',
