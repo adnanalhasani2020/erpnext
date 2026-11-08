@@ -12,6 +12,7 @@ class SalesWorkflowPage extends StatefulWidget {
     required this.items,
     required this.warehouses,
     required this.onChanged,
+    required this.onSalesInvoiceDraftCreated,
   });
 
   final FrappeApi api;
@@ -20,6 +21,7 @@ class SalesWorkflowPage extends StatefulWidget {
   final List<ErpItem> items;
   final List<ErpWarehouse> warehouses;
   final VoidCallback onChanged;
+  final ValueChanged<Map<String, dynamic>> onSalesInvoiceDraftCreated;
 
   @override
   State<SalesWorkflowPage> createState() => _SalesWorkflowPageState();
@@ -203,7 +205,10 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
           );
           if (sheetContext.mounted) Navigator.pop(sheetContext);
           _notice('تم إنشاء المسودة ${created['name']}.');
-          if (target == 'Sales Invoice') widget.onChanged();
+          if (target == 'Sales Invoice') {
+            widget.onChanged();
+            widget.onSalesInvoiceDraftCreated(created);
+          }
         } catch (error) { _notice(error.toString().replaceFirst('Exception: ', '')); }
       },
       icon: const Icon(Icons.transform_outlined), label: Text(label),
