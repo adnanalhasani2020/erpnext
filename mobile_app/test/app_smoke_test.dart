@@ -128,6 +128,28 @@ void main() {
     expect(uri.queryParameters['order_by'], 'item_code asc, warehouse asc');
   });
 
+  test('builds stock balance filters for warehouse and item code search', () {
+    final uri = FrappeApi.buildResourcePageUri(
+      baseUrl: 'https://erp.example.com',
+      resource: 'Bin',
+      fields: ['item_code', 'warehouse', 'actual_qty', 'reserved_qty', 'projected_qty', 'stock_uom'],
+      filters: [
+        ['warehouse', '=', 'Main Store - EX'],
+        ['item_code', 'like', '%COFFEE%'],
+      ],
+      orFilters: [
+        ['actual_qty', '!=', 0],
+        ['reserved_qty', '!=', 0],
+        ['projected_qty', '!=', 0],
+      ],
+      orderBy: 'item_code asc, warehouse asc',
+      start: 100,
+    );
+    expect(uri.queryParameters['filters'], '[["warehouse","=","Main Store - EX"],["item_code","like","%COFFEE%"]]');
+    expect(uri.queryParameters['or_filters'], '[["actual_qty","!=",0],["reserved_qty","!=",0],["projected_qty","!=",0]]');
+    expect(uri.queryParameters['limit_start'], '100');
+  });
+
   test('builds warehouse search filters while preserving active warehouse filters', () {
     final uri = FrappeApi.buildResourcePageUri(
       baseUrl: 'https://erp.example.com',
