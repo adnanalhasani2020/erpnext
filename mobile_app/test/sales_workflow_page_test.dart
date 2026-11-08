@@ -61,6 +61,7 @@ void main() {
         items: const [ErpItem(code: 'ITEM-1', name: 'صنف تجريبي')],
         warehouses: const [],
         onChanged: () {},
+        onSalesInvoiceDraftCreated: (_) {},
       ),
     ));
     await tester.pumpAndSettle();
