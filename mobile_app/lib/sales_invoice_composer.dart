@@ -415,6 +415,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
           if (_updateStock && line.item?.isStockItem == true) ...[
             const SizedBox(height: 10),
             DropdownButtonFormField<ErpWarehouse>(
+              key: ValueKey(_company?.name),
               initialValue: line.warehouse,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'مستودع الصرف'),
