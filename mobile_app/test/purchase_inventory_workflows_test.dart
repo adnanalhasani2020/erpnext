@@ -632,6 +632,44 @@ void main() {
       await server.close(force: true);
     }
   });
+  test('supplier ledger filters to one supplier and excludes canceled entries', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    var requests = 0;
+    server.listen((request) async {
+      requests++;
+      expect(request.method, 'GET');
+      expect(request.uri.pathSegments, containsAll(['api', 'resource', 'GL Entry']));
+      final filters = jsonDecode(request.uri.queryParameters['filters']!) as List;
+      expect(filters, [
+        ['party_type', '=', 'Supplier'],
+        ['party', '=', 'SUP-1'],
+        ['is_cancelled', '=', 0],
+      ]);
+      expect(request.uri.queryParameters['order_by'], 'posting_date desc, creation desc, name desc');
+      expect(request.uri.queryParameters['limit_start'], requests == 1 ? '0' : '100');
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'data': [{
+        'name': 'GLE-1', 'posting_date': '2026-11-08', 'party': 'SUP-1',
+        'voucher_type': 'Payment Entry', 'voucher_no': 'PAY-1',
+        'debit': 0, 'credit': 75, 'account': 'Creditors - C',
+      }]}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      final first = await api.fetchSupplierLedger(supplier: 'SUP-1');
+      final next = await api.fetchSupplierLedger(supplier: 'SUP-1', start: 100);
+      expect(first.single['voucher_no'], 'PAY-1');
+      expect(first.single['credit'], 75);
+      expect(next.single['party'], 'SUP-1');
+      expect(requests, 2);
+      await expectLater(api.fetchSupplierLedger(supplier: ' '), throwsFormatException);
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
   test('supplier payment history requests only submitted supplier payments and paginates', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     var requests = 0;
