@@ -340,6 +340,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
   List<Map<String, dynamic>> drafts = [];
   String? draftError;
   bool loading = false;
+  bool reloadPending = false;
   bool loadingMore = false;
   bool hasMore = false;
   int offset = 0;
@@ -354,7 +355,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('ترحيل')),
   ])) == true;
   Future<void> load() async {
-    if (loading) return; setState(() { loading = true; error = null; });
+    if (loading) { reloadPending = true; return; }
+    setState(() { loading = true; error = null; });
     try {
       final data = await widget.api.fetchStockMovements(itemCode: selectedMovementItem, warehouse: selectedMovementWarehouse);
       if (mounted) setState(() { movements = data; offset = data.length; hasMore = data.length == FrappeApi.pageSize; });
@@ -366,7 +368,13 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       catch (e) { draftErrors.add(type + ': ' + e.toString().replaceFirst('Exception: ', '')); }
     }
     if (mounted) setState(() { drafts = loadedDrafts; draftError = draftErrors.isEmpty ? null : draftErrors.join('\n'); });
-    if (mounted) setState(() => loading = false);
+    if (mounted) {
+      setState(() => loading = false);
+      if (reloadPending) {
+        reloadPending = false;
+        await load();
+      }
+    }
   }
   Future<void> reviewDraft(Map<String, dynamic> summary) async {
     try {
