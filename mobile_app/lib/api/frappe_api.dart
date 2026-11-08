@@ -183,11 +183,15 @@ class FrappeApi {
   }
 
 
-  Future<List<ErpStockBalance>> fetchStockBalances({int start = 0}) async {
+  Future<List<ErpStockBalance>> fetchStockBalances({int start = 0, String? search, String? warehouse}) async {
     final uri = buildResourcePageUri(
       baseUrl: _baseUrl,
       resource: 'Bin',
       fields: ['item_code', 'warehouse', 'actual_qty', 'reserved_qty', 'projected_qty', 'stock_uom'],
+      filters: [
+        if (warehouse != null && warehouse.trim().isNotEmpty) ['warehouse', '=', warehouse.trim()],
+        if (search != null && search.trim().isNotEmpty) ['item_code', 'like', '%${search.trim()}%'],
+      ],
       orFilters: [
         ['actual_qty', '!=', 0],
         ['reserved_qty', '!=', 0],
