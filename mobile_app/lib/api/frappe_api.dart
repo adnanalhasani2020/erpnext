@@ -674,6 +674,25 @@ class FrappeApi {
     }
   }
 
+  Future<Map<String, dynamic>> _fetchPaymentEntryDocument(String name) async {
+    if (name.trim().isEmpty) throw const FormatException('رقم سند القبض غير موجود.');
+    final response = await _send(
+      'GET',
+      '/api/resource/Payment%20Entry/${Uri.encodeComponent(name.trim())}',
+    );
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر التحقق من حالة سند القبض.'));
+    }
+    final document = data['data'];
+    if (document is! Map<String, dynamic> ||
+        document['doctype'] != 'Payment Entry' ||
+        document['name'] != name.trim()) {
+      throw const FormatException('بيانات سند القبض غير مؤكدة.');
+    }
+    return document;
+  }
+
   Future<Map<String, dynamic>> receiveSalesInvoicePayment({
     required String invoiceName,
     required double amount,
@@ -761,7 +780,17 @@ class FrappeApi {
       }
       return result;
     } catch (error) {
-      throw Exception('تم إنشاء سند القبض كمسودة ${created['name']}، لكن لم يتم تأكيد ترحيله. راجع سند القبض في ERPNext قبل محاولة تسجيل دفعة أخرى. التفاصيل: ${error.toString().replaceFirst('Exception: ', '')}');
+      // A timeout or lost response must not cause a second receipt to be created.
+      // Re-read the same Payment Entry before reporting an uncertain outcome.
+      try {
+        final confirmed = await _fetchPaymentEntryDocument(created['name'].toString());
+        if (confirmed['docstatus'] == 1 && confirmed['payment_type'] == 'Receive') {
+          return confirmed;
+        }
+      } catch (_) {
+        // Keep the original uncertainty message below; never retry creation here.
+      }
+      throw Exception('تم إنشاء سند القبض ${created['name']}، لكن لم يتم تأكيد ترحيله. راجع حالة هذا السند في ERPNext قبل محاولة تسجيل دفعة أخرى. التفاصيل: ${error.toString().replaceFirst('Exception: ', '')}');
     }
   }
 
