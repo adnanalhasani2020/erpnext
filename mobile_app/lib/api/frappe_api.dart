@@ -285,9 +285,43 @@ class FrappeApi {
     if (submitted is Map<String, dynamic>) return submitted;
     return document;
   }
+  Future<List<ErpPaymentAccount>> fetchPaymentAccounts(String company) async {
+    final normalizedCompany = company.trim();
+    if (normalizedCompany.isEmpty) {
+      throw const FormatException('اسم الشركة غير موجود لتحميل حسابات التحصيل.');
+    }
+    final uri = Uri.parse('$_baseUrl/api/resource/Account').replace(
+      queryParameters: {
+        'fields': jsonEncode(['name', 'account_name', 'account_type', 'account_currency']),
+        'filters': jsonEncode([
+          ['company', '=', normalizedCompany],
+          ['disabled', '=', 0],
+          ['is_group', '=', 0],
+          ['account_type', 'in', ['Cash', 'Bank']],
+        ]),
+        'limit_page_length': '500',
+        'order_by': 'account_type asc, account_name asc',
+      },
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل حسابات الصندوق والبنك للشركة.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) {
+      throw Exception('استجابة حسابات التحصيل من ERPNext غير متوقعة.');
+    }
+    return rows
+        .whereType<Map<String, dynamic>>()
+        .map(ErpPaymentAccount.fromJson)
+        .toList(growable: false);
+  }
+
   Future<Map<String, dynamic>> receiveSalesInvoicePayment({
     required String invoiceName,
     required double amount,
+    String? bankAccount,
   }) async {
     if (invoiceName.trim().isEmpty || !amount.isFinite || amount <= 0) {
       throw const FormatException('أدخل رقم الفاتورة ومبلغ دفعة صحيحاً أكبر من صفر.');
@@ -303,7 +337,12 @@ class FrappeApi {
     final setup = await _sendJson(
       'POST',
       '/api/method/erpnext.accounts.doctype.payment_entry.payment_entry.get_payment_entry',
-      {'dt': 'Sales Invoice', 'dn': invoiceName, 'party_amount': amount},
+      {
+        'dt': 'Sales Invoice',
+        'dn': invoiceName,
+        'party_amount': amount,
+        if (bankAccount != null && bankAccount.trim().isNotEmpty) 'bank_account': bankAccount.trim(),
+      },
     );
     final setupData = _decode(setup.body);
     if (setup.statusCode < 200 || setup.statusCode >= 300) {
