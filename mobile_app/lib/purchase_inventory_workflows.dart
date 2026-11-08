@@ -72,9 +72,15 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       };
       final saved = draft == null ? await widget.api.createPurchaseInvoice(payload) : await widget.api.updateDraftPurchaseInvoice(invoiceName: draft['name'].toString(), changes: payload);
       if (await confirm('ترحيل الفاتورة؟', 'تم حفظ المسودة ' + (saved['name'] ?? '').toString() + '. هل تريد ترحيلها الآن؟')) {
-        await widget.api.submitPurchaseInvoice(saved);
+        try {
+          final submitted = await widget.api.submitPurchaseInvoice(saved);
+          notice('تم ترحيل فاتورة المشتريات ' + (submitted['name'] ?? saved['name']).toString());
+        } catch (e) {
+          notice('حُفظت المسودة ' + (saved['name'] ?? '').toString() + ' لكن تعذر ترحيلها. افتح المسودة من القائمة وأعد المحاولة؛ لا تنشئ فاتورة بديلة. التفاصيل: ' + e.toString().replaceFirst('Exception: ', ''));
+        }
+      } else {
+        notice('تم حفظ مسودة فاتورة المشتريات ' + (saved['name'] ?? '').toString());
       }
-      notice('تم حفظ فاتورة المشتريات ' + (saved['name'] ?? '').toString());
       await load(); widget.onChanged?.call();
     } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
     finally { supplier.dispose(); company.dispose(); item.dispose(); qty.dispose(); rate.dispose(); warehouse.dispose(); updateStock.dispose(); }
@@ -198,9 +204,13 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         toWarehouse: to.text.trim().isEmpty ? null : to.text.trim(),
         items: [{'item_code': item.text.trim(), 'qty': q, if (purpose == 'Material Receipt') 'valuation_rate': r}]);
       if (await confirm('ترحيل حركة المخزون', 'تم إنشاء المسودة ' + (doc['name'] ?? '').toString() + '. الترحيل سيغير أرصدة المخزون.')) {
-        final result = await widget.api.submitStockEntry(doc);
-        notice('تم ترحيل الحركة ' + (result['name'] ?? doc['name']).toString());
-        await load(); widget.onChanged?.call();
+        try {
+          final result = await widget.api.submitStockEntry(doc);
+          notice('تم ترحيل الحركة ' + (result['name'] ?? doc['name']).toString());
+          await load(); widget.onChanged?.call();
+        } catch (e) {
+          notice('حُفظت مسودة الحركة ' + (doc['name'] ?? '').toString() + ' ولم يؤكد ترحيلها. راجعها قبل إنشاء حركة بديلة. ' + e.toString().replaceFirst('Exception: ', ''));
+        }
       } else { notice('حُفظت المسودة ' + (doc['name'] ?? '').toString()); }
     } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
     finally { company.dispose(); item.dispose(); from.dispose(); to.dispose(); qty.dispose(); rate.dispose(); }
@@ -220,8 +230,12 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       if (ok != true || !mounted) return;
       final doc = await widget.api.createStockReconciliation(company: company.text.trim(), warehouse: warehouse.text.trim(), items: [{'item_code': item.text.trim(), 'qty': double.parse(qty.text), 'valuation_rate': double.parse(rate.text)}]);
       if (await confirm('تأكيد تسوية المخزون', 'سيتم ضبط الرصيد إلى الكمية الفعلية المدخلة في ERPNext. هل تريد الترحيل؟')) {
-        final result = await widget.api.submitStockReconciliation(doc);
-        notice('تم ترحيل التسوية ' + (result['name'] ?? doc['name']).toString()); await load(); widget.onChanged?.call();
+        try {
+          final result = await widget.api.submitStockReconciliation(doc);
+          notice('تم ترحيل التسوية ' + (result['name'] ?? doc['name']).toString()); await load(); widget.onChanged?.call();
+        } catch (e) {
+          notice('حُفظت مسودة التسوية ' + (doc['name'] ?? '').toString() + ' ولم يؤكد ترحيلها. راجعها قبل إنشاء تسوية أخرى. ' + e.toString().replaceFirst('Exception: ', ''));
+        }
       } else { notice('حُفظت مسودة التسوية ' + (doc['name'] ?? '').toString()); }
     } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
     finally { company.dispose(); warehouse.dispose(); item.dispose(); qty.dispose(); rate.dispose(); }
