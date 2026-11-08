@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
 import 'sales_invoice_composer.dart';
+import 'sales_workflow_page.dart';
 import 'purchase_inventory_workflows.dart';
 import 'invoice_action_policy.dart';
 import 'models/erp_models.dart';
@@ -1181,6 +1182,19 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ));
   }
 
+  Future<void> _openSalesWorkflow() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => SalesWorkflowPage(
+        api: _api,
+        companies: _companies,
+        customers: _customers,
+        items: _items,
+        warehouses: _warehouses,
+        onChanged: () { _loadSales(); _loadInventory(); },
+      ),
+    ));
+  }
+
   Future<void> _openPurchaseWorkflow() async {
     await Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => PurchaseWorkflowPage(
@@ -1218,6 +1232,11 @@ class _MobileHomePageState extends State<MobileHomePage> {
         spacing: 8,
         runSpacing: 8,
         children: [
+          OutlinedButton.icon(
+            onPressed: _salesLoading || _inventoryLoading ? null : _openSalesWorkflow,
+            icon: const Icon(Icons.route_outlined),
+            label: const Text('دورة المبيعات'),
+          ),
           OutlinedButton.icon(
             onPressed: _purchaseLoading || _inventoryLoading ? null : _openPurchaseWorkflow,
             icon: const Icon(Icons.shopping_bag_outlined),
