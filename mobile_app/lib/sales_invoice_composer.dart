@@ -29,6 +29,7 @@ class SalesInvoiceComposer extends StatefulWidget {
 
 class _SalesInvoiceLineDraft {
   ErpItem? item;
+  Map<String, dynamic>? sourceRow;
   ErpWarehouse? warehouse;
   final quantity = TextEditingController(text: '1');
   final rate = TextEditingController(text: '0');
@@ -119,7 +120,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
           _availableItems.add(item);
         }
 
-        final line = _SalesInvoiceLineDraft()..item = item;
+        final line = _SalesInvoiceLineDraft()..item = item..sourceRow = Map<String, dynamic>.from(raw);
         line.quantity.text = raw['qty']?.toString() ?? '1';
         line.rate.text = raw['rate']?.toString() ?? '0';
         final warehouseId = raw['warehouse']?.toString();
@@ -223,12 +224,15 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
           'posting_date': _postingDate ?? _today(),
           'update_stock': _updateStock ? 1 : 0,
           'items': _lines.map((line) {
-            final row = <String, dynamic>{
-              'item_code': line.item!.code,
-              'qty': line.qty,
-              'rate': line.unitRate,
-            };
-            if (line.warehouse != null) row['warehouse'] = line.warehouse!.id;
+            final row = Map<String, dynamic>.from(line.sourceRow ?? const <String, dynamic>{})
+              ..['item_code'] = line.item!.code
+              ..['qty'] = line.qty
+              ..['rate'] = line.unitRate;
+            if (line.warehouse != null) {
+              row['warehouse'] = line.warehouse!.id;
+            } else if (_updateStock && line.item!.isStockItem) {
+              row.remove('warehouse');
+            }
             return row;
           }).toList(growable: false),
         };
