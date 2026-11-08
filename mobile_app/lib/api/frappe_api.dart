@@ -1172,8 +1172,13 @@ class FrappeApi {
     final data = _decode(inserted.body);
     if (inserted.statusCode < 200 || inserted.statusCode >= 300) throw Exception(_message(data, 'تعذر حفظ مسودة المرتجع.'));
     final created = data['data'];
-    if (created is! Map<String, dynamic> || created['name'] is! String || created['return_against'] != invoiceName) {
-      throw Exception('لم يتم تأكيد حفظ مسودة المرتجع.');
+    if (created is! Map<String, dynamic> ||
+        created['doctype'] != 'Purchase Invoice' ||
+        created['name'] is! String ||
+        created['docstatus'] != 0 ||
+        (created['is_return'] != 1 && created['is_return'] != true) ||
+        created['return_against'] != invoiceName) {
+      throw Exception('لم يؤكد ERPNext إنشاء مسودة مرتجع مشتريات مرتبطة بالفاتورة الأصلية؛ تحقق من السجل قبل إعادة المحاولة.');
     }
     return created;
     } finally {
