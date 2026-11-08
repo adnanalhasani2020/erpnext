@@ -24,6 +24,8 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 - [ ] Confirm the dashboard shows only records allowed by the user's permissions.
 - [ ] Open a Purchase Invoice with a draft status and with an outstanding balance; confirm the mobile screen is read-only and never offers Sales Invoice submit, customer receipt, cancellation, or sales-return actions.
 - [ ] Confirm Sales Invoice actions remain available only for their permitted document states.
+- [ ] Verify sales-specific API methods reject Purchase Invoice payloads even if called outside the current UI.
+- [ ] Verify invoice line totals that overflow numeric limits are rejected before any create or update request.
 - [ ] Remove read permission for one resource and confirm its failure does not hide unrelated resources.
 - [ ] Sign out while a resource request is still in flight; confirm its late response cannot restore cookies or repopulate the signed-out session.
 - [ ] Sign out and confirm the session is no longer usable.
