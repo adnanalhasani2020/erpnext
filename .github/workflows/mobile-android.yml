@@ -53,13 +53,20 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
 
-          settings = Path("android/settings.gradle")
+          settings = Path("android/settings.gradle.kts")
+          is_kotlin_dsl = settings.exists()
+          if not is_kotlin_dsl:
+              settings = Path("android/settings.gradle")
           content = settings.read_text()
           marker = "        mavenCentral()"
-          mirror = '        maven { url "https://maven-central.storage-download.googleapis.com/maven2/" }'
+          mirror = (
+              '        maven { url = uri("https://maven-central.storage-download.googleapis.com/maven2/") }'
+              if is_kotlin_dsl else
+              '        maven { url "https://maven-central.storage-download.googleapis.com/maven2/" }'
+          )
           if mirror not in content:
               if marker not in content:
-                  raise SystemExit("Could not find mavenCentral() in generated Android settings.gradle")
+                  raise SystemExit(f"Could not find mavenCentral() in generated {settings}")
               content = content.replace(marker, mirror + "\n" + marker, 1)
               settings.write_text(content)
 
