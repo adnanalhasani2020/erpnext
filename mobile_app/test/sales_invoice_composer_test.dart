@@ -47,8 +47,14 @@ void main() {
     expect(find.text('فاتورة مبيعات جديدة'), findsOneWidget);
     expect(find.text('الشركة'), findsOneWidget);
     expect(find.text('العميل'), findsOneWidget);
+    await tester.ensureVisible(find.text('حفظ كمسودة'));
+    await tester.pumpAndSettle();
     expect(find.text('حفظ كمسودة'), findsOneWidget);
+    await tester.ensureVisible(find.text('حفظ وترحيل الفاتورة'));
+    await tester.pumpAndSettle();
     expect(find.text('حفظ وترحيل الفاتورة'), findsOneWidget);
+    await tester.ensureVisible(find.text('تحديث المخزون عند الترحيل'));
+    await tester.pumpAndSettle();
     expect(find.text('تحديث المخزون عند الترحيل'), findsOneWidget);
 
     api.dispose();
@@ -81,6 +87,8 @@ void main() {
     ));
 
     expect(find.text('تعديل مسودة فاتورة'), findsOneWidget);
+    await tester.ensureVisible(find.text('حفظ تعديلات المسودة'));
+    await tester.pumpAndSettle();
     expect(find.text('حفظ تعديلات المسودة'), findsOneWidget);
     expect(find.text('رقم المسودة: SINV-DRAFT-1'), findsOneWidget);
     expect(find.text('الإجمالي: 30.00'), findsOneWidget);
