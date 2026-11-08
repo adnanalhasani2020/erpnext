@@ -19,6 +19,7 @@ void main() {
       api.cancelSalesInvoice({'doctype': 'Sales Invoice', 'name': 'SINV-1', 'docstatus': 0}),
       throwsFormatException,
     );
+    await expectLater(api.fetchPaymentAccounts('  '), throwsFormatException);
     await expectLater(
       api.receiveSalesInvoicePayment(invoiceName: 'SINV-1', amount: 0),
       throwsFormatException,
