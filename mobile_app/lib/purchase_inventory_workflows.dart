@@ -73,6 +73,46 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       if (mounted) setState(() => loadingMorePayments = false);
     }
   }
+
+  Future<void> showSupplierPaymentDetails(String name) async {
+    try {
+      final payment = await widget.api.fetchSupplierPaymentDocument(name);
+      if (!mounted) return;
+      final references = (payment['references'] as List)
+          .whereType<Map<String, dynamic>>()
+          .toList(growable: false);
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (sheet) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: ListView(shrinkWrap: true, children: [
+              Text('سند صرف المورد • ${payment['name']}', style: Theme.of(context).textTheme.titleLarge),
+              Text('المورد: ${payment['party_name'] ?? payment['party'] ?? '—'}'),
+              Text('التاريخ: ${payment['posting_date'] ?? '—'}'),
+              Text('الحساب: ${payment['paid_from'] ?? '—'}'),
+              Text('المبلغ المدفوع: ${payment['paid_amount'] ?? '—'} ${payment['paid_from_account_currency'] ?? ''}'),
+              const Divider(),
+              Text('توزيع الدفعة على الفواتير (${references.length})',
+                  style: Theme.of(context).textTheme.titleMedium),
+              if (references.isEmpty)
+                const ListTile(title: Text('لا توجد إحالات فواتير في هذا السند.')),
+              ...references.map((reference) => ListTile(
+                leading: const Icon(Icons.link_outlined),
+                title: Text((reference['reference_name'] ?? 'مرجع غير محدد').toString()),
+                subtitle: Text((reference['reference_doctype'] ?? '—').toString()),
+                trailing: Text((reference['allocated_amount'] ?? '0').toString()),
+              )),
+            ]),
+          ),
+        ),
+      );
+    } catch (e) {
+      notice(e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
   Future<void> loadMoreInvoices() async {
     if (loading || loadingMore || !hasMore) return;
     setState(() => loadingMore = true);
@@ -496,6 +536,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
         subtitle: Text('${payment['party_name'] ?? payment['party'] ?? 'مورد غير محدد'} • ${payment['posting_date'] ?? '—'}\\nالحساب: ${payment['paid_from'] ?? '—'}'),
         isThreeLine: true,
         trailing: Text((double.tryParse(payment['paid_amount']?.toString() ?? '') ?? 0).toStringAsFixed(2)),
+        onTap: () => showSupplierPaymentDetails(payment['name'].toString()),
       ))),
       if (hasMorePayments || loadingMorePayments)
         Center(child: TextButton.icon(
