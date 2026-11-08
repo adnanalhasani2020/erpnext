@@ -14,6 +14,7 @@ Arabic-first Android companion app for an ERPNext instance.
 - Customer and Sales Invoice lists, including invoice status, total, and outstanding amount.
 - Create Sales Invoice drafts from the mobile app with customer, company, item, quantity, unit rate, and warehouse selection.
 - Explicitly submit a Sales Invoice after a confirmation step; ERPNext performs its normal validations and stock-ledger processing.
+- Edit saved draft Sales Invoices before submission, then save changes or submit the same document.
 - Submit saved draft invoices and cancel submitted invoices from their details screen, with confirmation and ERPNext permission checks.
 - Record full or partial customer receipts against submitted invoices using ERPNext's `get_payment_entry` flow and the company's configured default cash/bank account.
 - Create a draft Sales Return / Credit Note from a submitted original invoice using ERPNext's official return mapper, preserving original item references, negative quantities, taxes, and returned-quantity calculations.
@@ -27,7 +28,7 @@ Arabic-first Android companion app for an ERPNext instance.
 
 - Item, warehouse, Bin, Customer, and Sales Invoice lists are paginated in pages of 100; the composer currently selects from the master-data pages loaded by the dashboard.
 - Purchase invoices and stock balances remain read-only. Sales invoices can be created as drafts and explicitly submitted from the mobile app.
-- Choosing an arbitrary cash/bank account, editing invoices, payment reconciliation, accounting ledgers, and financial reports are not implemented yet. Sales returns are created as drafts only; review and explicitly submit them from the invoice details screen.
+- Choosing an arbitrary cash/bank account, editing submitted invoices, payment reconciliation, accounting ledgers, and financial reports are not implemented yet. Sales returns are created as drafts only; review and explicitly submit them from the invoice details screen.
 - A successful APK build does not prove connection to a live ERPNext server. A real site and appropriately permissioned test account are required for integration testing.
 
 ## Requirements
