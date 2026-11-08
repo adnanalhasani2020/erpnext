@@ -1374,28 +1374,62 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         notice('لا توجد أوامر شراء مرحلة متاحة، أو لا تتوفر صلاحية قراءتها.');
         return;
       }
-      var selected = orders.first['name'].toString();
+      final orderSearch = TextEditingController();
+      String? selected = orders.first['name'].toString();
       final orderName = await showDialog<String>(
         context: context,
-        builder: (c) => StatefulBuilder(builder: (context, refresh) => AlertDialog(
-          title: const Text('اختيار أمر شراء'),
-          content: DropdownButtonFormField<String>(
-                initialValue: selected,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'أمر الشراء المرحّل'),
-            items: orders.map((order) => DropdownMenuItem(
-              value: order['name'].toString(),
-              child: Text('${order['name']} • ${order['supplier_name'] ?? order['supplier'] ?? ''}',
-                  overflow: TextOverflow.ellipsis),
-            )).toList(),
-            onChanged: (v) => refresh(() { if (v != null) selected = v; }),
-          ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(c), child: const Text('إلغاء')),
-            FilledButton(onPressed: () => Navigator.pop(c, selected), child: const Text('متابعة')),
-          ],
-        )),
+        builder: (c) => StatefulBuilder(builder: (context, refresh) {
+          final query = orderSearch.text.trim().toLowerCase();
+          final filteredOrders = orders.where((order) {
+            final searchable = [
+              order['name'], order['supplier'], order['supplier_name'],
+            ].whereType<Object>().join(' ').toLowerCase();
+            return query.isEmpty || searchable.contains(query);
+          }).toList(growable: false);
+          if (!filteredOrders.any((order) => order['name'].toString() == selected)) {
+            selected = filteredOrders.isEmpty ? null : filteredOrders.first['name'].toString();
+          }
+          return AlertDialog(
+            title: const Text('اختيار أمر شراء'),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextField(
+                controller: orderSearch,
+                onChanged: (_) => refresh(() {}),
+                decoration: const InputDecoration(
+                  labelText: 'بحث برقم الأمر أو المورد',
+                  prefixIcon: Icon(Icons.search),
+                ),
+              ),
+              const SizedBox(height: 12),
+              if (filteredOrders.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: Text('لا توجد أوامر شراء تطابق البحث.'),
+                )
+              else
+                DropdownButtonFormField<String>(
+                  initialValue: selected,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'أمر الشراء المرحّل'),
+                  items: filteredOrders.map((order) => DropdownMenuItem(
+                    value: order['name'].toString(),
+                    child: Text('${order['name']} • ${order['supplier_name'] ?? order['supplier'] ?? ''}',
+                        overflow: TextOverflow.ellipsis),
+                  )).toList(),
+                  onChanged: (v) => refresh(() { selected = v; }),
+                ),
+            ]),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(c), child: const Text('إلغاء')),
+              FilledButton(
+                onPressed: selected == null ? null : () => Navigator.pop(c, selected),
+                child: const Text('متابعة'),
+              ),
+            ],
+          );
+        }),
       );
+      orderSearch.dispose();
       if (orderName == null || !mounted) return;
       final order = await widget.api.fetchPurchaseOrderDocument(orderName);
       final lines = await _purchaseOrderReceiptLinesDialog(order);
