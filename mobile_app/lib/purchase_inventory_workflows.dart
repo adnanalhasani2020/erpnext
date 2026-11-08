@@ -589,9 +589,9 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
   @override void initState() { super.initState(); load(); }
   @override void dispose() { super.dispose(); }
   void notice(String s) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s))); }
-  Future<bool> confirm(String title, String message) async => await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: Text(title), content: Text(message), actions: [
-    TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('لاحقاً')),
-    FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('ترحيل')),
+  Future<bool> confirm(String title, String message, {String actionLabel = 'ترحيل'}) async => await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: Text(title), content: Text(message), actions: [
+    TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
+    FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(actionLabel)),
   ])) == true;
   Future<void> load() async {
     if (loading) { reloadPending = true; return; }
@@ -634,7 +634,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
           ))),
           OutlinedButton.icon(
             onPressed: () async {
-              if (!await confirm('حذف مسودة المخزون', 'سيُحذف المستند غير المرحّل نهائياً. لن يُسمح بحذف أي مستند مرحّل. هل تريد المتابعة؟')) return;
+              if (!await confirm('حذف مسودة المخزون', 'سيُحذف المستند غير المرحّل نهائياً. لن يُسمح بحذف أي مستند مرحّل. هل تريد المتابعة؟', actionLabel: 'حذف المسودة')) return;
               try {
                 await widget.api.deleteDraftDocument(doctype: type, name: name);
                 if (sheet.mounted) Navigator.pop(sheet);
