@@ -16,10 +16,14 @@ class PurchaseWorkflowPage extends StatefulWidget {
 
 class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
   List<ErpPurchaseInvoice> rows = [];
+  List<Map<String, dynamic>> supplierPayments = [];
   bool loading = false;
   bool loadingMore = false;
   bool hasMore = false;
+  bool loadingMorePayments = false;
+  bool hasMorePayments = false;
   int offset = 0;
+  int paymentOffset = 0;
   String? error;
   final search = TextEditingController();
   @override void initState() { super.initState(); load(); }
@@ -27,13 +31,46 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
   Future<void> load() async {
     if (loading) return;
     setState(() { loading = true; error = null; });
+    final errors = <String>[];
+    final query = search.text.trim().isEmpty ? null : search.text.trim();
     try {
-      final result = await widget.api.fetchPurchaseInvoices(start: 0, search: search.text.trim().isEmpty ? null : search.text.trim());
+      final result = await widget.api.fetchPurchaseInvoices(start: 0, search: query);
       if (mounted) setState(() { rows = result; offset = result.length; hasMore = result.length == FrappeApi.pageSize; });
     } catch (e) {
-      if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', ''));
+      errors.add('الفواتير: ${e.toString().replaceFirst('Exception: ', '')}');
+    }
+    try {
+      final result = await widget.api.fetchSupplierPayments(start: 0, search: query);
+      if (mounted) setState(() {
+        supplierPayments = result;
+        paymentOffset = result.length;
+        hasMorePayments = result.length == FrappeApi.pageSize;
+      });
+    } catch (e) {
+      errors.add('دفعات الموردين: ${e.toString().replaceFirst('Exception: ', '')}');
+    }
+    if (mounted) setState(() {
+      error = errors.isEmpty ? null : errors.join('\\n');
+      loading = false;
+    });
+  }
+  Future<void> loadMorePayments() async {
+    if (loading || loadingMorePayments || !hasMorePayments) return;
+    setState(() => loadingMorePayments = true);
+    try {
+      final result = await widget.api.fetchSupplierPayments(
+        start: paymentOffset,
+        search: search.text.trim().isEmpty ? null : search.text.trim(),
+      );
+      if (mounted) setState(() {
+        supplierPayments = [...supplierPayments, ...result];
+        paymentOffset += result.length;
+        hasMorePayments = result.length == FrappeApi.pageSize;
+      });
+    } catch (e) {
+      if (mounted) setState(() => error = 'دفعات الموردين: ${e.toString().replaceFirst('Exception: ', '')}');
     } finally {
-      if (mounted) setState(() => loading = false);
+      if (mounted) setState(() => loadingMorePayments = false);
     }
   }
   Future<void> loadMoreInvoices() async {
@@ -447,6 +484,24 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
           onPressed: loadingMore ? null : loadMoreInvoices,
           icon: loadingMore ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.expand_more),
           label: const Text('تحميل فواتير إضافية'),
+        )),
+      const Divider(height: 32),
+      Text('سجل دفعات الموردين (${supplierPayments.length})', style: Theme.of(context).textTheme.titleMedium),
+      const Text('يعرض سندات الصرف المرحلة فقط؛ المسودات والقيود الملغاة لا تدخل في السجل.'),
+      if (supplierPayments.isEmpty && !loading)
+        const ListTile(leading: Icon(Icons.payments_outlined), title: Text('لا توجد دفعات موردين ظاهرة')),
+      ...supplierPayments.map((payment) => Card(child: ListTile(
+        leading: const Icon(Icons.receipt_long_outlined),
+        title: Text((payment['name'] ?? '—').toString()),
+        subtitle: Text('${payment['party_name'] ?? payment['party'] ?? 'مورد غير محدد'} • ${payment['posting_date'] ?? '—'}\\nالحساب: ${payment['paid_from'] ?? '—'}'),
+        isThreeLine: true,
+        trailing: Text((double.tryParse(payment['paid_amount']?.toString() ?? '') ?? 0).toStringAsFixed(2)),
+      ))),
+      if (hasMorePayments || loadingMorePayments)
+        Center(child: TextButton.icon(
+          onPressed: loadingMorePayments ? null : loadMorePayments,
+          icon: loadingMorePayments ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.expand_more),
+          label: const Text('تحميل دفعات إضافية'),
         )),
       const SizedBox(height: 90),
     ]),
