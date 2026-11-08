@@ -13,6 +13,13 @@ void main() {
     expect(invoice.returnAgainst, 'PINV-1');
   });
 
+  test('stock draft retrieval rejects unsupported document types before network access', () async {
+    final api = FrappeApi();
+    await expectLater(api.fetchDraftStockDocuments('Sales Invoice'), throwsArgumentError);
+    await expectLater(api.fetchStockDocument('Sales Invoice', 'SINV-1'), throwsArgumentError);
+    api.dispose();
+  });
+
   test('purchase invoice rejects missing supplier, company, or lines before network access', () async {
     final api = FrappeApi();
     await expectLater(api.createPurchaseInvoice({'doctype': 'Purchase Invoice', 'items': []}), throwsFormatException);
