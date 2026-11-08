@@ -221,7 +221,7 @@ void main() {
         expect(row['qty'], -2.0);
         expect(row['purchase_invoice_item'], 'PINV-ITEM-1');
         request.response.write(jsonEncode({'data': {
-          'doctype': 'Purchase Invoice', 'name': 'PINV-RET-1', 'return_against': 'PINV-1',
+          'doctype': 'Purchase Invoice', 'name': 'PINV-RET-1', 'docstatus': 0, 'is_return': 1, 'return_against': 'PINV-1',
         }}));
       } else {
         request.response.statusCode = 404;
