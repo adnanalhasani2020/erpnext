@@ -39,6 +39,7 @@ class FrappeApi {
 
   final Map<String, String> _cookies = {};
   final Set<String> _inFlightSalesActions = <String>{};
+  final Set<String> _inFlightPaymentActions = <String>{};
   String _baseUrl = '';
   int _sessionGeneration = 0;
 
@@ -1165,6 +1166,11 @@ class FrappeApi {
   Future<Map<String, dynamic>> payPurchaseInvoice({
     required String invoiceName, required double amount, String? bankAccount,
   }) async {
+    final actionKey = 'purchase-payment:$invoiceName';
+    if (!_inFlightPaymentActions.add(actionKey)) {
+      throw const FormatException('سداد هذه الفاتورة قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
+    }
+    try {
     if (invoiceName.trim().isEmpty || !amount.isFinite || amount <= 0) throw const FormatException('أدخل فاتورة ومبلغ دفعة صحيحاً.');
     final invoice = await fetchInvoiceDocument('Purchase Invoice', invoiceName);
     if (invoice['docstatus'] != 1 || invoice['is_return'] == 1 || invoice['is_return'] == true) {
@@ -1205,7 +1211,21 @@ class FrappeApi {
     try {
       return await _submitMobileDocument(created, 'Payment Entry');
     } catch (error) {
-      throw Exception('تم حفظ سند الصرف ' + created['name'].toString() + ' كمسودة ولم يؤكد ترحيله. راجع هذا السند قبل تسجيل دفعة أخرى. ' + error.toString().replaceFirst('Exception: ', ''));
+      // Confirm the same voucher after a lost response; never create a second payment here.
+      try {
+        final confirmed = await _fetchPaymentEntryDocument(created['name'].toString());
+        if (confirmed['docstatus'] == 1 &&
+            confirmed['payment_type'] == 'Pay' &&
+            confirmed['party_type'] == 'Supplier') {
+          return confirmed;
+        }
+      } catch (_) {
+        // Keep the original uncertainty message below.
+      }
+      throw Exception('تم حفظ سند الصرف ' + created['name'].toString() + ' لكن لم يؤكد ERPNext ترحيله. راجع حالة هذا السند قبل تسجيل دفعة أخرى. ' + error.toString().replaceFirst('Exception: ', ''));
+    }
+    } finally {
+      _inFlightPaymentActions.remove(actionKey);
     }
   }
 
