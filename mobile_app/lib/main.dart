@@ -911,6 +911,14 @@ class _MobileHomePageState extends State<MobileHomePage> {
                     trailing: Text('${line.amount.toStringAsFixed(2)} $currency'),
                   ))),
                   const SizedBox(height: 8),
+                  if (docStatus == 0 && documentType == 'Sales Invoice') OutlinedButton.icon(
+                    onPressed: () async {
+                      Navigator.of(sheetContext).pop();
+                      await _openSalesInvoiceComposer(initialDraft: document);
+                    },
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('تعديل مسودة الفاتورة'),
+                  ),
                   if (docStatus == 0) FilledButton.icon(
                     onPressed: () async {
                       final confirmed = await showDialog<bool>(
@@ -1047,7 +1055,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
                     icon: const Icon(Icons.assignment_return_outlined),
                     label: const Text('إنشاء مرتجع / إشعار دائن'),
                   ),
-                  const Text('يُنشأ المرتجع كمسودة من مستند ERPNext الأصلي؛ راجعه قبل الترحيل.', textAlign: TextAlign.center),
+                  const Text('يمكن تعديل المسودات قبل الترحيل. المرتجعات تُنشأ كمسودات من مستند ERPNext الأصلي وتحتاج مراجعة قبل الترحيل.', textAlign: TextAlign.center),
                 ]),
               );
             },
@@ -1057,7 +1065,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     );
   }
 
-  Future<void> _openSalesInvoiceComposer() async {
+  Future<void> _openSalesInvoiceComposer({Map<String, dynamic>? initialDraft}) async {
     if (_customers.isEmpty || _items.isEmpty || _companies.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('لا يمكن إنشاء فاتورة قبل تحميل العملاء والأصناف والشركات. تحقق من صلاحيات القراءة ثم حدّث البيانات.')),
