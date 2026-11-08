@@ -330,7 +330,6 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     final controllers = <String, TextEditingController>{};
     for (final row in sourceItems) {
       final name = row['name'].toString();
-      final quantity = double.tryParse(row['qty']?.toString() ?? '') ?? 0;
       controllers[name] = TextEditingController(text: (returnable[name] ?? 0).toString());
     }
     try {
