@@ -104,11 +104,17 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                 decoration: const InputDecoration(labelText: 'الشركة'),
                 items: companies.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
                 onChanged: (v) => refreshDialog(() {
-                  if (v == null) return;
+                  if (v == null || v == selectedCompany) return;
                   selectedCompany = v;
                   for (final row in lineRows) {
                     if (!widget.warehouses.any((w) => w.id == row['warehouse'] &&
                         (w.company == null || w.company == selectedCompany))) row['warehouse'] = null;
+                    final source = row['source'];
+                    if (source is Map<String, dynamic>) {
+                      row['source'] = <String, dynamic>{
+                        if (source['name'] != null) 'name': source['name'],
+                      };
+                    }
                   }
                 }),
               ),
@@ -147,7 +153,16 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                       decoration: InputDecoration(labelText: 'الصنف', helperText: item.name),
                       items: widget.items.map((x) => DropdownMenuItem(value: x.code,
                         child: Text('${x.name} (${x.code})', overflow: TextOverflow.ellipsis))).toList(),
-                      onChanged: (v) => refreshDialog(() { if (v != null) row['item'] = v; }),
+                      onChanged: (v) => refreshDialog(() {
+                        if (v == null || v == row['item']) return;
+                        row['item'] = v;
+                        final source = row['source'];
+                        if (source is Map<String, dynamic>) {
+                          row['source'] = <String, dynamic>{
+                            if (source['name'] != null) 'name': source['name'],
+                          };
+                        }
+                      }),
                     ),
                     Row(children: [
                       Expanded(child: _field(row['qty'] as TextEditingController, 'الكمية', number: true)),
