@@ -946,4 +946,34 @@ void main() {
     }
   });
 
+
+  test('supplier ledger can be scoped to a single company', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      final filters = jsonDecode(request.uri.queryParameters['filters']!) as List;
+      expect(filters, [
+        ['party_type', '=', 'Supplier'],
+        ['party', '=', 'SUP-1'],
+        ['is_cancelled', '=', 0],
+        ['company', '=', 'COMP-1'],
+      ]);
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'data': [{
+        'name': 'GLE-COMP-1', 'party': 'SUP-1', 'company': 'COMP-1',
+        'debit': 10, 'credit': 0,
+      }]}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      final rows = await api.fetchSupplierLedger(
+        supplier: 'SUP-1', company: 'COMP-1',
+      );
+      expect(rows.single['company'], 'COMP-1');
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
 }
