@@ -827,6 +827,15 @@ class _MobileHomePageState extends State<MobileHomePage> {
             subtitle: Text('محجوز: ${balance.reservedQty} • متوقع: ${balance.projectedQty}'),
             trailing: Text('${balance.actualQty} ${balance.stockUom ?? ''}'),
           )),
+          const SizedBox(height: 12),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _openStockWorkflow(initialItemCode: item.code);
+            },
+            icon: const Icon(Icons.history),
+            label: const Text('عرض حركات هذا الصنف'),
+          ),
         ]),
       )),
     );
@@ -906,7 +915,14 @@ class _MobileHomePageState extends State<MobileHomePage> {
           leading: const CircleAvatar(child: Icon(Icons.warehouse_outlined)),
           title: Text(warehouse.name),
           subtitle: Text('${warehouse.company ?? 'شركة غير محددة'} • $count أرصدة'),
-          onTap: () => setState(() { _selectedWarehouse = warehouse.id; _selectedTab = 2; }),
+          onTap: () {
+            setState(() => _selectedTab = 2);
+            _searchStockBalances(
+              _stockSearchController.text,
+              updateWarehouse: true,
+              warehouse: warehouse.id,
+            );
+          },
         ));
       }),
       if (_warehousesHasMore || _loadingMoreWarehouses) Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: FilledButton.tonal(onPressed: _loadingMoreWarehouses ? null : _loadMoreWarehouses, child: Text(_loadingMoreWarehouses ? 'جارٍ تحميل المزيد...' : 'تحميل المزيد من المستودعات'))),
@@ -1236,7 +1252,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ));
   }
 
-  Future<void> _openStockWorkflow() async {
+  Future<void> _openStockWorkflow({String? initialItemCode}) async {
     await Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => StockWorkflowPage(
         api: _api,
@@ -1244,6 +1260,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         suppliers: _suppliers,
         items: _items,
         warehouses: _warehouses,
+        initialItemCode: initialItemCode,
         onChanged: _loadInventory,
       ),
     ));
