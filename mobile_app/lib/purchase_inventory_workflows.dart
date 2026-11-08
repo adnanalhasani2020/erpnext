@@ -354,6 +354,20 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
             if (doc['is_return'] != 1 && doc['is_return'] != true)
               FilledButton(onPressed: () { Navigator.pop(sheet); compose(draft: doc); }, child: const Text('تعديل المسودة')),
             FilledButton.tonal(onPressed: () async { if (!await confirm(doc['is_return'] == 1 || doc['is_return'] == true ? 'ترحيل المرتجع' : 'ترحيل الفاتورة', 'قد يؤدي الترحيل إلى تحديث المخزون والقيود المحاسبية.')) return; try { await widget.api.submitPurchaseInvoice(doc); if (sheet.mounted) Navigator.pop(sheet); await load(); widget.onChanged?.call(); } catch (e) { notice(e.toString()); } }, child: Text(doc['is_return'] == 1 || doc['is_return'] == true ? 'ترحيل المرتجع' : 'ترحيل الفاتورة')),
+            OutlinedButton.icon(
+              onPressed: () async {
+                if (!await confirm('حذف مسودة المشتريات', 'سيُحذف المستند غير المرحّل نهائياً. لا يمكن حذف فاتورة أو مرتجع مرحّل. هل تريد المتابعة؟')) return;
+                try {
+                  await widget.api.deleteDraftDocument(doctype: 'Purchase Invoice', name: name);
+                  if (sheet.mounted) Navigator.pop(sheet);
+                  notice('تم حذف المسودة ' + name);
+                  await load();
+                  widget.onChanged?.call();
+                } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
+              },
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('حذف المسودة'),
+            ),
           ],
           if (doc['docstatus'] == 1 && doc['is_return'] != 1 && doc['is_return'] != true) ...[
             OutlinedButton(onPressed: () async {
@@ -618,6 +632,19 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
             title: Text((row['item_name'] ?? row['item_code'] ?? 'صنف').toString()),
             subtitle: Text('الكمية: ' + (row['qty'] ?? '—').toString() + ' • من: ' + (row['s_warehouse'] ?? '—').toString() + ' • إلى: ' + (row['t_warehouse'] ?? row['warehouse'] ?? '—').toString()),
           ))),
+          OutlinedButton.icon(
+            onPressed: () async {
+              if (!await confirm('حذف مسودة المخزون', 'سيُحذف المستند غير المرحّل نهائياً. لن يُسمح بحذف أي مستند مرحّل. هل تريد المتابعة؟')) return;
+              try {
+                await widget.api.deleteDraftDocument(doctype: type, name: name);
+                if (sheet.mounted) Navigator.pop(sheet);
+                notice('تم حذف المسودة ' + name);
+                await load();
+              } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
+            },
+            icon: const Icon(Icons.delete_outline),
+            label: const Text('حذف المسودة'),
+          ),
           FilledButton.icon(onPressed: () { Navigator.pop(sheet); submitDraft(summary); },
             icon: const Icon(Icons.check_circle_outline), label: const Text('متابعة لترحيل المسودة')),
         ]))));
