@@ -350,6 +350,57 @@ class FrappeApi {
     }
   }
 
+  Future<Map<String, dynamic>> createSalesReturn(String invoiceName) async {
+    final normalizedName = invoiceName.trim();
+    if (normalizedName.isEmpty) {
+      throw const FormatException('رقم فاتورة البيع الأصلية غير موجود.');
+    }
+
+    final source = await fetchInvoiceDocument('Sales Invoice', normalizedName);
+    if (source['docstatus'] != 1 || source['is_return'] == 1 || source['is_return'] == true) {
+      throw const FormatException('يمكن إنشاء مرتجع من فاتورة مبيعات أصلية مرحّلة فقط.');
+    }
+
+    // Let ERPNext map the return so it carries original taxes, item references,
+    // negative quantities, and already-returned quantity limits.
+    final mapped = await _sendJson(
+      'POST',
+      '/api/method/erpnext.accounts.doctype.sales_invoice.mapper.make_sales_return',
+      {'source_name': normalizedName},
+    );
+    final mappedData = _decode(mapped.body);
+    if (mapped.statusCode < 200 || mapped.statusCode >= 300) {
+      throw Exception(_message(mappedData, 'تعذر تجهيز مرتجع المبيعات من ERPNext.'));
+    }
+    final rawReturn = mappedData['message'];
+    if (rawReturn is! Map<String, dynamic>) {
+      throw Exception('استجابة تجهيز المرتجع غير متوقعة.');
+    }
+    final returnDraft = Map<String, dynamic>.from(rawReturn);
+    if (returnDraft['doctype'] != 'Sales Invoice' ||
+        (returnDraft['is_return'] != 1 && returnDraft['is_return'] != true) ||
+        returnDraft['return_against'] != normalizedName) {
+      throw Exception('لم يؤكد ERPNext أن المستند الناتج مرتجع مرتبط بالفاتورة الأصلية.');
+    }
+    final returnItems = returnDraft['items'];
+    if (returnItems is! List || returnItems.isEmpty) {
+      throw const FormatException('لا توجد كميات متاحة للإرجاع في هذه الفاتورة.');
+    }
+
+    final inserted = await _sendJson('POST', '/api/resource/Sales%20Invoice', returnDraft);
+    final insertedData = _decode(inserted.body);
+    if (inserted.statusCode < 200 || inserted.statusCode >= 300) {
+      throw Exception(_message(insertedData, 'تعذر حفظ مسودة مرتجع المبيعات.'));
+    }
+    final created = insertedData['data'];
+    if (created is! Map<String, dynamic> ||
+        created['name'] is! String ||
+        created['return_against'] != normalizedName) {
+      throw Exception('استجابة حفظ المرتجع غير مكتملة؛ تحقق من فواتير المبيعات قبل إعادة المحاولة.');
+    }
+    return created;
+  }
+
   Future<Map<String, dynamic>> cancelSalesInvoice(Map<String, dynamic> document) async {
     if (document['name'] is! String || document['name'].toString().isEmpty || document['docstatus'] != 1) {
       throw const FormatException('لا يمكن إلغاء هذه الفاتورة؛ يجب أن تكون مرحّلة.');
