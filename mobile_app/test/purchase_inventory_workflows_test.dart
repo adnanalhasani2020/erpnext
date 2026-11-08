@@ -632,6 +632,65 @@ void main() {
       await server.close(force: true);
     }
   });
+  test('purchase invoice cancellation re-fetches and confirms ERPNext canceled status', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    var cancelRequests = 0;
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      if (request.method == 'GET' && request.uri.path.endsWith('/PINV-1')) {
+        request.response.write(jsonEncode({'data': {
+          'doctype': 'Purchase Invoice', 'name': 'PINV-1', 'docstatus': 1,
+        }}));
+      } else if (request.method == 'POST' && request.uri.path.endsWith('frappe.client.cancel')) {
+        cancelRequests++;
+        final payload = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+        expect(payload['doctype'], 'Purchase Invoice');
+        expect(payload['name'], 'PINV-1');
+        request.response.write(jsonEncode({'message': {
+          'doctype': 'Purchase Invoice', 'name': 'PINV-1', 'docstatus': 2,
+        }}));
+      } else {
+        request.response.statusCode = 404;
+        request.response.write(jsonEncode({'message': 'unexpected path: ${request.uri.path}'}));
+      }
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      final result = await api.cancelPurchaseInvoice('PINV-1');
+      expect(result['docstatus'], 2);
+      expect(cancelRequests, 1);
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
+  test('purchase invoice cancellation refuses drafts before calling cancel endpoint', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    var cancelRequests = 0;
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      if (request.method == 'GET') {
+        request.response.write(jsonEncode({'data': {
+          'doctype': 'Purchase Invoice', 'name': 'PINV-DRAFT', 'docstatus': 0,
+        }}));
+      } else {
+        cancelRequests++;
+        request.response.write(jsonEncode({'message': 'unexpected'}));
+      }
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      await expectLater(api.cancelPurchaseInvoice('PINV-DRAFT'), throwsFormatException);
+      expect(cancelRequests, 0);
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
   test('supplier ledger filters to one supplier and excludes canceled entries', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     var requests = 0;
