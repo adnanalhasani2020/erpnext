@@ -983,7 +983,11 @@ class _MobileHomePageState extends State<MobileHomePage> {
                     label: const Text('فتح إدارة المشتريات لهذا المستند'),
                   ),
                   const SizedBox(height: 8),
-                  if (InvoiceActionPolicy.canEditSalesDraft(documentType: documentType, docStatus: docStatus) && document['is_return'] != 1 && document['is_return'] != true) OutlinedButton.icon(
+                  if (InvoiceActionPolicy.canEditSalesDraft(
+                     documentType: documentType,
+                     docStatus: docStatus,
+                     isReturn: document['is_return'] == 1 || document['is_return'] == true,
+                   )) OutlinedButton.icon(
                     onPressed: () async {
                       Navigator.of(sheetContext).pop();
                       await _openSalesInvoiceComposer(initialDraft: document);
@@ -1019,7 +1023,12 @@ class _MobileHomePageState extends State<MobileHomePage> {
                     icon: const Icon(Icons.check_circle_outline),
                     label: const Text('ترحيل المسودة'),
                   ),
-                  if (InvoiceActionPolicy.canReceiveCustomerPayment(documentType: documentType, docStatus: docStatus, outstandingAmount: outstandingAmount)) FilledButton.icon(
+                  if (InvoiceActionPolicy.canReceiveCustomerPayment(
+                     documentType: documentType,
+                     docStatus: docStatus,
+                     outstandingAmount: outstandingAmount,
+                     isReturn: document['is_return'] == 1 || document['is_return'] == true,
+                   )) FilledButton.icon(
                     onPressed: () async {
                       try {
                         final accounts = await _api.fetchPaymentAccounts(document['company']?.toString() ?? '');
