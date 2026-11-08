@@ -1259,6 +1259,24 @@ class FrappeApi {
     }
   }
 
+  Future<Map<String, dynamic>> _fetchPaymentEntryDraft(String name) async {
+    if (name.trim().isEmpty) throw const FormatException('رقم سند الدفع غير موجود.');
+    final response = await _send('GET',
+      '/api/resource/Payment%20Entry/' + Uri.encodeComponent(name.trim()),
+    );
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل مسودة سند الدفع.'));
+    }
+    final document = data['data'];
+    if (document is! Map<String, dynamic> ||
+        document['doctype'] != 'Payment Entry' ||
+        document['name'] != name.trim() || document['docstatus'] != 0) {
+      throw const FormatException('سند الدفع لم يعد مسودة أو أن بياناته غير صحيحة.');
+    }
+    return document;
+  }
+
   Future<Map<String, dynamic>> _submitMobileDocument(Map<String, dynamic> doc, String doctype) async {
     final name = doc['name']?.toString() ?? '';
     final actionKey = '$doctype:$name';
@@ -1272,7 +1290,9 @@ class FrappeApi {
     // Never submit a stale object supplied by the screen. Re-read the canonical
     // server document immediately before submission and verify its identity/state.
     final name = (doc['name'] as String).trim();
-    final current = await fetchStockDocument(doctype, name);
+    final current = doctype == 'Payment Entry'
+        ? await _fetchPaymentEntryDraft(name)
+        : await fetchStockDocument(doctype, name);
     if (current['doctype'] != doctype || current['name'] != name || current['docstatus'] != 0) {
       throw const FormatException('تغيرت حالة المسودة على الخادم؛ حدّث قائمة المستندات قبل محاولة الترحيل.');
     }
