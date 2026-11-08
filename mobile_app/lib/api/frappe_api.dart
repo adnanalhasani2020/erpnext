@@ -152,13 +152,18 @@ class FrappeApi {
 
 
   Future<List<ErpStockBalance>> fetchStockBalances({int start = 0}) async {
-    final uri = Uri.parse('$_baseUrl/api/resource/Bin').replace(queryParameters: {
-      'fields': jsonEncode(['item_code', 'warehouse', 'actual_qty', 'reserved_qty', 'projected_qty', 'stock_uom']),
-      'filters': jsonEncode([['actual_qty', '!=', 0]]),
-      'limit_page_length': pageSize.toString(),
-      'limit_start': (start < 0 ? 0 : start).toString(),
-      'order_by': 'item_code asc',
-    });
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Bin',
+      fields: ['item_code', 'warehouse', 'actual_qty', 'reserved_qty', 'projected_qty', 'stock_uom'],
+      orFilters: [
+        ['actual_qty', '!=', 0],
+        ['reserved_qty', '!=', 0],
+        ['projected_qty', '!=', 0],
+      ],
+      orderBy: 'item_code asc, warehouse asc',
+      start: start,
+    );
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {

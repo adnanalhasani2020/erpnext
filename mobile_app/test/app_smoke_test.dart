@@ -71,6 +71,28 @@ void main() {
     expect(uri.queryParameters['filters'], '[["disabled","=",0]]');
   });
 
+  test('includes bins with reserved or projected quantity even when actual quantity is zero', () {
+    final uri = FrappeApi.buildResourcePageUri(
+      baseUrl: 'https://erp.example.com',
+      resource: 'Bin',
+      fields: ['item_code', 'warehouse', 'actual_qty', 'reserved_qty', 'projected_qty'],
+      orFilters: [
+        ['actual_qty', '!=', 0],
+        ['reserved_qty', '!=', 0],
+        ['projected_qty', '!=', 0],
+      ],
+      orderBy: 'item_code asc, warehouse asc',
+      start: 100,
+    );
+    expect(
+      uri.queryParameters['or_filters'],
+      '[["actual_qty","!=",0],["reserved_qty","!=",0],["projected_qty","!=",0]]',
+    );
+    expect(uri.queryParameters['filters'], isNull);
+    expect(uri.queryParameters['limit_start'], '100');
+    expect(uri.queryParameters['order_by'], 'item_code asc, warehouse asc');
+  });
+
   test('clamps invalid pagination offsets and page lengths', () {
     final uri = FrappeApi.buildResourcePageUri(
       baseUrl: 'https://erp.example.com',

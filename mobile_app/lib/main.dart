@@ -66,6 +66,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   String? _selectedWarehouse;
   int _selectedTab = 0;
   bool _busy = false;
+  int _loginAttempt = 0;
   String? _error;
   String? _user;
   List<ErpCompany> _companies = const [];
@@ -113,12 +114,13 @@ class _MobileHomePageState extends State<MobileHomePage> {
       mounted && _user != null && _api.sessionGeneration == generation;
 
   Future<void> _login() async {
+    final attempt = ++_loginAttempt;
     FocusScope.of(context).unfocus();
     setState(() { _busy = true; _error = null; });
     try {
       _api.configure(_urlController.text);
       final user = await _api.login(_userController.text, _passwordController.text);
-      if (!mounted) return;
+      if (!mounted || attempt != _loginAttempt) return;
       setState(() {
         _user = user;
         _passwordController.clear();
@@ -126,17 +128,17 @@ class _MobileHomePageState extends State<MobileHomePage> {
         _companyError = null;
       });
       await _loadCompanies();
-      if (!mounted) return;
+      if (!mounted || attempt != _loginAttempt) return;
       await _loadInventory();
-      if (!mounted) return;
+      if (!mounted || attempt != _loginAttempt) return;
       await _loadSales();
-      if (!mounted) return;
+      if (!mounted || attempt != _loginAttempt) return;
       await _loadPurchases();
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || attempt != _loginAttempt) return;
       setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted && attempt == _loginAttempt) setState(() => _busy = false);
     }
   }
 
@@ -544,6 +546,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   }
 
   Future<void> _logout() async {
+    _loginAttempt++;
     final logoutRequest = _api.logout();
     if (!mounted) {
       await logoutRequest;
