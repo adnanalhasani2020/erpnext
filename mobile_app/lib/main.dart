@@ -52,6 +52,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   final _loginFormKey = GlobalKey<FormState>();
   bool _showPassword = false;
   final _itemSearchController = TextEditingController();
+  final _stockSearchController = TextEditingController();
   final _warehouseSearchController = TextEditingController();
   final _customerSearchController = TextEditingController();
   final _salesInvoiceSearchController = TextEditingController();
@@ -67,6 +68,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   bool _searchingSuppliers = false;
   bool _searchingPurchaseInvoices = false;
   String _itemSearch = '';
+  String _stockSearch = '';
   String _warehouseSearch = '';
   String? _selectedWarehouse;
   int _selectedTab = 0;
@@ -107,6 +109,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     _userController.dispose();
     _passwordController.dispose();
     _itemSearchController.dispose();
+    _stockSearchController.dispose();
     _warehouseSearchController.dispose();
     _customerSearchController.dispose();
     _salesInvoiceSearchController.dispose();
@@ -312,12 +315,51 @@ class _MobileHomePageState extends State<MobileHomePage> {
     }
   }
 
+  Future<void> _searchStockBalances(String value, {String? warehouse}) async {
+    final query = value.trim();
+    if (_loadingMoreStock || _inventoryLoading) return;
+    final sessionGeneration = _api.sessionGeneration;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _stockSearch = query;
+      if (warehouse != null || _selectedWarehouse != warehouse) {
+        _selectedWarehouse = warehouse;
+      }
+      _stockBalances = const [];
+      _stockOffset = 0;
+      _stockHasMore = false;
+      _inventoryLoading = true;
+      _inventoryError = null;
+    });
+    try {
+      final page = await _api.fetchStockBalances(
+        search: query.isEmpty ? null : query,
+        warehouse: _selectedWarehouse,
+      );
+      if (!_isCurrentSession(sessionGeneration)) return;
+      setState(() {
+        _stockBalances = page;
+        _stockOffset = page.length;
+        _stockHasMore = page.length == FrappeApi.pageSize;
+      });
+    } catch (error) {
+      if (_isCurrentSession(sessionGeneration)) {
+        setState(() => _inventoryError =
+            'تعذر تحميل أرصدة المخزون: ${error.toString().replaceFirst('Exception: ', '')}');
+      }
+    } finally {
+      if (_isCurrentSession(sessionGeneration)) {
+        setState(() => _inventoryLoading = false);
+      }
+    }
+  }
+
   Future<void> _loadMoreStock() async {
     if (_loadingMoreStock || !_stockHasMore) return;
     final sessionGeneration = _api.sessionGeneration;
     setState(() => _loadingMoreStock = true);
     try {
-      final page = await _api.fetchStockBalances(start: _stockOffset);
+      final page = await _api.fetchStockBalances(start: _stockOffset, search: _stockSearch, warehouse: _selectedWarehouse);
       if (!_isCurrentSession(sessionGeneration)) return;
       setState(() {
         _stockBalances = [..._stockBalances, ...page];
@@ -788,10 +830,8 @@ class _MobileHomePageState extends State<MobileHomePage> {
   }
 
   Widget _buildStockPage() {
-    final selected = _selectedWarehouse;
-    final filtered = _stockBalances.where((row) => selected == null || row.warehouse == selected).toList(growable: false);
-    final totalActual = filtered.fold<double>(0, (sum, row) => sum + row.actualQty);
-    final totalReserved = filtered.fold<double>(0, (sum, row) => sum + row.reservedQty);
+    final filtered = _stockBalances;
+    final loadedWarehouses = filtered.map((row) => row.warehouse).toSet().length;
     return ListView(padding: const EdgeInsets.all(18), children: [
       _pageHeader('أرصدة المخزون', 'الكمية الفعلية والمحجوزة والمتاحة تقديرياً', Icons.inventory_2_outlined),
       const SizedBox(height: 16),
@@ -802,19 +842,26 @@ class _MobileHomePageState extends State<MobileHomePage> {
           const DropdownMenuItem<String>(value: null, child: Text('كل المستودعات')),
           ..._warehouses.map((warehouse) => DropdownMenuItem<String>(value: warehouse.id, child: Text(warehouse.name, overflow: TextOverflow.ellipsis))),
         ],
-        onChanged: (value) => setState(() => _selectedWarehouse = value),
+        onChanged: (value) => _searchStockBalances(_stockSearchController.text, warehouse: value),
       ),
       const SizedBox(height: 12),
+      ServerSearchField(
+        controller: _stockSearchController,
+        label: 'ابحث برمز الصنف',
+        onSearch: _searchStockBalances,
+        loading: _inventoryLoading,
+      ),
+      const SizedBox(height: 8),
       Row(children: [
-        Expanded(child: CountCard(label: 'عدد الأرصدة', count: filtered.length, icon: Icons.inventory_outlined)),
+        Expanded(child: CountCard(label: 'الأرصدة المحمّلة', count: filtered.length, icon: Icons.inventory_outlined)),
         const SizedBox(width: 8),
-        Expanded(child: CountCard(label: 'المستودعات', count: selected == null ? _warehouses.length : 1, icon: Icons.warehouse_outlined)),
+        Expanded(child: CountCard(label: 'مستودعات ضمن النتائج', count: loadedWarehouses, icon: Icons.warehouse_outlined)),
       ]),
-      Text('مجموع الكميات الفعلية: ${totalActual.toStringAsFixed(2)} • المحجوز: ${totalReserved.toStringAsFixed(2)}'),
+      const Text('الأعداد تخص النتائج المحمّلة فقط. لا تُجمع كميات الأصناف مع اختلاف وحدات القياس.'),
       if (_inventoryLoading) const LinearProgressIndicator(),
       if (_inventoryError != null) _errorCard(_inventoryError!),
       if (filtered.isEmpty && !_inventoryLoading)
-        const Card(child: ListTile(title: Text('لا توجد أرصدة مطابقة لهذا المستودع'))),
+        const Card(child: ListTile(title: Text('لا توجد أرصدة مطابقة لرمز الصنف والمستودع المحددين'))),
       ...filtered.map((balance) => Card(child: ListTile(
         title: Text(balance.itemCode),
         subtitle: Text('${balance.warehouse}\nمحجوز: ${balance.reservedQty} • متوقع: ${balance.projectedQty}'),
