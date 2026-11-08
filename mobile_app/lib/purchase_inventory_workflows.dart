@@ -92,7 +92,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       if (!mounted) return;
       await showModalBottomSheet<void>(context: context, isScrollControlled: true, showDragHandle: true,
         builder: (sheet) => SafeArea(child: Padding(padding: const EdgeInsets.all(16), child: ListView(shrinkWrap: true, children: [
-          Text(name, style: Theme.of(context).textTheme.titleLarge),
+          Text((doc['is_return'] == 1 || doc['is_return'] == true ? 'مرتجع مشتريات • ' : 'فاتورة مشتريات • ') + name, style: Theme.of(context).textTheme.titleLarge),
+          if (doc['return_against'] != null) Text('مرتبط بالفاتورة الأصلية: ' + doc['return_against'].toString()),
           Text('المورد: ' + (doc['supplier_name'] ?? doc['supplier'] ?? '—').toString()),
           Text('الحالة: ' + (doc['docstatus'] == 0 ? 'مسودة' : doc['docstatus'] == 1 ? 'مرحّل' : 'ملغي')),
           Text('الإجمالي: ' + (doc['grand_total'] ?? '—').toString() + ' ' + (doc['currency'] ?? '').toString()),
@@ -139,7 +140,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       if (error != null) Text(error!),
       Text('فواتير المشتريات (' + rows.length.toString() + ')', style: Theme.of(context).textTheme.titleMedium),
       if (rows.isEmpty && !loading) const ListTile(title: Text('لا توجد فواتير ظاهرة')),
-      ...rows.map((x) => Card(child: ListTile(leading: const Icon(Icons.shopping_cart_outlined), title: Text(x.id), subtitle: Text(x.supplierName + ' • ' + (x.status ?? '—') + ' • المتبقي ' + x.outstandingAmount.toStringAsFixed(2)), trailing: Text(x.grandTotal.toStringAsFixed(2)), onTap: () => details(x.id)))),
+      ...rows.map((x) => Card(child: ListTile(leading: Icon(x.isReturn ? Icons.assignment_return_outlined : Icons.shopping_cart_outlined), title: Text((x.isReturn ? 'مرتجع • ' : '') + x.id), subtitle: Text(x.supplierName + (x.returnAgainst == null ? '' : ' • أصل: ' + x.returnAgainst!) + ' • ' + (x.status ?? '—') + ' • المتبقي ' + x.outstandingAmount.toStringAsFixed(2)), trailing: Text(x.grandTotal.toStringAsFixed(2)), onTap: () => details(x.id)))),
       const SizedBox(height: 90),
     ]),
   );
