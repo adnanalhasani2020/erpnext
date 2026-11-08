@@ -407,6 +407,33 @@ class FrappeApi {
       throw const FormatException('رقم فاتورة البيع الأصلية غير موجود.');
     }
 
+    final pendingUri = Uri.parse('$_baseUrl/api/resource/Sales%20Invoice').replace(
+      queryParameters: {
+        'fields': jsonEncode(['name', 'return_against', 'docstatus']),
+        'filters': jsonEncode([
+          ['return_against', '=', normalizedName],
+          ['is_return', '=', 1],
+          ['docstatus', '=', 0],
+        ]),
+        'limit_page_length': '5',
+        'order_by': 'modified desc',
+      },
+    );
+    final pendingResponse = await _sendUri('GET', pendingUri);
+    final pendingData = _decode(pendingResponse.body);
+    if (pendingResponse.statusCode < 200 || pendingResponse.statusCode >= 300) {
+      throw Exception(_message(pendingData, 'تعذر التحقق من وجود مسودات مرتجع سابقة؛ أوقف الإنشاء لتجنب التكرار.'));
+    }
+    final pendingRows = pendingData['data'];
+    if (pendingRows is List && pendingRows.isNotEmpty) {
+      final pendingName = pendingRows.first is Map<String, dynamic>
+          ? (pendingRows.first as Map<String, dynamic>)['name']?.toString()
+          : null;
+      throw FormatException(
+        'يوجد مرتجع غير مرحّل لهذه الفاتورة ${pendingName ?? ''}. افتح المسودة الحالية وراجعها أو رحّلها قبل إنشاء مرتجع آخر.',
+      );
+    }
+
     final source = await fetchInvoiceDocument('Sales Invoice', normalizedName);
     if (source['docstatus'] != 1 || source['is_return'] == 1 || source['is_return'] == true) {
       throw const FormatException('يمكن إنشاء مرتجع من فاتورة مبيعات أصلية مرحّلة فقط.');
