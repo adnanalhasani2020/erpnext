@@ -461,4 +461,37 @@ void main() {
       await server.close(force: true);
     }
   });
+
+  test('purchase returnable quantities come from ERPNext debit note mapper', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      if (request.method == 'GET' && request.uri.path.endsWith('/PINV-1')) {
+        request.response.write(jsonEncode({'data': {
+          'doctype': 'Purchase Invoice', 'name': 'PINV-1', 'docstatus': 1,
+          'is_return': 0,
+        }}));
+      } else if (request.method == 'POST' && request.uri.path.endsWith('make_debit_note')) {
+        request.response.write(jsonEncode({'message': {
+          'doctype': 'Purchase Invoice', 'is_return': 1, 'return_against': 'PINV-1',
+          'items': [
+            {'purchase_invoice_item': 'PINV-ITEM-1', 'qty': -2},
+            {'purchase_invoice_item': 'PINV-ITEM-2', 'qty': -0.5},
+          ],
+        }}));
+      } else {
+        request.response.statusCode = 404;
+        request.response.write(jsonEncode({'message': 'unexpected path: ${request.uri.path}'}));
+      }
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      final quantities = await api.fetchPurchaseReturnableQuantities('PINV-1');
+      expect(quantities, {'PINV-ITEM-1': 2.0, 'PINV-ITEM-2': 0.5});
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
 }
