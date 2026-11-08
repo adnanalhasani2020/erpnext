@@ -190,6 +190,10 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
       setState(() => _error = 'اختر الصنف لكل بند في الفاتورة.');
       return;
     }
+    if (_lines.any((line) => !line.total.isFinite)) {
+      setState(() => _error = 'إجمالي أحد البنود تجاوز النطاق الرقمي المسموح؛ راجع الكمية والسعر.');
+      return;
+    }
     if (_updateStock && _lines.any((line) => line.item!.isStockItem && line.warehouse == null)) {
       setState(() => _error = 'حدد المستودع لكل صنف مخزني حتى يستطيع ERPNext خصم الكمية عند الترحيل.');
       return;
