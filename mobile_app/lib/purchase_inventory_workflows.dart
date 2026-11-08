@@ -370,6 +370,59 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     }
   }
 
+  Future<Map<String, dynamic>?> _supplierPaymentDialog(String company) async {
+    try {
+      final accounts = await widget.api.fetchPaymentAccounts(company);
+      if (!mounted) return null;
+      if (accounts.isEmpty) {
+        notice('لا توجد حسابات صندوق أو بنك مفعّلة لهذه الشركة في ERPNext.');
+        return null;
+      }
+      final amount = TextEditingController();
+      var account = accounts.first.name;
+      try {
+        return await showDialog<Map<String, dynamic>>(
+          context: context,
+          builder: (c) => StatefulBuilder(builder: (context, refresh) => AlertDialog(
+            title: const Text('تسجيل دفعة المورد'),
+            content: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextField(
+                controller: amount,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(labelText: 'مبلغ الدفعة'),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                initialValue: account,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'حساب الصندوق / البنك'),
+                items: accounts.map((x) => DropdownMenuItem(
+                  value: x.name,
+                  child: Text('\${x.accountName} • \${x.accountType}', overflow: TextOverflow.ellipsis),
+                )).toList(),
+                onChanged: (v) => refresh(() { if (v != null) account = v; }),
+              ),
+            ]),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(c), child: const Text('إلغاء')),
+              FilledButton(onPressed: () {
+                final value = double.tryParse(amount.text.trim());
+                if (value != null && value > 0 && value.isFinite) {
+                  Navigator.pop(c, {'amount': value, 'account': account});
+                }
+              }, child: const Text('تأكيد الدفعة')),
+            ],
+          )),
+        );
+      } finally {
+        amount.dispose();
+      }
+    } catch (e) {
+      notice(e.toString().replaceFirst('Exception: ', ''));
+      return null;
+    }
+  }
+
   Widget _field(TextEditingController c, String label, {bool number = false}) => Padding(padding: const EdgeInsets.only(bottom: 8), child: TextField(controller: c, keyboardType: number ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text, decoration: InputDecoration(labelText: label)));
   @override Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('إدارة المشتريات'), actions: [IconButton(onPressed: load, icon: const Icon(Icons.refresh))]),
