@@ -38,6 +38,7 @@ class FrappeApi {
   }
 
   final Map<String, String> _cookies = {};
+  final Set<String> _inFlightSalesActions = <String>{};
   String _baseUrl = '';
   int _sessionGeneration = 0;
 
@@ -504,6 +505,11 @@ class FrappeApi {
   }
 
   Future<Map<String, dynamic>> submitSalesWorkflowDocument(String doctype, String name) async {
+    final actionKey = 'submit-sales-doc:${name}';
+    if (!_inFlightSalesActions.add(actionKey)) {
+      throw const FormatException('ترحيل مستند المبيعات قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
+    }
+    try {
     _salesWorkflowResource(doctype);
     final current = await fetchSalesWorkflowDocument(doctype, name);
     if (current['docstatus'] != 0) throw const FormatException('لا يمكن ترحيل هذا المستند لأنه ليس مسودة.');
@@ -515,9 +521,17 @@ class FrappeApi {
       throw Exception('لم يؤكد ERPNext ترحيل $doctype؛ تحقق من حالة المستند قبل إعادة المحاولة.');
     }
     return submitted;
+    } finally {
+      _inFlightSalesActions.remove(actionKey);
+    }
   }
 
   Future<Map<String, dynamic>> cancelSalesWorkflowDocument(String doctype, String name) async {
+    final actionKey = 'cancel-sales-doc:${name}';
+    if (!_inFlightSalesActions.add(actionKey)) {
+      throw const FormatException('إلغاء مستند المبيعات قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
+    }
+    try {
     _salesWorkflowResource(doctype);
     final current = await fetchSalesWorkflowDocument(doctype, name);
     if (current['docstatus'] != 1) throw const FormatException('يمكن إلغاء مستند مبيعات مرحّل فقط.');
@@ -529,6 +543,9 @@ class FrappeApi {
       throw Exception('لم يؤكد ERPNext إلغاء $doctype.');
     }
     return cancelled;
+    } finally {
+      _inFlightSalesActions.remove(actionKey);
+    }
   }
 
   Future<Map<String, dynamic>> makeSalesWorkflowDocument({
@@ -599,6 +616,11 @@ class FrappeApi {
   }
 
   Future<Map<String, dynamic>> submitSalesInvoice(Map<String, dynamic> document) async {
+    final actionKey = 'submit-invoice:${name}';
+    if (!_inFlightSalesActions.add(actionKey)) {
+      throw const FormatException('ترحيل هذه الفاتورة قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
+    }
+    try {
     if (document['doctype'] != 'Sales Invoice' ||
         document['name'] is! String ||
         document['name'].toString().trim().isEmpty) {
@@ -622,6 +644,9 @@ class FrappeApi {
       throw Exception('لم يؤكد ERPNext ترحيل الفاتورة؛ افتح المستند وتحقق من حالته قبل إعادة المحاولة.');
     }
     return submitted;
+    } finally {
+      _inFlightSalesActions.remove(actionKey);
+    }
   }
   Future<List<ErpPaymentAccount>> fetchPaymentAccounts(String company) async {
     final normalizedCompany = company.trim();
@@ -698,6 +723,11 @@ class FrappeApi {
     required double amount,
     String? bankAccount,
   }) async {
+    final actionKey = 'receipt:${invoiceName}';
+    if (!_inFlightSalesActions.add(actionKey)) {
+      throw const FormatException('تسجيل دفعة هذه الفاتورة قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
+    }
+    try {
     if (invoiceName.trim().isEmpty || !amount.isFinite || amount <= 0) {
       throw const FormatException('أدخل رقم الفاتورة ومبلغ دفعة صحيحاً أكبر من صفر.');
     }
@@ -792,6 +822,9 @@ class FrappeApi {
       }
       throw Exception('تم إنشاء سند القبض ${created['name']}، لكن لم يتم تأكيد ترحيله. راجع حالة هذا السند في ERPNext قبل محاولة تسجيل دفعة أخرى. التفاصيل: ${error.toString().replaceFirst('Exception: ', '')}');
     }
+    } finally {
+      _inFlightSalesActions.remove(actionKey);
+    }
   }
 
   Future<Map<String, dynamic>> updateDraftSalesInvoice({
@@ -846,6 +879,11 @@ class FrappeApi {
   }
 
   Future<Map<String, dynamic>> createSalesReturn(String invoiceName) async {
+    final actionKey = 'return:${invoiceName}';
+    if (!_inFlightSalesActions.add(actionKey)) {
+      throw const FormatException('إنشاء مرتجع هذه الفاتورة قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
+    }
+    try {
     final normalizedName = invoiceName.trim();
     if (normalizedName.isEmpty) {
       throw const FormatException('رقم فاتورة البيع الأصلية غير موجود.');
@@ -924,9 +962,17 @@ class FrappeApi {
       throw Exception('لم يؤكد ERPNext إنشاء مسودة مرتجع مرتبطة بالفاتورة الأصلية؛ تحقق من فواتير المبيعات قبل إعادة المحاولة.');
     }
     return created;
+    } finally {
+      _inFlightSalesActions.remove(actionKey);
+    }
   }
 
   Future<Map<String, dynamic>> cancelSalesInvoice(Map<String, dynamic> document) async {
+    final actionKey = 'cancel-invoice:${name}';
+    if (!_inFlightSalesActions.add(actionKey)) {
+      throw const FormatException('إلغاء هذه الفاتورة قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
+    }
+    try {
     if (document['doctype'] != 'Sales Invoice' ||
         document['name'] is! String ||
         document['name'].toString().trim().isEmpty) {
@@ -950,6 +996,9 @@ class FrappeApi {
       throw Exception('لم يؤكد ERPNext إلغاء الفاتورة؛ تحقق من حالتها قبل إعادة المحاولة.');
     }
     return cancelled;
+    } finally {
+      _inFlightSalesActions.remove(actionKey);
+    }
   }
 
 
