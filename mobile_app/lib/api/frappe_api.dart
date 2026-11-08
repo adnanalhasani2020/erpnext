@@ -643,7 +643,7 @@ class FrappeApi {
   Future<Map<String, dynamic>> submitPurchaseInvoice(Map<String, dynamic> doc) =>
       _submitMobileDocument(doc, 'Purchase Invoice');
 
-  Future<Map<String, dynamic>> createPurchaseReturn(String invoiceName) async {
+  Future<Map<String, dynamic>> createPurchaseReturn(String invoiceName, {List<double?>? quantities}) async {
     final source = await fetchInvoiceDocument('Purchase Invoice', invoiceName);
     if (source['docstatus'] != 1 || source['is_return'] == 1 || source['is_return'] == true) {
       throw const FormatException('المرتجع يتطلب فاتورة مشتريات أصلية مرحلة.');
@@ -669,6 +669,31 @@ class FrappeApi {
         (raw['is_return'] != 1 && raw['is_return'] != true) || raw['return_against'] != invoiceName ||
         raw['items'] is! List || (raw['items'] as List).isEmpty) {
       throw Exception('لم يؤكد ERPNext بيانات مرتجع المشتريات.');
+    }
+    final mappedItems = (raw['items'] as List).whereType<Map<String, dynamic>>().toList();
+    if (quantities != null) {
+      if (quantities.length != mappedItems.length) {
+        throw const FormatException('عدد كميات المرتجع لا يطابق بنود الفاتورة التي جهزها ERPNext.');
+      }
+      final selectedItems = <Map<String, dynamic>>[];
+      for (var index = 0; index < mappedItems.length; index++) {
+        final requested = quantities[index];
+        if (requested == null || requested == 0) continue;
+        if (!requested.isFinite || requested < 0) {
+          throw const FormatException('أدخل كمية مرتجع صحيحة موجبة أو اترك البند دون إرجاع.');
+        }
+        final mappedQty = double.tryParse(mappedItems[index]['qty']?.toString() ?? '') ?? 0;
+        if (mappedQty == 0 || requested > mappedQty.abs() + 0.000001) {
+          throw FormatException('كمية المرتجع للصنف ${mappedItems[index]['item_code'] ?? index + 1} تتجاوز الكمية المتبقية المسموح بها في ERPNext.');
+        }
+        final line = Map<String, dynamic>.from(mappedItems[index]);
+        line['qty'] = mappedQty.isNegative ? -requested : requested;
+        selectedItems.add(line);
+      }
+      if (selectedItems.isEmpty) {
+        throw const FormatException('حدد كمية مرتجع واحدة على الأقل.');
+      }
+      raw['items'] = selectedItems;
     }
     final inserted = await _sendJson('POST', '/api/resource/Purchase%20Invoice', Map<String, dynamic>.from(raw));
     final data = _decode(inserted.body);
