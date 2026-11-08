@@ -319,16 +319,16 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
     final draft = widget.initialDraft;
     final companyName = draft?['company']?.toString();
     final customerId = draft?['customer']?.toString();
-    _company = widget.companies.where((x) => x.name == companyName).firstOrNull ??
+    _company = widget.companies.where((x) => x.name == companyName).isEmpty ? null : widget.companies.firstWhere((x) => x.name == companyName) ??
       (companyName == null ? null : ErpCompany(name: companyName));
-    _customer = widget.customers.where((x) => x.id == customerId).firstOrNull ??
+    _customer = widget.customers.where((x) => x.id == customerId).isEmpty ? null : widget.customers.firstWhere((x) => x.id == customerId) ??
       (customerId == null ? null : ErpCustomer(id: customerId, name: draft?['customer_name']?.toString() ?? customerId));
     final rawItems = draft?['items'];
     if (rawItems is List) {
       for (final raw in rawItems.whereType<Map<String, dynamic>>()) {
         final line = _SalesLineDraft();
         final code = raw['item_code']?.toString();
-        line.item = widget.items.where((x) => x.code == code).firstOrNull ??
+        line.item = widget.items.where((x) => x.code == code).isEmpty ? null : widget.items.firstWhere((x) => x.code == code) ??
           (code == null ? null : ErpItem(code: code, name: raw['item_name']?.toString() ?? code));
         line.qty.text = raw['qty']?.toString() ?? '1';
         line.rate.text = raw['rate']?.toString() ?? '0';
