@@ -168,4 +168,33 @@ void main() {
       await server.close(force: true);
     }
   });
+
+  test('material receipt maps entered valuation rate to ERPNext basic_rate', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      final payload = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+      final row = (payload['items'] as List).single as Map<String, dynamic>;
+      expect(row['basic_rate'], 12.5);
+      expect(row.containsKey('valuation_rate'), isFalse);
+      expect(row['t_warehouse'], 'WH-RECEIVE');
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'data': {
+        'doctype': 'Stock Entry', 'name': 'STE-RECEIPT-1', 'docstatus': 0,
+      }}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      final result = await api.createStockEntry(
+        company: 'COMP-1',
+        purpose: 'Material Receipt',
+        toWarehouse: 'WH-RECEIVE',
+        items: [{'item_code': 'ITEM-1', 'qty': 2, 'valuation_rate': 12.5}],
+      );
+      expect(result['name'], 'STE-RECEIPT-1');
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
 }
