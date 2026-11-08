@@ -23,12 +23,12 @@ Arabic-first Android companion app for an ERPNext instance.
 - Tap a sales or purchase invoice to retrieve its full document from Frappe and view invoice totals, due dates, and item lines.
 - Customer, invoice, supplier, and purchase-invoice requests are loaded independently so one permission failure does not hide other successfully loaded records.
 - Inventory and sales resources load independently. A permission error for one resource does not clear successful data from the other resources.
-- Stock workflows create ERPNext Stock Entry documents for Material Receipt, Material Issue, and Material Transfer, plus Stock Reconciliation drafts for physical counts. Users explicitly confirm submission; stock movements are read from Stock Ledger Entry.
+- Stock workflows create ERPNext Purchase Receipt documents for supplier goods receipt, Stock Entry documents for Material Receipt, Material Issue, and Material Transfer, plus Stock Reconciliation drafts for physical counts. Users explicitly confirm submission; stock movements are read from Stock Ledger Entry.
 
 ## Current limits
 
 - Item, warehouse, Bin, Customer, and Sales Invoice lists are paginated in pages of 100; the composer currently selects from the master-data pages loaded by the dashboard.
-- Purchase invoices can be created and edited as drafts, explicitly submitted, returned through ERPNext's debit-note mapper, and paid using supplier Payment Entry. Stock receipts, issues, transfers, and reconciliations can be drafted and explicitly submitted.
+- Purchase invoices can be created and edited as drafts, explicitly submitted, returned through ERPNext's debit-note mapper, and paid using supplier Payment Entry. Supplier Purchase Receipts, stock receipts, issues, transfers, and reconciliations can be drafted and explicitly submitted.
 - Purchase and stock workflows currently use a single item row per mobile form operation; multi-line purchase invoices and multi-item stock/reconciliation batches are future UI enhancements. Purchase returns are created as drafts and require review and explicit submission. Supplier payment reconciliation, standalone accounting ledgers, and financial reports are not implemented.
 - A successful APK build does not prove connection to a live ERPNext server. A real site and appropriately permissioned test account are required for integration testing.
 
