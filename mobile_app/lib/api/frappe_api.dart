@@ -317,16 +317,29 @@ class FrappeApi {
     if (references is! List || references.isEmpty) {
       throw Exception('لم يربط ERPNext سند القبض بفاتورة المبيعات.');
     }
-    final paymentDraft = Map<String, dynamic>.from(rawDocument);
-    final paymentReferences = references.map((row) {
-      if (row is! Map<String, dynamic>) return row;
-      final reference = Map<String, dynamic>.from(row);
-      if (reference['reference_doctype'] == 'Sales Invoice' && reference['reference_name'] == invoiceName) {
-        reference['allocated_amount'] = amount;
+    // ERPNext may split one invoice across several payment-term references.
+    // Keep its allocations intact and verify their combined amount instead of
+    // overwriting every row with the full payment amount.
+    var allocatedTotal = 0.0;
+    for (final row in references) {
+      if (row is! Map<String, dynamic> ||
+          row['reference_doctype'] != 'Sales Invoice' ||
+          row['reference_name'] != invoiceName) {
+        continue;
       }
-      return reference;
-    }).toList(growable: false);
-    paymentDraft['references'] = paymentReferences;
+      final allocated = row['allocated_amount'];
+      if (allocated is num) {
+        allocatedTotal += allocated.toDouble();
+      } else {
+        allocatedTotal += double.tryParse(allocated?.toString() ?? '') ?? 0;
+      }
+    }
+    if ((allocatedTotal - amount).abs() > 0.01) {
+      throw FormatException(
+        'وزّع ERPNext مبلغ الدفعة على شروط السداد بقيمة ${allocatedTotal.toStringAsFixed(2)} بدلاً من ${amount.toStringAsFixed(2)}؛ لم يتم إنشاء سند القبض.',
+      );
+    }
+    final paymentDraft = Map<String, dynamic>.from(rawDocument);
 
     final insert = await _sendJson('POST', '/api/resource/Payment%20Entry', paymentDraft);
     final insertData = _decode(insert.body);
