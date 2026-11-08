@@ -398,7 +398,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                 decoration: const InputDecoration(labelText: 'حساب الصندوق / البنك'),
                 items: accounts.map((x) => DropdownMenuItem(
                   value: x.name,
-                  child: Text('\${x.accountName} • \${x.accountType}', overflow: TextOverflow.ellipsis),
+                  child: Text('${x.accountName} • ${x.accountType}', overflow: TextOverflow.ellipsis),
                 )).toList(),
                 onChanged: (v) => refresh(() { if (v != null) account = v; }),
               ),
