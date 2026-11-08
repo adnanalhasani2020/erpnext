@@ -1014,7 +1014,40 @@ class _MobileHomePageState extends State<MobileHomePage> {
                     icon: const Icon(Icons.cancel_outlined),
                     label: const Text('إلغاء الفاتورة'),
                   ),
-                  const Text('تعديل الفاتورة وتسجيل الدفعات والمرتجعات من الجوال لم تكتمل بعد.', textAlign: TextAlign.center),
+                  if (docStatus == 1 && document['is_return'] != 1 && document['is_return'] != true) OutlinedButton.icon(
+                    onPressed: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          title: const Text('إنشاء مرتجع / إشعار دائن'),
+                          content: const Text('سيُنشئ ERPNext مسودة مرتجع مرتبطة بالفاتورة الأصلية، مع احتساب الكميات التي سبق إرجاعها. راجع المسودة قبل ترحيلها؛ ترحيلها قد يعكس المخزون والقيود المحاسبية. هل تريد المتابعة؟'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('إلغاء')),
+                            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('إنشاء المسودة')),
+                          ],
+                        ),
+                      );
+                      if (confirmed != true) return;
+                      try {
+                        final returnDraft = await _api.createSalesReturn(invoiceId);
+                        if (!mounted) return;
+                        Navigator.of(sheetContext).pop();
+                        _loadSales();
+                        ScaffoldMessenger.of(this.context).showSnackBar(
+                          SnackBar(content: Text('تم إنشاء مسودة المرتجع ${returnDraft['name']}. افتحها لمراجعتها ثم ترحيلها.')),
+                        );
+                      } catch (error) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            SnackBar(content: Text('تعذر إنشاء المرتجع: ${error.toString().replaceFirst('Exception: ', '')}')),
+                          );
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.assignment_return_outlined),
+                    label: const Text('إنشاء مرتجع / إشعار دائن'),
+                  ),
+                  const Text('يُنشأ المرتجع كمسودة من مستند ERPNext الأصلي؛ راجعه قبل الترحيل.', textAlign: TextAlign.center),
                 ]),
               );
             },
@@ -1326,7 +1359,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
           onTap: () => setState(() => _selectedTab = 4),
         )),
         const SizedBox(height: 10),
-        Text('العمليات الحالية للقراءة فقط. إنشاء الفواتير وترحيلها والمدفوعات غير مفعّلة بعد.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
+        Text('يمكنك إنشاء فواتير المبيعات وترحيلها وتسجيل دفعات العملاء وإعداد مسودات المرتجعات من شاشة المعاملات.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
       ],
     );
   }
