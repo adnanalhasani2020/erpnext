@@ -683,6 +683,38 @@ class FrappeApi {
   Future<Map<String, dynamic>> submitPurchaseInvoice(Map<String, dynamic> doc) =>
       _submitMobileDocument(doc, 'Purchase Invoice');
 
+  Future<Map<String, double>> fetchPurchaseReturnableQuantities(String invoiceName) async {
+    if (invoiceName.trim().isEmpty) throw const FormatException('رقم فاتورة المشتريات غير موجود.');
+    final source = await fetchInvoiceDocument('Purchase Invoice', invoiceName);
+    if (source['docstatus'] != 1 || source['is_return'] == 1 || source['is_return'] == true) {
+      throw const FormatException('حساب الكميات المتبقية يتطلب فاتورة مشتريات أصلية مرحلة.');
+    }
+    final mapped = await _sendJson('POST',
+      '/api/method/erpnext.accounts.doctype.purchase_invoice.mapper.make_debit_note',
+      {'source_name': invoiceName});
+    final data = _decode(mapped.body);
+    if (mapped.statusCode < 200 || mapped.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر حساب الكميات المتبقية للمرتجع.'));
+    }
+    final raw = data['message'];
+    if (raw is! Map<String, dynamic> || raw['doctype'] != 'Purchase Invoice' ||
+        (raw['is_return'] != 1 && raw['is_return'] != true) ||
+        raw['return_against'] != invoiceName || raw['items'] is! List) {
+      throw Exception('لم يؤكد ERPNext بيانات الكميات القابلة للإرجاع.');
+    }
+    final result = <String, double>{};
+    for (final row in (raw['items'] as List).whereType<Map<String, dynamic>>()) {
+      final sourceItem = row['purchase_invoice_item']?.toString();
+      final qty = double.tryParse(row['qty']?.toString() ?? '');
+      if (sourceItem == null || sourceItem.isEmpty || qty == null || !qty.isFinite || qty == 0) continue;
+      if (result.containsKey(sourceItem)) {
+        throw const FormatException('تكررت إحالة بند الفاتورة الأصلية في بيانات المرتجع.');
+      }
+      result[sourceItem] = qty.abs();
+    }
+    return result;
+  }
+
   Future<Map<String, dynamic>> createPurchaseReturn(String invoiceName, {Map<String, double?>? quantitiesBySourceItem}) async {
     final source = await fetchInvoiceDocument('Purchase Invoice', invoiceName);
     if (source['docstatus'] != 1 || source['is_return'] == 1 || source['is_return'] == true) {
