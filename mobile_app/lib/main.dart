@@ -974,7 +974,14 @@ class _MobileHomePageState extends State<MobileHomePage> {
                     subtitle: Text('${line.itemCode} • الكمية: ${line.qty.toStringAsFixed(2)} ${line.uom ?? ''}${line.warehouse == null ? '' : ' • ${line.warehouse}'}'),
                     trailing: Text('${line.amount.toStringAsFixed(2)} $currency'),
                   ))),
-                  if (documentType == 'Purchase Invoice') const Card(child: ListTile(leading: Icon(Icons.visibility_outlined), title: Text('عرض فقط'), subtitle: Text('عمليات فواتير المشتريات غير مفعّلة في تطبيق الجوال حالياً.'))),
+                  if (documentType == 'Purchase Invoice') OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(sheetContext).pop();
+                      _openPurchaseWorkflow(initialInvoiceName: invoiceId);
+                    },
+                    icon: const Icon(Icons.shopping_bag_outlined),
+                    label: const Text('فتح إدارة المشتريات لهذا المستند'),
+                  ),
                   const SizedBox(height: 8),
                   if (InvoiceActionPolicy.canEditSalesDraft(documentType: documentType, docStatus: docStatus) && document['is_return'] != 1 && document['is_return'] != true) OutlinedButton.icon(
                     onPressed: () async {
@@ -1143,10 +1150,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
                         final returnDraft = await _api.createSalesReturn(invoiceId);
                         if (!mounted || !sheetContext.mounted) return;
                         Navigator.of(sheetContext).pop();
-                        _loadSales();
-                        ScaffoldMessenger.of(this.context).showSnackBar(
-                          SnackBar(content: Text('تم إنشاء مسودة المرتجع ${returnDraft['name']}. افتحها لمراجعتها ثم ترحيلها.')),
-                        );
+                        await _loadSales();
+                        if (!mounted) return;
+                        _showInvoiceDetails('Sales Invoice', returnDraft['name'].toString());
                       } catch (error) {
                         if (mounted) {
                           ScaffoldMessenger.of(this.context).showSnackBar(
@@ -1207,7 +1213,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ));
   }
 
-  Future<void> _openPurchaseWorkflow() async {
+  Future<void> _openPurchaseWorkflow({String? initialInvoiceName}) async {
     await Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => PurchaseWorkflowPage(
         api: _api,
@@ -1215,6 +1221,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         suppliers: _suppliers,
         items: _items,
         warehouses: _warehouses,
+        initialInvoiceName: initialInvoiceName,
         onChanged: () { _loadPurchases(); _loadInventory(); },
       ),
     ));
@@ -1322,7 +1329,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         subtitle: Text('${invoice.supplierName} • ${invoice.postingDate ?? '—'}\n${invoice.status ?? 'حالة غير محددة'} • متبقٍ: ${invoice.outstandingAmount.toStringAsFixed(2)} ${invoice.currency ?? ''}'),
         isThreeLine: true,
         trailing: Text(invoice.grandTotal.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
-        onTap: () => _showInvoiceDetails('Purchase Invoice', invoice.id),
+        onTap: () => _openPurchaseWorkflow(initialInvoiceName: invoice.id),
       ))),
       if (_purchaseInvoicesHasMore || _loadingMorePurchaseInvoices) LoadMoreButton(_loadingMorePurchaseInvoices, 'تحميل المزيد من فواتير المشتريات', _loadMorePurchaseInvoices),
       const SizedBox(height: 18),
@@ -1341,7 +1348,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       ))),
       if (_suppliersHasMore || _loadingMoreSuppliers) LoadMoreButton(_loadingMoreSuppliers, 'تحميل المزيد من الموردين', _loadMoreSuppliers),
       const SizedBox(height: 10),
-      Text('يمكن إنشاء مسودات فواتير المبيعات وترحيلها من زر إنشاء فاتورة؛ بقية معاملات المشتريات ما زالت للعرض فقط.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
+      Text('تتم إدارة دورة المبيعات من شاشة المبيعات، ودورة المشتريات والدفعات والمرتجعات من شاشة إدارة المشتريات، مع تحديث أرصدة المخزون بعد العمليات المرحلة.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
     ]);
   }
 
