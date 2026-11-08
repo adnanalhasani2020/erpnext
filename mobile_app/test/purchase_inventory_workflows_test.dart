@@ -518,7 +518,7 @@ void main() {
             'reference_name': 'PINV-1', 'allocated_amount': 40,
           }],
         }}));
-      } else if (request.method == 'POST' && request.uri.path.endsWith('/Payment%20Entry')) {
+      } else if (request.method == 'POST' && request.uri.pathSegments.contains('Payment Entry')) {
         request.response.write(jsonEncode({'data': {
           'doctype': 'Payment Entry', 'name': 'PAY-1', 'docstatus': 0,
         }}));
