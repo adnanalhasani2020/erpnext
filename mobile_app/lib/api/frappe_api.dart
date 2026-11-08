@@ -264,8 +264,8 @@ class FrappeApi {
       fields: const ['name', 'supplier', 'supplier_name', 'company', 'transaction_date', 'status', 'per_received'],
       filters: const [['docstatus', '=', 1]],
       orFilters: search == null || search.trim().isEmpty ? null : [
-        ['name', 'like', '%\${search.trim()}%'],
-        ['supplier', 'like', '%\${search.trim()}%'],
+        ['name', 'like', '%${search.trim()}%'],
+        ['supplier', 'like', '%${search.trim()}%'],
       ],
       orderBy: 'transaction_date desc, name desc',
       start: start,
