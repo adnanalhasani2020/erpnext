@@ -3,6 +3,33 @@ import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
 
+Map<String, dynamic> buildSalesWorkflowLinePayload({
+  required Map<String, dynamic>? sourceRow,
+  required String itemCode,
+  required double quantity,
+  required double rate,
+  String? warehouse,
+  String? deliveryDate,
+}) {
+  final row = Map<String, dynamic>.from(sourceRow ?? const <String, dynamic>{});
+  if (row['item_code'] != null && row['item_code'] != itemCode) {
+    for (final field in const [
+      'prevdoc_docname', 'prevdoc_doctype', 'quotation', 'quotation_item',
+      'sales_order', 'so_detail', 'delivery_note', 'dn_detail',
+      'against_sales_order',
+    ]) {
+      row.remove(field);
+    }
+  }
+  row
+    ..['item_code'] = itemCode
+    ..['qty'] = quantity
+    ..['rate'] = rate;
+  if (warehouse != null && warehouse.isNotEmpty) row['warehouse'] = warehouse;
+  if (deliveryDate != null && deliveryDate.isNotEmpty) row['delivery_date'] = deliveryDate;
+  return row;
+}
+
 class SalesWorkflowPage extends StatefulWidget {
   const SalesWorkflowPage({
     super.key,
@@ -406,15 +433,16 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
         if (widget.doctype == 'Quotation') 'quotation_to': 'Customer',
         if (widget.doctype == 'Sales Order') ...{'order_type': 'Sales', 'delivery_date': today},
         'items': _lines.map((line) {
-          final row = Map<String, dynamic>.from(line.sourceRow ?? const <String, dynamic>{})
-            ..['item_code'] = line.item!.code
-            ..['qty'] = double.parse(line.qty.text.trim())
-            ..['rate'] = double.parse(line.rate.text.trim());
-          if (widget.doctype == 'Sales Order' && line.item!.isStockItem) {
-            row['warehouse'] = line.warehouse!.id;
-          }
-          if (widget.doctype == 'Sales Order') row['delivery_date'] = today;
-          return row;
+          return buildSalesWorkflowLinePayload(
+            sourceRow: line.sourceRow,
+            itemCode: line.item!.code,
+            quantity: double.parse(line.qty.text.trim()),
+            rate: double.parse(line.rate.text.trim()),
+            warehouse: widget.doctype == 'Sales Order' && line.item!.isStockItem
+                ? line.warehouse!.id
+                : null,
+            deliveryDate: widget.doctype == 'Sales Order' ? today : null,
+          );
         }).toList(),
       };
       if (widget.initialDraft == null) {
