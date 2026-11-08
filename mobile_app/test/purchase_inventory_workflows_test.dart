@@ -48,6 +48,7 @@ void main() {
     final api = FrappeApi();
     await expectLater(api.createStockEntry(company: 'COMP-1', purpose: 'Unknown', items: [{'item_code': 'I', 'qty': 1}]), throwsFormatException);
     await expectLater(api.createStockEntry(company: 'COMP-1', purpose: 'Material Receipt', items: [{'item_code': 'I', 'qty': 1}]), throwsFormatException);
+    await expectLater(api.createStockEntry(company: 'COMP-1', purpose: 'Material Receipt', toWarehouse: 'WH-1', items: [{'item_code': 'I', 'qty': 1, 'valuation_rate': 0}]), throwsFormatException);
     await expectLater(api.createStockEntry(company: 'COMP-1', purpose: 'Material Issue', fromWarehouse: 'WH-1', items: [{'item_code': 'I', 'qty': 0}]), throwsFormatException);
     await expectLater(api.createStockEntry(company: 'COMP-1', purpose: 'Material Transfer', fromWarehouse: 'WH-1', toWarehouse: 'WH-1', items: [{'item_code': 'I', 'qty': 1}]), throwsFormatException);
     api.dispose();
