@@ -859,6 +859,9 @@ class FrappeApi {
     if (current['docstatus'] != 0) {
       throw const FormatException('لا يمكن تعديل فاتورة إلا إذا كانت مسودة غير مرحلة.');
     }
+    if (current['is_return'] == 1 || current['is_return'] == true) {
+      throw const FormatException('مسودة المرتجع لا تُعدّل من محرر الفاتورة العادية؛ راجعها في ERPNext لتجنب إفساد الكميات السالبة وروابط الفاتورة الأصلية.');
+    }
     final payload = Map<String, dynamic>.from(current);
     payload['customer'] = customer;
     payload['company'] = company;
