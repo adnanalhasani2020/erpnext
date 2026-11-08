@@ -19,7 +19,7 @@ class SalesInvoiceComposer extends StatefulWidget {
   final List<ErpItem> items;
   final List<ErpWarehouse> warehouses;
   final List<ErpCompany> companies;
-  final ValueChanged<bool> onCompleted;
+  final ValueChanged<bool> onCompleted;\n  final Map<String, dynamic>? initialDraft;
 
   @override
   State<SalesInvoiceComposer> createState() => _SalesInvoiceComposerState();
@@ -43,7 +43,7 @@ class _SalesInvoiceLineDraft {
 
 class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
   final _formKey = GlobalKey<FormState>();
-  final List<_SalesInvoiceLineDraft> _lines = [];
+  final List<_SalesInvoiceLineDraft> _lines = [];\n  late final List<ErpItem> _availableItems;\n  late final List<ErpWarehouse> _availableWarehouses;\n  Map<String, dynamic>? _existingDraft;\n  String? _postingDate;
   ErpCustomer? _customer;
   ErpCompany? _company;
   bool _updateStock = true;
@@ -55,9 +55,80 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
   @override
   void initState() {
     super.initState();
-    if (widget.customers.length == 1) _customer = widget.customers.first;
-    if (widget.companies.length == 1) _company = widget.companies.first;
-    _lines.add(_SalesInvoiceLineDraft());
+    _availableItems = List<ErpItem>.of(widget.items);
+    _availableWarehouses = List<ErpWarehouse>.of(widget.warehouses);
+    _existingDraft = widget.initialDraft == null
+        ? null
+        : Map<String, dynamic>.from(widget.initialDraft!);
+    _postingDate = _existingDraft?['posting_date']?.toString();
+    if (_postingDate == null || _postingDate!.isEmpty) _postingDate = _today();
+
+    if (_existingDraft == null) {
+      if (widget.customers.length == 1) _customer = widget.customers.first;
+      if (widget.companies.length == 1) _company = widget.companies.first;
+      _lines.add(_SalesInvoiceLineDraft());
+      return;
+    }
+
+    final draft = _existingDraft!;
+    final customerId = draft['customer']?.toString();
+    for (final customer in widget.customers) {
+      if (customer.id == customerId) _customer = customer;
+    }
+    if (_customer == null && customerId != null && customerId.isNotEmpty) {
+      _customer = ErpCustomer(id: customerId, name: draft['customer_name']?.toString() ?? customerId);
+    }
+
+    final companyName = draft['company']?.toString();
+    for (final company in widget.companies) {
+      if (company.name == companyName) _company = company;
+    }
+    if (_company == null && companyName != null && companyName.isNotEmpty) {
+      _company = ErpCompany(name: companyName);
+    }
+
+    _updateStock = draft['update_stock'] == 1 || draft['update_stock'] == true;
+    final rawItems = draft['items'];
+    if (rawItems is List) {
+      for (final raw in rawItems.whereType<Map<String, dynamic>>()) {
+        final code = raw['item_code']?.toString() ?? '';
+        if (code.isEmpty) continue;
+        ErpItem? item;
+        for (final candidate in _availableItems) {
+          if (candidate.code == code) item = candidate;
+        }
+        if (item == null) {
+          item = ErpItem(
+            code: code,
+            name: raw['item_name']?.toString() ?? code,
+            stockUom: raw['stock_uom']?.toString() ?? raw['uom']?.toString(),
+            isStockItem: raw['is_stock_item'] == 1 || raw['is_stock_item'] == true,
+          );
+          _availableItems.add(item);
+        }
+
+        final line = _SalesInvoiceLineDraft()..item = item;
+        line.quantity.text = raw['qty']?.toString() ?? '1';
+        line.rate.text = raw['rate']?.toString() ?? '0';
+        final warehouseId = raw['warehouse']?.toString();
+        if (warehouseId != null && warehouseId.isNotEmpty) {
+          for (final warehouse in _availableWarehouses) {
+            if (warehouse.id == warehouseId) line.warehouse = warehouse;
+          }
+          if (line.warehouse == null) {
+            line.warehouse = ErpWarehouse(
+              id: warehouseId,
+              name: raw['warehouse_name']?.toString() ?? warehouseId,
+              company: companyName,
+            );
+            _availableWarehouses.add(line.warehouse!);
+          }
+        }
+        _lines.add(line);
+      }
+    }
+    if (_lines.isEmpty) _lines.add(_SalesInvoiceLineDraft());
+    _createdInvoiceId = draft['name']?.toString();
   }
 
   @override
@@ -128,7 +199,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
           'doctype': 'Sales Invoice',
           'customer': _customer!.id,
           'company': _company!.name,
-          'posting_date': _today(),
+          'posting_date': _postingDate ?? _today(),
           'update_stock': _updateStock ? 1 : 0,
           'items': _lines.map((line) {
             final row = <String, dynamic>{
@@ -140,7 +211,12 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
             return row;
           }).toList(growable: false),
         };
-        final created = await widget.api.createSalesInvoice(invoice);
+        final created = _existingDraft == null
+            ? await widget.api.createSalesInvoice(invoice)
+            : await widget.api.updateDraftSalesInvoice(
+                invoiceName: _existingDraft!['name'].toString(),
+                changes: invoice,
+              );
         if (!mounted) return;
         setState(() {
           _pendingDraft = created;
@@ -173,7 +249,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('فاتورة مبيعات جديدة')),
+      appBar: AppBar(title: Text(_existingDraft == null ? 'فاتورة مبيعات جديدة' : 'تعديل مسودة فاتورة')),
       body: SafeArea(
         child: Form(
           key: _formKey,
@@ -208,7 +284,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
                       contentPadding: EdgeInsets.zero,
                       leading: const Icon(Icons.calendar_today_outlined),
                       title: const Text('تاريخ الفاتورة'),
-                      trailing: Text(_today()),
+                      trailing: Text(_postingDate ?? _today()),
                     ),
                   ]),
                 ),
@@ -242,12 +318,12 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
               ),
               if (_error != null) Card(color: Theme.of(context).colorScheme.errorContainer, child: Padding(padding: const EdgeInsets.all(12), child: Text(_error!))),
               if (_createdInvoiceId != null) Text('رقم المسودة: $_createdInvoiceId'),
-              if (_pendingDraft != null) const Text('تم إنشاء المسودة بالفعل. تم قفل تعديل البنود لمنع اختلاف ما تراه عن المستند المحفوظ؛ أعد محاولة الترحيل للمستند نفسه.', style: TextStyle(fontSize: 12)),
+              if (_pendingDraft != null) const Text('تم حفظ المستند على الخادم. تم قفل التعديلات لمنع اختلاف البيانات؛ أعد محاولة الترحيل للمستند نفسه.', style: TextStyle(fontSize: 12)),
               const SizedBox(height: 12),
               FilledButton.icon(
                 onPressed: _saving || _pendingDraft != null ? null : () => _save(submit: false),
                 icon: _saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save_outlined),
-                label: const Text('حفظ كمسودة'),
+                label: Text(_existingDraft == null ? 'حفظ كمسودة' : 'حفظ تعديلات المسودة'),
               ),
               const SizedBox(height: 8),
               FilledButton.tonalIcon(
@@ -280,7 +356,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
             value: line.item,
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'الصنف'),
-            items: widget.items.map((item) => DropdownMenuItem(value: item, child: Text('${item.name} • ${item.code}', overflow: TextOverflow.ellipsis))).toList(),
+            items: _availableItems.map((item) => DropdownMenuItem(value: item, child: Text('${item.name} • ${item.code}', overflow: TextOverflow.ellipsis))).toList(),
             onChanged: _saving || _pendingDraft != null ? null : (value) => setState(() {
               line.item = value;
               if (line.rate.text.trim() == '0') line.rate.text = '0';
@@ -314,7 +390,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
               value: line.warehouse,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'مستودع الصرف'),
-              items: widget.warehouses.map((warehouse) => DropdownMenuItem(value: warehouse, child: Text(warehouse.name, overflow: TextOverflow.ellipsis))).toList(),
+              items: _availableWarehouses.map((warehouse) => DropdownMenuItem(value: warehouse, child: Text(warehouse.name, overflow: TextOverflow.ellipsis))).toList(),
               onChanged: _saving || _pendingDraft != null ? null : (value) => setState(() => line.warehouse = value),
               validator: (value) => _updateStock && line.item?.isStockItem == true && value == null ? 'اختر مستودع الصرف.' : null,
             ),
