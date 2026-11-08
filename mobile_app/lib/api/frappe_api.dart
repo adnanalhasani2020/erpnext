@@ -828,6 +828,36 @@ class FrappeApi {
   Future<Map<String, dynamic>> submitStockReconciliation(Map<String, dynamic> doc) =>
       _submitMobileDocument(doc, 'Stock Reconciliation');
 
+  Future<List<Map<String, dynamic>>> fetchDraftStockDocuments(String doctype, {int start = 0}) async {
+    const allowed = {'Stock Entry', 'Purchase Receipt', 'Stock Reconciliation'};
+    if (!allowed.contains(doctype)) throw ArgumentError.value(doctype, 'doctype', 'نوع مستند المخزون غير مدعوم.');
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl, resource: doctype,
+      fields: const ['name', 'docstatus', 'posting_date', 'company'],
+      filters: const [['docstatus', '=', 0]],
+      orderBy: 'modified desc, name desc', start: start,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل مسودات ' + doctype + '.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة مسودات ' + doctype + ' غير متوقعة.');
+    return rows.whereType<Map<String, dynamic>>().map((row) => <String, dynamic>{...row, 'doctype': doctype}).toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>> fetchStockDocument(String doctype, String name) async {
+    const allowed = {'Stock Entry', 'Purchase Receipt', 'Stock Reconciliation'};
+    if (!allowed.contains(doctype) || name.trim().isEmpty) throw ArgumentError('نوع أو رقم مستند المخزون غير صحيح.');
+    final response = await _send('GET', '/api/resource/' + Uri.encodeComponent(doctype) + '/' + Uri.encodeComponent(name));
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تحميل مستند المخزون.'));
+    final doc = data['data'];
+    if (doc is! Map<String, dynamic>) throw Exception('تفاصيل مستند المخزون غير متوقعة.');
+    return doc;
+  }
+
   Future<List<Map<String, dynamic>>> fetchStockMovements({int start = 0, String? itemCode, String? warehouse}) async {
     final filters = <List<dynamic>>[];
     if (itemCode != null && itemCode.trim().isNotEmpty) filters.add(['item_code', '=', itemCode.trim()]);
