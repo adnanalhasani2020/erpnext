@@ -12,7 +12,11 @@ void main() {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) async {
       request.response.headers.contentType = ContentType.json;
-      if (request.method == 'GET' && request.uri.path.endsWith('/Purchase Invoice/PINV-OPEN-1')) {
+      final segments = request.uri.pathSegments;
+      if (request.method == 'GET' &&
+          segments.length >= 4 &&
+          segments[segments.length - 2] == 'Purchase Invoice' &&
+          segments.last == 'PINV-OPEN-1') {
         request.response.write(jsonEncode({'data': {
           'doctype': 'Purchase Invoice',
           'name': 'PINV-OPEN-1',
