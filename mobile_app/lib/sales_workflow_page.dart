@@ -115,7 +115,7 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
           }
           if (snapshot.hasError) return Padding(
             padding: const EdgeInsets.all(20),
-            child: Text('تعذر تحميل المستند: \${snapshot.error}'),
+            child: Text('تعذر تحميل المستند: ${snapshot.error}'),
           );
           final doc = snapshot.data!;
           final status = (doc['docstatus'] as num?)?.toInt() ?? 0;
@@ -128,14 +128,14 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
               constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * .82),
               child: ListView(shrinkWrap: true, children: [
                 Text(name, style: Theme.of(context).textTheme.titleLarge),
-                Text('\${doc['customer_name'] ?? doc['customer'] ?? ''} • \${doc['status'] ?? '—'}'),
-                Text('الشركة: \${doc['company'] ?? '—'}'),
-                Text('الإجمالي: \${total.toStringAsFixed(2)} $currency'),
+                Text('${doc['customer_name'] ?? doc['customer'] ?? ''} • ${doc['status'] ?? '—'}'),
+                Text('الشركة: ${doc['company'] ?? '—'}'),
+                Text('الإجمالي: ${total.toStringAsFixed(2)} $currency'),
                 const Divider(),
-                Text('البنود (\${items.length})', style: Theme.of(context).textTheme.titleMedium),
+                Text('البنود (${items.length})', style: Theme.of(context).textTheme.titleMedium),
                 ...items.map((item) => ListTile(
                   dense: true, title: Text(item['item_name']?.toString() ?? item['item_code']?.toString() ?? 'صنف'),
-                  subtitle: Text('الكمية: \${item['qty'] ?? 0} • السعر: \${item['rate'] ?? 0}'),
+                  subtitle: Text('الكمية: ${item['qty'] ?? 0} • السعر: ${item['rate'] ?? 0}'),
                   trailing: Text((double.tryParse(item['amount']?.toString() ?? '') ?? 0).toStringAsFixed(2)),
                 )),
                 if (status == 0) ...[
@@ -196,7 +196,7 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
             sourceDoctype: _doctype, sourceName: name, targetDoctype: target,
           );
           if (sheetContext.mounted) Navigator.pop(sheetContext);
-          _notice('تم إنشاء المسودة \${created['name']}.');
+          _notice('تم إنشاء المسودة ${created['name']}.');
           if (target == 'Sales Invoice') widget.onChanged();
         } catch (error) { _notice(error.toString().replaceFirst('Exception: ', '')); }
       },
@@ -247,7 +247,7 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
           padding: const EdgeInsets.symmetric(horizontal: 16),
           child: Align(alignment: AlignmentDirectional.centerStart, child: FilledButton.icon(
             onPressed: () => _createOrEdit(),
-            icon: const Icon(Icons.add), label: Text('إنشاء \${_tab == 0 ? 'عرض سعر' : 'أمر بيع'}'),
+            icon: const Icon(Icons.add), label: Text('إنشاء ${_tab == 0 ? 'عرض سعر' : 'أمر بيع'}'),
           )),
         ),
         if (_loading) const LinearProgressIndicator(),
@@ -268,7 +268,7 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
                 return Card(child: ListTile(
                   leading: CircleAvatar(child: Icon(status == 1 ? Icons.check_circle_outline : status == 2 ? Icons.cancel_outlined : Icons.edit_note)),
                   title: Text(row['name']?.toString() ?? 'مستند'),
-                  subtitle: Text('\${row['customer_name'] ?? row['customer'] ?? ''} • \${row['status'] ?? 'مسودة'}\n\${row['company'] ?? ''}'),
+                  subtitle: Text('${row['customer_name'] ?? row['customer'] ?? ''} • ${row['status'] ?? 'مسودة'}\n${row['company'] ?? ''}'),
                   isThreeLine: true,
                   trailing: Text(total.toStringAsFixed(2)),
                   onTap: () => _openDetails(row),
@@ -422,7 +422,7 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(widget.initialDraft == null ? 'إنشاء \${widget.doctype == 'Quotation' ? 'عرض سعر' : 'أمر بيع'}' : 'تعديل مسودة')),
+    appBar: AppBar(title: Text(widget.initialDraft == null ? 'إنشاء ${widget.doctype == 'Quotation' ? 'عرض سعر' : 'أمر بيع'}' : 'تعديل مسودة')),
     body: Form(
       key: _key,
       child: ListView(padding: const EdgeInsets.all(16), children: [
@@ -437,7 +437,7 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
         DropdownButtonFormField<ErpCustomer>(
           value: _customer, isExpanded: true,
           decoration: const InputDecoration(labelText: 'العميل'),
-          items: _availableCustomers.map((x) => DropdownMenuItem(value: x, child: Text('\${x.name} • \${x.id}', overflow: TextOverflow.ellipsis))).toList(),
+          items: _availableCustomers.map((x) => DropdownMenuItem(value: x, child: Text('${x.name} • ${x.id}', overflow: TextOverflow.ellipsis))).toList(),
           onChanged: _saving ? null : (v) => setState(() => _customer = v),
           validator: (v) => v == null ? 'اختر العميل.' : null,
         ),
@@ -452,13 +452,13 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
             padding: const EdgeInsets.all(12),
             child: Column(children: [
               Row(children: [
-                Expanded(child: Text('البند \${i + 1}')),
+                Expanded(child: Text('البند ${i + 1}')),
                 IconButton(onPressed: _saving || _lines.length == 1 ? null : () => setState(() { _lines.removeAt(i).dispose(); }), icon: const Icon(Icons.delete_outline)),
               ]),
               DropdownButtonFormField<ErpItem>(
                 value: line.item, isExpanded: true,
                 decoration: const InputDecoration(labelText: 'الصنف'),
-                items: _availableItems.map((x) => DropdownMenuItem(value: x, child: Text('\${x.name} • \${x.code}', overflow: TextOverflow.ellipsis))).toList(),
+                items: _availableItems.map((x) => DropdownMenuItem(value: x, child: Text('${x.name} • ${x.code}', overflow: TextOverflow.ellipsis))).toList(),
                 onChanged: _saving ? null : (v) => setState(() { line.item = v; line.warehouse = null; }),
                 validator: (v) => v == null ? 'اختر الصنف.' : null,
               ),
