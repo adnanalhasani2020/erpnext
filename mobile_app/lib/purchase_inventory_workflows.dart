@@ -761,7 +761,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       return await showDialog<List<Map<String, dynamic>>>(
         context: context,
         builder: (dialogContext) => StatefulBuilder(builder: (context, refresh) => AlertDialog(
-          title: Text('استلام من أمر الشراء \${order['name']}'),
+          title: Text('استلام من أمر الشراء ${order['name']}'),
           content: SizedBox(width: 520, child: SingleChildScrollView(child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -779,7 +779,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                 return Card(margin: const EdgeInsets.only(bottom: 8), child: Padding(
                   padding: const EdgeInsets.all(10), child: Column(children: [
                     Row(children: [
-                      Expanded(child: Text('\${source['item_name'] ?? code}',
+                      Expanded(child: Text('${source['item_name'] ?? code}',
                           style: const TextStyle(fontWeight: FontWeight.w600))),
                       if (rows.length > 1) IconButton(
                         tooltip: 'استبعاد البند',
@@ -791,8 +791,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                         icon: const Icon(Icons.delete_outline),
                       ),
                     ]),
-                    Text('المتبقي من أمر الشراء: \${remaining.toStringAsFixed(3)}'
-                        '\${item == null ? ' • الصنف غير موجود ضمن البيانات المحمّلة' : ''}'),
+                    Text('المتبقي من أمر الشراء: ${remaining.toStringAsFixed(3)}'
+                        '${item == null ? ' • الصنف غير موجود ضمن البيانات المحمّلة' : ''}'),
                     _field(row['qty'] as TextEditingController, 'الكمية المستلمة', number: true),
                     _field(row['rate'] as TextEditingController, 'سعر الوحدة', number: true),
                     DropdownButtonFormField<String>(
@@ -802,7 +802,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                       items: [
                         const DropdownMenuItem<String>(value: null, child: Text('اختر المستودع')),
                         ...warehouses.map((w) => DropdownMenuItem(value: w.id,
-                          child: Text('\${w.name} (\${w.id})', overflow: TextOverflow.ellipsis))),
+                          child: Text('${w.name} (${w.id})', overflow: TextOverflow.ellipsis))),
                       ],
                       onChanged: (v) => refresh(() => row['warehouse'] = v),
                     ),
@@ -824,7 +824,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                 final qty = double.tryParse((row['qty'] as TextEditingController).text.trim());
                 final rate = double.tryParse((row['rate'] as TextEditingController).text.trim());
                 if (item == null || item.hasSerialNo || item.hasBatchNo) {
-                  notice('الصنف \${item?.name ?? code} غير متاح أو يتطلب أرقاماً تسلسلية / دفعات غير مدعومة في هذه الشاشة.');
+                  notice('الصنف ${item?.name ?? code} غير متاح أو يتطلب أرقاماً تسلسلية / دفعات غير مدعومة في هذه الشاشة.');
                   return;
                 }
                 if (qty == null || !qty.isFinite || qty <= 0 || qty > remaining + 0.000001 ||
@@ -874,7 +874,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
             decoration: const InputDecoration(labelText: 'أمر الشراء المرحّل'),
             items: orders.map((order) => DropdownMenuItem(
               value: order['name'].toString(),
-              child: Text('\${order['name']} • \${order['supplier_name'] ?? order['supplier'] ?? ''}',
+              child: Text('${order['name']} • ${order['supplier_name'] ?? order['supplier'] ?? ''}',
                   overflow: TextOverflow.ellipsis),
             )).toList(),
             onChanged: (v) => refresh(() { if (v != null) selected = v; }),
@@ -897,17 +897,17 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         'items': lines,
       });
       if (await confirm('ترحيل سند الاستلام',
-          'تم إنشاء \${doc['name'] ?? ''} وربطه بأمر الشراء \${orderName}. سيتم تحديث الكميات المستلمة في الأمر والمخزون.')) {
+          'تم إنشاء ${doc['name'] ?? ''} وربطه بأمر الشراء ${orderName}. سيتم تحديث الكميات المستلمة في الأمر والمخزون.')) {
         try {
           final submitted = await widget.api.submitPurchaseReceipt(doc);
-          notice('تم ترحيل سند الاستلام \${submitted['name'] ?? doc['name']}');
+          notice('تم ترحيل سند الاستلام ${submitted['name'] ?? doc['name']}');
           await load();
           widget.onChanged?.call();
         } catch (e) {
-          notice('حُفظ سند الاستلام \${doc['name'] ?? ''} كمسودة. راجعه قبل إنشاء سند آخر. \${e.toString().replaceFirst('Exception: ', '')}');
+          notice('حُفظ سند الاستلام ${doc['name'] ?? ''} كمسودة. راجعه قبل إنشاء سند آخر. ${e.toString().replaceFirst('Exception: ', '')}');
         }
       } else {
-        notice('حُفظت مسودة سند الاستلام \${doc['name'] ?? ''}');
+        notice('حُفظت مسودة سند الاستلام ${doc['name'] ?? ''}');
       }
     } catch (e) {
       notice(e.toString().replaceFirst('Exception: ', ''));
