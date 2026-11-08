@@ -297,6 +297,37 @@ class FrappeApi {
     return document;
   }
 
+  Future<List<Map<String, dynamic>>> fetchSupplierPayments({int start = 0, String? search}) async {
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Payment Entry',
+      fields: const [
+        'name', 'posting_date', 'party', 'party_name', 'paid_amount',
+        'paid_from', 'reference_no', 'reference_date', 'status', 'docstatus',
+      ],
+      filters: const [
+        ['payment_type', '=', 'Pay'],
+        ['party_type', '=', 'Supplier'],
+        ['docstatus', '=', 1],
+      ],
+      orFilters: search == null || search.trim().isEmpty ? null : [
+        ['name', 'like', '%${search.trim()}%'],
+        ['party', 'like', '%${search.trim()}%'],
+        ['party_name', 'like', '%${search.trim()}%'],
+      ],
+      orderBy: 'posting_date desc, name desc',
+      start: start,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل سجل دفعات الموردين. تحقق من صلاحية قراءة Payment Entry.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة سجل دفعات الموردين غير متوقعة.');
+    return rows.whereType<Map<String, dynamic>>().toList(growable: false);
+  }
+
   Future<List<ErpPurchaseInvoice>> fetchPurchaseInvoices({int start = 0, String? search}) async {
     final uri = Uri.parse('$_baseUrl/api/resource/Purchase%20Invoice').replace(queryParameters: {
       'fields': jsonEncode(['name', 'supplier', 'supplier_name', 'posting_date', 'due_date', 'currency', 'grand_total', 'outstanding_amount', 'status', 'is_return', 'return_against']),
