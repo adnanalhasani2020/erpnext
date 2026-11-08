@@ -404,7 +404,7 @@ class FrappeApi {
 
   String _salesWorkflowResource(String doctype) {
     if (!salesWorkflowDoctypes.contains(doctype)) {
-      throw FormatException('نوع مستند المبيعات غير مدعوم: ${doctype}');
+      throw FormatException('نوع مستند المبيعات غير مدعوم: $doctype');
     }
     return Uri.encodeComponent(doctype);
   }
@@ -426,10 +426,10 @@ class FrappeApi {
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(data, 'تعذر تحميل ${doctype}.'));
+      throw Exception(_message(data, 'تعذر تحميل $doctype.'));
     }
     final rows = data['data'];
-    if (rows is! List) throw Exception('استجابة ${doctype} من ERPNext غير متوقعة.');
+    if (rows is! List) throw Exception('استجابة $doctype من ERPNext غير متوقعة.');
     return rows.whereType<Map<String, dynamic>>().toList(growable: false);
   }
 
@@ -439,11 +439,11 @@ class FrappeApi {
     final response = await _send('GET', '/api/resource/$resource/${Uri.encodeComponent(name.trim())}');
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(data, 'تعذر تحميل تفاصيل ${doctype}.'));
+      throw Exception(_message(data, 'تعذر تحميل تفاصيل $doctype.'));
     }
     final document = data['data'];
     if (document is! Map<String, dynamic> || document['doctype'] != doctype || document['name'] != name.trim()) {
-      throw FormatException('لم يؤكد ERPNext هوية مستند ${doctype} المطلوب.');
+      throw FormatException('لم يؤكد ERPNext هوية مستند $doctype المطلوب.');
     }
     return document;
   }
@@ -476,10 +476,10 @@ class FrappeApi {
     _validateSalesWorkflowDraft(doctype, document);
     final response = await _sendJson('POST', '/api/resource/${_salesWorkflowResource(doctype)}', document);
     final data = _decode(response.body);
-    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر حفظ مسودة ${doctype}.'));
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر حفظ مسودة $doctype.'));
     final created = data['data'];
     if (created is! Map<String, dynamic> || created['doctype'] != doctype || created['name'] is! String || created['docstatus'] != 0) {
-      throw Exception('استجابة حفظ ${doctype} غير مؤكدة؛ تحقق من المستند قبل إعادة المحاولة.');
+      throw Exception('استجابة حفظ $doctype غير مؤكدة؛ تحقق من المستند قبل إعادة المحاولة.');
     }
     return created;
   }
@@ -495,10 +495,10 @@ class FrappeApi {
     }
     final response = await _sendJson('POST', '/api/method/frappe.client.save', {'doc': payload});
     final data = _decode(response.body);
-    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تحديث مسودة ${doctype}.'));
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تحديث مسودة $doctype.'));
     final saved = data['message'];
     if (saved is! Map<String, dynamic> || saved['doctype'] != doctype || saved['name'] != name || saved['docstatus'] != 0) {
-      throw Exception('لم يؤكد ERPNext حفظ مسودة ${doctype}.');
+      throw Exception('لم يؤكد ERPNext حفظ مسودة $doctype.');
     }
     return saved;
   }
@@ -509,10 +509,10 @@ class FrappeApi {
     if (current['docstatus'] != 0) throw const FormatException('لا يمكن ترحيل هذا المستند لأنه ليس مسودة.');
     final response = await _sendJson('POST', '/api/method/frappe.client.submit', {'doc': current});
     final data = _decode(response.body);
-    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر ترحيل ${doctype}.'));
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر ترحيل $doctype.'));
     final submitted = data['message'];
     if (submitted is! Map<String, dynamic> || submitted['doctype'] != doctype || submitted['name'] != name || submitted['docstatus'] != 1) {
-      throw Exception('لم يؤكد ERPNext ترحيل ${doctype}؛ تحقق من حالة المستند قبل إعادة المحاولة.');
+      throw Exception('لم يؤكد ERPNext ترحيل $doctype؛ تحقق من حالة المستند قبل إعادة المحاولة.');
     }
     return submitted;
   }
@@ -523,10 +523,10 @@ class FrappeApi {
     if (current['docstatus'] != 1) throw const FormatException('يمكن إلغاء مستند مبيعات مرحّل فقط.');
     final response = await _sendJson('POST', '/api/method/frappe.client.cancel', {'doc': current});
     final data = _decode(response.body);
-    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر إلغاء ${doctype}.'));
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر إلغاء $doctype.'));
     final cancelled = data['message'];
     if (cancelled is! Map<String, dynamic> || cancelled['doctype'] != doctype || cancelled['name'] != name || cancelled['docstatus'] != 2) {
-      throw Exception('لم يؤكد ERPNext إلغاء ${doctype}.');
+      throw Exception('لم يؤكد ERPNext إلغاء $doctype.');
     }
     return cancelled;
   }
@@ -550,17 +550,17 @@ class FrappeApi {
     };
     final mapped = await _sendJson('POST', '/api/method/$method', {'source_name': sourceName});
     final mappedData = _decode(mapped.body);
-    if (mapped.statusCode < 200 || mapped.statusCode >= 300) throw Exception(_message(mappedData, 'تعذر تجهيز ${targetDoctype} من ${sourceDoctype}.'));
+    if (mapped.statusCode < 200 || mapped.statusCode >= 300) throw Exception(_message(mappedData, 'تعذر تجهيز $targetDoctype من $sourceDoctype.'));
     final raw = mappedData['message'];
     if (raw is! Map<String, dynamic> || raw['doctype'] != targetDoctype || raw['items'] is! List || (raw['items'] as List).isEmpty) {
-      throw Exception('لم يُرجع ERPNext مستند ${targetDoctype} صالحاً من أداة التحويل.');
+      throw Exception('لم يُرجع ERPNext مستند $targetDoctype صالحاً من أداة التحويل.');
     }
     final inserted = await _sendJson('POST', '/api/resource/${_salesWorkflowResource(targetDoctype)}', Map<String, dynamic>.from(raw));
     final insertedData = _decode(inserted.body);
-    if (inserted.statusCode < 200 || inserted.statusCode >= 300) throw Exception(_message(insertedData, 'تعذر حفظ مسودة ${targetDoctype}.'));
+    if (inserted.statusCode < 200 || inserted.statusCode >= 300) throw Exception(_message(insertedData, 'تعذر حفظ مسودة $targetDoctype.'));
     final created = insertedData['data'];
     if (created is! Map<String, dynamic> || created['doctype'] != targetDoctype || created['name'] is! String || created['docstatus'] != 0) {
-      throw Exception('لم يؤكد ERPNext إنشاء مسودة ${targetDoctype}؛ تحقق من المستندات قبل إعادة المحاولة.');
+      throw Exception('لم يؤكد ERPNext إنشاء مسودة $targetDoctype؛ تحقق من المستندات قبل إعادة المحاولة.');
     }
     return created;
   }
