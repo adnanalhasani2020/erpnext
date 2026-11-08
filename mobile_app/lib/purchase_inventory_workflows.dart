@@ -80,6 +80,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       final sourceWarehouse = source?['warehouse']?.toString();
       lineRows.add({
         'item': validItem,
+        'source': source == null ? null : Map<String, dynamic>.from(source),
         'qty': TextEditingController(text: (source?['qty'] ?? 1).toString()),
         'rate': TextEditingController(text: (source?['rate'] ?? 0).toString()),
         'warehouse': allowed.any((w) => w.id == sourceWarehouse) ? sourceWarehouse : null,
@@ -183,8 +184,18 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                   final code = row['item'] as String;
                   if (code.isEmpty || qty == null || !qty.isFinite || qty <= 0 ||
                       rate == null || !rate.isFinite || rate < 0) return;
-                  items.add({'item_code': code, 'qty': qty, 'rate': rate,
-                    if (row['warehouse'] != null) 'warehouse': row['warehouse']});
+                  final itemRow = row['source'] is Map<String, dynamic>
+                      ? Map<String, dynamic>.from(row['source'] as Map<String, dynamic>)
+                      : <String, dynamic>{};
+                  itemRow['item_code'] = code;
+                  itemRow['qty'] = qty;
+                  itemRow['rate'] = rate;
+                  if (row['warehouse'] != null) {
+                    itemRow['warehouse'] = row['warehouse'];
+                  } else {
+                    itemRow.remove('warehouse');
+                  }
+                  items.add(itemRow);
                 }
                 Navigator.pop(dialogContext, {
                   'company': selectedCompany, 'supplier': selectedSupplier,
