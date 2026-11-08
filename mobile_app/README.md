@@ -11,7 +11,10 @@ Arabic-first Android companion app for an ERPNext instance.
 - Separate item, stock balance, warehouse, and sales screens.
 - Item and warehouse local search over the records currently loaded.
 - Read-only stock balances from ERPNext `Bin`, including actual, reserved, projected, and calculated available quantities.
-- Read-only customer and Sales Invoice lists, including invoice status, total, and outstanding amount.
+- Customer and Sales Invoice lists, including invoice status, total, and outstanding amount.
+- Create Sales Invoice drafts from the mobile app with customer, company, item, quantity, unit rate, and warehouse selection.
+- Explicitly submit a Sales Invoice after a confirmation step; ERPNext performs its normal validations and stock-ledger processing.
+- Retry submission of the same saved draft after a submission error instead of silently creating a duplicate invoice.
 - Read-only supplier and Purchase Invoice lists, including invoice status, total, and outstanding amount.
 - Tap a sales or purchase invoice to retrieve its full document from Frappe and view invoice totals, due dates, and item lines.
 - Customer, invoice, supplier, and purchase-invoice requests are loaded independently so one permission failure does not hide other successfully loaded records.
@@ -22,7 +25,7 @@ Arabic-first Android companion app for an ERPNext instance.
 - Item, warehouse, Bin, Customer, and Sales Invoice lists are currently limited to 100 records per request; search is local to those loaded records.
 - Sales and purchase invoices and stock balances are read-only. The app does not create, submit, cancel, or modify ERPNext documents or stock movements.
 - Purchase and sales screens are read-only overviews. Creating, editing, submitting, cancelling, or paying invoices is not implemented.
-- Accounting ledgers, payment workflows, and financial reports are not implemented yet.
+- Payment Entry, customer receipts, sales returns/credit notes, accounting ledgers, and financial reports are not implemented yet.
 - A successful APK build does not prove connection to a live ERPNext server. A real site and appropriately permissioned test account are required for integration testing.
 
 ## Requirements
