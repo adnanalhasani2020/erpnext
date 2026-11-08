@@ -292,6 +292,14 @@ class FrappeApi {
     if (invoiceName.trim().isEmpty || !amount.isFinite || amount <= 0) {
       throw const FormatException('أدخل رقم الفاتورة ومبلغ دفعة صحيحاً أكبر من صفر.');
     }
+    final invoice = await fetchInvoiceDocument('Sales Invoice', invoiceName);
+    if (invoice['docstatus'] != 1) {
+      throw const FormatException('لا يمكن تسجيل دفعة إلا على فاتورة مبيعات مرحّلة.');
+    }
+    final outstanding = double.tryParse(invoice['outstanding_amount']?.toString() ?? '') ?? 0;
+    if (outstanding <= 0 || amount > outstanding + 0.000001) {
+      throw FormatException('مبلغ الدفعة يتجاوز المبلغ المستحق المتبقي (${outstanding.toStringAsFixed(2)}).');
+    }
     final setup = await _sendJson(
       'POST',
       '/api/method/erpnext.accounts.doctype.payment_entry.payment_entry.get_payment_entry',
