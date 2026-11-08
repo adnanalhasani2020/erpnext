@@ -1042,4 +1042,35 @@ void main() {
     }
   });
 
+
+  test('stock entry and reconciliation reject valuation totals that overflow', () async {
+    final api = FrappeApi();
+    await expectLater(
+      api.createStockEntry(
+        company: 'COMP-1',
+        purpose: 'Material Receipt',
+        toWarehouse: 'WH-1',
+        items: [{
+          'item_code': 'ITEM-1',
+          'qty': 1e308,
+          'valuation_rate': 1e308,
+        }],
+      ),
+      throwsFormatException,
+    );
+    await expectLater(
+      api.createStockReconciliation(
+        company: 'COMP-1',
+        warehouse: 'WH-1',
+        items: [{
+          'item_code': 'ITEM-1',
+          'qty': 1e308,
+          'valuation_rate': 1e308,
+        }],
+      ),
+      throwsFormatException,
+    );
+    api.dispose();
+  });
+
 }
