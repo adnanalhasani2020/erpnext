@@ -46,6 +46,8 @@ class _SalesInvoiceLineDraft {
 class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
   final _formKey = GlobalKey<FormState>();
   final List<_SalesInvoiceLineDraft> _lines = [];
+  late final List<ErpCustomer> _availableCustomers;
+  late final List<ErpCompany> _availableCompanies;
   late final List<ErpItem> _availableItems;
   late final List<ErpWarehouse> _availableWarehouses;
   Map<String, dynamic>? _existingDraft;
@@ -61,6 +63,8 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
   @override
   void initState() {
     super.initState();
+    _availableCustomers = List<ErpCustomer>.of(widget.customers);
+    _availableCompanies = List<ErpCompany>.of(widget.companies);
     _availableItems = List<ErpItem>.of(widget.items);
     _availableWarehouses = List<ErpWarehouse>.of(widget.warehouses);
     _existingDraft = widget.initialDraft == null
@@ -83,6 +87,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
     }
     if (_customer == null && customerId != null && customerId.isNotEmpty) {
       _customer = ErpCustomer(id: customerId, name: draft['customer_name']?.toString() ?? customerId);
+      _availableCustomers.add(_customer!);
     }
 
     final companyName = draft['company']?.toString();
@@ -91,6 +96,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
     }
     if (_company == null && companyName != null && companyName.isNotEmpty) {
       _company = ErpCompany(name: companyName);
+      _availableCompanies.add(_company!);
     }
 
     _updateStock = draft['update_stock'] == 1 || draft['update_stock'] == true;
@@ -272,7 +278,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
                       value: _company,
                       isExpanded: true,
                       decoration: const InputDecoration(labelText: 'الشركة'),
-                      items: widget.companies.map((company) => DropdownMenuItem(value: company, child: Text(company.name, overflow: TextOverflow.ellipsis))).toList(),
+                      items: _availableCompanies.map((company) => DropdownMenuItem(value: company, child: Text(company.name, overflow: TextOverflow.ellipsis))).toList(),
                       onChanged: _saving || _pendingDraft != null ? null : (value) => setState(() => _company = value),
                       validator: (value) => value == null ? 'اختر الشركة.' : null,
                     ),
@@ -281,7 +287,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
                       value: _customer,
                       isExpanded: true,
                       decoration: const InputDecoration(labelText: 'العميل'),
-                      items: widget.customers.map((customer) => DropdownMenuItem(value: customer, child: Text('${customer.name} • ${customer.id}', overflow: TextOverflow.ellipsis))).toList(),
+                      items: _availableCustomers.map((customer) => DropdownMenuItem(value: customer, child: Text('${customer.name} • ${customer.id}', overflow: TextOverflow.ellipsis))).toList(),
                       onChanged: _saving || _pendingDraft != null ? null : (value) => setState(() => _customer = value),
                       validator: (value) => value == null ? 'اختر العميل.' : null,
                     ),
