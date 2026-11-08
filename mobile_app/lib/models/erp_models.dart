@@ -37,7 +37,7 @@ class ErpSupplier {
 }
 
 class ErpPurchaseInvoice {
-  const ErpPurchaseInvoice({required this.id, required this.supplier, required this.supplierName, this.postingDate, this.dueDate, this.currency, required this.grandTotal, required this.outstandingAmount, this.status, this.isReturn = false, this.returnAgainst});
+  const ErpPurchaseInvoice({required this.id, required this.supplier, required this.supplierName, this.postingDate, this.dueDate, this.currency, required this.grandTotal, required this.outstandingAmount, this.status});
   final String id;
   final String supplier;
   final String supplierName;
@@ -61,9 +61,7 @@ class ErpPurchaseInvoice {
       dueDate: json['due_date'] is String ? json['due_date'] as String : null,
       currency: json['currency'] is String ? json['currency'] as String : null,
       grandTotal: amount(json['grand_total']), outstandingAmount: amount(json['outstanding_amount']),
-      status: json['status'] is String ? json['status'] as String : null,
-      isReturn: json['is_return'] == 1 || json['is_return'] == true,
-      returnAgainst: json['return_against'] is String ? json['return_against'] as String : null);
+      status: json['status'] is String ? json['status'] as String : null);
   }
 }
 class ErpCustomer {
@@ -87,7 +85,7 @@ class ErpCustomer {
 }
 
 class ErpSalesInvoice {
-  const ErpSalesInvoice({required this.id, required this.customer, required this.customerName, this.postingDate, this.dueDate, this.currency, required this.grandTotal, required this.outstandingAmount, this.status});
+  const ErpSalesInvoice({required this.id, required this.customer, required this.customerName, this.postingDate, this.dueDate, this.currency, required this.grandTotal, required this.outstandingAmount, this.status, this.isReturn = false, this.returnAgainst});
   final String id;
   final String customer;
   final String customerName;
@@ -115,7 +113,9 @@ class ErpSalesInvoice {
       dueDate: json['due_date'] is String ? json['due_date'] as String : null,
       currency: json['currency'] is String ? json['currency'] as String : null,
       grandTotal: amount(json['grand_total']), outstandingAmount: amount(json['outstanding_amount']),
-      status: json['status'] is String ? json['status'] as String : null);
+      status: json['status'] is String ? json['status'] as String : null,
+      isReturn: json['is_return'] == 1 || json['is_return'] == true,
+      returnAgainst: json['return_against'] is String ? json['return_against'] as String : null);
   }
 }
 class ErpCompany {
