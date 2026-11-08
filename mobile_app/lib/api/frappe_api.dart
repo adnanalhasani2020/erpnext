@@ -1022,6 +1022,38 @@ class FrappeApi {
   Future<Map<String, dynamic>> submitStockReconciliation(Map<String, dynamic> doc) =>
       _submitMobileDocument(doc, 'Stock Reconciliation');
 
+  Future<void> deleteDraftDocument({required String doctype, required String name}) async {
+    const allowed = {'Purchase Invoice', 'Purchase Receipt', 'Stock Entry', 'Stock Reconciliation'};
+    if (!allowed.contains(doctype) || name.trim().isEmpty) {
+      throw const FormatException('نوع أو رقم المسودة غير صحيح.');
+    }
+    final path = '/api/resource/' + Uri.encodeComponent(doctype) + '/' + Uri.encodeComponent(name);
+    final current = await _send('GET', path);
+    final currentData = _decode(current.body);
+    if (current.statusCode < 200 || current.statusCode >= 300) {
+      throw Exception(_message(currentData, 'تعذر التحقق من المسودة قبل حذفها.'));
+    }
+    final document = currentData['data'];
+    if (document is! Map<String, dynamic> ||
+        document['doctype'] != doctype ||
+        document['name'] != name ||
+        document['docstatus'] != 0) {
+      throw const FormatException('الحذف مسموح للمسودات غير المرحلة فقط. حدّث المستند قبل المتابعة.');
+    }
+    final response = await _sendJson('POST', '/api/method/frappe.client.delete', {
+      'doctype': doctype,
+      'name': name,
+    });
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر حذف المسودة.'));
+    }
+    final message = data['message'];
+    if (message is! String || !message.toLowerCase().contains('deleted')) {
+      throw Exception('لم يؤكد ERPNext حذف المسودة؛ أعد تحميل المستند للتحقق.');
+    }
+  }
+
   Future<List<Map<String, dynamic>>> fetchDraftStockDocuments(String doctype, {int start = 0}) async {
     const allowed = {'Stock Entry', 'Purchase Receipt', 'Stock Reconciliation'};
     if (!allowed.contains(doctype)) throw ArgumentError.value(doctype, 'doctype', 'نوع مستند المخزون غير مدعوم.');
