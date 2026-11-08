@@ -226,7 +226,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
                     SwitchListTile(
                       contentPadding: EdgeInsets.zero,
                       value: _updateStock,
-                      onChanged: _saving ? null : (value) => setState(() => _updateStock = value),
+                      onChanged: _saving || _pendingDraft != null ? null : (value) => setState(() => _updateStock = value),
                       title: const Text('تحديث المخزون عند الترحيل'),
                       subtitle: const Text('يطلب من ERPNext إنشاء حركة صرف للأصناف المخزنية عند ترحيل الفاتورة.'),
                     ),
@@ -274,14 +274,14 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
             Expanded(child: Text('البند ${index + 1}', style: Theme.of(context).textTheme.titleSmall)),
-            IconButton(tooltip: 'حذف البند', onPressed: _saving || _lines.length == 1 ? null : () => _removeLine(index), icon: const Icon(Icons.delete_outline)),
+            IconButton(tooltip: 'حذف البند', onPressed: _saving || _pendingDraft != null || _lines.length == 1 ? null : () => _removeLine(index), icon: const Icon(Icons.delete_outline)),
           ]),
           DropdownButtonFormField<ErpItem>(
             value: line.item,
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'الصنف'),
             items: widget.items.map((item) => DropdownMenuItem(value: item, child: Text('${item.name} • ${item.code}', overflow: TextOverflow.ellipsis))).toList(),
-            onChanged: _saving ? null : (value) => setState(() {
+            onChanged: _saving || _pendingDraft != null ? null : (value) => setState(() {
               line.item = value;
               if (line.rate.text.trim() == '0') line.rate.text = '0';
               if (!_updateStock || value?.isStockItem != true) line.warehouse = null;
@@ -315,7 +315,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'مستودع الصرف'),
               items: widget.warehouses.map((warehouse) => DropdownMenuItem(value: warehouse, child: Text(warehouse.name, overflow: TextOverflow.ellipsis))).toList(),
-              onChanged: _saving ? null : (value) => setState(() => line.warehouse = value),
+              onChanged: _saving || _pendingDraft != null ? null : (value) => setState(() => line.warehouse = value),
               validator: (value) => _updateStock && line.item?.isStockItem == true && value == null ? 'اختر مستودع الصرف.' : null,
             ),
           ],
