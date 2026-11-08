@@ -659,7 +659,7 @@ class FrappeApi {
       throw const FormatException('توجد مسودة مرتجع سابقة لهذه الفاتورة؛ راجعها قبل إنشاء أخرى.');
     }
     final mapped = await _sendJson('POST',
-      '/api/method/erpnext.accounts.doctype.purchase_invoice.purchase_invoice.make_debit_note',
+      '/api/method/erpnext.accounts.doctype.purchase_invoice.mapper.make_debit_note',
       {'source_name': invoiceName});
     final mappedData = _decode(mapped.body);
     if (mapped.statusCode < 200 || mapped.statusCode >= 300) throw Exception(_message(mappedData, 'تعذر تجهيز مرتجع المشتريات.'));
