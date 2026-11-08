@@ -28,6 +28,13 @@ void main() {
       throwsFormatException,
     );
     await expectLater(
+      api.createSalesWorkflowDraft('Sales Invoice', {
+        'doctype': 'Sales Invoice', 'customer': 'CUST-1', 'company': 'COMP-1',
+        'items': [{'item_code': 'ITEM-1', 'qty': 1, 'rate': 2}],
+      }),
+      throwsFormatException,
+    );
+    await expectLater(
       api.createSalesWorkflowDraft('Purchase Invoice', {
         'doctype': 'Purchase Invoice', 'supplier': 'SUP-1', 'company': 'COMP-1',
         'items': [{'item_code': 'ITEM-1', 'qty': 1, 'rate': 2}],
