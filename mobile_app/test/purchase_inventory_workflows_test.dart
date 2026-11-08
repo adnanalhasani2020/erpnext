@@ -494,4 +494,76 @@ void main() {
       await server.close(force: true);
     }
   });
+
+  test('supplier payment creates and submits a correctly allocated Payment Entry', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      if (request.method == 'GET' && request.uri.path.endsWith('/PINV-1')) {
+        request.response.write(jsonEncode({'data': {
+          'doctype': 'Purchase Invoice', 'name': 'PINV-1', 'docstatus': 1,
+          'is_return': 0, 'supplier': 'SUP-1', 'outstanding_amount': 100,
+        }}));
+      } else if (request.method == 'POST' && request.uri.path.endsWith('get_payment_entry')) {
+        final payload = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+        expect(payload['dt'], 'Purchase Invoice');
+        expect(payload['dn'], 'PINV-1');
+        expect(payload['party_amount'], 40.0);
+        expect(payload['bank_account'], 'CASH - C');
+        request.response.write(jsonEncode({'message': {
+          'doctype': 'Payment Entry', 'payment_type': 'Pay',
+          'party_type': 'Supplier', 'party': 'SUP-1', 'paid_from': 'CASH - C',
+          'references': [{
+            'reference_doctype': 'Purchase Invoice',
+            'reference_name': 'PINV-1', 'allocated_amount': 40,
+          }],
+        }}));
+      } else if (request.method == 'POST' && request.uri.path.endsWith('/Payment%20Entry')) {
+        request.response.write(jsonEncode({'data': {
+          'doctype': 'Payment Entry', 'name': 'PAY-1', 'docstatus': 0,
+        }}));
+      } else if (request.method == 'POST' && request.uri.path.endsWith('frappe.client.submit')) {
+        request.response.write(jsonEncode({'message': {
+          'doctype': 'Payment Entry', 'name': 'PAY-1', 'docstatus': 1,
+        }}));
+      } else {
+        request.response.statusCode = 404;
+        request.response.write(jsonEncode({'message': 'unexpected path: ${request.uri.path}'}));
+      }
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      final result = await api.payPurchaseInvoice(
+        invoiceName: 'PINV-1', amount: 40, bankAccount: 'CASH - C',
+      );
+      expect(result['name'], 'PAY-1');
+      expect(result['docstatus'], 1);
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
+  test('supplier payment rejects amounts greater than the outstanding balance', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'data': {
+        'doctype': 'Purchase Invoice', 'name': 'PINV-1', 'docstatus': 1,
+        'is_return': 0, 'supplier': 'SUP-1', 'outstanding_amount': 25,
+      }}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      await expectLater(
+        api.payPurchaseInvoice(invoiceName: 'PINV-1', amount: 30),
+        throwsFormatException,
+      );
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
 }
