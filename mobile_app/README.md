@@ -16,7 +16,7 @@ Arabic-first Android companion app for an ERPNext instance.
 - Explicitly submit a Sales Invoice after a confirmation step; ERPNext performs its normal validations and stock-ledger processing.
 - Edit saved draft Sales Invoices before submission, then save changes or submit the same document.
 - Submit saved draft invoices and cancel submitted invoices from their details screen, with confirmation and ERPNext permission checks.
-- Record full or partial customer receipts against submitted invoices using ERPNext's `get_payment_entry` flow and the company's configured default cash/bank account.
+- Record full or partial customer receipts against submitted invoices using ERPNext's `get_payment_entry` flow, selecting an enabled Cash or Bank account belonging to the invoice's company.
 - Create a draft Sales Return / Credit Note from a submitted original invoice using ERPNext's official return mapper, preserving original item references, negative quantities, taxes, and returned-quantity calculations.
 - Retry submission of the same saved draft after a submission error instead of silently creating a duplicate invoice.
 - Read-only supplier and Purchase Invoice lists, including invoice status, total, and outstanding amount.
@@ -28,7 +28,7 @@ Arabic-first Android companion app for an ERPNext instance.
 
 - Item, warehouse, Bin, Customer, and Sales Invoice lists are paginated in pages of 100; the composer currently selects from the master-data pages loaded by the dashboard.
 - Purchase invoices and stock balances remain read-only. Sales invoices can be created as drafts and explicitly submitted from the mobile app.
-- Choosing an arbitrary cash/bank account, editing submitted invoices, payment reconciliation, accounting ledgers, and financial reports are not implemented yet. Sales returns are created as drafts only; review and explicitly submit them from the invoice details screen.
+- Selecting accounts outside the company's enabled Cash/Bank ledger accounts, editing submitted invoices, payment reconciliation, accounting ledgers, and financial reports are not implemented yet. Sales returns are created as drafts only; review and explicitly submit them from the invoice details screen.
 - A successful APK build does not prove connection to a live ERPNext server. A real site and appropriately permissioned test account are required for integration testing.
 
 ## Requirements
