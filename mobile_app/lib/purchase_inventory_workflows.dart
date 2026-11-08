@@ -478,11 +478,13 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
   }) async {
     if (widget.items.isEmpty) return null;
     final lines = <Map<String, dynamic>>[];
-    void addLine() => lines.add({
-      'item': widget.items.first.code,
-      'qty': TextEditingController(text: allowZeroQuantity ? '0' : '1'),
-      'rate': TextEditingController(text: '0'),
-    });
+    void addLine() {
+      lines.add({
+        'item': widget.items.first.code,
+        'qty': TextEditingController(text: allowZeroQuantity ? '0' : '1'),
+        'rate': TextEditingController(text: '0'),
+      });
+    }
     addLine();
     try {
       return await showDialog<List<Map<String, dynamic>>>(
