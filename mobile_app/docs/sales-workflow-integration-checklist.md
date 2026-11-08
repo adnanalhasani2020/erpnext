@@ -72,6 +72,34 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 - [ ] Verify ERPNext rejects invalid permissions, closed/cancelled source documents, over-delivery, and invalid company/warehouse combinations without creating misleading success states.
 - [ ] Cancel a submitted Quotation, Sales Order, or Delivery Note only when ERPNext allows it; verify linked documents and stock/accounting reversals.
 
+## Purchase invoices, supplier payments, and returns
+
+- [ ] Create a Purchase Invoice draft with multiple stock and service rows; compare supplier, company, quantities, rates, taxes, and totals with ERPNext Desk.
+- [ ] Edit the same Purchase Invoice draft; verify the document name remains stable and source-document row references are preserved.
+- [ ] Verify non-finite line totals are rejected before any Purchase Invoice or Purchase Receipt request.
+- [ ] Submit a Purchase Invoice with stock update disabled, then one with stock update enabled; confirm only the intended document changes stock.
+- [ ] Create a Purchase Receipt from a submitted Purchase Order; verify each receipt row retains both `purchase_order` and `purchase_order_item`.
+- [ ] Receive only part of an order, then create a second receipt; confirm the app offers only the remaining quantities and ERPNext updates received quantities accurately.
+- [ ] Verify the purchase-order picker searches by order number, supplier ID, and supplier display name, and can reach orders beyond the first 100 records.
+- [ ] Create a direct Purchase Receipt with several items and different warehouses; verify each row is assigned to the intended company warehouse.
+- [ ] Record a partial supplier payment and then the remaining balance; verify each submitted Payment Entry is linked to the correct Purchase Invoice and its allocation matches payment terms.
+- [ ] Try zero, negative, and overpayments; verify no Payment Entry is created.
+- [ ] Create a partial debit note from a submitted Purchase Invoice; verify original row references, negative quantities, taxes, and return-against linkage.
+- [ ] Verify a second draft debit note for the same invoice is blocked until the first is resolved.
+- [ ] Cancel a submitted Purchase Invoice only where ERPNext allows it; verify the cancellation response and stock/accounting reversals.
+- [ ] Review supplier payment history and supplier General Ledger entries; confirm supplier/company filters and pagination.
+
+## Stock operations and inventory integrity
+
+- [ ] Create and submit Material Receipt, Material Issue, and Material Transfer Stock Entries; verify source/target warehouses, quantities, and Stock Ledger Entry rows.
+- [ ] Confirm transfer source and target warehouses belong to the selected company and are different.
+- [ ] Create a Stock Reconciliation with multiple items, including a zero-count item; verify valuation rates and resulting Bin quantities.
+- [ ] Verify stock document creation responses identify the expected DocType, document name, and draft status before the UI reports a saved draft.
+- [ ] Verify stock submit responses identify the same document and `docstatus = 1` before the UI reports success.
+- [ ] Open and review draft Purchase Receipts, Stock Entries, and Stock Reconciliations; delete only drafts and never submitted documents.
+- [ ] Filter Stock Ledger Entry history by company, item, and warehouse; compare quantities and running balances with ERPNext.
+- [ ] Do not use mobile workflows for items requiring serial numbers or batch numbers until serial/batch bundle entry and validation are implemented and tested. The current composer intentionally blocks these tracked items.
+
 ## Automated mobile-client regression checks
 
 - [ ] Run `flutter analyze --no-pub` from `mobile_app/`.
