@@ -103,8 +103,9 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
           const Divider(),
           ...((doc['items'] as List? ?? []).whereType<Map<String, dynamic>>().map((x) => ListTile(title: Text((x['item_name'] ?? x['item_code']).toString()), subtitle: Text('الكمية: ' + (x['qty'] ?? '').toString() + ' • المستودع: ' + (x['warehouse'] ?? '—').toString())))),
           if (doc['docstatus'] == 0) ...[
-            FilledButton(onPressed: () { Navigator.pop(sheet); compose(draft: doc); }, child: const Text('تعديل المسودة')),
-            FilledButton.tonal(onPressed: () async { if (!await confirm('ترحيل الفاتورة', 'قد يؤدي الترحيل إلى تحديث المخزون والقيود المحاسبية.')) return; try { await widget.api.submitPurchaseInvoice(doc); if (sheet.mounted) Navigator.pop(sheet); await load(); widget.onChanged?.call(); } catch (e) { notice(e.toString()); } }, child: const Text('ترحيل الفاتورة')),
+            if (doc['is_return'] != 1 && doc['is_return'] != true)
+              FilledButton(onPressed: () { Navigator.pop(sheet); compose(draft: doc); }, child: const Text('تعديل المسودة')),
+            FilledButton.tonal(onPressed: () async { if (!await confirm(doc['is_return'] == 1 || doc['is_return'] == true ? 'ترحيل المرتجع' : 'ترحيل الفاتورة', 'قد يؤدي الترحيل إلى تحديث المخزون والقيود المحاسبية.')) return; try { await widget.api.submitPurchaseInvoice(doc); if (sheet.mounted) Navigator.pop(sheet); await load(); widget.onChanged?.call(); } catch (e) { notice(e.toString()); } }, child: Text(doc['is_return'] == 1 || doc['is_return'] == true ? 'ترحيل المرتجع' : 'ترحيل الفاتورة')),
           ],
           if (doc['docstatus'] == 1 && doc['is_return'] != 1 && doc['is_return'] != true) ...[
             OutlinedButton(onPressed: () async {
@@ -120,7 +121,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
             }, child: const Text('إنشاء مرتجع مشتريات')),
           ],
           if (doc['docstatus'] == 1 && (doc['is_return'] == 1 || doc['is_return'] == true))
-            FilledButton(onPressed: () async { if (!await confirm('ترحيل المرتجع', 'سيعكس ERPNext أثر المرتجع وفق إعداداته.')) return; try { await widget.api.submitPurchaseInvoice(doc); if (sheet.mounted) Navigator.pop(sheet); await load(); widget.onChanged?.call(); } catch (e) { notice(e.toString()); } }, child: const Text('ترحيل المرتجع')),
+            const ListTile(leading: Icon(Icons.check_circle_outline), title: Text('المرتجع مرحّل بالفعل')),
         ]))));
     } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
   }
