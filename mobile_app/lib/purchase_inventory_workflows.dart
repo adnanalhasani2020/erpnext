@@ -1066,7 +1066,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       const Text('الاستلام والصرف والتحويل والجرد تُنفّذ بمستندات ERPNext الرسمية. لا يتم تعديل Bin مباشرة.'),
       Wrap(spacing: 8, runSpacing: 8, children: [
         FilledButton.tonal(onPressed: () => movement('Material Receipt'), child: const Text('استلام مخزون')),
-        FilledButton.tonal(onPressed: purchaseReceipt, child: const Text('استلام مشتريات')),
+        FilledButton.tonal(onPressed: purchaseReceipt, child: const Text('استلام مشتريات مباشر')),
+        FilledButton.tonal(onPressed: purchaseReceiptFromOrder, child: const Text('استلام من أمر شراء')),
         FilledButton.tonal(onPressed: () => movement('Material Issue'), child: const Text('صرف / تسليم')),
         FilledButton.tonal(onPressed: () => movement('Material Transfer'), child: const Text('تحويل')),
         FilledButton.icon(onPressed: reconcile, icon: const Icon(Icons.fact_check_outlined), label: const Text('جرد وتسوية')),
