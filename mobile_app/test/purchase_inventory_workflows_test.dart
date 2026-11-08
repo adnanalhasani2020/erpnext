@@ -566,4 +566,26 @@ void main() {
       await server.close(force: true);
     }
   });
+
+  test('purchase returnable quantity preview rejects an unsubmitted source invoice', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'data': {
+        'doctype': 'Purchase Invoice', 'name': 'PINV-DRAFT', 'docstatus': 0,
+        'is_return': 0,
+      }}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      await expectLater(
+        api.fetchPurchaseReturnableQuantities('PINV-DRAFT'),
+        throwsFormatException,
+      );
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
 }
