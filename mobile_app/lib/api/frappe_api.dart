@@ -588,24 +588,40 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر حفظ فاتورة المبيعات (${response.statusCode}).'));
     }
     final document = data['data'];
-    if (document is! Map<String, dynamic> || document['name'] is! String) {
-      throw Exception('استجابة حفظ الفاتورة غير متوقعة؛ تحقق من قائمة الفواتير قبل إعادة المحاولة.');
+    if (document is! Map<String, dynamic> ||
+        document['doctype'] != 'Sales Invoice' ||
+        document['name'] is! String ||
+        document['name'].toString().isEmpty ||
+        document['docstatus'] != 0) {
+      throw Exception('لم يؤكد ERPNext إنشاء مسودة فاتورة المبيعات؛ تحقق من قائمة الفواتير قبل إعادة المحاولة.');
     }
     return document;
   }
 
   Future<Map<String, dynamic>> submitSalesInvoice(Map<String, dynamic> document) async {
-    if (document['doctype'] != 'Sales Invoice' || document['name'] is! String || document['name'].toString().isEmpty) {
+    if (document['doctype'] != 'Sales Invoice' ||
+        document['name'] is! String ||
+        document['name'].toString().trim().isEmpty) {
       throw const FormatException('لا يمكن ترحيل هذا المستند؛ يجب أن يكون فاتورة مبيعات صحيحة.');
     }
-    final response = await _sendJson('POST', '/api/method/frappe.client.submit', {'doc': document});
+    final name = document['name'].toString();
+    final current = await fetchInvoiceDocument('Sales Invoice', name);
+    if (current['docstatus'] != 0) {
+      throw const FormatException('لا يمكن ترحيل الفاتورة لأنها ليست مسودة حالياً.');
+    }
+    final response = await _sendJson('POST', '/api/method/frappe.client.submit', {'doc': current});
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(_message(data, 'تم حفظ المسودة، لكن تعذر ترحيل الفاتورة (${response.statusCode}).'));
     }
     final submitted = data['message'];
-    if (submitted is Map<String, dynamic>) return submitted;
-    return document;
+    if (submitted is! Map<String, dynamic> ||
+        submitted['doctype'] != 'Sales Invoice' ||
+        submitted['name'] != name ||
+        submitted['docstatus'] != 1) {
+      throw Exception('لم يؤكد ERPNext ترحيل الفاتورة؛ افتح المستند وتحقق من حالته قبل إعادة المحاولة.');
+    }
+    return submitted;
   }
   Future<List<ErpPaymentAccount>> fetchPaymentAccounts(String company) async {
     final normalizedCompany = company.trim();
@@ -736,7 +752,14 @@ class FrappeApi {
         throw Exception(_message(submittedData, 'تعذر ترحيل سند القبض.'));
       }
       final result = submittedData['message'];
-      return result is Map<String, dynamic> ? result : created;
+      if (result is! Map<String, dynamic> ||
+          result['doctype'] != 'Payment Entry' ||
+          result['name'] != created['name'] ||
+          result['docstatus'] != 1 ||
+          result['payment_type'] != 'Receive') {
+        throw Exception('لم يؤكد ERPNext ترحيل سند القبض.');
+      }
+      return result;
     } catch (error) {
       throw Exception('تم إنشاء سند القبض كمسودة ${created['name']}، لكن لم يتم تأكيد ترحيله. راجع سند القبض في ERPNext قبل محاولة تسجيل دفعة أخرى. التفاصيل: ${error.toString().replaceFirst('Exception: ', '')}');
     }
@@ -864,25 +887,40 @@ class FrappeApi {
     }
     final created = insertedData['data'];
     if (created is! Map<String, dynamic> ||
+        created['doctype'] != 'Sales Invoice' ||
         created['name'] is! String ||
+        created['docstatus'] != 0 ||
+        (created['is_return'] != 1 && created['is_return'] != true) ||
         created['return_against'] != normalizedName) {
-      throw Exception('استجابة حفظ المرتجع غير مكتملة؛ تحقق من فواتير المبيعات قبل إعادة المحاولة.');
+      throw Exception('لم يؤكد ERPNext إنشاء مسودة مرتجع مرتبطة بالفاتورة الأصلية؛ تحقق من فواتير المبيعات قبل إعادة المحاولة.');
     }
     return created;
   }
 
   Future<Map<String, dynamic>> cancelSalesInvoice(Map<String, dynamic> document) async {
-    if (document['doctype'] != 'Sales Invoice' || document['name'] is! String || document['name'].toString().isEmpty || document['docstatus'] != 1) {
-      throw const FormatException('لا يمكن إلغاء هذا المستند؛ يجب أن يكون فاتورة مبيعات مرحّلة.');
+    if (document['doctype'] != 'Sales Invoice' ||
+        document['name'] is! String ||
+        document['name'].toString().trim().isEmpty) {
+      throw const FormatException('لا يمكن إلغاء هذا المستند؛ يجب أن يكون فاتورة مبيعات صحيحة.');
     }
-    final response = await _sendJson('POST', '/api/method/frappe.client.cancel', {'doc': document});
+    final name = document['name'].toString();
+    final current = await fetchInvoiceDocument('Sales Invoice', name);
+    if (current['docstatus'] != 1) {
+      throw const FormatException('يمكن إلغاء فاتورة مبيعات مرحّلة فقط.');
+    }
+    final response = await _sendJson('POST', '/api/method/frappe.client.cancel', {'doc': current});
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(_message(data, 'تعذر إلغاء فاتورة المبيعات (${response.statusCode}).'));
     }
     final cancelled = data['message'];
-    if (cancelled is Map<String, dynamic>) return cancelled;
-    return document;
+    if (cancelled is! Map<String, dynamic> ||
+        cancelled['doctype'] != 'Sales Invoice' ||
+        cancelled['name'] != name ||
+        cancelled['docstatus'] != 2) {
+      throw Exception('لم يؤكد ERPNext إلغاء الفاتورة؛ تحقق من حالتها قبل إعادة المحاولة.');
+    }
+    return cancelled;
   }
 
 
