@@ -47,13 +47,13 @@ void main() {
     expect(find.text('فاتورة مبيعات جديدة'), findsOneWidget);
     expect(find.text('الشركة'), findsOneWidget);
     expect(find.text('العميل'), findsOneWidget);
-    await tester.ensureVisible(find.text('حفظ كمسودة'));
+    await tester.scrollUntilVisible(find.text('حفظ كمسودة'), 300, scrollable: find.byType(Scrollable).first);
     await tester.pumpAndSettle();
     expect(find.text('حفظ كمسودة'), findsOneWidget);
-    await tester.ensureVisible(find.text('حفظ وترحيل الفاتورة'));
+    await tester.scrollUntilVisible(find.text('حفظ وترحيل الفاتورة'), 300, scrollable: find.byType(Scrollable).first);
     await tester.pumpAndSettle();
     expect(find.text('حفظ وترحيل الفاتورة'), findsOneWidget);
-    await tester.ensureVisible(find.text('تحديث المخزون عند الترحيل'));
+    await tester.scrollUntilVisible(find.text('تحديث المخزون عند الترحيل'), 300, scrollable: find.byType(Scrollable).first);
     await tester.pumpAndSettle();
     expect(find.text('تحديث المخزون عند الترحيل'), findsOneWidget);
 
@@ -87,7 +87,7 @@ void main() {
     ));
 
     expect(find.text('تعديل مسودة فاتورة'), findsOneWidget);
-    await tester.ensureVisible(find.text('حفظ تعديلات المسودة'));
+    await tester.scrollUntilVisible(find.text('حفظ تعديلات المسودة'), 300, scrollable: find.byType(Scrollable).first);
     await tester.pumpAndSettle();
     expect(find.text('حفظ تعديلات المسودة'), findsOneWidget);
     expect(find.text('رقم المسودة: SINV-DRAFT-1'), findsOneWidget);
