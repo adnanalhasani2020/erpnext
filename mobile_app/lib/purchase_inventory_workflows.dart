@@ -283,7 +283,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     void addLine([Map<String, dynamic>? source]) {
       final validItem = widget.items.any((x) => x.code == source?['item_code'])
           ? source!['item_code'].toString() : widget.items.first.code;
-      final allowed = widget.warehouses.where((w) => w.company == null || w.company == selectedCompany);
+      final allowed = widget.warehouses.where((w) => w.company == selectedCompany);
       final sourceWarehouse = source?['warehouse']?.toString();
       lineRows.add({
         'item': validItem,
@@ -302,7 +302,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
           if (!companies.contains(selectedCompany)) selectedCompany = companies.first;
           final suppliers = widget.suppliers.map((x) => x.id).toSet().toList();
           if (!suppliers.contains(selectedSupplier)) selectedSupplier = suppliers.first;
-          final warehouses = widget.warehouses.where((w) => w.company == null || w.company == selectedCompany).toList();
+          final warehouses = widget.warehouses.where((w) => w.company == selectedCompany).toList();
           return AlertDialog(
             title: Text(draft == null ? 'فاتورة مشتريات جديدة' : 'تعديل مسودة مشتريات'),
             content: SizedBox(width: 520, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -315,7 +315,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                   selectedCompany = v;
                   for (final row in lineRows) {
                     if (!widget.warehouses.any((w) => w.id == row['warehouse'] &&
-                        (w.company == null || w.company == selectedCompany))) row['warehouse'] = null;
+                        (w.company == selectedCompany))) row['warehouse'] = null;
                     final source = row['source'];
                     if (source is Map<String, dynamic>) {
                       row['source'] = <String, dynamic>{
@@ -1144,7 +1144,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
               DropdownButtonFormField<String>(
                 initialValue: null, isExpanded: true,
                 decoration: const InputDecoration(labelText: 'مستودع المصدر'),
-                items: warehouses.where((w) => w.company == null || w.company == selectedCompany)
+                items: warehouses.where((w) => w.company == selectedCompany)
                     .map((w) => DropdownMenuItem(value: w.id, child: Text('${w.name} (${w.id})'))).toList(),
                 onChanged: (v) => from.text = v ?? '',
               ),
@@ -1152,7 +1152,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
               DropdownButtonFormField<String>(
                 initialValue: null, isExpanded: true,
                 decoration: const InputDecoration(labelText: 'مستودع الوجهة / الاستلام'),
-                items: warehouses.where((w) => w.company == null || w.company == selectedCompany)
+                items: warehouses.where((w) => w.company == selectedCompany)
                     .map((w) => DropdownMenuItem(value: w.id, child: Text('${w.name} (${w.id})'))).toList(),
                 onChanged: (v) => to.text = v ?? '',
               ),
@@ -1226,7 +1226,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       final item = matchingItems.isEmpty ? null : matchingItems.first;
       final suggestedWarehouse = source['warehouse']?.toString();
       final availableWarehouses = widget.warehouses.where((w) =>
-          w.company == null || w.company == order['company']).toList();
+          w.company == order['company']).toList();
       rows.add({
         'source': source,
         'qty': TextEditingController(text: remaining.toString()),
@@ -1258,7 +1258,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                 final remaining = (double.tryParse(source['qty']?.toString() ?? '') ?? 0) -
                     (double.tryParse(source['received_qty']?.toString() ?? '') ?? 0);
                 final warehouses = widget.warehouses.where((w) =>
-                    w.company == null || w.company == order['company']).toList();
+                    w.company == order['company']).toList();
                 return Card(margin: const EdgeInsets.only(bottom: 8), child: Padding(
                   padding: const EdgeInsets.all(10), child: Column(children: [
                     Row(children: [
@@ -1472,7 +1472,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     String? warehouse;
     final ok = await showDialog<bool>(context: context, builder: (c) => StatefulBuilder(
       builder: (context, refresh) {
-        final available = widget.warehouses.where((w) => w.company == null || w.company == company).toList();
+        final available = widget.warehouses.where((w) => w.company == company).toList();
         if (!available.any((w) => w.id == warehouse)) warehouse = null;
         return AlertDialog(
           title: const Text('استلام بضاعة من مورد'),
@@ -1550,7 +1550,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     String? warehouse;
     final ok = await showDialog<bool>(context: context, builder: (c) => StatefulBuilder(
       builder: (context, refresh) {
-        final available = widget.warehouses.where((w) => w.company == null || w.company == company).toList();
+        final available = widget.warehouses.where((w) => w.company == company).toList();
         if (!available.any((w) => w.id == warehouse)) warehouse = null;
         return AlertDialog(
           title: const Text('جرد وتسوية المخزون'),
