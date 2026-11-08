@@ -192,7 +192,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
                       isExpanded: true,
                       decoration: const InputDecoration(labelText: 'الشركة'),
                       items: widget.companies.map((company) => DropdownMenuItem(value: company, child: Text(company.name, overflow: TextOverflow.ellipsis))).toList(),
-                      onChanged: _saving ? null : (value) => setState(() => _company = value),
+                      onChanged: _saving || _pendingDraft != null ? null : (value) => setState(() => _company = value),
                       validator: (value) => value == null ? 'اختر الشركة.' : null,
                     ),
                     const SizedBox(height: 12),
@@ -217,7 +217,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
               const SizedBox(height: 12),
               Row(children: [
                 Expanded(child: Text('أصناف الفاتورة', style: Theme.of(context).textTheme.titleMedium)),
-                TextButton.icon(onPressed: _saving ? null : _addLine, icon: const Icon(Icons.add), label: const Text('إضافة صنف')),
+                TextButton.icon(onPressed: _saving || _pendingDraft != null ? null : _addLine, icon: const Icon(Icons.add), label: const Text('إضافة صنف')),
               ]),
               ...List.generate(_lines.length, (index) => _buildLine(index)),
               Card(
@@ -243,9 +243,10 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
               ),
               if (_error != null) Card(color: Theme.of(context).colorScheme.errorContainer, child: Padding(padding: const EdgeInsets.all(12), child: Text(_error!))),
               if (_createdInvoiceId != null) Text('رقم المسودة: $_createdInvoiceId'),
+              if (_pendingDraft != null) const Text('تم إنشاء المسودة بالفعل. تم قفل تعديل البنود لمنع اختلاف ما تراه عن المستند المحفوظ؛ أعد محاولة الترحيل للمستند نفسه.', style: TextStyle(fontSize: 12)),
               const SizedBox(height: 12),
               FilledButton.icon(
-                onPressed: _saving ? null : () => _save(submit: false),
+                onPressed: _saving || _pendingDraft != null ? null : () => _save(submit: false),
                 icon: _saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save_outlined),
                 label: const Text('حفظ كمسودة'),
               ),
@@ -253,7 +254,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
               FilledButton.tonalIcon(
                 onPressed: _saving ? null : () => _save(submit: true),
                 icon: const Icon(Icons.check_circle_outline),
-                label: const Text('حفظ وترحيل الفاتورة'),
+                label: Text(_pendingDraft == null ? 'حفظ وترحيل الفاتورة' : 'إعادة محاولة ترحيل $_createdInvoiceId'),
               ),
               const SizedBox(height: 12),
               const Text('ملاحظة: لا يتم تسجيل دفعة مالية تلقائياً. بعد الترحيل تبقى الفاتورة مدينة حتى تسجيل Payment Entry من النظام.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12)),
@@ -292,7 +293,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
           Row(children: [
             Expanded(child: TextFormField(
               controller: line.quantity,
-              enabled: !_saving,
+              enabled: !_saving && _pendingDraft == null,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(labelText: 'الكمية'),
               validator: (value) => _validatePositive(value, 'كمية'),
