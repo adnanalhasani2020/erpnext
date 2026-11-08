@@ -1343,8 +1343,9 @@ class FrappeApi {
       if (row.containsKey('valuation_rate') &&
           (row['valuation_rate'] is! num ||
               !(row['valuation_rate'] as num).isFinite ||
-              (row['valuation_rate'] as num) < 0)) {
-        throw const FormatException('سعر التقييم غير صحيح.');
+              (row['valuation_rate'] as num) < 0 ||
+              !((row['qty'] as num) * (row['valuation_rate'] as num)).isFinite)) {
+        throw const FormatException('سعر التقييم أو إجمالي قيمة البند غير صحيح.');
       }
     }
     final payload = <String, dynamic>{
@@ -1426,6 +1427,13 @@ class FrappeApi {
       final qty = row['qty'];
       if (code is! String || code.trim().isEmpty || !seen.add(code) || qty is! num || !qty.isFinite || qty < 0) {
         throw const FormatException('أصناف الجرد يجب أن تكون غير مكررة وكمياتها صفر أو أكثر.');
+      }
+      if (row.containsKey('valuation_rate') &&
+          (row['valuation_rate'] is! num ||
+              !(row['valuation_rate'] as num).isFinite ||
+              (row['valuation_rate'] as num) < 0 ||
+              !((qty as num) * (row['valuation_rate'] as num)).isFinite)) {
+        throw const FormatException('سعر تقييم بند الجرد أو إجمالي قيمته غير صحيح.');
       }
     }
     final payload = <String, dynamic>{
