@@ -270,7 +270,7 @@ class FrappeApi {
     final customer = invoice['customer'];
     final company = invoice['company'];
     final rawItems = invoice['items'];
-    if (customer is! String || customer.trim().isEmpty || company is! String || company.trim().isEmpty || rawItems is! List || rawItems.isEmpty) {
+    if (invoice['doctype'] != 'Sales Invoice' || customer is! String || customer.trim().isEmpty || company is! String || company.trim().isEmpty || rawItems is! List || rawItems.isEmpty) {
       throw const FormatException('حدد الشركة والعميل وأضف صنفاً واحداً على الأقل.');
     }
     for (final rawItem in rawItems) {
@@ -296,8 +296,8 @@ class FrappeApi {
   }
 
   Future<Map<String, dynamic>> submitSalesInvoice(Map<String, dynamic> document) async {
-    if (document['name'] is! String || document['name'].toString().isEmpty) {
-      throw const FormatException('رقم الفاتورة غير موجود؛ لا يمكن ترحيلها.');
+    if (document['doctype'] != 'Sales Invoice' || document['name'] is! String || document['name'].toString().isEmpty) {
+      throw const FormatException('لا يمكن ترحيل هذا المستند؛ يجب أن يكون فاتورة مبيعات صحيحة.');
     }
     final response = await _sendJson('POST', '/api/method/frappe.client.submit', {'doc': document});
     final data = _decode(response.body);
@@ -448,7 +448,7 @@ class FrappeApi {
     required Map<String, dynamic> changes,
   }) async {
     final normalizedName = invoiceName.trim();
-    if (normalizedName.isEmpty || changes['items'] is! List || (changes['items'] as List).isEmpty) {
+    if (normalizedName.isEmpty || changes['doctype'] != 'Sales Invoice' || changes['items'] is! List || (changes['items'] as List).isEmpty) {
       throw const FormatException('رقم المسودة والبنود المطلوبة للتعديل غير مكتملة.');
     }
     final customer = changes['customer'];
@@ -573,8 +573,8 @@ class FrappeApi {
   }
 
   Future<Map<String, dynamic>> cancelSalesInvoice(Map<String, dynamic> document) async {
-    if (document['name'] is! String || document['name'].toString().isEmpty || document['docstatus'] != 1) {
-      throw const FormatException('لا يمكن إلغاء هذه الفاتورة؛ يجب أن تكون مرحّلة.');
+    if (document['doctype'] != 'Sales Invoice' || document['name'] is! String || document['name'].toString().isEmpty || document['docstatus'] != 1) {
+      throw const FormatException('لا يمكن إلغاء هذا المستند؛ يجب أن يكون فاتورة مبيعات مرحّلة.');
     }
     final response = await _sendJson('POST', '/api/method/frappe.client.cancel', {'doc': document});
     final data = _decode(response.body);
