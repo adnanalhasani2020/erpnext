@@ -158,6 +158,11 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
 
   double get _subtotal => _lines.fold<double>(0, (sum, line) => sum + line.total);
 
+  List<ErpWarehouse> get _companyWarehouses => _availableWarehouses
+      .where((warehouse) =>
+          warehouse.company == null || warehouse.company == _company?.name)
+      .toList(growable: false);
+
   void _addLine() => setState(() => _lines.add(_SalesInvoiceLineDraft()));
 
   void _removeLine(int index) {
@@ -279,7 +284,18 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
                       isExpanded: true,
                       decoration: const InputDecoration(labelText: 'الشركة'),
                       items: _availableCompanies.map((company) => DropdownMenuItem(value: company, child: Text(company.name, overflow: TextOverflow.ellipsis))).toList(),
-                      onChanged: _saving || _pendingDraft != null ? null : (value) => setState(() => _company = value),
+                      onChanged: _saving || _pendingDraft != null
+                          ? null
+                          : (value) => setState(() {
+                                _company = value;
+                                for (final line in _lines) {
+                                  final warehouseCompany = line.warehouse?.company;
+                                  if (warehouseCompany != null &&
+                                      warehouseCompany != value?.name) {
+                                    line.warehouse = null;
+                                  }
+                                }
+                              }),
                       validator: (value) => value == null ? 'اختر الشركة.' : null,
                     ),
                     const SizedBox(height: 12),
@@ -402,7 +418,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
               initialValue: line.warehouse,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'مستودع الصرف'),
-              items: _availableWarehouses.map((warehouse) => DropdownMenuItem(value: warehouse, child: Text(warehouse.name, overflow: TextOverflow.ellipsis))).toList(),
+              items: _companyWarehouses.map((warehouse) => DropdownMenuItem(value: warehouse, child: Text(warehouse.name, overflow: TextOverflow.ellipsis))).toList(),
               onChanged: _saving || _pendingDraft != null ? null : (value) => setState(() => line.warehouse = value),
               validator: (value) => _updateStock && line.item?.isStockItem == true && value == null ? 'اختر مستودع الصرف.' : null,
             ),
