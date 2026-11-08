@@ -170,12 +170,17 @@ class ErpPaymentAccount {
 }
 
 class ErpItem {
-  const ErpItem({required this.code, required this.name, this.group, this.stockUom, this.isStockItem = false});
+  const ErpItem({
+    required this.code, required this.name, this.group, this.stockUom,
+    this.isStockItem = false, this.hasSerialNo = false, this.hasBatchNo = false,
+  });
   final String code;
   final String name;
   final String? group;
   final String? stockUom;
   final bool isStockItem;
+  final bool hasSerialNo;
+  final bool hasBatchNo;
 
   factory ErpItem.fromJson(Map<String, dynamic> json) {
     final code = json['item_code'];
@@ -189,6 +194,8 @@ class ErpItem {
       group: json['item_group'] is String ? json['item_group'] as String : null,
       stockUom: json['stock_uom'] is String ? json['stock_uom'] as String : null,
       isStockItem: json['is_stock_item'] == 1 || json['is_stock_item'] == true,
+      hasSerialNo: json['has_serial_no'] == 1 || json['has_serial_no'] == true,
+      hasBatchNo: json['has_batch_no'] == 1 || json['has_batch_no'] == true,
     );
   }
 }
