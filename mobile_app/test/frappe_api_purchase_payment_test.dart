@@ -24,27 +24,13 @@ void main() {
         if (request.method == 'GET' &&
             segments.length == 4 &&
             segments[2] == 'Purchase Invoice') {
+          if (submittingPurchaseInvoice) purchaseInvoiceWasRefetched = true;
           response = {
             'data': {
               'doctype': 'Purchase Invoice',
               'name': 'PINV-1',
               'supplier': 'SUP-1',
               'docstatus': submittingPurchaseInvoice ? 0 : 1,
-              'is_return': 0,
-              'outstanding_amount': 100,
-            },
-          };
-        } else if (request.method == 'GET' &&
-            segments.length == 4 &&
-            segments[2] == 'Purchase Invoice' &&
-            submittingPurchaseInvoice) {
-          purchaseInvoiceWasRefetched = true;
-          response = {
-            'data': {
-              'doctype': 'Purchase Invoice',
-              'name': 'PINV-1',
-              'supplier': 'SUP-1',
-              'docstatus': 0,
               'is_return': 0,
               'outstanding_amount': 100,
             },
