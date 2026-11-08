@@ -132,14 +132,23 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().map(ErpItem.fromJson).toList(growable: false);
   }
 
-  Future<List<ErpWarehouse>> fetchWarehouses({int start = 0}) async {
-    final uri = Uri.parse('$_baseUrl/api/resource/Warehouse').replace(queryParameters: {
-      'fields': jsonEncode(['name', 'warehouse_name', 'company', 'is_group']),
-      'filters': jsonEncode([['disabled', '=', 0], ['is_group', '=', 0]]),
-      'limit_page_length': pageSize.toString(),
-      'limit_start': (start < 0 ? 0 : start).toString(),
-      'order_by': 'warehouse_name asc, name asc',
-    });
+  Future<List<ErpWarehouse>> fetchWarehouses({int start = 0, String? search}) async {
+    final query = search?.trim();
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Warehouse',
+      fields: ['name', 'warehouse_name', 'company', 'is_group'],
+      filters: [['disabled', '=', 0], ['is_group', '=', 0]],
+      orFilters: query == null || query.isEmpty
+          ? null
+          : [
+              ['name', 'like', '%$query%'],
+              ['warehouse_name', 'like', '%$query%'],
+              ['company', 'like', '%$query%'],
+            ],
+      orderBy: 'warehouse_name asc, name asc',
+      start: start,
+    );
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {

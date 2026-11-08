@@ -57,6 +57,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   String _salesInvoiceSearch = '';
   String _supplierSearch = '';
   String _purchaseInvoiceSearch = '';
+  bool _searchingWarehouses = false;
   bool _searchingCustomers = false;
   bool _searchingSalesInvoices = false;
   bool _searchingSuppliers = false;
@@ -179,7 +180,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
 
     if (!_isCurrentSession(sessionGeneration)) return;
     try {
-      final warehouses = await _api.fetchWarehouses();
+      final warehouses = await _api.fetchWarehouses(search: _warehouseSearch.isEmpty ? null : _warehouseSearch);
       if (!_isCurrentSession(sessionGeneration)) return;
       setState(() { _warehouses = warehouses; _warehousesOffset = warehouses.length; _warehousesHasMore = warehouses.length == FrappeApi.pageSize; });
     } catch (error) {
@@ -254,12 +255,45 @@ class _MobileHomePageState extends State<MobileHomePage> {
     }
   }
 
+  Future<void> _searchWarehouses(String value) async {
+    final query = value.trim();
+    if (_inventoryLoading || _loadingMoreWarehouses || _searchingWarehouses) return;
+    final sessionGeneration = _api.sessionGeneration;
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _warehouseSearch = query;
+      _warehouses = const [];
+      _warehousesOffset = 0;
+      _warehousesHasMore = false;
+      _searchingWarehouses = true;
+      _inventoryError = null;
+    });
+    try {
+      final page = await _api.fetchWarehouses(search: query.isEmpty ? null : query);
+      if (!_isCurrentSession(sessionGeneration)) return;
+      setState(() {
+        _warehouses = page;
+        _warehousesOffset = page.length;
+        _warehousesHasMore = page.length == FrappeApi.pageSize;
+      });
+    } catch (error) {
+      if (_isCurrentSession(sessionGeneration)) {
+        setState(() => _inventoryError =
+            'تعذر البحث في المستودعات: ${error.toString().replaceFirst('Exception: ', '')}');
+      }
+    } finally {
+      if (_isCurrentSession(sessionGeneration)) {
+        setState(() => _searchingWarehouses = false);
+      }
+    }
+  }
+
   Future<void> _loadMoreWarehouses() async {
     if (_loadingMoreWarehouses || !_warehousesHasMore) return;
     final sessionGeneration = _api.sessionGeneration;
     setState(() => _loadingMoreWarehouses = true);
     try {
-      final page = await _api.fetchWarehouses(start: _warehousesOffset);
+      final page = await _api.fetchWarehouses(start: _warehousesOffset, search: _warehouseSearch.isEmpty ? null : _warehouseSearch);
       if (!_isCurrentSession(sessionGeneration)) return;
       setState(() {
         _warehouses = [..._warehouses, ...page];
@@ -560,6 +594,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       _warehouseSearch = '';
       _itemSearchController.clear();
       _warehouseSearchController.clear();
+      _searchingWarehouses = false;
       _customerSearch = '';
       _salesInvoiceSearch = '';
       _supplierSearch = '';
@@ -797,17 +832,11 @@ class _MobileHomePageState extends State<MobileHomePage> {
     return ListView(padding: const EdgeInsets.all(18), children: [
       _pageHeader('المستودعات', 'المستودعات الفعلية المتاحة للمستخدم', Icons.warehouse_outlined),
       const SizedBox(height: 16),
-      TextField(
+      ServerSearchField(
         controller: _warehouseSearchController,
-        decoration: InputDecoration(
-          labelText: 'ابحث عن مستودع أو شركة',
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: _warehouseSearch.isEmpty ? null : IconButton(
-            onPressed: () { _warehouseSearchController.clear(); setState(() => _warehouseSearch = ''); },
-            icon: const Icon(Icons.clear),
-          ),
-        ),
-        onChanged: (value) => setState(() => _warehouseSearch = value),
+        label: 'بحث في المستودعات أو الشركة',
+        onSearch: _searchWarehouses,
+        loading: _searchingWarehouses,
       ),
       const SizedBox(height: 10),
       Text('${filtered.length} مستودع من ${_warehouses.length} مستودع محمّل'),

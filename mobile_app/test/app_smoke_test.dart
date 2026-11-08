@@ -93,6 +93,25 @@ void main() {
     expect(uri.queryParameters['order_by'], 'item_code asc, warehouse asc');
   });
 
+  test('builds warehouse search filters while preserving active warehouse filters', () {
+    final uri = FrappeApi.buildResourcePageUri(
+      baseUrl: 'https://erp.example.com',
+      resource: 'Warehouse',
+      fields: ['name', 'warehouse_name', 'company', 'is_group'],
+      filters: [['disabled', '=', 0], ['is_group', '=', 0]],
+      orFilters: [
+        ['name', 'like', '%Main%'],
+        ['warehouse_name', 'like', '%Main%'],
+        ['company', 'like', '%Main%'],
+      ],
+      orderBy: 'warehouse_name asc, name asc',
+      start: 100,
+    );
+    expect(uri.queryParameters['filters'], '[["disabled","=",0],["is_group","=",0]]');
+    expect(uri.queryParameters['or_filters'], '[["name","like","%Main%"],["warehouse_name","like","%Main%"],["company","like","%Main%"]]');
+    expect(uri.queryParameters['limit_start'], '100');
+  });
+
   test('supports stable tie-breakers in paginated resource ordering', () {
     final uri = FrappeApi.buildResourcePageUri(
       baseUrl: 'https://erp.example.com',
