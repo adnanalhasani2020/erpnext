@@ -951,7 +951,16 @@ class _MobileHomePageState extends State<MobileHomePage> {
                 constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.82),
                 child: ListView(shrinkWrap: true, children: [
                   Text(invoiceId, style: Theme.of(context).textTheme.titleLarge),
-                  Text('$documentType • ${document['status']?.toString() ?? 'حالة غير محددة'}'),
+                  Text(document['is_return'] == 1 || document['is_return'] == true
+                      ? 'مرتجع مبيعات • ${document['status']?.toString() ?? 'حالة غير محددة'}'
+                      : '$documentType • ${document['status']?.toString() ?? 'حالة غير محددة'}'),
+                  if (document['is_return'] == 1 || document['is_return'] == true)
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.link),
+                      title: const Text('الفاتورة الأصلية'),
+                      subtitle: Text(document['return_against']?.toString() ?? 'مرجع الفاتورة الأصلية غير ظاهر'),
+                    ),
                   const Divider(height: 24),
                   ListTile(title: const Text('الإجمالي'), trailing: Text(amount('grand_total'))),
                   ListTile(title: const Text('المبلغ المتبقي'), trailing: Text(amount('outstanding_amount'))),
