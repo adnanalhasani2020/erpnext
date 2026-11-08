@@ -908,6 +908,12 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
   }
   Future<void> showMovementDetails(Map<String, dynamic> movement) async {
     if (!mounted) return;
+    final voucherType = movement['voucher_type']?.toString() ?? '';
+    final voucherName = movement['voucher_no']?.toString() ?? '';
+    const traceableVouchers = {
+      'Sales Invoice', 'Purchase Invoice', 'Purchase Receipt',
+      'Stock Entry', 'Stock Reconciliation',
+    };
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -924,10 +930,73 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
             ListTile(title: const Text('الرصيد بعد الحركة'), subtitle: Text((movement['qty_after_transaction'] ?? '—').toString())),
             ListTile(title: const Text('المستند المصدر'), subtitle: Text('${movement['voucher_type'] ?? '—'} • ${movement['voucher_no'] ?? '—'}')),
             ListTile(title: const Text('مرجع سجل المخزون'), subtitle: Text((movement['name'] ?? '—').toString())),
+            if (traceableVouchers.contains(voucherType) && voucherName.isNotEmpty)
+              OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(sheet).pop();
+                  openVoucherDetails(voucherType, voucherName);
+                },
+                icon: const Icon(Icons.open_in_new),
+                label: const Text('فتح المستند المصدر'),
+              ),
           ]),
         ),
       ),
     );
+  }
+
+  Future<void> openVoucherDetails(String doctype, String name) async {
+    try {
+      final document = doctype == 'Sales Invoice' || doctype == 'Purchase Invoice'
+          ? await widget.api.fetchInvoiceDocument(doctype, name)
+          : await widget.api.fetchStockDocument(doctype, name);
+      if (!mounted) return;
+      final status = document['docstatus'] == 0
+          ? 'مسودة'
+          : document['docstatus'] == 1
+              ? 'مرحّل'
+              : document['docstatus'] == 2
+                  ? 'ملغي'
+                  : 'غير محدد';
+      final rows = (document['items'] as List? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .toList(growable: false);
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (sheet) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                Text('$doctype • $name', style: Theme.of(context).textTheme.titleLarge),
+                ListTile(title: const Text('الحالة'), subtitle: Text(status)),
+                ListTile(title: const Text('الشركة'), subtitle: Text((document['company'] ?? '—').toString())),
+                ListTile(title: const Text('التاريخ'), subtitle: Text((document['posting_date'] ?? '—').toString())),
+                if (document['customer'] != null)
+                  ListTile(title: const Text('العميل'), subtitle: Text((document['customer_name'] ?? document['customer']).toString())),
+                if (document['supplier'] != null)
+                  ListTile(title: const Text('المورد'), subtitle: Text((document['supplier_name'] ?? document['supplier']).toString())),
+                if (document['purpose'] != null || document['stock_entry_type'] != null)
+                  ListTile(title: const Text('نوع الحركة'), subtitle: Text((document['purpose'] ?? document['stock_entry_type']).toString())),
+                if (document['grand_total'] != null)
+                  ListTile(title: const Text('الإجمالي'), subtitle: Text('${document['grand_total']} ${document['currency'] ?? ''}')),
+                const Divider(),
+                Text('البنود (${rows.length})', style: Theme.of(context).textTheme.titleMedium),
+                ...rows.map((row) => ListTile(
+                  title: Text((row['item_name'] ?? row['item_code'] ?? 'صنف').toString()),
+                  subtitle: Text('الكمية: ${row['qty'] ?? '—'} • المستودع: ${row['warehouse'] ?? row['s_warehouse'] ?? '—'}'),
+                )),
+              ],
+            ),
+          ),
+        ),
+      );
+    } catch (e) {
+      notice('تعذر فتح المستند المصدر: ${e.toString().replaceFirst('Exception: ', '')}');
+    }
   }
 
   Future<void> loadMoreMovements() async {
