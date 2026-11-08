@@ -43,6 +43,26 @@ void main() {
     expect(row['pricing_rules'], 'RULE-1');
   });
 
+  test('clears stale source links when a mapped invoice item is replaced', () {
+    final row = buildSalesInvoiceLinePayload(
+      sourceRow: {
+        'item_code': 'ITEM-OLD',
+        'sales_order': 'SO-0001',
+        'so_detail': 'SO-ROW-1',
+        'delivery_note': 'DN-0001',
+        'dn_detail': 'DN-ROW-1',
+      },
+      itemCode: 'ITEM-NEW',
+      quantity: 1,
+      rate: 10,
+    );
+    expect(row['item_code'], 'ITEM-NEW');
+    expect(row.containsKey('sales_order'), isFalse);
+    expect(row.containsKey('so_detail'), isFalse);
+    expect(row.containsKey('delivery_note'), isFalse);
+    expect(row.containsKey('dn_detail'), isFalse);
+  });
+
   test('rejects an empty Sales Invoice before making a network request', () async {
     final api = FrappeApi();
     await expectLater(
