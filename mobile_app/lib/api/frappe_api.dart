@@ -399,6 +399,169 @@ class FrappeApi {
     if (rows is! List) throw Exception('استجابة فواتير المشتريات من ERPNext غير متوقعة.');
     return rows.whereType<Map<String, dynamic>>().map(ErpPurchaseInvoice.fromJson).toList(growable: false);
   }
+
+  static const Set<String> salesWorkflowDoctypes = {'Quotation', 'Sales Order', 'Delivery Note'};
+
+  String _salesWorkflowResource(String doctype) {
+    if (!salesWorkflowDoctypes.contains(doctype)) {
+      throw FormatException('نوع مستند المبيعات غير مدعوم: \${doctype}');
+    }
+    return Uri.encodeComponent(doctype);
+  }
+
+  Future<List<Map<String, dynamic>>> fetchSalesWorkflowDocuments(
+    String doctype, {int start = 0, String? search}
+  ) async {
+    _salesWorkflowResource(doctype);
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl, resource: doctype,
+      fields: const ['name', 'customer', 'customer_name', 'company', 'status', 'docstatus', 'grand_total', 'currency', 'modified'],
+      orFilters: search == null || search.trim().isEmpty ? null : [
+        ['name', 'like', '%\${search.trim()}%'],
+        ['customer', 'like', '%\${search.trim()}%'],
+        ['customer_name', 'like', '%\${search.trim()}%'],
+      ],
+      orderBy: 'modified desc, name desc', start: start,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل \${doctype}.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة \${doctype} من ERPNext غير متوقعة.');
+    return rows.whereType<Map<String, dynamic>>().toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>> fetchSalesWorkflowDocument(String doctype, String name) async {
+    final resource = _salesWorkflowResource(doctype);
+    if (name.trim().isEmpty) throw const FormatException('رقم مستند المبيعات غير موجود.');
+    final response = await _send('GET', '/api/resource/\$resource/\${Uri.encodeComponent(name.trim())}');
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل تفاصيل \${doctype}.'));
+    }
+    final document = data['data'];
+    if (document is! Map<String, dynamic> || document['doctype'] != doctype || document['name'] != name.trim()) {
+      throw FormatException('لم يؤكد ERPNext هوية مستند \${doctype} المطلوب.');
+    }
+    return document;
+  }
+
+  void _validateSalesWorkflowDraft(String doctype, Map<String, dynamic> doc) {
+    _salesWorkflowResource(doctype);
+    if (doctype == 'Delivery Note') {
+      throw const FormatException('يتم إنشاء إذن التسليم من أمر البيع المرحّل لضمان ربط البنود والكميات.');
+    }
+    final customer = doc['customer'], company = doc['company'], items = doc['items'];
+    if (doc['doctype'] != doctype || customer is! String || customer.trim().isEmpty ||
+        company is! String || company.trim().isEmpty || items is! List || items.isEmpty) {
+      throw const FormatException('حدد الشركة والعميل وأضف بنداً واحداً على الأقل.');
+    }
+    for (final raw in items) {
+      if (raw is! Map<String, dynamic> || raw['item_code'] is! String || (raw['item_code'] as String).trim().isEmpty) {
+        throw const FormatException('يوجد بند دون رمز صنف صحيح.');
+      }
+      final qty = raw['qty'], rate = raw['rate'];
+      if (qty is! num || !qty.isFinite || qty <= 0 || rate is! num || !rate.isFinite || rate < 0 || !(qty * rate).isFinite) {
+        throw const FormatException('تحقق من كمية وسعر كل بند.');
+      }
+    }
+  }
+
+  Future<Map<String, dynamic>> createSalesWorkflowDraft(String doctype, Map<String, dynamic> document) async {
+    _validateSalesWorkflowDraft(doctype, document);
+    final response = await _sendJson('POST', '/api/resource/\${_salesWorkflowResource(doctype)}', document);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر حفظ مسودة \${doctype}.'));
+    final created = data['data'];
+    if (created is! Map<String, dynamic> || created['doctype'] != doctype || created['name'] is! String || created['docstatus'] != 0) {
+      throw Exception('استجابة حفظ \${doctype} غير مؤكدة؛ تحقق من المستند قبل إعادة المحاولة.');
+    }
+    return created;
+  }
+
+  Future<Map<String, dynamic>> updateSalesWorkflowDraft(String doctype, String name, Map<String, dynamic> changes) async {
+    _validateSalesWorkflowDraft(doctype, changes);
+    final current = await fetchSalesWorkflowDocument(doctype, name);
+    if (current['docstatus'] != 0) throw const FormatException('لا يمكن تعديل مستند مبيعات مرحّل أو ملغى.');
+    final payload = Map<String, dynamic>.from(current)
+      ..['customer'] = changes['customer'] ..['company'] = changes['company'] ..['items'] = changes['items'];
+    for (final field in ['transaction_date', 'valid_till', 'delivery_date', 'order_type']) {
+      if (changes.containsKey(field)) payload[field] = changes[field];
+    }
+    final response = await _sendJson('POST', '/api/method/frappe.client.save', {'doc': payload});
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تحديث مسودة \${doctype}.'));
+    final saved = data['message'];
+    if (saved is! Map<String, dynamic> || saved['doctype'] != doctype || saved['name'] != name || saved['docstatus'] != 0) {
+      throw Exception('لم يؤكد ERPNext حفظ مسودة \${doctype}.');
+    }
+    return saved;
+  }
+
+  Future<Map<String, dynamic>> submitSalesWorkflowDocument(String doctype, String name) async {
+    _salesWorkflowResource(doctype);
+    final current = await fetchSalesWorkflowDocument(doctype, name);
+    if (current['docstatus'] != 0) throw const FormatException('لا يمكن ترحيل هذا المستند لأنه ليس مسودة.');
+    final response = await _sendJson('POST', '/api/method/frappe.client.submit', {'doc': current});
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر ترحيل \${doctype}.'));
+    final submitted = data['message'];
+    if (submitted is! Map<String, dynamic> || submitted['doctype'] != doctype || submitted['name'] != name || submitted['docstatus'] != 1) {
+      throw Exception('لم يؤكد ERPNext ترحيل \${doctype}؛ تحقق من حالة المستند قبل إعادة المحاولة.');
+    }
+    return submitted;
+  }
+
+  Future<Map<String, dynamic>> cancelSalesWorkflowDocument(String doctype, String name) async {
+    _salesWorkflowResource(doctype);
+    final current = await fetchSalesWorkflowDocument(doctype, name);
+    if (current['docstatus'] != 1) throw const FormatException('يمكن إلغاء مستند مبيعات مرحّل فقط.');
+    final response = await _sendJson('POST', '/api/method/frappe.client.cancel', {'doc': current});
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر إلغاء \${doctype}.'));
+    final cancelled = data['message'];
+    if (cancelled is! Map<String, dynamic> || cancelled['doctype'] != doctype || cancelled['name'] != name || cancelled['docstatus'] != 2) {
+      throw Exception('لم يؤكد ERPNext إلغاء \${doctype}.');
+    }
+    return cancelled;
+  }
+
+  Future<Map<String, dynamic>> makeSalesWorkflowDocument({
+    required String sourceDoctype, required String sourceName, required String targetDoctype,
+  }) async {
+    final allowed = <String, Set<String>>{
+      'Quotation': {'Sales Order'}, 'Sales Order': {'Delivery Note', 'Sales Invoice'},
+      'Delivery Note': {'Sales Invoice'},
+    };
+    if (!(allowed[sourceDoctype]?.contains(targetDoctype) ?? false)) throw const FormatException('مسار تحويل مستندات المبيعات غير مسموح.');
+    final source = await fetchSalesWorkflowDocument(sourceDoctype, sourceName);
+    if (source['docstatus'] != 1) throw const FormatException('يجب ترحيل المستند الأصلي قبل إنشاء المستند التالي.');
+    final method = switch ('\$sourceDoctype>\$targetDoctype') {
+      'Quotation>Sales Order' => 'erpnext.selling.doctype.quotation.quotation.make_sales_order',
+      'Sales Order>Delivery Note' => 'erpnext.selling.doctype.sales_order.sales_order.make_delivery_note',
+      'Sales Order>Sales Invoice' => 'erpnext.selling.doctype.sales_order.sales_order.make_sales_invoice',
+      'Delivery Note>Sales Invoice' => 'erpnext.stock.doctype.delivery_note.delivery_note.make_sales_invoice',
+      _ => throw const FormatException('مسار التحويل غير مدعوم.'),
+    };
+    final mapped = await _sendJson('POST', '/api/method/\$method', {'source_name': sourceName});
+    final mappedData = _decode(mapped.body);
+    if (mapped.statusCode < 200 || mapped.statusCode >= 300) throw Exception(_message(mappedData, 'تعذر تجهيز \${targetDoctype} من \${sourceDoctype}.'));
+    final raw = mappedData['message'];
+    if (raw is! Map<String, dynamic> || raw['doctype'] != targetDoctype || raw['items'] is! List || (raw['items'] as List).isEmpty) {
+      throw Exception('لم يُرجع ERPNext مستند \${targetDoctype} صالحاً من أداة التحويل.');
+    }
+    final inserted = await _sendJson('POST', '/api/resource/\${_salesWorkflowResource(targetDoctype)}', Map<String, dynamic>.from(raw));
+    final insertedData = _decode(inserted.body);
+    if (inserted.statusCode < 200 || inserted.statusCode >= 300) throw Exception(_message(insertedData, 'تعذر حفظ مسودة \${targetDoctype}.'));
+    final created = insertedData['data'];
+    if (created is! Map<String, dynamic> || created['doctype'] != targetDoctype || created['name'] is! String || created['docstatus'] != 0) {
+      throw Exception('لم يؤكد ERPNext إنشاء مسودة \${targetDoctype}؛ تحقق من المستندات قبل إعادة المحاولة.');
+    }
+    return created;
+  }
+
   Future<Map<String, dynamic>> createSalesInvoice(Map<String, dynamic> invoice) async {
     final customer = invoice['customer'];
     final company = invoice['company'];
