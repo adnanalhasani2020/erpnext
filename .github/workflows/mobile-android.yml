@@ -7,6 +7,14 @@ on:
         description: "Optional release tag, for example mobile-v0.1.0"
         required: false
         type: string
+  pull_request:
+    branches:
+      - feature/flutter-mobile-foundation
+    paths:
+      - "mobile_app/lib/**"
+      - "mobile_app/test/**"
+      - "mobile_app/pubspec.yaml"
+      - ".github/workflows/mobile-android.yml"
   push:
     branches:
       - feature/flutter-mobile-foundation
