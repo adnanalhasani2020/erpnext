@@ -285,6 +285,63 @@ class FrappeApi {
     if (submitted is Map<String, dynamic>) return submitted;
     return document;
   }
+  Future<Map<String, dynamic>> receiveSalesInvoicePayment({
+    required String invoiceName,
+    required double amount,
+  }) async {
+    if (invoiceName.trim().isEmpty || !amount.isFinite || amount <= 0) {
+      throw const FormatException('أدخل رقم الفاتورة ومبلغ دفعة صحيحاً أكبر من صفر.');
+    }
+    final setup = await _sendJson(
+      'POST',
+      '/api/method/erpnext.accounts.doctype.payment_entry.payment_entry.get_payment_entry',
+      {'dt': 'Sales Invoice', 'dn': invoiceName, 'party_amount': amount},
+    );
+    final setupData = _decode(setup.body);
+    if (setup.statusCode < 200 || setup.statusCode >= 300) {
+      throw Exception(_message(setupData, 'تعذر تجهيز سند القبض. تحقق من الحسابات الافتراضية وصلاحيات Payment Entry.'));
+    }
+    final rawDocument = setupData['message'];
+    if (rawDocument is! Map<String, dynamic>) {
+      throw Exception('استجابة تجهيز سند القبض غير متوقعة.');
+    }
+    final references = rawDocument['references'];
+    if (references is! List || references.isEmpty) {
+      throw Exception('لم يربط ERPNext سند القبض بفاتورة المبيعات.');
+    }
+    final paymentDraft = Map<String, dynamic>.from(rawDocument);
+    final paymentReferences = references.map((row) {
+      if (row is! Map<String, dynamic>) return row;
+      final reference = Map<String, dynamic>.from(row);
+      if (reference['reference_doctype'] == 'Sales Invoice' && reference['reference_name'] == invoiceName) {
+        reference['allocated_amount'] = amount;
+      }
+      return reference;
+    }).toList(growable: false);
+    paymentDraft['references'] = paymentReferences;
+
+    final insert = await _sendJson('POST', '/api/resource/Payment%20Entry', paymentDraft);
+    final insertData = _decode(insert.body);
+    if (insert.statusCode < 200 || insert.statusCode >= 300) {
+      throw Exception(_message(insertData, 'تعذر حفظ سند القبض.'));
+    }
+    final created = insertData['data'];
+    if (created is! Map<String, dynamic> || created['name'] is! String) {
+      throw Exception('استجابة حفظ سند القبض غير متوقعة؛ تحقق من سجل Payment Entry قبل إعادة المحاولة.');
+    }
+    try {
+      final submitted = await _sendJson('POST', '/api/method/frappe.client.submit', {'doc': created});
+      final submittedData = _decode(submitted.body);
+      if (submitted.statusCode < 200 || submitted.statusCode >= 300) {
+        throw Exception(_message(submittedData, 'تعذر ترحيل سند القبض.'));
+      }
+      final result = submittedData['message'];
+      return result is Map<String, dynamic> ? result : created;
+    } catch (error) {
+      throw Exception('تم إنشاء سند القبض كمسودة ${created['name']}، لكن لم يتم تأكيد ترحيله. راجع سند القبض في ERPNext قبل محاولة تسجيل دفعة أخرى. التفاصيل: ${error.toString().replaceFirst('Exception: ', '')}');
+    }
+  }
+
   Future<Map<String, dynamic>> cancelSalesInvoice(Map<String, dynamic> document) async {
     if (document['name'] is! String || document['name'].toString().isEmpty || document['docstatus'] != 1) {
       throw const FormatException('لا يمكن إلغاء هذه الفاتورة؛ يجب أن تكون مرحّلة.');
