@@ -1009,7 +1009,7 @@ void main() {
       }}));
       await request.response.close();
     });
-    final api = FrappeApi()..configure('http://127.0.0.1:' + server.port.toString());
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
     try {
       await expectLater(
         api.createPurchaseReceipt({
@@ -1103,7 +1103,7 @@ void main() {
       request.response.write(jsonEncode({'data': rows}));
       await request.response.close();
     });
-    final api = FrappeApi()..configure('http://127.0.0.1:' + server.port.toString());
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
     try {
       final first = await api.fetchPurchaseOrders(start: 0, search: 'Supplier Name');
       final second = await api.fetchPurchaseOrders(start: 100, search: 'Supplier Name');
