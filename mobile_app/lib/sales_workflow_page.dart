@@ -31,6 +31,7 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
   int _tab = 0;
   int _offset = 0;
   bool _loading = false, _hasMore = false;
+  int _loadGeneration = 0;
   String _search = '';
   final _searchController = TextEditingController();
   List<Map<String, dynamic>> _rows = [];
@@ -53,28 +54,31 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
 
   Future<void> _load({bool reset = false}) async {
     if (_loading) return;
+    final generation = ++_loadGeneration;
+    final doctype = _doctype;
     final start = reset ? 0 : _offset;
     setState(() { _loading = true; _error = null; });
     try {
       final page = await widget.api.fetchSalesWorkflowDocuments(
-        _doctype, start: start, search: _search,
+        doctype, start: start, search: _search,
       );
-      if (!mounted) return;
+      if (!mounted || generation != _loadGeneration) return;
       setState(() {
         _rows = reset ? page : [..._rows, ...page];
         _offset = start + page.length;
         _hasMore = page.length == FrappeApi.pageSize;
       });
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      if (mounted && generation == _loadGeneration) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && generation == _loadGeneration) setState(() => _loading = false);
     }
   }
 
   void _selectTab(int index) {
     if (index == _tab) return;
-    setState(() { _tab = index; _offset = 0; _rows = []; _search = ''; _searchController.clear(); });
+    _loadGeneration++;
+    setState(() { _tab = index; _offset = 0; _rows = []; _search = ''; _loading = false; _searchController.clear(); });
     _load(reset: true);
   }
 
