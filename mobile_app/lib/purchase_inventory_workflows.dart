@@ -50,7 +50,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       errors.add('دفعات الموردين: ${e.toString().replaceFirst('Exception: ', '')}');
     }
     if (mounted) setState(() {
-      error = errors.isEmpty ? null : errors.join('\\n');
+      error = errors.isEmpty ? null : errors.join('\n');
       loading = false;
     });
   }
@@ -533,7 +533,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       ...supplierPayments.map((payment) => Card(child: ListTile(
         leading: const Icon(Icons.receipt_long_outlined),
         title: Text((payment['name'] ?? '—').toString()),
-        subtitle: Text('${payment['party_name'] ?? payment['party'] ?? 'مورد غير محدد'} • ${payment['posting_date'] ?? '—'}\\nالحساب: ${payment['paid_from'] ?? '—'}'),
+        subtitle: Text('${payment['party_name'] ?? payment['party'] ?? 'مورد غير محدد'} • ${payment['posting_date'] ?? '—'}\nالحساب: ${payment['paid_from'] ?? '—'}'),
         isThreeLine: true,
         trailing: Text((double.tryParse(payment['paid_amount']?.toString() ?? '') ?? 0).toStringAsFixed(2)),
         onTap: () => showSupplierPaymentDetails(payment['name'].toString()),
