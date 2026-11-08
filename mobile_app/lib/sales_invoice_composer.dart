@@ -3,6 +3,26 @@ import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
 
+Map<String, dynamic> buildSalesInvoiceLinePayload({
+  required Map<String, dynamic>? sourceRow,
+  required String itemCode,
+  required double quantity,
+  required double rate,
+  String? warehouse,
+  bool removeWarehouse = false,
+}) {
+  final row = Map<String, dynamic>.from(sourceRow ?? const <String, dynamic>{})
+    ..['item_code'] = itemCode
+    ..['qty'] = quantity
+    ..['rate'] = rate;
+  if (warehouse != null && warehouse.isNotEmpty) {
+    row['warehouse'] = warehouse;
+  } else if (removeWarehouse) {
+    row.remove('warehouse');
+  }
+  return row;
+}
+
 class SalesInvoiceComposer extends StatefulWidget {
   const SalesInvoiceComposer({
     super.key,
@@ -226,16 +246,14 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
           'posting_date': _postingDate ?? _today(),
           'update_stock': _updateStock ? 1 : 0,
           'items': _lines.map((line) {
-            final row = Map<String, dynamic>.from(line.sourceRow ?? const <String, dynamic>{})
-              ..['item_code'] = line.item!.code
-              ..['qty'] = line.qty
-              ..['rate'] = line.unitRate;
-            if (line.warehouse != null) {
-              row['warehouse'] = line.warehouse!.id;
-            } else if (_updateStock && line.item!.isStockItem) {
-              row.remove('warehouse');
-            }
-            return row;
+            return buildSalesInvoiceLinePayload(
+              sourceRow: line.sourceRow,
+              itemCode: line.item!.code,
+              quantity: line.qty,
+              rate: line.unitRate,
+              warehouse: line.warehouse?.id,
+              removeWarehouse: _updateStock && line.item!.isStockItem,
+            );
           }).toList(growable: false),
         };
         final created = _existingDraft == null
