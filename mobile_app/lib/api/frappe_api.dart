@@ -940,6 +940,30 @@ class FrappeApi {
     return submitted;
   }
 
+  Future<Map<String, dynamic>> cancelPurchaseInvoice(String name) async {
+    if (name.trim().isEmpty) throw const FormatException('رقم فاتورة المشتريات غير موجود.');
+    final current = await fetchInvoiceDocument('Purchase Invoice', name);
+    if (current['doctype'] != 'Purchase Invoice' || current['name'] != name || current['docstatus'] != 1) {
+      throw const FormatException('إلغاء الفاتورة متاح للمستندات المرحلة فقط.');
+    }
+    final response = await _sendJson('POST', '/api/method/frappe.client.cancel', {
+      'doctype': 'Purchase Invoice',
+      'name': name,
+    });
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر إلغاء فاتورة المشتريات. قد توجد دفعات أو مرتجعات أو مستندات مرتبطة.'));
+    }
+    final canceled = data['message'];
+    if (canceled is! Map<String, dynamic> ||
+        canceled['doctype'] != 'Purchase Invoice' ||
+        canceled['name'] != name ||
+        canceled['docstatus'] != 2) {
+      throw Exception('لم يؤكد ERPNext إلغاء الفاتورة. أعد تحميلها للتحقق قبل أي إجراء آخر.');
+    }
+    return canceled;
+  }
+
   Future<Map<String, dynamic>> createStockEntry({
     required String company, required String purpose, required List<Map<String, dynamic>> items,
     String? fromWarehouse, String? toWarehouse, String? remarks,
