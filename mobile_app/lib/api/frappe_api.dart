@@ -1407,6 +1407,56 @@ class FrappeApi {
         throw const FormatException('بيانات استلام البضائع غير مكتملة: الصنف والكمية والسعر والمستودع مطلوبة.');
       }
     }
+    // Revalidate purchase-order references against the latest server document
+    // immediately before creating the receipt; UI-side quantities may be stale.
+    final orderNames = <String>{};
+    final sourceRowsByOrder = <String, Map<String, Map<String, dynamic>>>{};
+    for (final row in items) {
+      final orderName = row is Map<String, dynamic> ? row['purchase_order'] : null;
+      final orderItemName = row is Map<String, dynamic> ? row['purchase_order_item'] : null;
+      if ((orderName == null) != (orderItemName == null)) {
+        throw const FormatException('مرجع أمر الشراء وبند الأمر يجب أن يظهرا معاً في بند الاستلام.');
+      }
+      if (orderName == null) continue;
+      if (orderName is! String || orderName.trim().isEmpty ||
+          orderItemName is! String || orderItemName.trim().isEmpty) {
+        throw const FormatException('مرجع أمر الشراء أو بند الأمر غير صحيح.');
+      }
+      final normalizedOrder = orderName.trim();
+      final normalizedOrderItem = orderItemName.trim();
+      orderNames.add(normalizedOrder);
+      final byItem = sourceRowsByOrder.putIfAbsent(normalizedOrder, () => <String, Map<String, dynamic>>{});
+      if (byItem.containsKey(normalizedOrderItem)) {
+        throw const FormatException('لا تكرر بند أمر الشراء في سند الاستلام؛ اجمع الكمية في سطر واحد.');
+      }
+      byItem[normalizedOrderItem] = row;
+    }
+    for (final orderName in orderNames) {
+      final order = await fetchPurchaseOrderDocument(orderName);
+      if (order['company'] != document['company'] || order['supplier'] != document['supplier']) {
+        throw FormatException('أمر الشراء ' + orderName + ' لا يطابق شركة أو مورد سند الاستلام.');
+      }
+      final sourceItems = order['items'];
+      if (sourceItems is! List) throw FormatException('تعذر قراءة بنود أمر الشراء ' + orderName + '.');
+      final sourceByName = <String, Map<String, dynamic>>{
+        for (final source in sourceItems.whereType<Map<String, dynamic>>())
+          if (source['name'] is String) source['name'].toString(): source,
+      };
+      for (final entry in sourceRowsByOrder[orderName]!.entries) {
+        final source = sourceByName[entry.key];
+        final receiptLine = entry.value;
+        if (source == null || source['item_code'] != receiptLine['item_code']) {
+          throw FormatException('بند الاستلام ' + entry.key + ' لا يطابق بنداً في أمر الشراء ' + orderName + '.');
+        }
+        final ordered = double.tryParse(source['qty']?.toString() ?? '') ?? 0;
+        final received = double.tryParse(source['received_qty']?.toString() ?? '') ?? 0;
+        final remaining = ordered - received;
+        final requested = (receiptLine['qty'] as num).toDouble();
+        if (!remaining.isFinite || remaining <= 0.000001 || requested > remaining + 0.000001) {
+          throw FormatException('كمية الصنف ' + receiptLine['item_code'].toString() + ' تجاوزت المتبقي في أمر الشراء ' + orderName + ' (' + remaining.toStringAsFixed(3) + '). حدّث الأمر قبل إنشاء سند الاستلام.');
+        }
+      }
+    }
     final response = await _sendJson('POST', '/api/resource/Purchase%20Receipt', document);
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر إنشاء سند استلام المشتريات.'));
