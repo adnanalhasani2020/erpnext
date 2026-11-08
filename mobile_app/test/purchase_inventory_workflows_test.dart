@@ -208,14 +208,14 @@ void main() {
           'doctype': 'Purchase Invoice', 'name': 'PINV-1', 'docstatus': 1,
           'supplier': 'SUP-1', 'items': [{'name': 'PINV-ITEM-1', 'item_code': 'ITEM-1', 'qty': 5}],
         }}));
-      } else if (request.method == 'GET' && request.uri.path.endsWith('/Purchase%20Invoice')) {
+      } else if (request.method == 'GET' && request.uri.pathSegments.contains('Purchase Invoice') && request.uri.pathSegments.length == 3) {
         request.response.write(jsonEncode({'data': []}));
       } else if (request.method == 'POST' && request.uri.path.endsWith('make_debit_note')) {
         request.response.write(jsonEncode({'message': {
           'doctype': 'Purchase Invoice', 'is_return': 1, 'return_against': 'PINV-1',
           'items': [{'item_code': 'ITEM-1', 'qty': -5, 'purchase_invoice_item': 'PINV-ITEM-1'}],
         }}));
-      } else if (request.method == 'POST' && request.uri.path.endsWith('/Purchase%20Invoice')) {
+      } else if (request.method == 'POST' && request.uri.pathSegments.contains('Purchase Invoice') && request.uri.pathSegments.length == 3) {
         final payload = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
         final row = (payload['items'] as List).single as Map<String, dynamic>;
         expect(row['qty'], -2.0);
@@ -250,7 +250,7 @@ void main() {
           'doctype': 'Purchase Invoice', 'name': 'PINV-1', 'docstatus': 1,
           'supplier': 'SUP-1', 'items': [{'name': 'PINV-ITEM-1', 'item_code': 'ITEM-1', 'qty': 5}],
         }}));
-      } else if (request.method == 'GET' && request.uri.path.endsWith('/Purchase%20Invoice')) {
+      } else if (request.method == 'GET' && request.uri.pathSegments.contains('Purchase Invoice') && request.uri.pathSegments.length == 3) {
         request.response.write(jsonEncode({'data': []}));
       } else if (request.method == 'POST' && request.uri.path.endsWith('make_debit_note')) {
         request.response.write(jsonEncode({'message': {
