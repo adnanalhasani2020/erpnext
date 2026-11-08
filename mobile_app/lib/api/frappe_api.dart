@@ -244,8 +244,21 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().map(ErpPurchaseInvoice.fromJson).toList(growable: false);
   }
   Future<Map<String, dynamic>> createSalesInvoice(Map<String, dynamic> invoice) async {
-    if (invoice['customer'] is! String || (invoice['items'] is! List) || (invoice['items'] as List).isEmpty) {
-      throw const FormatException('حدد العميل وأضف صنفاً واحداً على الأقل.');
+    final customer = invoice['customer'];
+    final company = invoice['company'];
+    final rawItems = invoice['items'];
+    if (customer is! String || customer.trim().isEmpty || company is! String || company.trim().isEmpty || rawItems is! List || rawItems.isEmpty) {
+      throw const FormatException('حدد الشركة والعميل وأضف صنفاً واحداً على الأقل.');
+    }
+    for (final rawItem in rawItems) {
+      if (rawItem is! Map<String, dynamic> || rawItem['item_code'] is! String || (rawItem['item_code'] as String).trim().isEmpty) {
+        throw const FormatException('يوجد بند فاتورة دون رمز صنف صحيح.');
+      }
+      final qty = rawItem['qty'];
+      final rate = rawItem['rate'];
+      if (qty is! num || !qty.isFinite || qty <= 0 || rate is! num || !rate.isFinite || rate < 0) {
+        throw const FormatException('تحقق من كمية وسعر كل بند في الفاتورة.');
+      }
     }
     final response = await _sendJson('POST', '/api/resource/Sales%20Invoice', invoice);
     final data = _decode(response.body);
