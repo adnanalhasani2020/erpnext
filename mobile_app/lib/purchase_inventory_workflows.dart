@@ -505,7 +505,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       notice('حمّل الشركات والأصناف والمستودعات أولاً.');
       return;
     }
-    final company = TextEditingController(text: widget.companies.first.name);
+    var selectedCompany = widget.companies.first.name;
     final from = TextEditingController();
     final to = TextEditingController();
     try {
@@ -516,12 +516,12 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
               purpose == 'Material Issue' ? 'صرف / تسليم مخزون' : 'تحويل بين المستودعات'),
           content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
             DropdownButtonFormField<String>(
-              value: widget.companies.first.name, isExpanded: true,
+              value: selectedCompany, isExpanded: true,
               decoration: const InputDecoration(labelText: 'الشركة'),
               items: widget.companies.map((x) => DropdownMenuItem(value: x.name, child: Text(x.name))).toList(),
               onChanged: (v) => refresh(() {
                 if (v != null) {
-                  company.text = v;
+                  selectedCompany = v;
                   from.clear();
                   to.clear();
                 }
@@ -531,7 +531,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
               DropdownButtonFormField<String>(
                 value: null, isExpanded: true,
                 decoration: const InputDecoration(labelText: 'مستودع المصدر'),
-                items: warehouses.where((w) => w.company == null || w.company == company.text)
+                items: warehouses.where((w) => w.company == null || w.company == selectedCompany)
                     .map((w) => DropdownMenuItem(value: w.id, child: Text('${w.name} (${w.id})'))).toList(),
                 onChanged: (v) => from.text = v ?? '',
               ),
@@ -563,7 +563,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       );
       if (items == null || !mounted) return;
       final doc = await widget.api.createStockEntry(
-        company: company.text.trim(), purpose: purpose,
+        company: selectedCompany, purpose: purpose,
         fromWarehouse: from.text.trim().isEmpty ? null : from.text.trim(),
         toWarehouse: to.text.trim().isEmpty ? null : to.text.trim(),
         items: items,
@@ -584,7 +584,6 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     } catch (e) {
       notice(e.toString().replaceFirst('Exception: ', ''));
     } finally {
-      company.dispose();
       from.dispose();
       to.dispose();
     }
