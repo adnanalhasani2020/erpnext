@@ -1199,6 +1199,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       builder: (_) => StockWorkflowPage(
         api: _api,
         companies: _companies,
+        suppliers: _suppliers,
         items: _items,
         warehouses: _warehouses,
         onChanged: _loadInventory,
