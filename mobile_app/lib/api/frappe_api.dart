@@ -1271,7 +1271,10 @@ class FrappeApi {
     final document = data['data'];
     if (document is! Map<String, dynamic> ||
         document['doctype'] != 'Payment Entry' ||
-        document['name'] != name.trim() || document['docstatus'] != 0) {
+        document['name'] != name.trim() || document['docstatus'] != 0 ||
+        document['payment_type'] != 'Pay' ||
+        document['party_type'] != 'Supplier' ||
+        document['references'] is! List) {
       throw const FormatException('سند الدفع لم يعد مسودة أو أن بياناته غير صحيحة.');
     }
     return document;
