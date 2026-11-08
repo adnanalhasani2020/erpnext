@@ -22,6 +22,8 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 - [ ] Verify `Set-Cookie` responses with an empty value, `Max-Age=0`, or an expired `Expires` attribute remove the matching session cookie before the next request.
 - [ ] Verify API endpoints do not follow HTTP redirects and never forward session cookies to another host; a redirect should surface as a request failure.
 - [ ] Confirm the dashboard shows only records allowed by the user's permissions.
+- [ ] Open a Purchase Invoice with a draft status and with an outstanding balance; confirm the mobile screen is read-only and never offers Sales Invoice submit, customer receipt, cancellation, or sales-return actions.
+- [ ] Confirm Sales Invoice actions remain available only for their permitted document states.
 - [ ] Remove read permission for one resource and confirm its failure does not hide unrelated resources.
 - [ ] Sign out while a resource request is still in flight; confirm its late response cannot restore cookies or repopulate the signed-out session.
 - [ ] Sign out and confirm the session is no longer usable.
@@ -56,7 +58,7 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 ## Automated mobile-client regression checks
 
 - [ ] Run `flutter analyze --no-pub` from `mobile_app/`.
-- [ ] Run `flutter test --no-pub` from `mobile_app/`; include the local HTTP-server regression that checks company pagination and expired-cookie removal.
+- [ ] Run `flutter test --no-pub` from `mobile_app/`; include local HTTP-server regressions for company and payment-account pagination, expired-cookie removal, redirect blocking, and logout session invalidation, plus invoice action-policy tests.
 - [ ] Confirm the Android debug APK workflow completes for the exact commit being reviewed; a previous successful build does not validate later commits.
 
 ## Evidence to capture
