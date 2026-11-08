@@ -949,46 +949,84 @@ class _MobileHomePageState extends State<MobileHomePage> {
                   ),
                   if (docStatus == 1 && outstandingAmount > 0) FilledButton.icon(
                     onPressed: () async {
-                      final amountController = TextEditingController(text: outstandingAmount.toStringAsFixed(2));
-                      final paymentAmount = await showDialog<double>(
-                        context: context,
-                        builder: (dialogContext) => AlertDialog(
-                          title: const Text('تسجيل دفعة من العميل'),
-                          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                            Text('المبلغ المتبقي: ${outstandingAmount.toStringAsFixed(2)} $currency'),
-                            const SizedBox(height: 12),
-                            TextField(
-                              controller: amountController,
-                              autofocus: true,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              decoration: const InputDecoration(labelText: 'مبلغ الدفعة', border: OutlineInputBorder()),
-                            ),
-                            const SizedBox(height: 8),
-                            const Text('سيستخدم ERPNext حساب الصندوق أو البنك الافتراضي للشركة.'),
-                          ]),
-                          actions: [
-                            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
-                            FilledButton(
-                              onPressed: () {
-                                final value = double.tryParse(amountController.text.trim());
-                                if (value == null || !value.isFinite || value <= 0 || value > outstandingAmount) return;
-                                Navigator.pop(dialogContext, value);
-                              },
-                              child: const Text('تأكيد المبلغ'),
-                            ),
-                          ],
-                        ),
-                      );
-                      amountController.dispose();
-                      if (paymentAmount == null || !mounted || !sheetContext.mounted) return;
                       try {
-                        await _api.receiveSalesInvoicePayment(invoiceName: invoiceId, amount: paymentAmount);
+                        final accounts = await _api.fetchPaymentAccounts(document['company']?.toString() ?? '');
+                        if (!mounted || !sheetContext.mounted) return;
+                        if (accounts.isEmpty) {
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            const SnackBar(content: Text('لا توجد حسابات صندوق أو بنك مفعّلة لهذه الشركة.')),
+                          );
+                          return;
+                        }
+
+                        final amountController = TextEditingController(text: outstandingAmount.toStringAsFixed(2));
+                        var selectedAccount = accounts.first.name;
+                        Map<String, dynamic>? paymentInput;
+                        try {
+                          paymentInput = await showDialog<Map<String, dynamic>>(
+                            context: context,
+                            builder: (dialogContext) => AlertDialog(
+                              title: const Text('تسجيل دفعة من العميل'),
+                              content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                                Text('المبلغ المتبقي: ${outstandingAmount.toStringAsFixed(2)} $currency'),
+                                const SizedBox(height: 12),
+                                TextField(
+                                  controller: amountController,
+                                  autofocus: true,
+                                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                  decoration: const InputDecoration(labelText: 'مبلغ الدفعة', border: OutlineInputBorder()),
+                                ),
+                                const SizedBox(height: 12),
+                                DropdownButtonFormField<String>(
+                                  initialValue: selectedAccount,
+                                  isExpanded: true,
+                                  decoration: const InputDecoration(labelText: 'حساب التحصيل', border: OutlineInputBorder()),
+                                  items: accounts.map((account) => DropdownMenuItem(
+                                    value: account.name,
+                                    child: Text(
+                                      '${account.accountName} • ${account.accountType}${account.currency == null ? '' : ' • ${account.currency}'}',
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  )).toList(),
+                                  onChanged: (value) {
+                                    if (value != null) selectedAccount = value;
+                                  },
+                                ),
+                              ]),
+                              actions: [
+                                TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+                                FilledButton(
+                                  onPressed: () {
+                                    final value = double.tryParse(amountController.text.trim());
+                                    if (value == null || !value.isFinite || value <= 0 || value > outstandingAmount) return;
+                                    Navigator.pop(dialogContext, {'amount': value, 'account': selectedAccount});
+                                  },
+                                  child: const Text('تأكيد المبلغ والحساب'),
+                                ),
+                              ],
+                            ),
+                          );
+                        } finally {
+                          amountController.dispose();
+                        }
+                        if (paymentInput == null || !mounted || !sheetContext.mounted) return;
+                        await _api.receiveSalesInvoicePayment(
+                          invoiceName: invoiceId,
+                          amount: paymentInput['amount'] as double,
+                          bankAccount: paymentInput['account'] as String,
+                        );
                         if (!mounted || !sheetContext.mounted) return;
                         Navigator.of(sheetContext).pop();
                         _loadSales();
-                        ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('تم تسجيل وترحيل سند القبض.')));
+                        ScaffoldMessenger.of(this.context).showSnackBar(
+                          SnackBar(content: Text('تم تسجيل وترحيل سند القبض إلى الحساب المحدد: ${paymentInput['account']}')),
+                        );
                       } catch (error) {
-                        if (mounted) ScaffoldMessenger.of(this.context).showSnackBar(SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))));
+                        if (mounted) {
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+                          );
+                        }
                       }
                     },
                     icon: const Icon(Icons.payments_outlined),
