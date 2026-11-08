@@ -50,6 +50,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
   bool _saving = false;
   String? _error;
   String? _createdInvoiceId;
+  Map<String, dynamic>? _pendingDraft;
 
   @override
   void initState() {
@@ -122,27 +123,34 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
 
     setState(() { _saving = true; _error = null; });
     try {
-      final invoice = <String, dynamic>{
-        'doctype': 'Sales Invoice',
-        'customer': _customer!.id,
-        'company': _company!.name,
-        'posting_date': _today(),
-        'update_stock': _updateStock ? 1 : 0,
-        'items': _lines.map((line) {
-          final row = <String, dynamic>{
-            'item_code': line.item!.code,
-            'qty': line.qty,
-            'rate': line.unitRate,
-          };
-          if (line.warehouse != null) row['warehouse'] = line.warehouse!.id;
-          return row;
-        }).toList(growable: false),
-      };
-      final draft = await widget.api.createSalesInvoice(invoice);
+      if (_pendingDraft == null) {
+        final invoice = <String, dynamic>{
+          'doctype': 'Sales Invoice',
+          'customer': _customer!.id,
+          'company': _company!.name,
+          'posting_date': _today(),
+          'update_stock': _updateStock ? 1 : 0,
+          'items': _lines.map((line) {
+            final row = <String, dynamic>{
+              'item_code': line.item!.code,
+              'qty': line.qty,
+              'rate': line.unitRate,
+            };
+            if (line.warehouse != null) row['warehouse'] = line.warehouse!.id;
+            return row;
+          }).toList(growable: false),
+        };
+        final created = await widget.api.createSalesInvoice(invoice);
+        if (!mounted) return;
+        setState(() {
+          _pendingDraft = created;
+          _createdInvoiceId = created['name'] as String;
+        });
+      }
+      final draft = _pendingDraft!;
       final invoiceId = draft['name'] as String;
       if (!submit) {
         if (!mounted) return;
-        setState(() => _createdInvoiceId = invoiceId);
         widget.onCompleted(false);
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم حفظ مسودة الفاتورة $invoiceId')));
         Navigator.of(context).pop();
@@ -150,6 +158,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
       }
       await widget.api.submitSalesInvoice(draft);
       if (!mounted) return;
+      _pendingDraft = null;
       widget.onCompleted(true);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم ترحيل فاتورة المبيعات $invoiceId بنجاح')));
       Navigator.of(context).pop();
