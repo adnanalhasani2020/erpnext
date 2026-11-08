@@ -282,6 +282,7 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
 
 class _SalesLineDraft {
   ErpItem? item;
+  ErpWarehouse? warehouse;
   final qty = TextEditingController(text: '1');
   final rate = TextEditingController(text: '0');
   void dispose() { qty.dispose(); rate.dispose(); }
@@ -332,6 +333,8 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
           (code == null ? null : ErpItem(code: code, name: raw['item_name']?.toString() ?? code));
         line.qty.text = raw['qty']?.toString() ?? '1';
         line.rate.text = raw['rate']?.toString() ?? '0';
+        final warehouseId = raw['warehouse']?.toString();
+        if (warehouseId != null) line.warehouse = _firstOrNull(widget.warehouses.where((x) => x.id == warehouseId));
         _lines.add(line);
       }
     }
@@ -347,19 +350,26 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
       setState(() => _error = 'اختر الشركة والعميل والصنف لكل بند.');
       return;
     }
+    if (widget.doctype == 'Sales Order' && _lines.any((x) => x.item!.isStockItem && (x.warehouse == null || x.warehouse!.company != _company!.name))) {
+      setState(() => _error = 'حدد مستودعاً تابعاً للشركة لكل صنف مخزني في أمر البيع.');
+      return;
+    }
     setState(() { _saving = true; _error = null; });
     try {
+      final today = DateTime.now().toIso8601String().substring(0, 10);
       final doc = <String, dynamic>{
         'doctype': widget.doctype,
         'company': _company!.name,
         'customer': _customer!.id,
-        'transaction_date': DateTime.now().toIso8601String().substring(0, 10),
+        'transaction_date': today,
         if (widget.doctype == 'Quotation') 'quotation_to': 'Customer',
-        if (widget.doctype == 'Sales Order') 'order_type': 'Sales',
+        if (widget.doctype == 'Sales Order') ...{'order_type': 'Sales', 'delivery_date': today},
         'items': _lines.map((line) => {
           'item_code': line.item!.code,
           'qty': double.parse(line.qty.text.trim()),
           'rate': double.parse(line.rate.text.trim()),
+          if (widget.doctype == 'Sales Order' && line.item!.isStockItem) 'warehouse': line.warehouse!.id,
+          if (widget.doctype == 'Sales Order') 'delivery_date': today,
         }).toList(),
       };
       if (widget.initialDraft == null) {
@@ -392,7 +402,7 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
           value: _company, isExpanded: true,
           decoration: const InputDecoration(labelText: 'الشركة'),
           items: widget.companies.map((x) => DropdownMenuItem(value: x, child: Text(x.name))).toList(),
-          onChanged: _saving ? null : (v) => setState(() => _company = v),
+          onChanged: _saving ? null : (v) => setState(() { _company = v; for (final line in _lines) { line.warehouse = null; } }),
           validator: (v) => v == null ? 'اختر الشركة.' : null,
         ),
         const SizedBox(height: 12),
@@ -421,9 +431,19 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
                 value: line.item, isExpanded: true,
                 decoration: const InputDecoration(labelText: 'الصنف'),
                 items: widget.items.map((x) => DropdownMenuItem(value: x, child: Text('\${x.name} • \${x.code}', overflow: TextOverflow.ellipsis))).toList(),
-                onChanged: _saving ? null : (v) => setState(() => line.item = v),
+                onChanged: _saving ? null : (v) => setState(() { line.item = v; line.warehouse = null; }),
                 validator: (v) => v == null ? 'اختر الصنف.' : null,
               ),
+              if (widget.doctype == 'Sales Order' && line.item?.isStockItem == true) ...[
+                const SizedBox(height: 8),
+                DropdownButtonFormField<ErpWarehouse>(
+                  value: line.warehouse, isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'مستودع التسليم'),
+                  items: widget.warehouses.where((w) => w.company == _company?.name).map((w) => DropdownMenuItem(value: w, child: Text(w.name, overflow: TextOverflow.ellipsis))).toList(),
+                  onChanged: _saving ? null : (v) => setState(() => line.warehouse = v),
+                  validator: (v) => widget.doctype == 'Sales Order' && line.item?.isStockItem == true && v == null ? 'اختر مستودعاً تابعاً للشركة.' : null,
+                ),
+              ],
               const SizedBox(height: 8),
               Row(children: [
                 Expanded(child: TextFormField(controller: line.qty, enabled: !_saving, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'الكمية'), validator: (v) => _positive(v, 'الكمية'))),
