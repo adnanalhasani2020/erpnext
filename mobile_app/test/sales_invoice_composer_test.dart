@@ -212,7 +212,7 @@ void main() {
 
     expect(availableWarehouseIds, ['WH-A']);
 
-    final companyWarehouse = warehouseField.items!
+    final companyWarehouse = dropdownItems<ErpWarehouse>(tester)
         .singleWhere((item) => item.value?.id == 'WH-A')
         .value!;
     warehouseField.onChanged!(companyWarehouse);
@@ -221,7 +221,7 @@ void main() {
     companyField = tester.widget<DropdownButtonFormField<ErpCompany>>(
       find.byType(DropdownButtonFormField<ErpCompany>),
     );
-    final companyB = companyField.items!
+    final companyB = dropdownItems<ErpCompany>(tester)
         .singleWhere((item) => item.value?.name == 'Company B')
         .value!;
     companyField.onChanged!(companyB);
