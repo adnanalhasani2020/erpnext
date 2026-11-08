@@ -906,7 +906,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         'items': lines,
       });
       if (await confirm('ترحيل سند الاستلام',
-          'تم إنشاء ${doc['name'] ?? ''} وربطه بأمر الشراء ${orderName}. سيتم تحديث الكميات المستلمة في الأمر والمخزون.')) {
+          'تم إنشاء ${doc['name'] ?? ''} وربطه بأمر الشراء $orderName. سيتم تحديث الكميات المستلمة في الأمر والمخزون.')) {
         try {
           final submitted = await widget.api.submitPurchaseReceipt(doc);
           notice('تم ترحيل سند الاستلام ${submitted['name'] ?? doc['name']}');
