@@ -1433,7 +1433,7 @@ class FrappeApi {
           (row['valuation_rate'] is! num ||
               !(row['valuation_rate'] as num).isFinite ||
               (row['valuation_rate'] as num) < 0 ||
-              !((qty as num) * (row['valuation_rate'] as num)).isFinite)) {
+              !(qty * (row['valuation_rate'] as num)).isFinite)) {
         throw const FormatException('سعر تقييم بند الجرد أو إجمالي قيمته غير صحيح.');
       }
     }
