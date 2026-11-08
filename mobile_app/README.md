@@ -31,6 +31,10 @@ Arabic-first Android companion app for an ERPNext instance.
 - Selecting accounts outside the company's enabled Cash/Bank ledger accounts, editing submitted invoices, payment reconciliation, accounting ledgers, and financial reports are not implemented yet. Sales returns are created as drafts only; review and explicitly submit them from the invoice details screen.
 - A successful APK build does not prove connection to a live ERPNext server. A real site and appropriately permissioned test account are required for integration testing.
 
+## ERPNext integration validation
+
+Before using sales invoices, customer receipts, returns, or stock updates operationally, follow the [sales workflow integration checklist](docs/sales-workflow-integration-checklist.md) on a disposable ERPNext test site. Automated Flutter tests do not replace validation of ERPNext permissions, accounting entries, payment allocations, or stock ledgers.
+
 ## Requirements
 
 - Flutter stable with Dart 3.4 or newer.
