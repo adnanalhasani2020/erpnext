@@ -78,7 +78,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     }
     if (mounted && requestId == listRequestId) {
       setState(() {
-        error = errors.isEmpty ? null : errors.join('\\n');
+        error = errors.isEmpty ? null : errors.join('\n');
         loading = false;
       });
       if (reloadPending) {
