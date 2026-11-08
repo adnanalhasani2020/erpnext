@@ -100,7 +100,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
             title: Text(draft == null ? 'فاتورة مشتريات جديدة' : 'تعديل مسودة مشتريات'),
             content: SizedBox(width: 520, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
               DropdownButtonFormField<String>(
-                value: selectedCompany, isExpanded: true,
+                initialValue: selectedCompany, isExpanded: true,
                 decoration: const InputDecoration(labelText: 'الشركة'),
                 items: companies.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
                 onChanged: (v) => refreshDialog(() {
@@ -114,7 +114,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
               ),
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
-                value: selectedSupplier, isExpanded: true,
+                initialValue: selectedSupplier, isExpanded: true,
                 decoration: const InputDecoration(labelText: 'المورد'),
                 items: widget.suppliers.map((s) => DropdownMenuItem(value: s.id,
                   child: Text('${s.name} (${s.id})', overflow: TextOverflow.ellipsis))).toList(),
@@ -143,7 +143,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                         icon: const Icon(Icons.delete_outline)),
                     ]),
                     DropdownButtonFormField<String>(
-                      value: item.code, isExpanded: true,
+                initialValue: item.code, isExpanded: true,
                       decoration: InputDecoration(labelText: 'الصنف', helperText: item.name),
                       items: widget.items.map((x) => DropdownMenuItem(value: x.code,
                         child: Text('${x.name} (${x.code})', overflow: TextOverflow.ellipsis))).toList(),
@@ -155,7 +155,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                       Expanded(child: _field(row['rate'] as TextEditingController, 'سعر الوحدة', number: true)),
                     ]),
                     DropdownButtonFormField<String>(
-                      value: row['warehouse'] as String?, isExpanded: true,
+                initialValue: row['warehouse'] as String?, isExpanded: true,
                       decoration: const InputDecoration(labelText: 'مستودع الصنف (اختياري)'),
                       items: [
                         const DropdownMenuItem<String>(value: null, child: Text('حسب إعدادات الصنف')),
@@ -355,66 +355,6 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     }
   }
 
-  Future<double?> _numberDialog(String title) async {
-    final c = TextEditingController();
-    try { return await showDialog<double>(context: context, builder: (ctx) => AlertDialog(title: Text(title), content: TextField(controller: c, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'المبلغ')), actions: [
-      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('إلغاء')),
-      FilledButton(onPressed: () { final n = double.tryParse(c.text.trim()); if (n != null && n > 0 && n.isFinite) Navigator.pop(ctx, n); }, child: const Text('تأكيد')),
-    ])); } finally { c.dispose(); }
-  }
-  Future<Map<String, dynamic>?> _supplierPaymentDialog(String company) async {
-    try {
-      final accounts = await widget.api.fetchPaymentAccounts(company);
-      if (!mounted) return null;
-      if (accounts.isEmpty) {
-        notice('لا توجد حسابات صندوق أو بنك مفعّلة لهذه الشركة في ERPNext.');
-        return null;
-      }
-      final amount = TextEditingController();
-      var account = accounts.first.name;
-      try {
-        return await showDialog<Map<String, dynamic>>(
-          context: context,
-          builder: (c) => StatefulBuilder(builder: (context, refresh) => AlertDialog(
-            title: const Text('تسجيل دفعة المورد'),
-            content: Column(mainAxisSize: MainAxisSize.min, children: [
-              TextField(
-                controller: amount,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(labelText: 'مبلغ الدفعة'),
-              ),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: account,
-                isExpanded: true,
-                decoration: const InputDecoration(labelText: 'حساب الصندوق / البنك'),
-                items: accounts.map((x) => DropdownMenuItem(
-                  value: x.name,
-                  child: Text('${x.accountName} • ${x.accountType}', overflow: TextOverflow.ellipsis),
-                )).toList(),
-                onChanged: (v) => refresh(() { if (v != null) account = v; }),
-              ),
-            ]),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(c), child: const Text('إلغاء')),
-              FilledButton(onPressed: () {
-                final value = double.tryParse(amount.text.trim());
-                if (value != null && value > 0 && value.isFinite) {
-                  Navigator.pop(c, {'amount': value, 'account': account});
-                }
-              }, child: const Text('تأكيد الدفعة')),
-            ],
-          )),
-        );
-      } finally {
-        amount.dispose();
-      }
-    } catch (e) {
-      notice(e.toString().replaceFirst('Exception: ', ''));
-      return null;
-    }
-  }
-
   Widget _field(TextEditingController c, String label, {bool number = false}) => Padding(padding: const EdgeInsets.only(bottom: 8), child: TextField(controller: c, keyboardType: number ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text, decoration: InputDecoration(labelText: label)));
   @override Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('إدارة المشتريات'), actions: [IconButton(onPressed: load, icon: const Icon(Icons.refresh))]),
@@ -582,7 +522,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                     }), icon: const Icon(Icons.delete_outline)),
                   ]),
                   DropdownButtonFormField<String>(
-                    value: item.code, isExpanded: true,
+                initialValue: item.code, isExpanded: true,
                     decoration: InputDecoration(labelText: 'الصنف', helperText: item.name),
                     items: widget.items.map((x) => DropdownMenuItem(value: x.code,
                       child: Text('${x.name} (${x.code})', overflow: TextOverflow.ellipsis))).toList(),
@@ -646,7 +586,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
               purpose == 'Material Issue' ? 'صرف / تسليم مخزون' : 'تحويل بين المستودعات'),
           content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
             DropdownButtonFormField<String>(
-              value: selectedCompany, isExpanded: true,
+                initialValue: selectedCompany, isExpanded: true,
               decoration: const InputDecoration(labelText: 'الشركة'),
               items: widget.companies.map((x) => DropdownMenuItem(value: x.name, child: Text(x.name))).toList(),
               onChanged: (v) => refresh(() {
@@ -659,7 +599,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
             ),
             if (purpose != 'Material Receipt')
               DropdownButtonFormField<String>(
-                value: null, isExpanded: true,
+                initialValue: null, isExpanded: true,
                 decoration: const InputDecoration(labelText: 'مستودع المصدر'),
                 items: warehouses.where((w) => w.company == null || w.company == selectedCompany)
                     .map((w) => DropdownMenuItem(value: w.id, child: Text('${w.name} (${w.id})'))).toList(),
@@ -667,9 +607,9 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
               ),
             if (purpose != 'Material Issue')
               DropdownButtonFormField<String>(
-                value: null, isExpanded: true,
+                initialValue: null, isExpanded: true,
                 decoration: const InputDecoration(labelText: 'مستودع الوجهة / الاستلام'),
-                items: warehouses.where((w) => w.company == null || w.company == company.text)
+                items: warehouses.where((w) => w.company == null || w.company == selectedCompany)
                     .map((w) => DropdownMenuItem(value: w.id, child: Text('${w.name} (${w.id})'))).toList(),
                 onChanged: (v) => to.text = v ?? '',
               ),
@@ -796,7 +736,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                     _field(row['qty'] as TextEditingController, 'الكمية المستلمة', number: true),
                     _field(row['rate'] as TextEditingController, 'سعر الوحدة', number: true),
                     DropdownButtonFormField<String>(
-                      value: row['warehouse'] as String?,
+                initialValue: row['warehouse'] as String?,
                       isExpanded: true,
                       decoration: const InputDecoration(labelText: 'مستودع الاستلام'),
                       items: [
@@ -870,7 +810,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         builder: (c) => StatefulBuilder(builder: (context, refresh) => AlertDialog(
           title: const Text('اختيار أمر شراء'),
           content: DropdownButtonFormField<String>(
-            value: selected,
+                initialValue: selected,
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'أمر الشراء المرحّل'),
             items: orders.map((order) => DropdownMenuItem(
@@ -931,20 +871,20 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
           title: const Text('استلام بضاعة من مورد'),
           content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
             DropdownButtonFormField<String>(
-              value: company, isExpanded: true,
+                initialValue: company, isExpanded: true,
               decoration: const InputDecoration(labelText: 'الشركة'),
               items: widget.companies.map((x) => DropdownMenuItem(value: x.name, child: Text(x.name))).toList(),
               onChanged: (v) => refresh(() { if (v != null) { company = v; warehouse = null; } }),
             ),
             DropdownButtonFormField<String>(
-              value: supplier, isExpanded: true,
+                initialValue: supplier, isExpanded: true,
               decoration: const InputDecoration(labelText: 'المورد'),
               items: widget.suppliers.map((x) => DropdownMenuItem(value: x.id,
                 child: Text('${x.name} (${x.id})', overflow: TextOverflow.ellipsis))).toList(),
               onChanged: (v) => refresh(() { if (v != null) supplier = v; }),
             ),
             DropdownButtonFormField<String>(
-              value: warehouse, isExpanded: true,
+                initialValue: warehouse, isExpanded: true,
               decoration: const InputDecoration(labelText: 'مستودع الاستلام'),
               items: available.map((w) => DropdownMenuItem(value: w.id,
                 child: Text('${w.name} (${w.id})', overflow: TextOverflow.ellipsis))).toList(),
@@ -1006,13 +946,13 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
           title: const Text('جرد وتسوية المخزون'),
           content: Column(mainAxisSize: MainAxisSize.min, children: [
             DropdownButtonFormField<String>(
-              value: company, isExpanded: true,
+                initialValue: company, isExpanded: true,
               decoration: const InputDecoration(labelText: 'الشركة'),
               items: widget.companies.map((x) => DropdownMenuItem(value: x.name, child: Text(x.name))).toList(),
               onChanged: (v) => refresh(() { if (v != null) { company = v; warehouse = null; } }),
             ),
             DropdownButtonFormField<String>(
-              value: warehouse, isExpanded: true,
+                initialValue: warehouse, isExpanded: true,
               decoration: const InputDecoration(labelText: 'المستودع'),
               items: available.map((w) => DropdownMenuItem(value: w.id,
                 child: Text('${w.name} (${w.id})', overflow: TextOverflow.ellipsis))).toList(),
@@ -1086,7 +1026,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       ))),
       const Divider(height: 28), Text('سجل الحركات', style: Theme.of(context).textTheme.titleMedium),
       DropdownButtonFormField<String>(
-        value: selectedMovementItem,
+                initialValue: selectedMovementItem,
         isExpanded: true,
         decoration: const InputDecoration(labelText: 'تصفية حسب الصنف'),
         items: [
@@ -1097,7 +1037,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         onChanged: (v) { setState(() => selectedMovementItem = v); load(); },
       ),
       DropdownButtonFormField<String>(
-        value: selectedMovementWarehouse,
+                initialValue: selectedMovementWarehouse,
         isExpanded: true,
         decoration: const InputDecoration(labelText: 'تصفية حسب المستودع'),
         items: [
