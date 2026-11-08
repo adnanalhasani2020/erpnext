@@ -21,7 +21,7 @@ void main() {
 
       expect(uri.scheme, 'https');
       expect(uri.host, 'erp.example.com');
-      expect(uri.path, '/api/resource/Sales%20Invoice');
+      expect(uri.pathSegments, ['api', 'resource', 'Sales Invoice']);
       expect(jsonDecode(uri.queryParameters['fields']!), [
         'name',
         'customer',
