@@ -730,7 +730,14 @@ class FrappeApi {
     final response = await _sendJson('POST', '/api/method/frappe.client.submit', {'doc': doc});
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر ترحيل المستند.'));
-    return data['message'] is Map<String, dynamic> ? data['message'] as Map<String, dynamic> : doc;
+    final submitted = data['message'];
+    if (submitted is! Map<String, dynamic> ||
+        submitted['doctype'] != doctype ||
+        submitted['name'] != doc['name'] ||
+        submitted['docstatus'] != 1) {
+      throw Exception('أرسل ERPNext استجابة غير مؤكدة للترحيل. أعد تحميل المستند قبل محاولة ترحيله مرة أخرى.');
+    }
+    return submitted;
   }
 
   Future<Map<String, dynamic>> createStockEntry({
