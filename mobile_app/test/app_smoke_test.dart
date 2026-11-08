@@ -5,6 +5,35 @@ import 'package:erpnext_mobile/widgets/load_more_button.dart';
 import 'package:erpnext_mobile/widgets/server_search_field.dart';
 
 void main() {
+  testWidgets('login screen validates required fields without sending a request', (tester) async {
+    await tester.pumpWidget(const ErpNextMobileApp());
+
+    expect(find.text('ERPNext للجوال'), findsOneWidget);
+    expect(find.text('نسخة تأسيسية'), findsNothing);
+
+    await tester.tap(find.text('تسجيل الدخول'));
+    await tester.pump();
+
+    expect(find.text('أدخل رابط خادم ERPNext.'), findsOneWidget);
+    expect(find.text('أدخل اسم المستخدم أو البريد الإلكتروني.'), findsOneWidget);
+    expect(find.text('أدخل كلمة المرور.'), findsOneWidget);
+    expect(find.text('جارٍ الاتصال بالخادم...'), findsNothing);
+  });
+
+  testWidgets('login screen can show and hide the password', (tester) async {
+    await tester.pumpWidget(const ErpNextMobileApp());
+
+    final passwordField = tester.widget<TextFormField>(find.byType(TextFormField).at(2));
+    expect(passwordField.obscureText, isTrue);
+
+    await tester.tap(find.byTooltip('إظهار كلمة المرور'));
+    await tester.pump();
+
+    final visiblePasswordField = tester.widget<TextFormField>(find.byType(TextFormField).at(2));
+    expect(visiblePasswordField.obscureText, isFalse);
+    expect(find.byTooltip('إخفاء كلمة المرور'), findsOneWidget);
+  });
+
   test('advances the session generation when the server changes', () {
     final api = FrappeApi();
     api.configure('https://first.example.com');
