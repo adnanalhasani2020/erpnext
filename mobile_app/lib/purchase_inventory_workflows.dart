@@ -698,7 +698,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
         return Card(child: ListTile(
           leading: const Icon(Icons.receipt_long_outlined),
           title: Text('${entry['voucher_type'] ?? 'قيد'} • ${entry['voucher_no'] ?? '—'}'),
-          subtitle: Text('${entry['posting_date'] ?? '—'} • ${entry['account'] ?? ''}\n${entry['remarks'] ?? entry['against'] ?? ''}'),
+          subtitle: Text('${entry['posting_date'] ?? '—'} • ${entry['account'] ?? ''} • ${entry['company'] ?? 'شركة غير محددة'}\n${entry['remarks'] ?? entry['against'] ?? ''}'),
           isThreeLine: true,
           trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
             Text('مدين ${debit.toStringAsFixed(2)}'),
