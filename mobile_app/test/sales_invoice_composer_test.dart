@@ -63,7 +63,7 @@ void main() {
         items: const [ErpItem(code: 'ITEM-1', name: 'صنف تجريبي')],
         warehouses: const [],
         companies: const [ErpCompany(name: 'شركة تجريبية', abbr: 'EX')],
-        initialDraft: {
+        initialDraft: const {
           'doctype': 'Sales Invoice',
           'name': 'SINV-DRAFT-1',
           'docstatus': 0,
