@@ -842,7 +842,18 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                   notice('تحقق من الكمية المتبقية والسعر ومستودع كل بند.');
                   return;
                 }
-                result.add({
+                final receiptLine = <String, dynamic>{};
+                for (final field in const [
+                  'item_code', 'item_name', 'description', 'uom', 'stock_uom',
+                  'conversion_factor', 'expense_account', 'cost_center', 'project',
+                  'item_tax_template', 'item_tax_rate', 'manufacturer',
+                  'manufacturer_part_no', 'supplier_part_no', 'bom',
+                  'material_request', 'material_request_item', 'is_free_item',
+                  'discount_percentage', 'discount_amount',
+                ]) {
+                  if (source[field] != null) receiptLine[field] = source[field];
+                }
+                receiptLine.addAll({
                   'item_code': code,
                   'qty': qty,
                   'rate': rate,
@@ -850,6 +861,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                   'purchase_order': order['name'],
                   'purchase_order_item': source['name'],
                 });
+                result.add(receiptLine);
               }
               if (result.isNotEmpty) Navigator.pop(dialogContext, result);
             }, child: const Text('إنشاء سند الاستلام')),
