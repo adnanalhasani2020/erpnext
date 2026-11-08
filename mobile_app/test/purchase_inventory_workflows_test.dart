@@ -1073,4 +1073,47 @@ void main() {
     api.dispose();
   });
 
+
+  test('purchase order search includes supplier display name and supports later pages', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final starts = <String>[];
+    server.listen((request) async {
+      starts.add(request.uri.queryParameters['limit_start'] ?? '');
+      final orFilters = jsonDecode(request.uri.queryParameters['or_filters']!) as List;
+      expect(orFilters, [
+        ['name', 'like', '%Supplier Name%'],
+        ['supplier', 'like', '%Supplier Name%'],
+        ['supplier_name', 'like', '%Supplier Name%'],
+      ]);
+      request.response.headers.contentType = ContentType.json;
+      final start = int.parse(request.uri.queryParameters['limit_start'] ?? '0');
+      final rows = start == 0
+          ? List.generate(100, (index) => {
+              'name': 'PO-${index + 1}',
+              'supplier': 'SUP-1',
+              'supplier_name': 'Supplier Name',
+              'company': 'COMP-1',
+            })
+          : [{
+              'name': 'PO-101',
+              'supplier': 'SUP-1',
+              'supplier_name': 'Supplier Name',
+              'company': 'COMP-1',
+            }];
+      request.response.write(jsonEncode({'data': rows}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:' + server.port.toString());
+    try {
+      final first = await api.fetchPurchaseOrders(start: 0, search: 'Supplier Name');
+      final second = await api.fetchPurchaseOrders(start: 100, search: 'Supplier Name');
+      expect(first, hasLength(100));
+      expect(second.single['name'], 'PO-101');
+      expect(starts, ['0', '100']);
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
 }
