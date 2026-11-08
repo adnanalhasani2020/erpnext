@@ -11,7 +11,17 @@ Map<String, dynamic> buildSalesInvoiceLinePayload({
   String? warehouse,
   bool removeWarehouse = false,
 }) {
-  final row = Map<String, dynamic>.from(sourceRow ?? const <String, dynamic>{})
+  final row = Map<String, dynamic>.from(sourceRow ?? const <String, dynamic>{});
+  if (row['item_code'] != null && row['item_code'] != itemCode) {
+    for (final field in const [
+      'sales_order', 'so_detail', 'delivery_note', 'dn_detail',
+      'prevdoc_docname', 'prevdoc_doctype', 'quotation', 'quotation_item',
+      'against_sales_order',
+    ]) {
+      row.remove(field);
+    }
+  }
+  row
     ..['item_code'] = itemCode
     ..['qty'] = quantity
     ..['rate'] = rate;
