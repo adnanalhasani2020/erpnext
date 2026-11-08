@@ -554,6 +554,11 @@ class FrappeApi {
   Future<Map<String, dynamic>> makeSalesWorkflowDocument({
     required String sourceDoctype, required String sourceName, required String targetDoctype,
   }) async {
+    final actionKey = 'map-sales:$sourceDoctype:$sourceName:$targetDoctype';
+    if (!_inFlightSalesActions.add(actionKey)) {
+      throw const FormatException('تحويل مستند المبيعات قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
+    }
+    try {
     final allowed = <String, Set<String>>{
       'Quotation': {'Sales Order'}, 'Sales Order': {'Delivery Note', 'Sales Invoice'},
       'Delivery Note': {'Sales Invoice'},
@@ -583,6 +588,9 @@ class FrappeApi {
       throw Exception('لم يؤكد ERPNext إنشاء مسودة $targetDoctype؛ تحقق من المستندات قبل إعادة المحاولة.');
     }
     return created;
+    } finally {
+      _inFlightSalesActions.remove(actionKey);
+    }
   }
 
   Future<Map<String, dynamic>> createSalesInvoice(Map<String, dynamic> invoice) async {
