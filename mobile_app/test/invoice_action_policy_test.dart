@@ -83,7 +83,7 @@ void main() {
       );
     });
 
-    test('allows a return draft to be submitted but never treated as a customer invoice payment', () {
+    test('allows return drafts to be submitted but blocks editing and customer payments', () {
       expect(
         InvoiceActionPolicy.canSubmitSalesDraft(
           documentType: 'Sales Invoice',
@@ -92,10 +92,19 @@ void main() {
         isTrue,
       );
       expect(
-        InvoiceActionPolicy.canReceiveCustomerPayment(
+        InvoiceActionPolicy.canEditSalesDraft(
           documentType: 'Sales Invoice',
           docStatus: 0,
+          isReturn: true,
+        ),
+        isFalse,
+      );
+      expect(
+        InvoiceActionPolicy.canReceiveCustomerPayment(
+          documentType: 'Sales Invoice',
+          docStatus: 1,
           outstandingAmount: 100,
+          isReturn: true,
         ),
         isFalse,
       );
