@@ -15,6 +15,34 @@ List<DropdownMenuItem<T>> dropdownItems<T>(WidgetTester tester) {
 }
 
 void main() {
+  test('preserves ERPNext source links when editing a mapped sales invoice', () {
+    final row = buildSalesInvoiceLinePayload(
+      sourceRow: {
+        'item_code': 'ITEM-1',
+        'qty': 4,
+        'rate': 12,
+        'sales_order': 'SO-0001',
+        'so_detail': 'SO-ROW-1',
+        'delivery_note': 'DN-0001',
+        'dn_detail': 'DN-ROW-1',
+        'pricing_rules': 'RULE-1',
+        'warehouse': 'WH-OLD',
+      },
+      itemCode: 'ITEM-1',
+      quantity: 2,
+      rate: 15,
+      warehouse: 'WH-NEW',
+    );
+    expect(row['qty'], 2);
+    expect(row['rate'], 15);
+    expect(row['warehouse'], 'WH-NEW');
+    expect(row['sales_order'], 'SO-0001');
+    expect(row['so_detail'], 'SO-ROW-1');
+    expect(row['delivery_note'], 'DN-0001');
+    expect(row['dn_detail'], 'DN-ROW-1');
+    expect(row['pricing_rules'], 'RULE-1');
+  });
+
   test('rejects an empty Sales Invoice before making a network request', () async {
     final api = FrappeApi();
     await expectLater(
