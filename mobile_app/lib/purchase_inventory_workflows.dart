@@ -295,13 +295,20 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
               catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
             }, child: const Text('تسجيل دفعة المورد')),
             OutlinedButton(onPressed: () async {
-              final quantities = await _purchaseReturnQuantitiesDialog(doc);
-              if (quantities == null || quantities.isEmpty) return;
+              try {
+                final returnable = await widget.api.fetchPurchaseReturnableQuantities(name);
+                if (returnable.isEmpty) {
+                  notice('لا توجد كميات متبقية قابلة للإرجاع لهذه الفاتورة.');
+                  return;
+                }
+                final quantities = await _purchaseReturnQuantitiesDialog(doc, returnable);
+                if (quantities == null || quantities.isEmpty) return;
               try {
                 final result = await widget.api.createPurchaseReturn(name, quantitiesBySourceItem: quantities);
                 if (sheet.mounted) Navigator.pop(sheet);
                 notice('تم إنشاء مسودة المرتجع ' + (result['name'] ?? '').toString());
                 await load();
+              } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
               } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
             }, child: const Text('إنشاء مرتجع / إرجاع جزئي')),
           ],
@@ -310,7 +317,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
         ]))));
     } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
   }
-  Future<Map<String, double?>?> _purchaseReturnQuantitiesDialog(Map<String, dynamic> invoice) async {
+  Future<Map<String, double?>?> _purchaseReturnQuantitiesDialog(
+      Map<String, dynamic> invoice, Map<String, double> returnable) async {
     final sourceItems = (invoice['items'] as List? ?? [])
         .whereType<Map<String, dynamic>>()
         .where((row) => row['name'] is String && (row['name'] as String).isNotEmpty)
@@ -323,7 +331,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     for (final row in sourceItems) {
       final name = row['name'].toString();
       final quantity = double.tryParse(row['qty']?.toString() ?? '') ?? 0;
-      controllers[name] = TextEditingController(text: quantity.abs().toString());
+      controllers[name] = TextEditingController(text: (returnable[name] ?? 0).toString());
     }
     try {
       return await showDialog<Map<String, double?>>(
@@ -342,8 +350,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     Text((row['item_name'] ?? row['item_code'] ?? name).toString(),
                       style: const TextStyle(fontWeight: FontWeight.w600)),
-                    Text('الكمية الأصلية: ${row['qty'] ?? '—'}'),
-                    _field(controllers[name]!, 'الكمية المراد إرجاعها (صفر للتجاوز)', number: true),
+                    Text('الكمية الأصلية: ${row['qty'] ?? '—'} • المتبقي القابل للإرجاع: ${(returnable[name] ?? 0).toStringAsFixed(3)}'),
+                    _field(controllers[name]!, 'كمية الإرجاع (صفر للتجاوز)', number: true),
                   ]),
                 );
               }),
