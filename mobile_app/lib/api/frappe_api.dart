@@ -243,6 +243,35 @@ class FrappeApi {
     if (rows is! List) throw Exception('استجابة فواتير المشتريات من ERPNext غير متوقعة.');
     return rows.whereType<Map<String, dynamic>>().map(ErpPurchaseInvoice.fromJson).toList(growable: false);
   }
+  Future<Map<String, dynamic>> createSalesInvoice(Map<String, dynamic> invoice) async {
+    if (invoice['customer'] is! String || (invoice['items'] is! List) || (invoice['items'] as List).isEmpty) {
+      throw const FormatException('حدد العميل وأضف صنفاً واحداً على الأقل.');
+    }
+    final response = await _sendJson('POST', '/api/resource/Sales%20Invoice', invoice);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر حفظ فاتورة المبيعات (' + response.statusCode.toString() + ').'));
+    }
+    final document = data['data'];
+    if (document is! Map<String, dynamic> || document['name'] is! String) {
+      throw Exception('استجابة حفظ الفاتورة غير متوقعة؛ تحقق من قائمة الفواتير قبل إعادة المحاولة.');
+    }
+    return document;
+  }
+
+  Future<Map<String, dynamic>> submitSalesInvoice(Map<String, dynamic> document) async {
+    if (document['name'] is! String || document['name'].toString().isEmpty) {
+      throw const FormatException('رقم الفاتورة غير موجود؛ لا يمكن ترحيلها.');
+    }
+    final response = await _sendJson('POST', '/api/method/frappe.client.submit', {'doc': document});
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تم حفظ المسودة، لكن تعذر ترحيل الفاتورة (' + response.statusCode.toString() + ').'));
+    }
+    final submitted = data['message'];
+    if (submitted is Map<String, dynamic>) return submitted;
+    return document;
+  }
   Future<Map<String, dynamic>> fetchInvoiceDocument(String documentType, String name) async {
     if (documentType != 'Sales Invoice' && documentType != 'Purchase Invoice') {
       throw ArgumentError.value(documentType, 'documentType', 'نوع المستند غير مدعوم.');
@@ -305,6 +334,22 @@ class FrappeApi {
     return _ApiResponse(response.statusCode, body);
   }
 
+  Future<_ApiResponse> _sendJson(String method, String path, Map<String, dynamic> payload) async {
+    final generation = _sessionGeneration;
+    final request = await _client.openUrl(method, Uri.parse('$_baseUrl$path'));
+    request.headers.contentType = ContentType.json;
+    if (_cookies.isNotEmpty) {
+      request.headers.set(HttpHeaders.cookieHeader, _cookies.entries.map((entry) => '${entry.key}=${entry.value}').join('; '));
+      final csrfToken = _cookies['csrf_token'];
+      if (csrfToken != null && csrfToken.isNotEmpty) request.headers.set('X-Frappe-CSRF-Token', csrfToken);
+    }
+    request.write(jsonEncode(payload));
+    final response = await request.close().timeout(const Duration(seconds: 45));
+    final body = await utf8.decoder.bind(response).join().timeout(const Duration(seconds: 45));
+    if (generation != _sessionGeneration) return _ApiResponse(401, jsonEncode({'message': 'تم تجاهل استجابة من جلسة سابقة.'}));
+    _captureCookies(response);
+    return _ApiResponse(response.statusCode, body);
+  }
   void _captureCookies(HttpClientResponse response) {
     for (final header in response.headers[HttpHeaders.setCookieHeader] ?? []) {
       final pair = header.split(';').first.split('=');
