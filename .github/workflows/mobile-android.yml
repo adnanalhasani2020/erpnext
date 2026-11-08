@@ -64,7 +64,25 @@ jobs:
 
       - name: Build installable debug APK
         working-directory: mobile_app
-        run: flutter build apk --debug --no-pub
+        shell: bash
+        run: |
+          set -o pipefail
+          for attempt in 1 2 3; do
+            echo "APK build attempt ${attempt}/3"
+            if flutter build apk --debug --no-pub 2>&1 | tee apk-build.log; then
+              exit 0
+            fi
+            if ! grep -Eqi 'HTTP response code: 50[234]|status code 50[234]|Gateway Time-out|Could not GET' apk-build.log; then
+              echo "Build failed for a non-retryable reason."
+              exit 1
+            fi
+            if [ "${attempt}" -lt 3 ]; then
+              echo "Transient dependency download failure; retrying after ${attempt}0 seconds."
+              sleep $((attempt * 10))
+            fi
+          done
+          echo "APK build failed after three transient-network retries."
+          exit 1
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
