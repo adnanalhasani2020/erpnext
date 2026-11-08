@@ -884,6 +884,8 @@ class _MobileHomePageState extends State<MobileHomePage> {
                 }
               }
               final currency = document['currency'] is String ? document['currency'] as String : '';
+              final docStatus = document['docstatus'] is num ? (document['docstatus'] as num).toInt() : -1;
+              final updatesStock = document['update_stock'] == 1 || document['update_stock'] == true;
               String amount(String field) {
                 final value = document[field];
                 if (value is num) return '${value.toStringAsFixed(2)} $currency';
@@ -908,7 +910,63 @@ class _MobileHomePageState extends State<MobileHomePage> {
                     trailing: Text('${line.amount.toStringAsFixed(2)} $currency'),
                   ))),
                   const SizedBox(height: 8),
-                  const Text('تفاصيل للعرض فقط. لا يتم تعديل الفاتورة أو ترحيلها من هذه الشاشة.', textAlign: TextAlign.center),
+                  if (docStatus == 0) FilledButton.icon(
+                    onPressed: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          title: const Text('ترحيل مسودة الفاتورة'),
+                          content: const Text('سيتم ترحيل هذه المسودة في ERPNext، وقد ينتج عنها تحديث المخزون إذا كان ذلك مفعلاً. هل تريد المتابعة؟'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('رجوع')),
+                            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('ترحيل')),
+                          ],
+                        ),
+                      );
+                      if (confirmed != true) return;
+                      try {
+                        await _api.submitSalesInvoice(document);
+                        if (!mounted) return;
+                        Navigator.of(sheetContext).pop();
+                        _loadSales();
+                        if (updatesStock) _loadInventory();
+                        ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('تم ترحيل الفاتورة بنجاح.')));
+                      } catch (error) {
+                        if (mounted) ScaffoldMessenger.of(this.context).showSnackBar(SnackBar(content: Text('تعذر ترحيل الفاتورة: ${error.toString().replaceFirst('Exception: ', '')}')));
+                      }
+                    },
+                    icon: const Icon(Icons.check_circle_outline),
+                    label: const Text('ترحيل المسودة'),
+                  ),
+                  if (docStatus == 1) OutlinedButton.icon(
+                    onPressed: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          title: const Text('إلغاء فاتورة المبيعات'),
+                          content: const Text('سيطلب التطبيق من ERPNext إلغاء الفاتورة. سيعالج ERPNext عكس أثر المخزون والقيود وفق إعداداته وصلاحياتك. هل أنت متأكد؟'),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('تراجع')),
+                            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('تأكيد الإلغاء')),
+                          ],
+                        ),
+                      );
+                      if (confirmed != true) return;
+                      try {
+                        await _api.cancelSalesInvoice(document);
+                        if (!mounted) return;
+                        Navigator.of(sheetContext).pop();
+                        _loadSales();
+                        if (updatesStock) _loadInventory();
+                        ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('تم إلغاء الفاتورة بنجاح.')));
+                      } catch (error) {
+                        if (mounted) ScaffoldMessenger.of(this.context).showSnackBar(SnackBar(content: Text('تعذر إلغاء الفاتورة: ${error.toString().replaceFirst('Exception: ', '')}')));
+                      }
+                    },
+                    icon: const Icon(Icons.cancel_outlined),
+                    label: const Text('إلغاء الفاتورة'),
+                  ),
+                  const Text('تعديل الفاتورة وتسجيل الدفعات والمرتجعات من الجوال لم تكتمل بعد.', textAlign: TextAlign.center),
                 ]),
               );
             },
