@@ -479,6 +479,7 @@ class FrappeApi {
 
   Future<Map<String, dynamic>> createSalesWorkflowDraft(String doctype, Map<String, dynamic> document) async {
     _validateSalesWorkflowDraft(doctype, document);
+    await _validateDocumentWarehouses(document);
     final response = await _sendJson('POST', '/api/resource/${_salesWorkflowResource(doctype)}', document);
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر حفظ مسودة $doctype.'));
@@ -491,6 +492,7 @@ class FrappeApi {
 
   Future<Map<String, dynamic>> updateSalesWorkflowDraft(String doctype, String name, Map<String, dynamic> changes) async {
     _validateSalesWorkflowDraft(doctype, changes);
+    await _validateDocumentWarehouses(changes);
     final current = await fetchSalesWorkflowDocument(doctype, name);
     if (current['docstatus'] != 0) throw const FormatException('لا يمكن تعديل مستند مبيعات مرحّل أو ملغى.');
     final payload = Map<String, dynamic>.from(current)
@@ -611,6 +613,7 @@ class FrappeApi {
         throw const FormatException('تحقق من كمية وسعر كل بند في الفاتورة.');
       }
     }
+    await _validateDocumentWarehouses(invoice);
     final response = await _sendJson('POST', '/api/resource/Sales%20Invoice', invoice);
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -867,6 +870,7 @@ class FrappeApi {
       }
     }
 
+    await _validateDocumentWarehouses(changes);
     final current = await fetchInvoiceDocument('Sales Invoice', normalizedName);
     if (current['docstatus'] != 0) {
       throw const FormatException('لا يمكن تعديل فاتورة إلا إذا كانت مسودة غير مرحلة.');
@@ -1020,6 +1024,7 @@ class FrappeApi {
 
   Future<Map<String, dynamic>> createPurchaseInvoice(Map<String, dynamic> invoice) async {
     _validatePurchase(invoice);
+    await _validateDocumentWarehouses(invoice);
     final response = await _sendJson('POST', '/api/resource/Purchase%20Invoice', invoice);
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر حفظ فاتورة المشتريات.'));
@@ -1055,6 +1060,7 @@ class FrappeApi {
     required String invoiceName, required Map<String, dynamic> changes,
   }) async {
     _validatePurchase(changes);
+    await _validateDocumentWarehouses(changes);
     if (invoiceName.trim().isEmpty) throw const FormatException('رقم المسودة غير موجود.');
     final current = await fetchInvoiceDocument('Purchase Invoice', invoiceName);
     if (current['docstatus'] != 0) throw const FormatException('يمكن تعديل المسودات غير المرحلة فقط.');
@@ -1370,6 +1376,22 @@ class FrappeApi {
         warehouse['is_group'] == 1 || warehouse['is_group'] == true ||
         warehouse['disabled'] == 1 || warehouse['disabled'] == true) {
       throw FormatException('المستودع ' + normalizedWarehouse + ' غير صالح أو لا يتبع الشركة ' + normalizedCompany + '. اختر مستودعاً فعّالاً تابعاً للشركة.');
+    }
+  }
+
+  Future<void> _validateDocumentWarehouses(Map<String, dynamic> document) async {
+    final company = document['company'];
+    final items = document['items'];
+    if (company is! String || company.trim().isEmpty || items is! List) return;
+    final warehouses = <String>{};
+    for (final row in items.whereType<Map<String, dynamic>>()) {
+      final warehouse = row['warehouse'];
+      if (warehouse is String && warehouse.trim().isNotEmpty) {
+        warehouses.add(warehouse.trim());
+      }
+    }
+    for (final warehouse in warehouses) {
+      await _validateWarehouseForCompany(warehouse, company);
     }
   }
 
