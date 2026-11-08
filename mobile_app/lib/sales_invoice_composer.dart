@@ -120,7 +120,9 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
           _availableItems.add(item);
         }
 
-        final line = _SalesInvoiceLineDraft()..item = item..sourceRow = Map<String, dynamic>.from(raw);
+        final line = _SalesInvoiceLineDraft();
+        line.item = item;
+        line.sourceRow = Map<String, dynamic>.from(raw);
         line.quantity.text = raw['qty']?.toString() ?? '1';
         line.rate.text = raw['rate']?.toString() ?? '0';
         final warehouseId = raw['warehouse']?.toString();
