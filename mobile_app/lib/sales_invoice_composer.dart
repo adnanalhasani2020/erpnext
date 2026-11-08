@@ -172,7 +172,6 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
 
   @override
   Widget build(BuildContext context) {
-    final currency = _company == null ? '' : ' • ${_company!.abbr ?? _company!.name}';
     return Scaffold(
       appBar: AppBar(title: const Text('فاتورة مبيعات جديدة')),
       body: SafeArea(
@@ -234,7 +233,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
                     const Divider(),
                     Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                       const Text('إجمالي البنود قبل الضرائب والخصومات'),
-                      Text('${_subtotal.toStringAsFixed(2)}$currency', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+                      Text(_subtotal.toStringAsFixed(2), style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
                     ]),
                     const SizedBox(height: 6),
                     const Text('يحسب ERPNext الضرائب والخصومات والإجمالي النهائي وفق إعدادات الشركة وقائمة الأسعار.', style: TextStyle(fontSize: 12)),
