@@ -9,11 +9,15 @@ void main() {
     late HttpServer server;
     late FrappeApi api;
     var paymentEntryWasRefetched = false;
+    var submittingPurchaseInvoice = false;
+    var purchaseInvoiceWasRefetched = false;
 
     setUp(() async {
       server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
       paymentEntryWasRefetched = false;
+      submittingPurchaseInvoice = false;
+      purchaseInvoiceWasRefetched = false;
       server.listen((request) async {
         final segments = request.uri.pathSegments;
         Map<String, dynamic> response;
@@ -25,7 +29,22 @@ void main() {
               'doctype': 'Purchase Invoice',
               'name': 'PINV-1',
               'supplier': 'SUP-1',
-              'docstatus': 1,
+              'docstatus': submittingPurchaseInvoice ? 0 : 1,
+              'is_return': 0,
+              'outstanding_amount': 100,
+            },
+          };
+        } else if (request.method == 'GET' &&
+            segments.length == 4 &&
+            segments[2] == 'Purchase Invoice' &&
+            submittingPurchaseInvoice) {
+          purchaseInvoiceWasRefetched = true;
+          response = {
+            'data': {
+              'doctype': 'Purchase Invoice',
+              'name': 'PINV-1',
+              'supplier': 'SUP-1',
+              'docstatus': 0,
               'is_return': 0,
               'outstanding_amount': 100,
             },
@@ -95,6 +114,18 @@ void main() {
         } else if (request.method == 'POST' &&
             segments.length == 3 &&
             segments[1] == 'method' &&
+            segments[2] == 'frappe.client.submit' &&
+            submittingPurchaseInvoice) {
+          response = {
+            'message': {
+              'doctype': 'Purchase Invoice',
+              'name': 'PINV-1',
+              'docstatus': 1,
+            },
+          };
+        } else if (request.method == 'POST' &&
+            segments.length == 3 &&
+            segments[1] == 'method' &&
             segments[2] == 'frappe.client.submit') {
           response = {
             'message': {
@@ -139,6 +170,20 @@ void main() {
       expect(submitted['name'], 'PAY-1');
       expect(submitted['payment_type'], 'Pay');
       expect(submitted['party_type'], 'Supplier');
+      expect(submitted['docstatus'], 1);
+    });
+
+    test('re-fetches and submits a Purchase Invoice draft through its own resource', () async {
+      submittingPurchaseInvoice = true;
+      final submitted = await api.submitPurchaseInvoice({
+        'doctype': 'Purchase Invoice',
+        'name': 'PINV-1',
+        'docstatus': 0,
+      });
+
+      expect(purchaseInvoiceWasRefetched, isTrue);
+      expect(submitted['doctype'], 'Purchase Invoice');
+      expect(submitted['name'], 'PINV-1');
       expect(submitted['docstatus'], 1);
     });
   });
