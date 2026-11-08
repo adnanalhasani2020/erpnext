@@ -739,7 +739,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       final remaining = (double.tryParse(source['qty']?.toString() ?? '') ?? 0) -
           (double.tryParse(source['received_qty']?.toString() ?? '') ?? 0);
       final itemCode = source['item_code'].toString();
-      final item = widget.items.where((x) => x.code == itemCode).firstOrNull;
+      final matchingItems = widget.items.where((x) => x.code == itemCode).toList();
+      final item = matchingItems.isEmpty ? null : matchingItems.first;
       final suggestedWarehouse = source['warehouse']?.toString();
       final availableWarehouses = widget.warehouses.where((w) =>
           w.company == null || w.company == order['company']).toList();
@@ -769,7 +770,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                 final row = rows[index];
                 final source = row['source'] as Map<String, dynamic>;
                 final code = source['item_code'].toString();
-                final item = widget.items.where((x) => x.code == code).firstOrNull;
+                final matchingItems = widget.items.where((x) => x.code == code).toList();
+                final item = matchingItems.isEmpty ? null : matchingItems.first;
                 final remaining = (double.tryParse(source['qty']?.toString() ?? '') ?? 0) -
                     (double.tryParse(source['received_qty']?.toString() ?? '') ?? 0);
                 final warehouses = widget.warehouses.where((w) =>
