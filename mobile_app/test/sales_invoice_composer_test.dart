@@ -1,0 +1,51 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:erpnext_mobile/api/frappe_api.dart';
+import 'package:erpnext_mobile/models/erp_models.dart';
+import 'package:erpnext_mobile/sales_invoice_composer.dart';
+
+void main() {
+  testWidgets('renders the Arabic sales invoice composer and its safe actions', (tester) async {
+    final api = FrappeApi();
+    await tester.pumpWidget(MaterialApp(
+      home: SalesInvoiceComposer(
+        api: api,
+        customers: const [ErpCustomer(id: 'CUST-1', name: 'عميل تجريبي')],
+        items: const [ErpItem(code: 'ITEM-1', name: 'صنف تجريبي', isStockItem: true)],
+        warehouses: const [ErpWarehouse(id: 'WH-1', name: 'المستودع الرئيسي')],
+        companies: const [ErpCompany(name: 'شركة تجريبية', abbr: 'EX')],
+        onCompleted: (_) {},
+      ),
+    ));
+
+    expect(find.text('فاتورة مبيعات جديدة'), findsOneWidget);
+    expect(find.text('الشركة'), findsOneWidget);
+    expect(find.text('العميل'), findsOneWidget);
+    expect(find.text('حفظ كمسودة'), findsOneWidget);
+    expect(find.text('حفظ وترحيل الفاتورة'), findsOneWidget);
+    expect(find.text('تحديث المخزون عند الترحيل'), findsOneWidget);
+
+    api.dispose();
+  });
+
+  testWidgets('recalculates the line total when quantity and rate change', (tester) async {
+    final api = FrappeApi();
+    await tester.pumpWidget(MaterialApp(
+      home: SalesInvoiceComposer(
+        api: api,
+        customers: const [ErpCustomer(id: 'CUST-1', name: 'عميل تجريبي')],
+        items: const [ErpItem(code: 'ITEM-1', name: 'صنف تجريبي', isStockItem: false)],
+        warehouses: const [],
+        companies: const [ErpCompany(name: 'شركة تجريبية', abbr: 'EX')],
+        onCompleted: (_) {},
+      ),
+    ));
+
+    await tester.enterText(find.byType(TextFormField).at(0), '3');
+    await tester.enterText(find.byType(TextFormField).at(1), '12.5');
+    await tester.pump();
+
+    expect(find.text('الإجمالي: 37.50'), findsOneWidget);
+    api.dispose();
+  });
+}
