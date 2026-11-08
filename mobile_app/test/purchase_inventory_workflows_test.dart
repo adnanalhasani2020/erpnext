@@ -8,17 +8,46 @@ import 'package:erpnext_mobile/api/frappe_api.dart';
 import 'package:erpnext_mobile/models/erp_models.dart';
 
 void main() {
-  test('purchase workflow accepts a selected invoice deep link', () {
-    final page = PurchaseWorkflowPage(
-      api: FrappeApi(),
-      companies: const [],
-      suppliers: const [],
-      items: const [],
-      warehouses: const [],
-      initialInvoiceName: 'PINV-OPEN-1',
-    );
-    expect(page.initialInvoiceName, 'PINV-OPEN-1');
-    page.api.dispose();
+  testWidgets('purchase workflow opens the selected invoice detail on entry', (tester) async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      if (request.method == 'GET' && request.uri.path.endsWith('/Purchase Invoice/PINV-OPEN-1')) {
+        request.response.write(jsonEncode({'data': {
+          'doctype': 'Purchase Invoice',
+          'name': 'PINV-OPEN-1',
+          'docstatus': 1,
+          'supplier': 'SUP-1',
+          'supplier_name': 'مورد تجريبي',
+          'company': 'COMP-1',
+          'grand_total': 125,
+          'outstanding_amount': 125,
+          'items': [],
+        }}));
+      } else {
+        request.response.write(jsonEncode({'data': []}));
+      }
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      await tester.pumpWidget(MaterialApp(
+        home: PurchaseWorkflowPage(
+          api: api,
+          companies: const [],
+          suppliers: const [],
+          items: const [],
+          warehouses: const [],
+          initialInvoiceName: 'PINV-OPEN-1',
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('فاتورة مشتريات • PINV-OPEN-1'), findsOneWidget);
+      expect(find.text('مورد تجريبي'), findsOneWidget);
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
   });
 
   test('purchase invoice model preserves return linkage', () {
