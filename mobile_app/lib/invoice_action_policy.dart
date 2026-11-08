@@ -4,8 +4,9 @@ class InvoiceActionPolicy {
   static bool canEditSalesDraft({
     required String documentType,
     required int docStatus,
+    bool isReturn = false,
   }) =>
-      documentType == 'Sales Invoice' && docStatus == 0;
+      documentType == 'Sales Invoice' && docStatus == 0 && !isReturn;
 
   static bool canSubmitSalesDraft({
     required String documentType,
@@ -17,10 +18,12 @@ class InvoiceActionPolicy {
     required String documentType,
     required int docStatus,
     required double outstandingAmount,
+    bool isReturn = false,
   }) =>
       documentType == 'Sales Invoice' &&
       docStatus == 1 &&
-      outstandingAmount > 0;
+      outstandingAmount > 0 &&
+      !isReturn;
 
   static bool canCancelSalesInvoice({
     required String documentType,
