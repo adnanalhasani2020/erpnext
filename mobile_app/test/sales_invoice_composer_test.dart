@@ -5,6 +5,19 @@ import 'package:erpnext_mobile/models/erp_models.dart';
 import 'package:erpnext_mobile/sales_invoice_composer.dart';
 
 void main() {
+  test('rejects an empty Sales Invoice before making a network request', () async {
+    final api = FrappeApi();
+    await expectLater(
+      api.createSalesInvoice({'doctype': 'Sales Invoice', 'customer': 'CUST-1', 'items': []}),
+      throwsFormatException,
+    );
+    await expectLater(
+      api.submitSalesInvoice({'doctype': 'Sales Invoice'}),
+      throwsFormatException,
+    );
+    api.dispose();
+  });
+
   testWidgets('renders the Arabic sales invoice composer and its safe actions', (tester) async {
     final api = FrappeApi();
     await tester.pumpWidget(MaterialApp(
