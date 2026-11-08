@@ -32,6 +32,20 @@ void main() {
     api.dispose();
   });
 
+  test('marks credit notes as sales returns in the invoice list model', () {
+    final invoice = ErpSalesInvoice.fromJson({
+      'name': 'SINV-RET-1',
+      'customer': 'CUST-1',
+      'customer_name': 'عميل تجريبي',
+      'grand_total': -50,
+      'outstanding_amount': 0,
+      'is_return': 1,
+      'return_against': 'SINV-1',
+    });
+    expect(invoice.isReturn, isTrue);
+    expect(invoice.returnAgainst, 'SINV-1');
+  });
+
   test('parses eligible ERPNext cash and bank payment accounts', () {
     final account = ErpPaymentAccount.fromJson({
       'name': 'Cash - EX',
