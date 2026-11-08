@@ -827,15 +827,17 @@ class _MobileHomePageState extends State<MobileHomePage> {
             subtitle: Text('محجوز: ${balance.reservedQty} • متوقع: ${balance.projectedQty}'),
             trailing: Text('${balance.actualQty} ${balance.stockUom ?? ''}'),
           )),
-          const SizedBox(height: 12),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.of(context).pop();
-              _openStockWorkflow(initialItemCode: item.code);
-            },
-            icon: const Icon(Icons.history),
-            label: const Text('عرض حركات هذا الصنف'),
-          ),
+          if (item.isStockItem) ...[
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _openStockWorkflow(initialItemCode: item.code);
+              },
+              icon: const Icon(Icons.history),
+              label: const Text('عرض حركات هذا الصنف'),
+            ),
+          ],
         ]),
       )),
     );
