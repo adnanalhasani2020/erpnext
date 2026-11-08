@@ -29,7 +29,7 @@ Arabic-first Android companion app for an ERPNext instance.
 
 - Item, warehouse, Bin, Customer, and Sales Invoice lists are paginated in pages of 100; the composer currently selects from the master-data pages loaded by the dashboard.
 - Purchase invoices can be created and edited as drafts, explicitly submitted, returned through ERPNext's debit-note mapper, and paid using supplier Payment Entry. Supplier Purchase Receipts, stock receipts, issues, transfers, and reconciliations can be drafted, reviewed, and explicitly submitted.
-- Purchase and stock workflows currently use a single item row per mobile form operation; multi-line purchase invoices and multi-item stock/reconciliation batches are future UI enhancements. Purchase returns are created as drafts and require review and explicit submission. Supplier payment reconciliation, standalone accounting ledgers, and financial reports are not implemented.
+- Purchase invoices support multiple item rows in one document, editing the same saved draft, and master-data selectors for company, supplier, item, and optional warehouse. Stock Entry receipt/issue/transfer, supplier Purchase Receipt, and Stock Reconciliation forms support multiple item rows; company, supplier, item, and warehouse selection uses loaded master data. Supplier payment reconciliation, standalone accounting ledgers, and financial reports are not implemented.
 - A successful APK build does not prove connection to a live ERPNext server. A real site and appropriately permissioned test account are required for integration testing.
 
 ## ERPNext integration validation
