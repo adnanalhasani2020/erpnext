@@ -1,7 +1,18 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:erpnext_mobile/api/frappe_api.dart';
+import 'package:erpnext_mobile/models/erp_models.dart';
 
 void main() {
+  test('purchase invoice model preserves return linkage', () {
+    final invoice = ErpPurchaseInvoice.fromJson({
+      'name': 'PINV-RET-1', 'supplier': 'SUP-1', 'supplier_name': 'Supplier',
+      'is_return': 1, 'return_against': 'PINV-1', 'grand_total': -25,
+      'outstanding_amount': 0,
+    });
+    expect(invoice.isReturn, isTrue);
+    expect(invoice.returnAgainst, 'PINV-1');
+  });
+
   test('purchase invoice rejects missing supplier, company, or lines before network access', () async {
     final api = FrappeApi();
     await expectLater(api.createPurchaseInvoice({'doctype': 'Purchase Invoice', 'items': []}), throwsFormatException);
