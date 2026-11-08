@@ -975,8 +975,9 @@ class FrappeApi {
     try {
     if (document['doctype'] != 'Sales Invoice' ||
         document['name'] is! String ||
-        document['name'].toString().trim().isEmpty) {
-      throw const FormatException('لا يمكن إلغاء هذا المستند؛ يجب أن يكون فاتورة مبيعات صحيحة.');
+        document['name'].toString().trim().isEmpty ||
+        document['docstatus'] != 1) {
+      throw const FormatException('لا يمكن إلغاء هذا المستند؛ يجب أن يكون فاتورة مبيعات مرحّلة.');
     }
     final name = document['name'].toString();
     final current = await fetchInvoiceDocument('Sales Invoice', name);
