@@ -22,7 +22,7 @@ Arabic-first Android companion app for an ERPNext instance.
 
 ## Current limits
 
-- Item, warehouse, Bin, Customer, and Sales Invoice lists are currently limited to 100 records per request; search is local to those loaded records.
+- Item, warehouse, Bin, Customer, and Sales Invoice lists are paginated in pages of 100; the composer currently selects from the master-data pages loaded by the dashboard.
 - Purchase invoices and stock balances remain read-only. Sales invoices can be created as drafts and explicitly submitted from the mobile app.
 - Payment Entry, customer receipts, sales returns/credit notes, accounting ledgers, and financial reports are not implemented yet.
 - A successful APK build does not prove connection to a live ERPNext server. A real site and appropriately permissioned test account are required for integration testing.
