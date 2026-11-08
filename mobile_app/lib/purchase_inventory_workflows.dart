@@ -35,57 +35,170 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
   ])) == true;
 
   Future<void> compose({Map<String, dynamic>? draft}) async {
-    if (widget.companies.isEmpty || widget.suppliers.isEmpty || widget.items.isEmpty) { notice('تأكد من تحميل الشركات والموردين والأصناف وصلاحيات قراءتها.'); return; }
-    final supplier = TextEditingController(text: draft?['supplier']?.toString() ?? widget.suppliers.first.id);
-    final company = TextEditingController(text: draft?['company']?.toString() ?? widget.companies.first.name);
-    final item = TextEditingController(text: (draft?['items'] is List && (draft!['items'] as List).isNotEmpty) ? (draft['items'][0]['item_code'] ?? '').toString() : widget.items.first.code);
-    final qty = TextEditingController(text: (draft?['items'] is List && (draft!['items'] as List).isNotEmpty) ? (draft['items'][0]['qty'] ?? 1).toString() : '1');
-    final rate = TextEditingController(text: (draft?['items'] is List && (draft!['items'] as List).isNotEmpty) ? (draft['items'][0]['rate'] ?? 0).toString() : '0');
-    final warehouse = TextEditingController(text: (draft?['items'] is List && (draft!['items'] as List).isNotEmpty) ? (draft['items'][0]['warehouse'] ?? '').toString() : '');
+    if (widget.companies.isEmpty || widget.suppliers.isEmpty || widget.items.isEmpty) {
+      notice('تأكد من تحميل الشركات والموردين والأصناف وصلاحيات قراءتها.');
+      return;
+    }
+    var selectedCompany = draft?['company']?.toString() ?? widget.companies.first.name;
+    var selectedSupplier = draft?['supplier']?.toString() ?? widget.suppliers.first.id;
     final updateStock = ValueNotifier<bool>(draft?['update_stock'] == 1 || draft?['update_stock'] == true);
+    final lineRows = <Map<String, dynamic>>[];
+    final sourceLines = draft?['items'] is List
+        ? (draft!['items'] as List).whereType<Map<String, dynamic>>().toList()
+        : <Map<String, dynamic>>[];
+    void addLine([Map<String, dynamic>? source]) {
+      final validItem = widget.items.any((x) => x.code == source?['item_code'])
+          ? source!['item_code'].toString() : widget.items.first.code;
+      final allowed = widget.warehouses.where((w) => w.company == null || w.company == selectedCompany);
+      final sourceWarehouse = source?['warehouse']?.toString();
+      lineRows.add({
+        'item': validItem,
+        'qty': TextEditingController(text: (source?['qty'] ?? 1).toString()),
+        'rate': TextEditingController(text: (source?['rate'] ?? 0).toString()),
+        'warehouse': allowed.any((w) => w.id == sourceWarehouse) ? sourceWarehouse : null,
+      });
+    }
+    if (sourceLines.isEmpty) { addLine(); } else { for (final row in sourceLines) { addLine(row); } }
     try {
-      final values = await showDialog<Map<String, dynamic>>(context: context, builder: (c) => AlertDialog(
-        title: Text(draft == null ? 'فاتورة مشتريات جديدة' : 'تعديل مسودة مشتريات'),
-        content: SizedBox(width: 440, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          _field(company, 'الشركة (الاسم الكامل)'),
-          _field(supplier, 'رمز المورد'),
-          _field(item, 'رمز الصنف'),
-          Row(children: [Expanded(child: _field(qty, 'الكمية', number: true)), const SizedBox(width: 8), Expanded(child: _field(rate, 'سعر الوحدة', number: true))]),
-          _field(warehouse, 'رمز مستودع الاستلام'),
-          ValueListenableBuilder<bool>(valueListenable: updateStock, builder: (_, v, __) => SwitchListTile(value: v, onChanged: (x) => updateStock.value = x, title: const Text('تحديث المخزون عند الترحيل'))),
-          const Text('أدخل رموز ERPNext كما تظهر في النظام. الضرائب والإجماليات يحسبها الخادم.', style: TextStyle(fontSize: 12)),
-          const Text('تنبيه: إذا استلمت البضاعة بسند Purchase Receipt، عطّل تحديث المخزون في فاتورة الشراء حتى لا تُضاف الكمية مرتين.', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-        ]))),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c), child: const Text('إلغاء')),
-          FilledButton(onPressed: () {
-            final q = double.tryParse(qty.text.trim()), r = double.tryParse(rate.text.trim());
-            if (company.text.trim().isEmpty || supplier.text.trim().isEmpty || item.text.trim().isEmpty || q == null || q <= 0 || r == null || r < 0) return;
-            Navigator.pop(c, {'company': company.text.trim(), 'supplier': supplier.text.trim(), 'item': item.text.trim(), 'qty': q, 'rate': r, 'warehouse': warehouse.text.trim(), 'update_stock': updateStock.value});
-          }, child: const Text('متابعة')),
-        ],
-      ));
+      final values = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(builder: (context, refreshDialog) {
+          final companies = widget.companies.map((x) => x.name).toSet().toList();
+          if (!companies.contains(selectedCompany)) selectedCompany = companies.first;
+          final suppliers = widget.suppliers.map((x) => x.id).toSet().toList();
+          if (!suppliers.contains(selectedSupplier)) selectedSupplier = suppliers.first;
+          final warehouses = widget.warehouses.where((w) => w.company == null || w.company == selectedCompany).toList();
+          return AlertDialog(
+            title: Text(draft == null ? 'فاتورة مشتريات جديدة' : 'تعديل مسودة مشتريات'),
+            content: SizedBox(width: 520, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+              DropdownButtonFormField<String>(
+                value: selectedCompany, isExpanded: true,
+                decoration: const InputDecoration(labelText: 'الشركة'),
+                items: companies.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+                onChanged: (v) => refreshDialog(() {
+                  if (v == null) return;
+                  selectedCompany = v;
+                  for (final row in lineRows) {
+                    if (!widget.warehouses.any((w) => w.id == row['warehouse'] &&
+                        (w.company == null || w.company == selectedCompany))) row['warehouse'] = null;
+                  }
+                }),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                value: selectedSupplier, isExpanded: true,
+                decoration: const InputDecoration(labelText: 'المورد'),
+                items: widget.suppliers.map((s) => DropdownMenuItem(value: s.id,
+                  child: Text('\${s.name} (\${s.id})', overflow: TextOverflow.ellipsis))).toList(),
+                onChanged: (v) => refreshDialog(() { if (v != null) selectedSupplier = v; }),
+              ),
+              const Divider(height: 24),
+              Row(children: [
+                const Expanded(child: Text('أصناف الفاتورة', style: TextStyle(fontWeight: FontWeight.w600))),
+                TextButton.icon(onPressed: () => refreshDialog(addLine),
+                  icon: const Icon(Icons.add), label: const Text('إضافة صنف')),
+              ]),
+              ...List.generate(lineRows.length, (index) {
+                final row = lineRows[index];
+                final item = widget.items.firstWhere((x) => x.code == row['item'], orElse: () => widget.items.first);
+                return Card(margin: const EdgeInsets.only(bottom: 10), child: Padding(
+                  padding: const EdgeInsets.all(10), child: Column(children: [
+                    Row(children: [
+                      Expanded(child: Text('الصنف \${index + 1}', style: const TextStyle(fontWeight: FontWeight.w600))),
+                      if (lineRows.length > 1) IconButton(
+                        tooltip: 'حذف الصنف',
+                        onPressed: () => refreshDialog(() {
+                          final removed = lineRows.removeAt(index);
+                          (removed['qty'] as TextEditingController).dispose();
+                          (removed['rate'] as TextEditingController).dispose();
+                        }),
+                        icon: const Icon(Icons.delete_outline)),
+                    ]),
+                    DropdownButtonFormField<String>(
+                      value: item.code, isExpanded: true,
+                      decoration: InputDecoration(labelText: 'الصنف', helperText: item.name),
+                      items: widget.items.map((x) => DropdownMenuItem(value: x.code,
+                        child: Text('\${x.name} (\${x.code})', overflow: TextOverflow.ellipsis))).toList(),
+                      onChanged: (v) => refreshDialog(() { if (v != null) row['item'] = v; }),
+                    ),
+                    Row(children: [
+                      Expanded(child: _field(row['qty'] as TextEditingController, 'الكمية', number: true)),
+                      const SizedBox(width: 8),
+                      Expanded(child: _field(row['rate'] as TextEditingController, 'سعر الوحدة', number: true)),
+                    ]),
+                    DropdownButtonFormField<String>(
+                      value: row['warehouse'] as String?, isExpanded: true,
+                      decoration: const InputDecoration(labelText: 'مستودع الصنف (اختياري)'),
+                      items: [
+                        const DropdownMenuItem<String>(value: null, child: Text('حسب إعدادات الصنف')),
+                        ...warehouses.map((w) => DropdownMenuItem(value: w.id,
+                          child: Text('\${w.name} (\${w.id})', overflow: TextOverflow.ellipsis))),
+                      ],
+                      onChanged: (v) => refreshDialog(() => row['warehouse'] = v),
+                    ),
+                  ]),
+                ));
+              }),
+              ValueListenableBuilder<bool>(valueListenable: updateStock, builder: (_, value, __) =>
+                SwitchListTile(value: value, onChanged: (v) => updateStock.value = v,
+                  title: const Text('تحديث المخزون عند ترحيل الفاتورة'))),
+              const Text('الضرائب والإجماليات يحسبها ERPNext. إذا استلمت نفس البضاعة بسند Purchase Receipt، لا تفعّل تحديث المخزون هنا.',
+                style: TextStyle(fontSize: 12)),
+            ]))),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+              FilledButton(onPressed: () {
+                if (selectedCompany.isEmpty || selectedSupplier.isEmpty || lineRows.isEmpty) return;
+                final items = <Map<String, dynamic>>[];
+                for (final row in lineRows) {
+                  final qty = double.tryParse((row['qty'] as TextEditingController).text.trim());
+                  final rate = double.tryParse((row['rate'] as TextEditingController).text.trim());
+                  final code = row['item'] as String;
+                  if (code.isEmpty || qty == null || !qty.isFinite || qty <= 0 ||
+                      rate == null || !rate.isFinite || rate < 0) return;
+                  items.add({'item_code': code, 'qty': qty, 'rate': rate,
+                    if (row['warehouse'] != null) 'warehouse': row['warehouse']});
+                }
+                Navigator.pop(dialogContext, {
+                  'company': selectedCompany, 'supplier': selectedSupplier,
+                  'items': items, 'update_stock': updateStock.value,
+                });
+              }, child: const Text('حفظ ومتابعة')),
+            ],
+          );
+        }),
+      );
       if (values == null || !mounted) return;
       final payload = <String, dynamic>{
         'doctype': 'Purchase Invoice', 'company': values['company'], 'supplier': values['supplier'],
         'posting_date': draft?['posting_date'] ?? DateTime.now().toIso8601String().substring(0, 10),
-        'update_stock': values['update_stock'] == true ? 1 : 0,
-        'items': [{'item_code': values['item'], 'qty': values['qty'], 'rate': values['rate'], if ((values['warehouse'] as String).isNotEmpty) 'warehouse': values['warehouse']}],
+        'update_stock': values['update_stock'] == true ? 1 : 0, 'items': values['items'],
       };
-      final saved = draft == null ? await widget.api.createPurchaseInvoice(payload) : await widget.api.updateDraftPurchaseInvoice(invoiceName: draft['name'].toString(), changes: payload);
-      if (await confirm('ترحيل الفاتورة؟', 'تم حفظ المسودة ' + (saved['name'] ?? '').toString() + '. هل تريد ترحيلها الآن؟')) {
+      final saved = draft == null
+          ? await widget.api.createPurchaseInvoice(payload)
+          : await widget.api.updateDraftPurchaseInvoice(invoiceName: draft['name'].toString(), changes: payload);
+      if (await confirm('ترحيل الفاتورة؟',
+          'تم حفظ المسودة \${saved['name'] ?? ''} بعدد \${values['items'].length} صنف. هل تريد ترحيلها الآن؟')) {
         try {
           final submitted = await widget.api.submitPurchaseInvoice(saved);
-          notice('تم ترحيل فاتورة المشتريات ' + (submitted['name'] ?? saved['name']).toString());
+          notice('تم ترحيل فاتورة المشتريات \${submitted['name'] ?? saved['name']}');
         } catch (e) {
-          notice('حُفظت المسودة ' + (saved['name'] ?? '').toString() + ' لكن تعذر ترحيلها. افتح المسودة من القائمة وأعد المحاولة؛ لا تنشئ فاتورة بديلة. التفاصيل: ' + e.toString().replaceFirst('Exception: ', ''));
+          notice('حُفظت المسودة \${saved['name'] ?? ''} لكن تعذر تأكيد ترحيلها. راجعها قبل إعادة المحاولة. \${e.toString().replaceFirst('Exception: ', '')}');
         }
       } else {
-        notice('تم حفظ مسودة فاتورة المشتريات ' + (saved['name'] ?? '').toString());
+        notice('تم حفظ مسودة فاتورة المشتريات \${saved['name'] ?? ''}');
       }
-      await load(); widget.onChanged?.call();
-    } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
-    finally { supplier.dispose(); company.dispose(); item.dispose(); qty.dispose(); rate.dispose(); warehouse.dispose(); updateStock.dispose(); }
+      await load();
+      widget.onChanged?.call();
+    } catch (e) {
+      notice(e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      for (final row in lineRows) {
+        (row['qty'] as TextEditingController).dispose();
+        (row['rate'] as TextEditingController).dispose();
+      }
+      updateStock.dispose();
+    }
   }
 
   Future<void> details(String name) async {
