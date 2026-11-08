@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
 import 'sales_invoice_composer.dart';
+import 'invoice_action_policy.dart';
 import 'models/erp_models.dart';
 import 'widgets/count_card.dart';
 import 'widgets/load_more_button.dart';
@@ -910,8 +911,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
                     subtitle: Text('${line.itemCode} • الكمية: ${line.qty.toStringAsFixed(2)} ${line.uom ?? ''}${line.warehouse == null ? '' : ' • ${line.warehouse}'}'),
                     trailing: Text('${line.amount.toStringAsFixed(2)} $currency'),
                   ))),
+                  if (documentType == 'Purchase Invoice') const Card(child: ListTile(leading: Icon(Icons.visibility_outlined), title: Text('عرض فقط'), subtitle: Text('عمليات فواتير المشتريات غير مفعّلة في تطبيق الجوال حالياً.'))),
                   const SizedBox(height: 8),
-                  if (docStatus == 0 && documentType == 'Sales Invoice' && document['is_return'] != 1 && document['is_return'] != true) OutlinedButton.icon(
+                  if (InvoiceActionPolicy.canEditSalesDraft(documentType: documentType, docStatus: docStatus) && document['is_return'] != 1 && document['is_return'] != true) OutlinedButton.icon(
                     onPressed: () async {
                       Navigator.of(sheetContext).pop();
                       await _openSalesInvoiceComposer(initialDraft: document);
@@ -919,7 +921,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
                     icon: const Icon(Icons.edit_outlined),
                     label: const Text('تعديل مسودة الفاتورة'),
                   ),
-                  if (docStatus == 0) FilledButton.icon(
+                  if (InvoiceActionPolicy.canSubmitSalesDraft(documentType: documentType, docStatus: docStatus)) FilledButton.icon(
                     onPressed: () async {
                       final confirmed = await showDialog<bool>(
                         context: context,
@@ -947,7 +949,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
                     icon: const Icon(Icons.check_circle_outline),
                     label: const Text('ترحيل المسودة'),
                   ),
-                  if (docStatus == 1 && outstandingAmount > 0) FilledButton.icon(
+                  if (InvoiceActionPolicy.canReceiveCustomerPayment(documentType: documentType, docStatus: docStatus, outstandingAmount: outstandingAmount)) FilledButton.icon(
                     onPressed: () async {
                       try {
                         final accounts = await _api.fetchPaymentAccounts(document['company']?.toString() ?? '');
@@ -1032,7 +1034,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
                     icon: const Icon(Icons.payments_outlined),
                     label: const Text('تسجيل دفعة من العميل'),
                   ),
-                  if (docStatus == 1) OutlinedButton.icon(
+                  if (InvoiceActionPolicy.canCancelSalesInvoice(documentType: documentType, docStatus: docStatus)) OutlinedButton.icon(
                     onPressed: () async {
                       final confirmed = await showDialog<bool>(
                         context: context,
@@ -1060,7 +1062,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
                     icon: const Icon(Icons.cancel_outlined),
                     label: const Text('إلغاء الفاتورة'),
                   ),
-                  if (docStatus == 1 && document['is_return'] != 1 && document['is_return'] != true) OutlinedButton.icon(
+                  if (InvoiceActionPolicy.canCreateSalesReturn(documentType: documentType, docStatus: docStatus, isReturn: document['is_return'] == 1 || document['is_return'] == true)) OutlinedButton.icon(
                     onPressed: () async {
                       final confirmed = await showDialog<bool>(
                         context: context,
