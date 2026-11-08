@@ -19,21 +19,22 @@ Arabic-first Android companion app for an ERPNext instance.
 - Record full or partial customer receipts against submitted invoices using ERPNext's `get_payment_entry` flow, selecting an enabled Cash or Bank account belonging to the invoice's company.
 - Create a draft Sales Return / Credit Note from a submitted original invoice using ERPNext's official return mapper, preserving original item references, negative quantities, taxes, and returned-quantity calculations.
 - Retry submission of the same saved draft after a submission error instead of silently creating a duplicate invoice.
-- Read-only supplier and Purchase Invoice lists, including invoice status, total, and outstanding amount.
+- Supplier and Purchase Invoice lists, invoice details, and purchase workflows: create and edit drafts, submit invoices, create draft debit notes/returns from submitted invoices, and record supplier payments through ERPNext Payment Entry.
 - Tap a sales or purchase invoice to retrieve its full document from Frappe and view invoice totals, due dates, and item lines.
 - Customer, invoice, supplier, and purchase-invoice requests are loaded independently so one permission failure does not hide other successfully loaded records.
 - Inventory and sales resources load independently. A permission error for one resource does not clear successful data from the other resources.
+- Stock workflows create ERPNext Stock Entry documents for Material Receipt, Material Issue, and Material Transfer, plus Stock Reconciliation drafts for physical counts. Users explicitly confirm submission; stock movements are read from Stock Ledger Entry.
 
 ## Current limits
 
 - Item, warehouse, Bin, Customer, and Sales Invoice lists are paginated in pages of 100; the composer currently selects from the master-data pages loaded by the dashboard.
-- Purchase invoices and stock balances remain read-only. Sales invoices can be created as drafts and explicitly submitted from the mobile app.
-- Selecting accounts outside the company's enabled Cash/Bank ledger accounts, editing submitted invoices, payment reconciliation, accounting ledgers, and financial reports are not implemented yet. Sales returns are created as drafts only; review and explicitly submit them from the invoice details screen.
+- Purchase invoices can be created and edited as drafts, explicitly submitted, returned through ERPNext's debit-note mapper, and paid using supplier Payment Entry. Stock receipts, issues, transfers, and reconciliations can be drafted and explicitly submitted.
+- Purchase and stock workflows currently use a single item row per mobile form operation; multi-line purchase invoices and multi-item stock/reconciliation batches are future UI enhancements. Purchase returns are created as drafts and require review and explicit submission. Supplier payment reconciliation, standalone accounting ledgers, and financial reports are not implemented.
 - A successful APK build does not prove connection to a live ERPNext server. A real site and appropriately permissioned test account are required for integration testing.
 
 ## ERPNext integration validation
 
-Before using sales invoices, customer receipts, returns, or stock updates operationally, follow the [sales workflow integration checklist](docs/sales-workflow-integration-checklist.md) on a disposable ERPNext test site. Automated Flutter tests do not replace validation of ERPNext permissions, accounting entries, payment allocations, or stock ledgers.
+Before using purchase invoices, supplier payments, debit notes, stock entries, reconciliations, sales invoices, customer receipts, or returns operationally, validate them on a disposable ERPNext test site. Check permissions, taxes, payment allocations, stock ledger effects, valuation, and company/warehouse isolation. Automated Flutter tests do not replace live-site integration tests. Automated Flutter tests do not replace validation of ERPNext permissions, accounting entries, payment allocations, or stock ledgers.
 
 ## Requirements
 
