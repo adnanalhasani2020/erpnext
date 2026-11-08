@@ -49,6 +49,8 @@ class _MobileHomePageState extends State<MobileHomePage> {
   final _urlController = TextEditingController();
   final _userController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _loginFormKey = GlobalKey<FormState>();
+  bool _showPassword = false;
   final _itemSearchController = TextEditingController();
   final _warehouseSearchController = TextEditingController();
   final _customerSearchController = TextEditingController();
@@ -119,9 +121,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
   Future<void> _login() async {
     final attempt = ++_loginAttempt;
     FocusScope.of(context).unfocus();
+    if (!(_loginFormKey.currentState?.validate() ?? false)) return;
     setState(() { _busy = true; _error = null; });
     try {
-      _api.configure(_urlController.text);
+      _api.configure(_urlController.text.trim());
       final user = await _api.login(_userController.text, _passwordController.text);
       if (!mounted || attempt != _loginAttempt) return;
       setState(() {
@@ -1219,72 +1222,141 @@ class _MobileHomePageState extends State<MobileHomePage> {
   }
 
   Widget _buildLogin() {
+    final scheme = Theme.of(context).colorScheme;
     return Center(
       key: const ValueKey('login'),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 440),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Icon(Icons.inventory_2_outlined, size: 68),
-              const SizedBox(height: 18),
-              Text('ERPNext للجوال',
+          child: Form(
+            key: _loginFormKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                CircleAvatar(
+                  radius: 42,
+                  backgroundColor: scheme.primaryContainer,
+                  child: Icon(Icons.inventory_2_outlined, size: 42, color: scheme.onPrimaryContainer),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'ERPNext للجوال',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 8),
-              Text('اتصل بنظام ERPNext الخاص بك',
-                  textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodyLarge),
-              const SizedBox(height: 32),
-              TextField(
-                controller: _urlController,
-                keyboardType: TextInputType.url,
-                textDirection: TextDirection.ltr,
-                decoration: const InputDecoration(
-                  labelText: 'رابط الخادم',
-                  hintText: 'https://erp.example.com',
-                  prefixIcon: Icon(Icons.link),
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
                 ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _userController,
-                textDirection: TextDirection.ltr,
-                decoration: const InputDecoration(
-                  labelText: 'اسم المستخدم أو البريد',
-                  prefixIcon: Icon(Icons.person_outline),
+                const SizedBox(height: 8),
+                Text(
+                  'سجّل الدخول للوصول إلى بيانات شركتك ومخزونك ومعاملاتك.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyLarge,
                 ),
-              ),
-              const SizedBox(height: 14),
-              TextField(
-                controller: _passwordController,
-                obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'كلمة المرور',
-                  prefixIcon: Icon(Icons.lock_outline),
+                const SizedBox(height: 28),
+                TextFormField(
+                  controller: _urlController,
+                  enabled: !_busy,
+                  keyboardType: TextInputType.url,
+                  textDirection: TextDirection.ltr,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'رابط خادم ERPNext',
+                    hintText: 'https://erp.example.com',
+                    prefixIcon: Icon(Icons.link),
+                    helperText: 'استخدم رابط HTTPS الخاص بنظامك.',
+                  ),
+                  validator: (value) => (value ?? '').trim().isEmpty
+                      ? 'أدخل رابط خادم ERPNext.'
+                      : null,
                 ),
-                onSubmitted: (_) { if (!_busy) _login(); },
-              ),
-              if (_error != null) ...[
                 const SizedBox(height: 14),
-                Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                TextFormField(
+                  controller: _userController,
+                  enabled: !_busy,
+                  textDirection: TextDirection.ltr,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'اسم المستخدم أو البريد',
+                    prefixIcon: Icon(Icons.person_outline),
+                  ),
+                  validator: (value) => (value ?? '').trim().isEmpty
+                      ? 'أدخل اسم المستخدم أو البريد الإلكتروني.'
+                      : null,
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: _passwordController,
+                  enabled: !_busy,
+                  obscureText: !_showPassword,
+                  textInputAction: TextInputAction.done,
+                  decoration: InputDecoration(
+                    labelText: 'كلمة المرور',
+                    prefixIcon: const Icon(Icons.lock_outline),
+                    suffixIcon: IconButton(
+                      tooltip: _showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور',
+                      onPressed: _busy ? null : () => setState(() => _showPassword = !_showPassword),
+                      icon: Icon(_showPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
+                    ),
+                  ),
+                  validator: (value) => (value ?? '').isEmpty
+                      ? 'أدخل كلمة المرور.'
+                      : null,
+                  onFieldSubmitted: (_) { if (!_busy) _login(); },
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 14),
+                  Semantics(
+                    liveRegion: true,
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: scheme.errorContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.error_outline, color: scheme.onErrorContainer),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(_error!, style: TextStyle(color: scheme.onErrorContainer))),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 22),
+                FilledButton.icon(
+                  onPressed: _busy ? null : _login,
+                  icon: _busy
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.login),
+                  label: Text(_busy ? 'جارٍ الاتصال بالخادم...' : 'تسجيل الدخول'),
+                ),
+                const SizedBox(height: 16),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.shield_outlined, color: scheme.primary),
+                        const SizedBox(width: 10),
+                        const Expanded(
+                          child: Text(
+                            'تُرسل بيانات الدخول إلى خادمك مباشرة. لا يحفظ التطبيق كلمة المرور أو ملفات الجلسة على الجهاز؛ تنتهي الجلسة عند تسجيل الخروج أو إغلاق التطبيق.',
+                            style: TextStyle(fontSize: 12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
-              const SizedBox(height: 22),
-              FilledButton.icon(
-                onPressed: _busy ? null : _login,
-                icon: _busy
-                    ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.login),
-                label: Text(_busy ? 'جارٍ الاتصال...' : 'تسجيل الدخول'),
-              ),
-              const SizedBox(height: 18),
-              Text(
-                'نسخة تأسيسية: يلزم تشغيل خادم ERPNext وإدخال رابطه قبل تسجيل الدخول.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodySmall,
-              ),
-            ],
+            ),
           ),
         ),
       ),
