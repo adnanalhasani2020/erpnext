@@ -632,4 +632,60 @@ void main() {
       await server.close(force: true);
     }
   });
+  test('supplier payment history requests only submitted supplier payments and paginates', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    var requests = 0;
+    server.listen((request) async {
+      requests++;
+      expect(request.method, 'GET');
+      expect(request.uri.path, '/api/resource/Payment%20Entry');
+      final filters = jsonDecode(request.uri.queryParameters['filters']!) as List;
+      expect(filters, [
+        ['payment_type', '=', 'Pay'],
+        ['party_type', '=', 'Supplier'],
+        ['docstatus', '=', 1],
+      ]);
+      expect(request.uri.queryParameters['order_by'], 'posting_date desc, name desc');
+      expect(request.uri.queryParameters['limit_start'], requests == 1 ? '0' : '100');
+      expect(request.uri.queryParameters['or_filters'], contains('SUP-1'));
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'data': [{
+        'name': 'PAY-SUP-1', 'posting_date': '2026-11-08',
+        'party': 'SUP-1', 'party_name': 'Supplier One',
+        'paid_amount': 125.5, 'paid_from': 'Cash - COMP',
+        'docstatus': 1, 'status': 'Submitted',
+      }]}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      final first = await api.fetchSupplierPayments(search: 'SUP-1');
+      final next = await api.fetchSupplierPayments(start: 100, search: 'SUP-1');
+      expect(first.single['name'], 'PAY-SUP-1');
+      expect(first.single['paid_amount'], 125.5);
+      expect(first.single['paid_from'], 'Cash - COMP');
+      expect(next.single['party'], 'SUP-1');
+      expect(requests, 2);
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
+  test('supplier payment history rejects an unexpected response shape', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'data': {'name': 'NOT-A-LIST'}}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      await expectLater(api.fetchSupplierPayments(), throwsException);
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
 }
