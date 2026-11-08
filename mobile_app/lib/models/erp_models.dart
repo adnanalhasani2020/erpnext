@@ -130,6 +130,37 @@ class ErpCompany {
 }
 
 
+class ErpPaymentAccount {
+  const ErpPaymentAccount({
+    required this.name,
+    required this.accountName,
+    required this.accountType,
+    this.currency,
+  });
+
+  final String name;
+  final String accountName;
+  final String accountType;
+  final String? currency;
+
+  factory ErpPaymentAccount.fromJson(Map<String, dynamic> json) {
+    final name = json['name'];
+    final accountType = json['account_type'];
+    if (name is! String || name.isEmpty ||
+        accountType is! String || (accountType != 'Cash' && accountType != 'Bank')) {
+      throw const FormatException('بيانات حساب التحصيل النقدي أو البنكي غير صحيحة.');
+    }
+    return ErpPaymentAccount(
+      name: name,
+      accountName: json['account_name'] is String && (json['account_name'] as String).isNotEmpty
+          ? json['account_name'] as String
+          : name,
+      accountType: accountType,
+      currency: json['account_currency'] is String ? json['account_currency'] as String : null,
+    );
+  }
+}
+
 class ErpItem {
   const ErpItem({required this.code, required this.name, this.group, this.stockUom, this.isStockItem = false});
   final String code;
