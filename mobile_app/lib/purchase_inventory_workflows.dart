@@ -24,6 +24,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
   bool ledgerLoadingMore = false;
   bool ledgerHasMore = false;
   int ledgerOffset = 0;
+  int ledgerRequestId = 0;
   String? ledgerError;
   bool loading = false;
   bool loadingMore = false;
@@ -65,10 +66,19 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
   Future<void> loadSupplierLedger({bool append = false}) async {
     final supplier = selectedLedgerSupplier;
     if (supplier == null || supplier.isEmpty) return;
-    if (append && (ledgerLoadingMore || !ledgerHasMore)) return;
-    if (!append && ledgerLoading) return;
+    if (append && (ledgerLoadingMore || ledgerLoading || !ledgerHasMore)) return;
+
+    // A filter change may happen while an earlier request is still in flight.
+    // Give every refresh a new generation so stale responses cannot overwrite
+    // the newly selected supplier/company statement.
+    final requestId = append ? ledgerRequestId : ++ledgerRequestId;
     setState(() {
-      if (append) { ledgerLoadingMore = true; } else { ledgerLoading = true; ledgerError = null; }
+      if (append) {
+        ledgerLoadingMore = true;
+      } else {
+        ledgerLoading = true;
+        ledgerError = null;
+      }
     });
     try {
       final result = await widget.api.fetchSupplierLedger(
@@ -76,7 +86,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
         company: selectedLedgerCompany,
         start: append ? ledgerOffset : 0,
       );
-      if (!mounted) return;
+      if (!mounted || requestId != ledgerRequestId) return;
       setState(() {
         supplierLedger = append ? [...supplierLedger, ...result] : result;
         ledgerOffset = (append ? ledgerOffset : 0) + result.length;
@@ -84,9 +94,20 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
         ledgerError = null;
       });
     } catch (e) {
-      if (mounted) setState(() => ledgerError = e.toString().replaceFirst('Exception: ', ''));
+      if (mounted && requestId == ledgerRequestId) {
+        setState(() => ledgerError = e.toString().replaceFirst('Exception: ', ''));
+      }
     } finally {
-      if (mounted) setState(() { ledgerLoading = false; ledgerLoadingMore = false; });
+      if (mounted && requestId == ledgerRequestId) {
+        setState(() {
+          if (append) {
+            ledgerLoadingMore = false;
+          } else {
+            ledgerLoading = false;
+            ledgerLoadingMore = false;
+          }
+        });
+      }
     }
   }
 
