@@ -279,7 +279,7 @@ class FrappeApi {
       }
       final qty = rawItem['qty'];
       final rate = rawItem['rate'];
-      if (qty is! num || !qty.isFinite || qty <= 0 || rate is! num || !rate.isFinite || rate <= 0) {
+      if (qty is! num || !qty.isFinite || qty <= 0 || rate is! num || !rate.isFinite || rate <= 0 || !(qty * rate).isFinite) {
         throw const FormatException('تحقق من كمية وسعر كل بند في الفاتورة.');
       }
     }
@@ -466,7 +466,7 @@ class FrappeApi {
       final qty = rawItem['qty'];
       final rate = rawItem['rate'];
       if (qty is! num || !qty.isFinite || qty <= 0 ||
-          rate is! num || !rate.isFinite || rate <= 0) {
+          rate is! num || !rate.isFinite || rate <= 0 || !(qty * rate).isFinite) {
         throw const FormatException('تحقق من كمية وسعر كل بند في الفاتورة.');
       }
     }
