@@ -691,6 +691,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
   String? error;
   String? selectedMovementItem;
   String? selectedMovementWarehouse;
+  String? selectedMovementCompany;
   @override void initState() { super.initState(); load(); }
   @override void dispose() { super.dispose(); }
   void notice(String s) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s))); }
@@ -702,7 +703,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     if (loading) { reloadPending = true; return; }
     setState(() { loading = true; error = null; });
     try {
-      final data = await widget.api.fetchStockMovements(itemCode: selectedMovementItem, warehouse: selectedMovementWarehouse);
+      final data = await widget.api.fetchStockMovements(itemCode: selectedMovementItem, warehouse: selectedMovementWarehouse, company: selectedMovementCompany);
       if (mounted) setState(() { movements = data; offset = data.length; hasMore = data.length == FrappeApi.pageSize; });
     } catch (e) { if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', '')); }
     final loadedDrafts = <Map<String, dynamic>>[];
@@ -781,7 +782,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     try {
       final data = await widget.api.fetchStockMovements(start: offset,
         itemCode: selectedMovementItem,
-        warehouse: selectedMovementWarehouse);
+        warehouse: selectedMovementWarehouse,
+        company: selectedMovementCompany);
       if (mounted) setState(() { movements = [...movements, ...data]; offset += data.length; hasMore = data.length == FrappeApi.pageSize; });
     } catch (e) { if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', '')); }
     finally { if (mounted) setState(() => loadingMore = false); }
@@ -1350,6 +1352,16 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
             child: Text('${x.name} (${x.code})', overflow: TextOverflow.ellipsis))),
         ],
         onChanged: (v) { setState(() => selectedMovementItem = v); load(); },
+      ),
+      DropdownButtonFormField<String>(
+        initialValue: selectedMovementCompany,
+        isExpanded: true,
+        decoration: const InputDecoration(labelText: 'تصفية حسب الشركة'),
+        items: [
+          const DropdownMenuItem<String>(value: null, child: Text('كل الشركات')),
+          ...widget.companies.map((company) => DropdownMenuItem(value: company.name, child: Text(company.name, overflow: TextOverflow.ellipsis))),
+        ],
+        onChanged: (value) { setState(() => selectedMovementCompany = value); load(); },
       ),
       DropdownButtonFormField<String>(
                 initialValue: selectedMovementWarehouse,
