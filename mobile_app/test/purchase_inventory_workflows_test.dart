@@ -225,11 +225,11 @@ void main() {
         }}));
       } else {
         request.response.statusCode = 404;
-        request.response.write(jsonEncode({'message': 'unexpected path: \${request.uri.path}'}));
+        request.response.write(jsonEncode({'message': 'unexpected path: ${request.uri.path}'}));
       }
       await request.response.close();
     });
-    final api = FrappeApi()..configure('http://127.0.0.1:\${server.port}');
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
     try {
       final result = await api.createPurchaseReturn(
         'PINV-1', quantitiesBySourceItem: {'PINV-ITEM-1': 2},
@@ -262,7 +262,7 @@ void main() {
       }
       await request.response.close();
     });
-    final api = FrappeApi()..configure('http://127.0.0.1:\${server.port}');
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
     try {
       await expectLater(
         api.createPurchaseReturn('PINV-1', quantitiesBySourceItem: {'PINV-ITEM-1': 2}),
