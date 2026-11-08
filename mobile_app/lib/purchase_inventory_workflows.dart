@@ -518,76 +518,149 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
 
   Future<void> purchaseReceipt() async {
     if (widget.companies.isEmpty || widget.suppliers.isEmpty || widget.items.isEmpty || widget.warehouses.isEmpty) {
-      notice('حمّل الشركات والموردين والأصناف والمستودعات أولاً.'); return;
+      notice('حمّل الشركات والموردين والأصناف والمستودعات أولاً.');
+      return;
     }
-    final company = TextEditingController(text: widget.companies.first.name);
-    final supplier = TextEditingController(text: widget.suppliers.first.id);
-    final item = TextEditingController(text: widget.items.first.code);
-    final warehouse = TextEditingController();
-    final qty = TextEditingController(text: '1');
-    final rate = TextEditingController(text: '0');
+    var company = widget.companies.first.name;
+    var supplier = widget.suppliers.first.id;
+    String? warehouse;
+    final ok = await showDialog<bool>(context: context, builder: (c) => StatefulBuilder(
+      builder: (context, refresh) {
+        final available = widget.warehouses.where((w) => w.company == null || w.company == company).toList();
+        if (!available.any((w) => w.id == warehouse)) warehouse = null;
+        return AlertDialog(
+          title: const Text('استلام بضاعة من مورد'),
+          content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            DropdownButtonFormField<String>(
+              value: company, isExpanded: true,
+              decoration: const InputDecoration(labelText: 'الشركة'),
+              items: widget.companies.map((x) => DropdownMenuItem(value: x.name, child: Text(x.name))).toList(),
+              onChanged: (v) => refresh(() { if (v != null) { company = v; warehouse = null; } }),
+            ),
+            DropdownButtonFormField<String>(
+              value: supplier, isExpanded: true,
+              decoration: const InputDecoration(labelText: 'المورد'),
+              items: widget.suppliers.map((x) => DropdownMenuItem(value: x.id,
+                child: Text('\${x.name} (\${x.id})', overflow: TextOverflow.ellipsis))).toList(),
+              onChanged: (v) => refresh(() { if (v != null) supplier = v; }),
+            ),
+            DropdownButtonFormField<String>(
+              value: warehouse, isExpanded: true,
+              decoration: const InputDecoration(labelText: 'مستودع الاستلام'),
+              items: available.map((w) => DropdownMenuItem(value: w.id,
+                child: Text('\${w.name} (\${w.id})', overflow: TextOverflow.ellipsis))).toList(),
+              onChanged: (v) => refresh(() => warehouse = v),
+            ),
+            const Text('يمكن إضافة عدة أصناف في سند الاستلام نفسه.'),
+          ])),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
+            FilledButton(onPressed: () {
+              if (company.isNotEmpty && supplier.isNotEmpty && warehouse != null) Navigator.pop(c, true);
+            }, child: const Text('التالي')),
+          ],
+        );
+      },
+    ));
+    if (ok != true || warehouse == null || !mounted) return;
+    final lines = await _stockItemLinesDialog(title: 'أصناف سند الاستلام', includeRate: true);
+    if (lines == null || !mounted) return;
     try {
-      final ok = await showDialog<bool>(context: context, builder: (c) => AlertDialog(
-        title: const Text('استلام بضاعة من مورد'),
-        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          _field(company, 'الشركة'), _field(supplier, 'رمز المورد'), _field(item, 'رمز الصنف'),
-          _field(warehouse, 'رمز مستودع الاستلام'), _field(qty, 'الكمية المستلمة', number: true),
-          _field(rate, 'سعر الوحدة', number: true),
-          const Text('ينشئ هذا الإجراء Purchase Receipt مستقلاً، ولا يرحّل فاتورة المورد تلقائياً.', style: TextStyle(fontSize: 12)),
-        ])),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
-          FilledButton(onPressed: () {
-            final q = double.tryParse(qty.text.trim()), r = double.tryParse(rate.text.trim());
-            if (company.text.trim().isNotEmpty && supplier.text.trim().isNotEmpty && item.text.trim().isNotEmpty &&
-                warehouse.text.trim().isNotEmpty && q != null && q > 0 && r != null && r >= 0) Navigator.pop(c, true);
-          }, child: const Text('إنشاء سند الاستلام')),
-        ],
-      ));
-      if (ok != true || !mounted) return;
       final doc = await widget.api.createPurchaseReceipt({
-        'doctype': 'Purchase Receipt', 'company': company.text.trim(), 'supplier': supplier.text.trim(),
+        'doctype': 'Purchase Receipt', 'company': company, 'supplier': supplier,
         'posting_date': DateTime.now().toIso8601String().substring(0, 10),
-        'items': [{'item_code': item.text.trim(), 'qty': double.parse(qty.text.trim()),
-          'rate': double.parse(rate.text.trim()), 'warehouse': warehouse.text.trim()}],
+        'items': lines.map((row) => {
+          'item_code': row['item_code'], 'qty': row['qty'],
+          'rate': row['valuation_rate'], 'warehouse': warehouse,
+        }).toList(),
       });
-      if (await confirm('ترحيل سند الاستلام', 'تم إنشاء سند الاستلام ' + (doc['name'] ?? '').toString() + '. الترحيل سيضيف الكمية للمخزون.')) {
+      if (await confirm('ترحيل سند الاستلام',
+          'تم إنشاء سند الاستلام \${doc['name'] ?? ''} بعدد \${lines.length} صنف. الترحيل سيضيف الكميات للمخزون.')) {
         try {
           final result = await widget.api.submitPurchaseReceipt(doc);
-          notice('تم ترحيل سند الاستلام ' + (result['name'] ?? doc['name']).toString());
-          await load(); widget.onChanged?.call();
+          notice('تم ترحيل سند الاستلام \${result['name'] ?? doc['name']}');
+          await load();
+          widget.onChanged?.call();
         } catch (e) {
-          notice('حُفظ سند الاستلام ' + (doc['name'] ?? '').toString() + ' كمسودة. راجعه قبل إنشاء سند آخر. ' + e.toString().replaceFirst('Exception: ', ''));
+          notice('حُفظ سند الاستلام \${doc['name'] ?? ''} كمسودة. راجعه قبل إنشاء سند آخر. \${e.toString().replaceFirst('Exception: ', '')}');
         }
-      } else { notice('حُفظت مسودة سند الاستلام ' + (doc['name'] ?? '').toString()); }
-    } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
-    finally { company.dispose(); supplier.dispose(); item.dispose(); warehouse.dispose(); qty.dispose(); rate.dispose(); }
+      } else {
+        notice('حُفظت مسودة سند الاستلام \${doc['name'] ?? ''}');
+      }
+    } catch (e) {
+      notice(e.toString().replaceFirst('Exception: ', ''));
+    }
   }
 
   Future<void> reconcile() async {
-    if (widget.companies.isEmpty || widget.items.isEmpty || widget.warehouses.isEmpty) { notice('حمّل الشركات والأصناف والمستودعات أولاً.'); return; }
-    final company = TextEditingController(text: widget.companies.first.name), warehouse = TextEditingController(), item = TextEditingController(text: widget.items.firstWhere((x) => x.isStockItem, orElse: () => widget.items.first).code), qty = TextEditingController(text: '0'), rate = TextEditingController(text: '0');
+    if (widget.companies.isEmpty || widget.items.isEmpty || widget.warehouses.isEmpty) {
+      notice('حمّل الشركات والأصناف والمستودعات أولاً.');
+      return;
+    }
+    var company = widget.companies.first.name;
+    String? warehouse;
+    final ok = await showDialog<bool>(context: context, builder: (c) => StatefulBuilder(
+      builder: (context, refresh) {
+        final available = widget.warehouses.where((w) => w.company == null || w.company == company).toList();
+        if (!available.any((w) => w.id == warehouse)) warehouse = null;
+        return AlertDialog(
+          title: const Text('جرد وتسوية المخزون'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            DropdownButtonFormField<String>(
+              value: company, isExpanded: true,
+              decoration: const InputDecoration(labelText: 'الشركة'),
+              items: widget.companies.map((x) => DropdownMenuItem(value: x.name, child: Text(x.name))).toList(),
+              onChanged: (v) => refresh(() { if (v != null) { company = v; warehouse = null; } }),
+            ),
+            DropdownButtonFormField<String>(
+              value: warehouse, isExpanded: true,
+              decoration: const InputDecoration(labelText: 'المستودع'),
+              items: available.map((w) => DropdownMenuItem(value: w.id,
+                child: Text('\${w.name} (\${w.id})', overflow: TextOverflow.ellipsis))).toList(),
+              onChanged: (v) => refresh(() => warehouse = v),
+            ),
+            const Text('أدخل الكمية الفعلية لكل صنف. الكمية صفر مسموحة.'),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
+            FilledButton(onPressed: () {
+              if (company.isNotEmpty && warehouse != null) Navigator.pop(c, true);
+            }, child: const Text('التالي')),
+          ],
+        );
+      },
+    ));
+    if (ok != true || warehouse == null || !mounted) return;
+    final lines = await _stockItemLinesDialog(
+      title: 'أصناف الجرد والكميات الفعلية',
+      includeRate: true,
+      allowZeroQuantity: true,
+    );
+    if (lines == null || !mounted) return;
     try {
-      final ok = await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: const Text('جرد وتسوية المخزون'),
-        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          _field(company, 'الشركة'), _field(warehouse, 'رمز المستودع'), _field(item, 'رمز الصنف'),
-          _field(qty, 'الكمية الفعلية', number: true), _field(rate, 'سعر التقييم', number: true),
-        ])),
-        actions: [TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
-          FilledButton(onPressed: () { final q = double.tryParse(qty.text), r = double.tryParse(rate.text); if (company.text.trim().isNotEmpty && warehouse.text.trim().isNotEmpty && item.text.trim().isNotEmpty && q != null && q >= 0 && r != null && r >= 0) Navigator.pop(c, true); }, child: const Text('إنشاء التسوية'))]));
-      if (ok != true || !mounted) return;
-      final doc = await widget.api.createStockReconciliation(company: company.text.trim(), warehouse: warehouse.text.trim(), items: [{'item_code': item.text.trim(), 'qty': double.parse(qty.text), 'valuation_rate': double.parse(rate.text)}]);
-      if (await confirm('تأكيد تسوية المخزون', 'سيتم ضبط الرصيد إلى الكمية الفعلية المدخلة في ERPNext. هل تريد الترحيل؟')) {
+      final doc = await widget.api.createStockReconciliation(
+        company: company,
+        warehouse: warehouse!,
+        items: lines,
+      );
+      if (await confirm('تأكيد تسوية المخزون',
+          'تم إنشاء مسودة \${doc['name'] ?? ''} بعدد \${lines.length} صنف. ستضبط الأرصدة إلى الكميات الفعلية المدخلة. هل تريد الترحيل؟')) {
         try {
           final result = await widget.api.submitStockReconciliation(doc);
-          notice('تم ترحيل التسوية ' + (result['name'] ?? doc['name']).toString()); await load(); widget.onChanged?.call();
+          notice('تم ترحيل التسوية \${result['name'] ?? doc['name']}');
+          await load();
+          widget.onChanged?.call();
         } catch (e) {
-          notice('حُفظت مسودة التسوية ' + (doc['name'] ?? '').toString() + ' ولم يؤكد ترحيلها. راجعها قبل إنشاء تسوية أخرى. ' + e.toString().replaceFirst('Exception: ', ''));
+          notice('حُفظت مسودة التسوية \${doc['name'] ?? ''} ولم يؤكد ترحيلها. راجعها قبل إنشاء تسوية أخرى. \${e.toString().replaceFirst('Exception: ', '')}');
         }
-      } else { notice('حُفظت مسودة التسوية ' + (doc['name'] ?? '').toString()); }
-    } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
-    finally { company.dispose(); warehouse.dispose(); item.dispose(); qty.dispose(); rate.dispose(); }
+      } else {
+        notice('حُفظت مسودة التسوية \${doc['name'] ?? ''}');
+      }
+    } catch (e) {
+      notice(e.toString().replaceFirst('Exception: ', ''));
+    }
   }
+
   Widget _field(TextEditingController c, String label, {bool number = false}) => Padding(padding: const EdgeInsets.only(bottom: 8), child: TextField(controller: c, keyboardType: number ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text, decoration: InputDecoration(labelText: label)));
   @override Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('عمليات المخزون'), actions: [IconButton(onPressed: load, icon: const Icon(Icons.refresh))]),
