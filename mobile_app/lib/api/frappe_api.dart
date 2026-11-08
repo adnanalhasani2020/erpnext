@@ -758,8 +758,21 @@ class FrappeApi {
       throw const FormatException('حدد مستودعَي تحويل مختلفين.');
     }
     for (final row in items) {
-      if (row['item_code'] is! String || row['qty'] is! num || !(row['qty'] as num).isFinite || (row['qty'] as num) <= 0) {
+      if (row['item_code'] is! String || (row['item_code'] as String).trim().isEmpty ||
+          row['qty'] is! num || !(row['qty'] as num).isFinite || (row['qty'] as num) <= 0) {
         throw const FormatException('كل بند يحتاج صنفاً وكمية موجبة.');
+      }
+      if (purpose == 'Material Receipt' &&
+          (row['valuation_rate'] is! num ||
+              !(row['valuation_rate'] as num).isFinite ||
+              (row['valuation_rate'] as num) <= 0)) {
+        throw const FormatException('استلام المخزون يتطلب سعر تقييم أكبر من صفر لكل صنف.');
+      }
+      if (row.containsKey('valuation_rate') &&
+          (row['valuation_rate'] is! num ||
+              !(row['valuation_rate'] as num).isFinite ||
+              (row['valuation_rate'] as num) < 0)) {
+        throw const FormatException('سعر التقييم غير صحيح.');
       }
     }
     final payload = <String, dynamic>{
