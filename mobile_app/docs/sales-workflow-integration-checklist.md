@@ -67,6 +67,8 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 - [ ] Convert the submitted Sales Order into a Delivery Note; verify only remaining deliverable quantities are mapped and partial deliveries can be completed in later notes.
 - [ ] Submit the Delivery Note; verify Stock Ledger Entry and Bin changes exactly once.
 - [ ] Create a Sales Invoice from the Sales Order and from a submitted Delivery Note; verify source links, billed quantities, taxes, and outstanding amounts.
+- [ ] Open each mapped Sales Invoice draft in the mobile invoice editor, change a quantity or rate, save, and verify Sales Order / Delivery Note row references remain intact.
+- [ ] Double-tap receipt, return, submit, and cancel actions; verify the client prevents concurrent duplicate requests and verifies the server's final document status before reporting success.
 - [ ] Verify ERPNext rejects invalid permissions, closed/cancelled source documents, over-delivery, and invalid company/warehouse combinations without creating misleading success states.
 - [ ] Cancel a submitted Quotation, Sales Order, or Delivery Note only when ERPNext allows it; verify linked documents and stock/accounting reversals.
 
