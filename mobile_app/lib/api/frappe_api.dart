@@ -436,7 +436,7 @@ class FrappeApi {
   Future<Map<String, dynamic>> fetchSalesWorkflowDocument(String doctype, String name) async {
     final resource = _salesWorkflowResource(doctype);
     if (name.trim().isEmpty) throw const FormatException('رقم مستند المبيعات غير موجود.');
-    final response = await _send('GET', '/api/resource/\$resource/${Uri.encodeComponent(name.trim())}');
+    final response = await _send('GET', '/api/resource/$resource/${Uri.encodeComponent(name.trim())}');
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw Exception(_message(data, 'تعذر تحميل تفاصيل ${doctype}.'));
@@ -541,14 +541,14 @@ class FrappeApi {
     if (!(allowed[sourceDoctype]?.contains(targetDoctype) ?? false)) throw const FormatException('مسار تحويل مستندات المبيعات غير مسموح.');
     final source = await fetchSalesWorkflowDocument(sourceDoctype, sourceName);
     if (source['docstatus'] != 1) throw const FormatException('يجب ترحيل المستند الأصلي قبل إنشاء المستند التالي.');
-    final method = switch ('\$sourceDoctype>\$targetDoctype') {
+    final method = switch ('$sourceDoctype>$targetDoctype') {
       'Quotation>Sales Order' => 'erpnext.selling.doctype.quotation.mapper.make_sales_order',
       'Sales Order>Delivery Note' => 'erpnext.selling.doctype.sales_order.mapper.make_delivery_note',
       'Sales Order>Sales Invoice' => 'erpnext.selling.doctype.sales_order.mapper.make_sales_invoice',
       'Delivery Note>Sales Invoice' => 'erpnext.stock.doctype.delivery_note.mapper.make_sales_invoice',
       _ => throw const FormatException('مسار التحويل غير مدعوم.'),
     };
-    final mapped = await _sendJson('POST', '/api/method/\$method', {'source_name': sourceName});
+    final mapped = await _sendJson('POST', '/api/method/$method', {'source_name': sourceName});
     final mappedData = _decode(mapped.body);
     if (mapped.statusCode < 200 || mapped.statusCode >= 300) throw Exception(_message(mappedData, 'تعذر تجهيز ${targetDoctype} من ${sourceDoctype}.'));
     final raw = mappedData['message'];
