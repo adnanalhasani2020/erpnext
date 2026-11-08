@@ -9,8 +9,8 @@ Arabic-first Android companion app for an ERPNext instance.
 - Logged-in user verification and logout through Frappe API methods.
 - Company list on the dashboard.
 - Separate item, stock balance, warehouse, and sales screens.
-- Item and warehouse local search over the records currently loaded.
-- Read-only stock balances from ERPNext `Bin`, including actual, reserved, projected, and calculated available quantities.
+- Server-side item and warehouse search with pagination.
+- Read-only stock balances from ERPNext `Bin`, with server-side item-code and warehouse filters, pagination, and actual, reserved, projected, and calculated available quantities. The UI reports loaded-row counts without summing quantities across different stock units.
 - Customer and Sales Invoice lists, including invoice status, total, outstanding amount, and a clear Credit Note / Return label linked to its original invoice.
 - Create Sales Invoice drafts from the mobile app with customer, company, item, quantity, unit rate, and warehouse selection.
 - Explicitly submit a Sales Invoice after a confirmation step; ERPNext performs its normal validations and stock-ledger processing.
