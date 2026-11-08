@@ -451,7 +451,13 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
               value: widget.companies.first.name, isExpanded: true,
               decoration: const InputDecoration(labelText: 'الشركة'),
               items: widget.companies.map((x) => DropdownMenuItem(value: x.name, child: Text(x.name))).toList(),
-              onChanged: (v) { if (v != null) company.text = v; },
+              onChanged: (v) => refresh(() {
+                if (v != null) {
+                  company.text = v;
+                  from.clear();
+                  to.clear();
+                }
+              }),
             ),
             if (purpose != 'Material Receipt')
               DropdownButtonFormField<String>(
