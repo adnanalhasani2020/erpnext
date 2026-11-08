@@ -932,10 +932,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
                           ],
                         ),
                       );
-                      if (confirmed != true) return;
+                      if (confirmed != true || !mounted || !sheetContext.mounted) return;
                       try {
                         await _api.submitSalesInvoice(document);
-                        if (!mounted) return;
+                        if (!mounted || !sheetContext.mounted) return;
                         Navigator.of(sheetContext).pop();
                         _loadSales();
                         if (updatesStock) _loadInventory();
@@ -955,7 +955,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
                         builder: (dialogContext) => AlertDialog(
                           title: const Text('تسجيل دفعة من العميل'),
                           content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                            Text('المبلغ المتبقي: ${outstandingAmount.toStringAsFixed(2)} ${currency}'),
+                            Text('المبلغ المتبقي: ${outstandingAmount.toStringAsFixed(2)} $currency'),
                             const SizedBox(height: 12),
                             TextField(
                               controller: amountController,
@@ -980,10 +980,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
                         ),
                       );
                       amountController.dispose();
-                      if (paymentAmount == null) return;
+                      if (paymentAmount == null || !mounted || !sheetContext.mounted) return;
                       try {
                         await _api.receiveSalesInvoicePayment(invoiceName: invoiceId, amount: paymentAmount);
-                        if (!mounted) return;
+                        if (!mounted || !sheetContext.mounted) return;
                         Navigator.of(sheetContext).pop();
                         _loadSales();
                         ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('تم تسجيل وترحيل سند القبض.')));
@@ -1007,10 +1007,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
                           ],
                         ),
                       );
-                      if (confirmed != true) return;
+                      if (confirmed != true || !mounted || !sheetContext.mounted) return;
                       try {
                         await _api.cancelSalesInvoice(document);
-                        if (!mounted) return;
+                        if (!mounted || !sheetContext.mounted) return;
                         Navigator.of(sheetContext).pop();
                         _loadSales();
                         if (updatesStock) _loadInventory();
@@ -1035,10 +1035,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
                           ],
                         ),
                       );
-                      if (confirmed != true) return;
+                      if (confirmed != true || !mounted || !sheetContext.mounted) return;
                       try {
                         final returnDraft = await _api.createSalesReturn(invoiceId);
-                        if (!mounted) return;
+                        if (!mounted || !sheetContext.mounted) return;
                         Navigator.of(sheetContext).pop();
                         _loadSales();
                         ScaffoldMessenger.of(this.context).showSnackBar(
