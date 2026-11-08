@@ -161,6 +161,9 @@ class StockWorkflowPage extends StatefulWidget {
 class _StockWorkflowPageState extends State<StockWorkflowPage> {
   List<Map<String, dynamic>> movements = [];
   bool loading = false;
+  bool loadingMore = false;
+  bool hasMore = false;
+  int offset = 0;
   String? error;
   final itemFilter = TextEditingController(), warehouseFilter = TextEditingController();
   @override void initState() { super.initState(); load(); }
@@ -172,9 +175,22 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
   ])) == true;
   Future<void> load() async {
     if (loading) return; setState(() { loading = true; error = null; });
-    try { final data = await widget.api.fetchStockMovements(itemCode: itemFilter.text.trim().isEmpty ? null : itemFilter.text.trim(), warehouse: warehouseFilter.text.trim().isEmpty ? null : warehouseFilter.text.trim()); if (mounted) setState(() => movements = data); }
-    catch (e) { if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', '')); }
+    try {
+      final data = await widget.api.fetchStockMovements(itemCode: itemFilter.text.trim().isEmpty ? null : itemFilter.text.trim(), warehouse: warehouseFilter.text.trim().isEmpty ? null : warehouseFilter.text.trim());
+      if (mounted) setState(() { movements = data; offset = data.length; hasMore = data.length == FrappeApi.pageSize; });
+    } catch (e) { if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', '')); }
     finally { if (mounted) setState(() => loading = false); }
+  }
+  Future<void> loadMoreMovements() async {
+    if (loadingMore || !hasMore) return;
+    setState(() => loadingMore = true);
+    try {
+      final data = await widget.api.fetchStockMovements(start: offset,
+        itemCode: itemFilter.text.trim().isEmpty ? null : itemFilter.text.trim(),
+        warehouse: warehouseFilter.text.trim().isEmpty ? null : warehouseFilter.text.trim());
+      if (mounted) setState(() { movements = [...movements, ...data]; offset += data.length; hasMore = data.length == FrappeApi.pageSize; });
+    } catch (e) { if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', '')); }
+    finally { if (mounted) setState(() => loadingMore = false); }
   }
   Future<void> movement(String purpose) async {
     if (widget.companies.isEmpty || widget.items.isEmpty || widget.warehouses.isEmpty) { notice('حمّل الشركات والأصناف والمستودعات أولاً.'); return; }
@@ -312,6 +328,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         title: Text((x['item_code'] ?? '—').toString() + ' • ' + (x['warehouse'] ?? '—').toString()),
         subtitle: Text((x['posting_date'] ?? '').toString() + ' • ' + (x['voucher_type'] ?? '').toString() + ' • ' + (x['voucher_no'] ?? '').toString()),
         trailing: Text((x['actual_qty'] ?? 0).toString())))),
+      if (hasMore || loadingMore) Center(child: TextButton.icon(onPressed: loadingMore ? null : loadMoreMovements, icon: loadingMore ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.expand_more), label: const Text('تحميل حركات إضافية'))),
     ]),
   );
 }
