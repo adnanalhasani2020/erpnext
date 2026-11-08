@@ -151,4 +151,54 @@ void main() {
     expect(find.text('الإجمالي: 37.50'), findsOneWidget);
     api.dispose();
   });
+
+  testWidgets('limits invoice warehouses to the selected company', (tester) async {
+    final api = FrappeApi();
+    await tester.pumpWidget(MaterialApp(
+      home: SalesInvoiceComposer(
+        api: api,
+        customers: const [ErpCustomer(id: 'CUST-1', name: 'عميل تجريبي')],
+        items: const [
+          ErpItem(code: 'ITEM-1', name: 'صنف مخزني', isStockItem: true),
+        ],
+        warehouses: const [
+          ErpWarehouse(id: 'WH-A', name: 'مستودع الشركة أ', company: 'Company A'),
+          ErpWarehouse(id: 'WH-B', name: 'مستودع الشركة ب', company: 'Company B'),
+        ],
+        companies: const [
+          ErpCompany(name: 'Company A'),
+          ErpCompany(name: 'Company B'),
+        ],
+        onCompleted: (_) {},
+      ),
+    ));
+
+    final companyField = tester.widget<DropdownButtonFormField<ErpCompany>>(
+      find.byType(DropdownButtonFormField<ErpCompany>),
+    );
+    companyField.onChanged!(const ErpCompany(name: 'Company A'));
+    await tester.pump();
+
+    final itemField = tester.widget<DropdownButtonFormField<ErpItem>>(
+      find.byType(DropdownButtonFormField<ErpItem>),
+    );
+    itemField.onChanged!(const ErpItem(
+      code: 'ITEM-1',
+      name: 'صنف مخزني',
+      isStockItem: true,
+    ));
+    await tester.pump();
+
+    final warehouseField = tester.widget<DropdownButtonFormField<ErpWarehouse>>(
+      find.byType(DropdownButtonFormField<ErpWarehouse>),
+    );
+    final availableWarehouseIds = warehouseField.items!
+        .where((item) => item.value != null)
+        .map((item) => item.value!.id)
+        .toList();
+
+    expect(availableWarehouseIds, ['WH-A']);
+    api.dispose();
+  });
+
 }
