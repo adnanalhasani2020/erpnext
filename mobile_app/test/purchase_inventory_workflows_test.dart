@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:erpnext_mobile/api/frappe_api.dart';
 import 'package:erpnext_mobile/models/erp_models.dart';
@@ -61,5 +64,52 @@ void main() {
       {'item_code': 'ITEM-1', 'qty': -1},
     ]), throwsFormatException);
     api.dispose();
+  });
+
+  test('stock submission requires an explicit submitted document response', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      await request.drain<void>();
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'message': {
+        'doctype': 'Stock Entry', 'name': 'STE-1', 'docstatus': 1,
+      }}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      final result = await api.submitStockEntry({
+        'doctype': 'Stock Entry', 'name': 'STE-1', 'docstatus': 0,
+      });
+      expect(result['docstatus'], 1);
+      expect(result['name'], 'STE-1');
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
+  test('stock submission rejects a response that does not confirm docstatus 1', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      await request.drain<void>();
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'message': {
+        'doctype': 'Stock Entry', 'name': 'STE-2', 'docstatus': 0,
+      }}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      await expectLater(
+        api.submitStockEntry({
+          'doctype': 'Stock Entry', 'name': 'STE-2', 'docstatus': 0,
+        }),
+        throwsException,
+      );
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
   });
 }
