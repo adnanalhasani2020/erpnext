@@ -313,32 +313,50 @@ class FrappeApi {
     if (normalizedCompany.isEmpty) {
       throw const FormatException('اسم الشركة غير موجود لتحميل حسابات التحصيل.');
     }
-    final uri = Uri.parse('$_baseUrl/api/resource/Account').replace(
-      queryParameters: {
-        'fields': jsonEncode(['name', 'account_name', 'account_type', 'account_currency']),
-        'filters': jsonEncode([
+
+    const accountPageSize = pageSize;
+    const maxAccountCount = 10000;
+    final accounts = <ErpPaymentAccount>[];
+    var start = 0;
+    while (true) {
+      final uri = buildResourcePageUri(
+        baseUrl: _baseUrl,
+        resource: 'Account',
+        fields: const ['name', 'account_name', 'account_type', 'account_currency'],
+        filters: [
           ['company', '=', normalizedCompany],
           ['disabled', '=', 0],
           ['is_group', '=', 0],
           ['account_type', 'in', ['Cash', 'Bank']],
-        ]),
-        'limit_page_length': '500',
-        'order_by': 'account_type asc, account_name asc',
-      },
-    );
-    final response = await _sendUri('GET', uri);
-    final data = _decode(response.body);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(data, 'تعذر تحميل حسابات الصندوق والبنك للشركة.'));
+        ],
+        orderBy: 'account_type asc, account_name asc',
+        start: start,
+        pageLength: accountPageSize,
+      );
+      final response = await _sendUri('GET', uri);
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر تحميل حسابات الصندوق والبنك للشركة.'));
+      }
+      final rows = data['data'];
+      if (rows is! List) {
+        throw Exception('استجابة حسابات التحصيل من ERPNext غير متوقعة.');
+      }
+      accounts.addAll(
+        rows
+            .whereType<Map<String, dynamic>>()
+            .map(ErpPaymentAccount.fromJson),
+      );
+      if (rows.length < accountPageSize) {
+        return accounts;
+      }
+      if (accounts.length > maxAccountCount) {
+        throw const FormatException(
+          'تجاوز عدد حسابات التحصيل الحد الآمن للتحميل دفعة واحدة.',
+        );
+      }
+      start += rows.length;
     }
-    final rows = data['data'];
-    if (rows is! List) {
-      throw Exception('استجابة حسابات التحصيل من ERPNext غير متوقعة.');
-    }
-    return rows
-        .whereType<Map<String, dynamic>>()
-        .map(ErpPaymentAccount.fromJson)
-        .toList(growable: false);
   }
 
   Future<Map<String, dynamic>> receiveSalesInvoicePayment({
