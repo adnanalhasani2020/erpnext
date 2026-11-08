@@ -39,6 +39,30 @@ void main() {
       );
     });
 
+    test('rejects finite quantities and rates whose multiplication overflows', () async {
+      await expectLater(
+        api.createSalesInvoice({
+          'doctype': 'Sales Invoice',
+          'customer': 'CUST-1',
+          'company': 'COMP-1',
+          'items': [{'item_code': 'ITEM-1', 'qty': 1e308, 'rate': 1e308}],
+        }),
+        throwsFormatException,
+      );
+      await expectLater(
+        api.updateDraftSalesInvoice(
+          invoiceName: 'SINV-1',
+          changes: {
+            'doctype': 'Sales Invoice',
+            'customer': 'CUST-1',
+            'company': 'COMP-1',
+            'items': [{'item_code': 'ITEM-1', 'qty': 1e308, 'rate': 1e308}],
+          },
+        ),
+        throwsFormatException,
+      );
+    });
+
     test('rejects non-sales documents before draft update requests', () async {
       await expectLater(
         api.updateDraftSalesInvoice(
