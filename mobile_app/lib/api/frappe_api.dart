@@ -769,6 +769,34 @@ class FrappeApi {
     return created;
   }
 
+  Future<Map<String, dynamic>> createPurchaseReceipt(Map<String, dynamic> document) async {
+    final items = document['items'];
+    if (document['doctype'] != 'Purchase Receipt' ||
+        document['company'] is! String || (document['company'] as String).trim().isEmpty ||
+        document['supplier'] is! String || (document['supplier'] as String).trim().isEmpty ||
+        items is! List || items.isEmpty) {
+      throw const FormatException('حدد الشركة والمورد وأضف صنفاً لاستلام البضائع.');
+    }
+    for (final row in items) {
+      if (row is! Map<String, dynamic> || row['item_code'] is! String ||
+          (row['item_code'] as String).trim().isEmpty || row['qty'] is! num ||
+          !(row['qty'] as num).isFinite || (row['qty'] as num) <= 0 ||
+          row['rate'] is! num || !(row['rate'] as num).isFinite || (row['rate'] as num) < 0 ||
+          row['warehouse'] is! String || (row['warehouse'] as String).trim().isEmpty) {
+        throw const FormatException('بيانات استلام البضائع غير مكتملة: الصنف والكمية والسعر والمستودع مطلوبة.');
+      }
+    }
+    final response = await _sendJson('POST', '/api/resource/Purchase%20Receipt', document);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر إنشاء سند استلام المشتريات.'));
+    final created = data['data'];
+    if (created is! Map<String, dynamic> || created['name'] is! String) throw Exception('لم يتم تأكيد إنشاء سند استلام المشتريات.');
+    return created;
+  }
+
+  Future<Map<String, dynamic>> submitPurchaseReceipt(Map<String, dynamic> doc) =>
+      _submitMobileDocument(doc, 'Purchase Receipt');
+
   Future<Map<String, dynamic>> submitStockEntry(Map<String, dynamic> doc) => _submitMobileDocument(doc, 'Stock Entry');
 
   Future<Map<String, dynamic>> createStockReconciliation({
