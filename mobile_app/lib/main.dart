@@ -1191,6 +1191,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
         items: _items,
         warehouses: _warehouses,
         onChanged: () { _loadSales(); _loadInventory(); },
+        onSalesInvoiceDraftCreated: (draft) {
+          _openSalesInvoiceComposer(initialDraft: draft);
+        },
       ),
     ));
   }
