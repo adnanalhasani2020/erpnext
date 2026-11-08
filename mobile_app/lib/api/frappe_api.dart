@@ -660,7 +660,8 @@ class FrappeApi {
 
       final name = pair.substring(0, separator).trim();
       final value = pair.substring(separator + 1).trim();
-      var shouldDelete = value.isEmpty;
+      int? maxAge;
+      DateTime? expires;
       for (final attribute in parts.skip(1)) {
         final attributePair = attribute.trim().split('=');
         final attributeName = attributePair.first.trim().toLowerCase();
@@ -668,20 +669,21 @@ class FrappeApi {
             ? attributePair.sublist(1).join('=').trim()
             : '';
         if (attributeName == 'max-age') {
-          final maxAge = int.tryParse(attributeValue);
-          if (maxAge != null && maxAge <= 0) shouldDelete = true;
+          maxAge = int.tryParse(attributeValue);
         } else if (attributeName == 'expires' && attributeValue.isNotEmpty) {
           try {
-            if (HttpDate.parse(attributeValue).isBefore(DateTime.now())) {
-              shouldDelete = true;
-            }
+            expires = HttpDate.parse(attributeValue);
           } on FormatException {
-            // Ignore malformed Expires attributes; Max-Age and empty values
-            // are still honored as deletion signals.
+            // Ignore malformed Expires attributes.
           }
         }
       }
 
+      // RFC 6265 gives Max-Age precedence over Expires. Empty cookie values
+      // are valid and must not be treated as deletion on their own.
+      final shouldDelete = maxAge != null
+          ? maxAge <= 0
+          : expires != null && expires.isBefore(DateTime.now());
       if (shouldDelete) {
         _cookies.remove(name);
       } else {
