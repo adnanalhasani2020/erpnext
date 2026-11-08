@@ -8,6 +8,42 @@ import 'package:erpnext_mobile/api/frappe_api.dart';
 import 'package:erpnext_mobile/models/erp_models.dart';
 
 void main() {
+  testWidgets('stock workflow loads movement history filtered to the selected item', (tester) async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    List<dynamic>? observedFilters;
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      if (request.uri.pathSegments.contains('Stock Ledger Entry')) {
+        final rawFilters = request.uri.queryParameters['filters'];
+        if (rawFilters != null) observedFilters = jsonDecode(rawFilters) as List<dynamic>;
+      }
+      request.response.write(jsonEncode({'data': []}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      await tester.pumpWidget(MaterialApp(
+        home: StockWorkflowPage(
+          api: api,
+          companies: const [],
+          suppliers: const [],
+          items: const [],
+          warehouses: const [],
+          initialItemCode: 'ITEM-42',
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(observedFilters, isNotNull);
+      expect(
+        observedFilters,
+        contains(['item_code', '=', 'ITEM-42']),
+      );
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
   testWidgets('purchase workflow opens the selected invoice detail on entry', (tester) async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) async {
