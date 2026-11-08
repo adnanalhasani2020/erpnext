@@ -191,6 +191,28 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     if (mounted) setState(() { drafts = loadedDrafts; draftError = draftErrors.isEmpty ? null : draftErrors.join('\n'); });
     if (mounted) setState(() => loading = false);
   }
+  Future<void> reviewDraft(Map<String, dynamic> summary) async {
+    try {
+      final type = summary['doctype'].toString();
+      final name = summary['name'].toString();
+      final doc = await widget.api.fetchStockDocument(type, name);
+      if (!mounted) return;
+      await showModalBottomSheet<void>(context: context, isScrollControlled: true, showDragHandle: true,
+        builder: (sheet) => SafeArea(child: Padding(padding: const EdgeInsets.all(16), child: ListView(shrinkWrap: true, children: [
+          Text(type + ' • ' + name, style: Theme.of(context).textTheme.titleLarge),
+          Text('الشركة: ' + (doc['company'] ?? '—').toString()),
+          Text('التاريخ: ' + (doc['posting_date'] ?? '—').toString()),
+          Text('الغرض: ' + (doc['purpose'] ?? doc['stock_entry_type'] ?? '—').toString()),
+          const Divider(),
+          ...((doc['items'] as List? ?? []).whereType<Map<String, dynamic>>().map((row) => ListTile(
+            title: Text((row['item_name'] ?? row['item_code'] ?? 'صنف').toString()),
+            subtitle: Text('الكمية: ' + (row['qty'] ?? '—').toString() + ' • من: ' + (row['s_warehouse'] ?? '—').toString() + ' • إلى: ' + (row['t_warehouse'] ?? row['warehouse'] ?? '—').toString()),
+          ))),
+          FilledButton.icon(onPressed: () { Navigator.pop(sheet); submitDraft(summary); },
+            icon: const Icon(Icons.check_circle_outline), label: const Text('متابعة لترحيل المسودة')),
+        ]))));
+    } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
+  }
   Future<void> submitDraft(Map<String, dynamic> summary) async {
     final type = summary['doctype'].toString();
     final name = summary['name'].toString();
@@ -357,7 +379,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         leading: const Icon(Icons.pending_actions_outlined),
         title: Text((draft['doctype'] ?? '').toString() + ' • ' + (draft['name'] ?? '').toString()),
         subtitle: Text((draft['company'] ?? '').toString() + ' • ' + (draft['posting_date'] ?? '').toString()),
-        trailing: IconButton(tooltip: 'ترحيل المسودة', onPressed: () => submitDraft(draft), icon: const Icon(Icons.check_circle_outline)),
+        trailing: IconButton(tooltip: 'مراجعة المسودة', onPressed: () => reviewDraft(draft), icon: const Icon(Icons.visibility_outlined)),
+        onTap: () => reviewDraft(draft),
       ))),
       const Divider(height: 28), Text('سجل الحركات', style: Theme.of(context).textTheme.titleMedium),
       _field(itemFilter, 'رمز الصنف للبحث'), _field(warehouseFilter, 'رمز المستودع للبحث'),
