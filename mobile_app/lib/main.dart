@@ -943,7 +943,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   Widget _buildSalesPage() {
     return ListView(padding: const EdgeInsets.all(18), children: [
       Row(children: [
-        Expanded(child: Row(children: [const CircleAvatar(child: Icon(Icons.receipt_long_outlined)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('المعاملات', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)), Text('المبيعات والمشتريات والعملاء والموردون للعرض فقط', style: Theme.of(context).textTheme.bodySmall)]))])),
+        Expanded(child: Row(children: [const CircleAvatar(child: Icon(Icons.receipt_long_outlined)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('المعاملات', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)), Text('فواتير المبيعات وإنشاء الفواتير، مع عرض بيانات المشتريات والعملاء والموردين', style: Theme.of(context).textTheme.bodySmall)]))])),
         IconButton(tooltip: 'تحديث المبيعات', onPressed: _salesLoading ? null : _loadSales, icon: const Icon(Icons.refresh)),
         IconButton(tooltip: 'تحديث المشتريات', onPressed: _purchaseLoading ? null : _loadPurchases, icon: const Icon(Icons.shopping_cart_outlined)),
       ]),
@@ -1026,7 +1026,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       ))),
       if (_suppliersHasMore || _loadingMoreSuppliers) LoadMoreButton(_loadingMoreSuppliers, 'تحميل المزيد من الموردين', _loadMoreSuppliers),
       const SizedBox(height: 10),
-      Text('هذه الشاشة للقراءة فقط؛ لا تنشئ أو تعدّل أو ترحّل الفواتير.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
+      Text('يمكن إنشاء مسودات فواتير المبيعات وترحيلها من زر إنشاء فاتورة؛ بقية معاملات المشتريات ما زالت للعرض فقط.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
     ]);
   }
 
