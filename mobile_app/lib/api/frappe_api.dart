@@ -616,7 +616,7 @@ class FrappeApi {
   }
 
   Future<Map<String, dynamic>> submitSalesInvoice(Map<String, dynamic> document) async {
-    final actionKey = 'submit-invoice:${name}';
+    final actionKey = 'submit-invoice:${document['name']}';
     if (!_inFlightSalesActions.add(actionKey)) {
       throw const FormatException('ترحيل هذه الفاتورة قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
     }
@@ -968,7 +968,7 @@ class FrappeApi {
   }
 
   Future<Map<String, dynamic>> cancelSalesInvoice(Map<String, dynamic> document) async {
-    final actionKey = 'cancel-invoice:${name}';
+    final actionKey = 'cancel-invoice:${document['name']}';
     if (!_inFlightSalesActions.add(actionKey)) {
       throw const FormatException('إلغاء هذه الفاتورة قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
     }
