@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
 import 'sales_invoice_composer.dart';
+import 'purchase_inventory_workflows.dart';
 import 'invoice_action_policy.dart';
 import 'models/erp_models.dart';
 import 'widgets/count_card.dart';
@@ -1180,6 +1181,31 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ));
   }
 
+  Future<void> _openPurchaseWorkflow() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => PurchaseWorkflowPage(
+        api: _api,
+        companies: _companies,
+        suppliers: _suppliers,
+        items: _items,
+        warehouses: _warehouses,
+        onChanged: () { _loadPurchases(); _loadInventory(); },
+      ),
+    ));
+  }
+
+  Future<void> _openStockWorkflow() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => StockWorkflowPage(
+        api: _api,
+        companies: _companies,
+        items: _items,
+        warehouses: _warehouses,
+        onChanged: _loadInventory,
+      ),
+    ));
+  }
+
   Widget _buildSalesPage() {
     return ListView(padding: const EdgeInsets.all(18), children: [
       Row(children: [
@@ -1187,6 +1213,23 @@ class _MobileHomePageState extends State<MobileHomePage> {
         IconButton(tooltip: 'تحديث المبيعات', onPressed: _salesLoading ? null : _loadSales, icon: const Icon(Icons.refresh)),
         IconButton(tooltip: 'تحديث المشتريات', onPressed: _purchaseLoading ? null : _loadPurchases, icon: const Icon(Icons.shopping_cart_outlined)),
       ]),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          OutlinedButton.icon(
+            onPressed: _purchaseLoading || _inventoryLoading ? null : _openPurchaseWorkflow,
+            icon: const Icon(Icons.shopping_bag_outlined),
+            label: const Text('إدارة المشتريات'),
+          ),
+          OutlinedButton.icon(
+            onPressed: _inventoryLoading ? null : _openStockWorkflow,
+            icon: const Icon(Icons.warehouse_outlined),
+            label: const Text('عمليات المخزون'),
+          ),
+        ],
+      ),
+      const SizedBox(height: 8),
       Align(
         alignment: AlignmentDirectional.centerStart,
         child: FilledButton.icon(
