@@ -713,9 +713,15 @@ class FrappeApi {
     final mappedItems = (raw['items'] as List).whereType<Map<String, dynamic>>().toList();
     if (quantitiesBySourceItem != null) {
       final selectedItems = <Map<String, dynamic>>[];
+      final matchedSourceRows = <String>{};
       for (var index = 0; index < mappedItems.length; index++) {
         final sourceItemName = mappedItems[index]['purchase_invoice_item']?.toString();
         final requested = sourceItemName == null ? null : quantitiesBySourceItem[sourceItemName];
+        if (sourceItemName != null && requested != null && requested > 0) {
+          if (!matchedSourceRows.add(sourceItemName)) {
+            throw const FormatException('أعاد ERPNext أكثر من بند لنفس سطر الفاتورة الأصلية؛ أوقفنا إنشاء المرتجع لتجنب تكرار الكمية.');
+          }
+        }
         if (requested == null || requested == 0) continue;
         if (!requested.isFinite || requested < 0) {
           throw const FormatException('أدخل كمية مرتجع صحيحة موجبة أو اترك البند دون إرجاع.');
@@ -727,6 +733,13 @@ class FrappeApi {
         final line = Map<String, dynamic>.from(mappedItems[index]);
         line['qty'] = mappedQty.isNegative ? -requested : requested;
         selectedItems.add(line);
+      }
+      final unmatchedSelections = quantitiesBySourceItem.entries
+          .where((entry) => entry.value != null && entry.value! > 0 &&
+              !matchedSourceRows.contains(entry.key))
+          .map((entry) => entry.key).toList();
+      if (unmatchedSelections.isNotEmpty) {
+        throw FormatException('لم يعد الصنف المرتبط بالسطر ${unmatchedSelections.first} متاحاً للإرجاع وفق بيانات ERPNext الحالية. حدّث الفاتورة وحاول مجدداً.');
       }
       if (selectedItems.isEmpty) {
         throw const FormatException('حدد كمية مرتجع واحدة على الأقل.');
