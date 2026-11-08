@@ -12,6 +12,7 @@ class SalesInvoiceComposer extends StatefulWidget {
     required this.warehouses,
     required this.companies,
     required this.onCompleted,
+    this.initialDraft,
   });
 
   final FrappeApi api;
@@ -19,7 +20,8 @@ class SalesInvoiceComposer extends StatefulWidget {
   final List<ErpItem> items;
   final List<ErpWarehouse> warehouses;
   final List<ErpCompany> companies;
-  final ValueChanged<bool> onCompleted;\n  final Map<String, dynamic>? initialDraft;
+  final ValueChanged<bool> onCompleted;
+  final Map<String, dynamic>? initialDraft;
 
   @override
   State<SalesInvoiceComposer> createState() => _SalesInvoiceComposerState();
@@ -43,7 +45,11 @@ class _SalesInvoiceLineDraft {
 
 class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
   final _formKey = GlobalKey<FormState>();
-  final List<_SalesInvoiceLineDraft> _lines = [];\n  late final List<ErpItem> _availableItems;\n  late final List<ErpWarehouse> _availableWarehouses;\n  Map<String, dynamic>? _existingDraft;\n  String? _postingDate;
+  final List<_SalesInvoiceLineDraft> _lines = [];
+  late final List<ErpItem> _availableItems;
+  late final List<ErpWarehouse> _availableWarehouses;
+  Map<String, dynamic>? _existingDraft;
+  String? _postingDate;
   ErpCustomer? _customer;
   ErpCompany? _company;
   bool _updateStock = true;
