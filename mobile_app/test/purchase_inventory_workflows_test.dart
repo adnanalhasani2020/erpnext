@@ -70,11 +70,18 @@ void main() {
   test('stock submission requires an explicit submitted document response', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) async {
-      await request.drain<void>();
       request.response.headers.contentType = ContentType.json;
-      request.response.write(jsonEncode({'message': {
-        'doctype': 'Stock Entry', 'name': 'STE-1', 'docstatus': 1,
-      }}));
+      if (request.method == 'GET') {
+        request.response.write(jsonEncode({'data': {
+          'doctype': 'Stock Entry', 'name': 'STE-1', 'docstatus': 0,
+        }}));
+      } else {
+        final body = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+        expect(body['doc']['name'], 'STE-1');
+        request.response.write(jsonEncode({'message': {
+          'doctype': 'Stock Entry', 'name': 'STE-1', 'docstatus': 1,
+        }}));
+      }
       await request.response.close();
     });
     final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
@@ -90,14 +97,51 @@ void main() {
     }
   });
 
+  test('stock submission re-fetches the document and refuses a stale submitted draft', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    var submitCalled = false;
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      if (request.method == 'GET') {
+        request.response.write(jsonEncode({'data': {
+          'doctype': 'Stock Entry', 'name': 'STE-STALE', 'docstatus': 1,
+        }}));
+      } else {
+        submitCalled = true;
+        await request.drain<void>();
+        request.response.write(jsonEncode({'message': 'unexpected submit'}));
+      }
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      await expectLater(
+        api.submitStockEntry({
+          'doctype': 'Stock Entry', 'name': 'STE-STALE', 'docstatus': 0,
+        }),
+        throwsFormatException,
+      );
+      expect(submitCalled, isFalse);
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
   test('stock submission rejects a response that does not confirm docstatus 1', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) async {
-      await request.drain<void>();
       request.response.headers.contentType = ContentType.json;
-      request.response.write(jsonEncode({'message': {
-        'doctype': 'Stock Entry', 'name': 'STE-2', 'docstatus': 0,
-      }}));
+      if (request.method == 'GET') {
+        request.response.write(jsonEncode({'data': {
+          'doctype': 'Stock Entry', 'name': 'STE-2', 'docstatus': 0,
+        }}));
+      } else {
+        await request.drain<void>();
+        request.response.write(jsonEncode({'message': {
+          'doctype': 'Stock Entry', 'name': 'STE-2', 'docstatus': 0,
+        }}));
+      }
       await request.response.close();
     });
     final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
