@@ -588,4 +588,48 @@ void main() {
       await server.close(force: true);
     }
   });
+
+  test('purchase draft update preserves server fields while replacing edited lines', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      if (request.method == 'GET' && request.uri.path.endsWith('/PINV-DRAFT')) {
+        request.response.write(jsonEncode({'data': {
+          'doctype': 'Purchase Invoice', 'name': 'PINV-DRAFT', 'docstatus': 0,
+          'company': 'COMP-1', 'supplier': 'SUP-1', 'taxes_and_charges': 'VAT-15',
+          'items': [{'name': 'OLD-ROW', 'item_code': 'OLD', 'qty': 1, 'rate': 1}],
+        }}));
+      } else if (request.method == 'POST' && request.uri.path.endsWith('frappe.client.save')) {
+        final body = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+        final doc = body['doc'] as Map<String, dynamic>;
+        expect(doc['name'], 'PINV-DRAFT');
+        expect(doc['docstatus'], 0);
+        expect(doc['taxes_and_charges'], 'VAT-15');
+        expect(doc['supplier'], 'SUP-2');
+        expect((doc['items'] as List).single['item_code'], 'NEW-ITEM');
+        request.response.write(jsonEncode({'message': {
+          'doctype': 'Purchase Invoice', 'name': 'PINV-DRAFT', 'docstatus': 0,
+        }}));
+      } else {
+        request.response.statusCode = 404;
+        request.response.write(jsonEncode({'message': 'unexpected path: ${request.uri.path}'}));
+      }
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      final result = await api.updateDraftPurchaseInvoice(
+        invoiceName: 'PINV-DRAFT',
+        changes: {
+          'doctype': 'Purchase Invoice', 'company': 'COMP-1', 'supplier': 'SUP-2',
+          'items': [{'item_code': 'NEW-ITEM', 'qty': 3, 'rate': 7}],
+        },
+      );
+      expect(result['name'], 'PINV-DRAFT');
+      expect(result['docstatus'], 0);
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
 }
