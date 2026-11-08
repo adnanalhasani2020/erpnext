@@ -13,6 +13,16 @@ void main() {
     api.dispose();
   });
 
+  test('purchase receipt requires supplier, item, positive quantity and warehouse', () async {
+    final api = FrappeApi();
+    await expectLater(api.createPurchaseReceipt({'doctype': 'Purchase Receipt', 'company': 'COMP-1', 'supplier': 'SUP-1', 'items': []}), throwsFormatException);
+    await expectLater(api.createPurchaseReceipt({
+      'doctype': 'Purchase Receipt', 'company': 'COMP-1', 'supplier': 'SUP-1',
+      'items': [{'item_code': 'ITEM-1', 'qty': 1, 'rate': 10}],
+    }), throwsFormatException);
+    api.dispose();
+  });
+
   test('stock entries reject invalid purpose, missing warehouses and non-positive quantities', () async {
     final api = FrappeApi();
     await expectLater(api.createStockEntry(company: 'COMP-1', purpose: 'Unknown', items: [{'item_code': 'I', 'qty': 1}]), throwsFormatException);
