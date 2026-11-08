@@ -32,6 +32,23 @@ void main() {
     api.dispose();
   });
 
+  test('parses eligible ERPNext cash and bank payment accounts', () {
+    final account = ErpPaymentAccount.fromJson({
+      'name': 'Cash - EX',
+      'account_name': 'الصندوق الرئيسي',
+      'account_type': 'Cash',
+      'account_currency': 'YER',
+    });
+    expect(account.name, 'Cash - EX');
+    expect(account.accountName, 'الصندوق الرئيسي');
+    expect(account.accountType, 'Cash');
+    expect(account.currency, 'YER');
+    expect(
+      () => ErpPaymentAccount.fromJson({'name': 'Group - EX', 'account_type': 'Receivable'}),
+      throwsFormatException,
+    );
+  });
+
   testWidgets('renders the Arabic sales invoice composer and its safe actions', (tester) async {
     final api = FrappeApi();
     await tester.pumpWidget(MaterialApp(
