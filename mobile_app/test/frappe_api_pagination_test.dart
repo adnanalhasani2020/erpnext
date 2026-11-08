@@ -40,6 +40,10 @@ void main() {
               HttpHeaders.setCookieHeader,
               'csrf_token=; Expires=Wed, 21 Oct 2015 07:28:00 GMT; Path=/',
             );
+            request.response.headers.add(
+              HttpHeaders.setCookieHeader,
+              'theme=; Max-Age=3600; Expires=Wed, 21 Oct 2015 07:28:00 GMT; Path=/',
+            );
           }
           request.response.write(jsonEncode({'data': rows}));
         } else {
@@ -65,6 +69,7 @@ void main() {
       expect(companyCookieHeaders[0], contains('sid=session-value'));
       expect(companyCookieHeaders[2], isNot(contains('sid=session-value')));
       expect(companyCookieHeaders[2], isNot(contains('csrf_token=csrf-value')));
+      expect(companyCookieHeaders[2], contains('theme='));
     } finally {
       api.dispose();
       await server.close(force: true);
