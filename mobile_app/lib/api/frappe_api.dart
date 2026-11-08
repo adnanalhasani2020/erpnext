@@ -328,6 +328,28 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().toList(growable: false);
   }
 
+  Future<Map<String, dynamic>> fetchSupplierPaymentDocument(String name) async {
+    if (name.trim().isEmpty) throw const FormatException('رقم سند صرف المورد غير موجود.');
+    final response = await _send(
+      'GET',
+      '/api/resource/Payment%20Entry/' + Uri.encodeComponent(name),
+    );
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل تفاصيل سند صرف المورد.'));
+    }
+    final document = data['data'];
+    if (document is! Map<String, dynamic> ||
+        document['doctype'] != 'Payment Entry' ||
+        document['payment_type'] != 'Pay' ||
+        document['party_type'] != 'Supplier' ||
+        document['docstatus'] != 1 ||
+        document['references'] is! List) {
+      throw const FormatException('سند الصرف غير مرحّل أو لا يخص دفعات الموردين.');
+    }
+    return document;
+  }
+
   Future<List<ErpPurchaseInvoice>> fetchPurchaseInvoices({int start = 0, String? search}) async {
     final uri = Uri.parse('$_baseUrl/api/resource/Purchase%20Invoice').replace(queryParameters: {
       'fields': jsonEncode(['name', 'supplier', 'supplier_name', 'posting_date', 'due_date', 'currency', 'grand_total', 'outstanding_amount', 'status', 'is_return', 'return_against']),
