@@ -1,3 +1,4 @@
+import os
 import sys
 from urllib.parse import urlparse
 
@@ -41,7 +42,14 @@ def contains_documentation_link(body: str) -> bool:
 
 
 def check_pull_request(number: str) -> "tuple[int, str]":
-	response = requests.get(f"https://api.github.com/repos/frappe/erpnext/pulls/{number}")
+	# This policy validates documentation links only for the upstream ERPNext
+	# repository. Fork PR numbers do not exist in frappe/erpnext, so skip the
+	# upstream-only check when this workflow runs in a fork.
+	repository = os.environ.get("GITHUB_REPOSITORY", "frappe/erpnext").lower()
+	if repository != "frappe/erpnext":
+		return 0, "Skipping upstream documentation checks for forked repository."
+
+	response = requests.get(f"https://api.github.com/repos/{repository}/pulls/{number}")
 	if not response.ok:
 		return 1, "Pull Request Not Found! ⚠️"
 
