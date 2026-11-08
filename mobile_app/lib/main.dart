@@ -911,7 +911,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
                     trailing: Text('${line.amount.toStringAsFixed(2)} $currency'),
                   ))),
                   const SizedBox(height: 8),
-                  if (docStatus == 0 && documentType == 'Sales Invoice') OutlinedButton.icon(
+                  if (docStatus == 0 && documentType == 'Sales Invoice' && document['is_return'] != 1 && document['is_return'] != true) OutlinedButton.icon(
                     onPressed: () async {
                       Navigator.of(sheetContext).pop();
                       await _openSalesInvoiceComposer(initialDraft: document);
