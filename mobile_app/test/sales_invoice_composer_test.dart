@@ -54,6 +54,39 @@ void main() {
     api.dispose();
   });
 
+  testWidgets('loads an existing draft into the editable composer', (tester) async {
+    final api = FrappeApi();
+    await tester.pumpWidget(MaterialApp(
+      home: SalesInvoiceComposer(
+        api: api,
+        customers: const [ErpCustomer(id: 'CUST-1', name: 'عميل تجريبي')],
+        items: const [ErpItem(code: 'ITEM-1', name: 'صنف تجريبي')],
+        warehouses: const [],
+        companies: const [ErpCompany(name: 'شركة تجريبية', abbr: 'EX')],
+        initialDraft: {
+          'doctype': 'Sales Invoice',
+          'name': 'SINV-DRAFT-1',
+          'docstatus': 0,
+          'customer': 'CUST-1',
+          'customer_name': 'عميل تجريبي',
+          'company': 'شركة تجريبية',
+          'posting_date': '2026-11-08',
+          'update_stock': 0,
+          'items': [
+            {'item_code': 'ITEM-1', 'item_name': 'صنف تجريبي', 'qty': 2, 'rate': 15},
+          ],
+        },
+        onCompleted: (_) {},
+      ),
+    ));
+
+    expect(find.text('تعديل مسودة فاتورة'), findsOneWidget);
+    expect(find.text('حفظ تعديلات المسودة'), findsOneWidget);
+    expect(find.text('رقم المسودة: SINV-DRAFT-1'), findsOneWidget);
+    expect(find.text('الإجمالي: 30.00'), findsOneWidget);
+    api.dispose();
+  });
+
   testWidgets('recalculates the line total when quantity and rate change', (tester) async {
     final api = FrappeApi();
     await tester.pumpWidget(MaterialApp(
