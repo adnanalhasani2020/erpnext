@@ -17,6 +17,8 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 ## Authentication and access
 
 - [ ] Sign in with the test user's credentials over HTTPS.
+- [ ] Verify the mobile client loads all companies when the account can access more than 100; company lists must not silently stop at the first page.
+- [ ] Verify `Set-Cookie` responses with an empty value, `Max-Age=0`, or an expired `Expires` attribute remove the matching session cookie before the next request.
 - [ ] Verify API endpoints do not follow HTTP redirects and never forward session cookies to another host; a redirect should surface as a request failure.
 - [ ] Confirm the dashboard shows only records allowed by the user's permissions.
 - [ ] Remove read permission for one resource and confirm its failure does not hide unrelated resources.
@@ -48,6 +50,12 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 - [ ] Review and submit the return in ERPNext; verify stock and accounting ledger effects.
 - [ ] Cancel a submitted invoice only where ERPNext permits it; verify cancellation and reversal entries.
 - [ ] Confirm a return is clearly labeled in the mobile list and points to its original invoice.
+
+## Automated mobile-client regression checks
+
+- [ ] Run `flutter analyze --no-pub` from `mobile_app/`.
+- [ ] Run `flutter test --no-pub` from `mobile_app/`; include the local HTTP-server regression that checks company pagination and expired-cookie removal.
+- [ ] Confirm the Android debug APK workflow completes for the exact commit being reviewed; a previous successful build does not validate later commits.
 
 ## Evidence to capture
 
