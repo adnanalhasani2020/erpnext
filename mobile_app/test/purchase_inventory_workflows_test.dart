@@ -1,11 +1,26 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:erpnext_mobile/purchase_inventory_workflows.dart';
 import 'package:erpnext_mobile/api/frappe_api.dart';
 import 'package:erpnext_mobile/models/erp_models.dart';
 
 void main() {
+  test('purchase workflow accepts a selected invoice deep link', () {
+    final page = PurchaseWorkflowPage(
+      api: FrappeApi(),
+      companies: const [],
+      suppliers: const [],
+      items: const [],
+      warehouses: const [],
+      initialInvoiceName: 'PINV-OPEN-1',
+    );
+    expect(page.initialInvoiceName, 'PINV-OPEN-1');
+    page.api.dispose();
+  });
+
   test('purchase invoice model preserves return linkage', () {
     final invoice = ErpPurchaseInvoice.fromJson({
       'name': 'PINV-RET-1', 'supplier': 'SUP-1', 'supplier_name': 'Supplier',
