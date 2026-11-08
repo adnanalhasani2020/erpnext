@@ -17,6 +17,9 @@ class PurchaseWorkflowPage extends StatefulWidget {
 class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
   List<ErpPurchaseInvoice> rows = [];
   bool loading = false;
+  bool loadingMore = false;
+  bool hasMore = false;
+  int offset = 0;
   String? error;
   final search = TextEditingController();
   @override void initState() { super.initState(); load(); }
@@ -24,9 +27,33 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
   Future<void> load() async {
     if (loading) return;
     setState(() { loading = true; error = null; });
-    try { final result = await widget.api.fetchPurchaseInvoices(search: search.text.trim().isEmpty ? null : search.text.trim()); if (mounted) setState(() => rows = result); }
-    catch (e) { if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', '')); }
-    finally { if (mounted) setState(() => loading = false); }
+    try {
+      final result = await widget.api.fetchPurchaseInvoices(start: 0, search: search.text.trim().isEmpty ? null : search.text.trim());
+      if (mounted) setState(() { rows = result; offset = result.length; hasMore = result.length == FrappeApi.pageSize; });
+    } catch (e) {
+      if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+  Future<void> loadMoreInvoices() async {
+    if (loading || loadingMore || !hasMore) return;
+    setState(() => loadingMore = true);
+    try {
+      final result = await widget.api.fetchPurchaseInvoices(
+        start: offset,
+        search: search.text.trim().isEmpty ? null : search.text.trim(),
+      );
+      if (mounted) setState(() {
+        rows = [...rows, ...result];
+        offset += result.length;
+        hasMore = result.length == FrappeApi.pageSize;
+      });
+    } catch (e) {
+      if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => loadingMore = false);
+    }
   }
   void notice(String value) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(value))); }
   Future<bool> confirm(String title, String message) async => await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: Text(title), content: Text(message), actions: [
@@ -319,6 +346,12 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       Text('فواتير المشتريات (' + rows.length.toString() + ')', style: Theme.of(context).textTheme.titleMedium),
       if (rows.isEmpty && !loading) const ListTile(title: Text('لا توجد فواتير ظاهرة')),
       ...rows.map((x) => Card(child: ListTile(leading: Icon(x.isReturn ? Icons.assignment_return_outlined : Icons.shopping_cart_outlined), title: Text((x.isReturn ? 'مرتجع • ' : '') + x.id), subtitle: Text(x.supplierName + (x.returnAgainst == null ? '' : ' • أصل: ' + x.returnAgainst!) + ' • ' + (x.status ?? '—') + ' • المتبقي ' + x.outstandingAmount.toStringAsFixed(2)), trailing: Text(x.grandTotal.toStringAsFixed(2)), onTap: () => details(x.id)))),
+      if (hasMore || loadingMore)
+        Center(child: TextButton.icon(
+          onPressed: loadingMore ? null : loadMoreInvoices,
+          icon: loadingMore ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.expand_more),
+          label: const Text('تحميل فواتير إضافية'),
+        )),
       const SizedBox(height: 90),
     ]),
   );
