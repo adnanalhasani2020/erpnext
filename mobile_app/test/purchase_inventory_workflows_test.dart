@@ -124,7 +124,7 @@ void main() {
       }}));
       await request.response.close();
     });
-    final api = FrappeApi()..configure('http://127.0.0.1:\${server.port}');
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
     try {
       final result = await api.createPurchaseInvoice({
         'doctype': 'Purchase Invoice', 'company': 'COMP-1', 'supplier': 'SUP-1',
@@ -153,7 +153,7 @@ void main() {
       }}));
       await request.response.close();
     });
-    final api = FrappeApi()..configure('http://127.0.0.1:\${server.port}');
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
     try {
       final result = await api.createPurchaseReceipt({
         'doctype': 'Purchase Receipt', 'company': 'COMP-1', 'supplier': 'SUP-1',
