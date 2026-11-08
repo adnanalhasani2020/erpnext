@@ -337,4 +337,13 @@ void main() {
       await server.close(force: true);
     }
   });
+
+  test('stock submission refuses canceled documents before network access', () async {
+    final api = FrappeApi();
+    await expectLater(
+      api.submitStockEntry({'doctype': 'Stock Entry', 'name': 'STE-CANCELLED', 'docstatus': 2}),
+      throwsFormatException,
+    );
+    api.dispose();
+  });
 }
