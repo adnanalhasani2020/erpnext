@@ -1023,7 +1023,12 @@ class FrappeApi {
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر حفظ فاتورة المشتريات.'));
     final doc = data['data'];
-    if (doc is! Map<String, dynamic> || doc['name'] is! String) throw Exception('استجابة حفظ فاتورة المشتريات غير مؤكدة.');
+    if (doc is! Map<String, dynamic> ||
+        doc['doctype'] != 'Purchase Invoice' ||
+        doc['name'] is! String ||
+        doc['docstatus'] != 0) {
+      throw Exception('لم يؤكد ERPNext إنشاء مسودة فاتورة المشتريات.');
+    }
     return doc;
   }
 
