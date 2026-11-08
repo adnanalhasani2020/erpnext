@@ -358,47 +358,162 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     } catch (e) { if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', '')); }
     finally { if (mounted) setState(() => loadingMore = false); }
   }
-  Future<void> movement(String purpose) async {
-    if (widget.companies.isEmpty || widget.items.isEmpty || widget.warehouses.isEmpty) { notice('حمّل الشركات والأصناف والمستودعات أولاً.'); return; }
-    final company = TextEditingController(text: widget.companies.first.name);
-    final item = TextEditingController(text: widget.items.first.code);
-    final from = TextEditingController(), to = TextEditingController(), qty = TextEditingController(text: '1'), rate = TextEditingController(text: '0');
+  Future<List<Map<String, dynamic>>?> _stockItemLinesDialog({
+    required String title, bool includeRate = false, bool allowZeroQuantity = false,
+  }) async {
+    if (widget.items.isEmpty) return null;
+    final lines = <Map<String, dynamic>>[];
+    void addLine() => lines.add({
+      'item': widget.items.first.code,
+      'qty': TextEditingController(text: allowZeroQuantity ? '0' : '1'),
+      'rate': TextEditingController(text: '0'),
+    });
+    addLine();
     try {
-      final values = await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: Text(purpose == 'Material Receipt' ? 'استلام مخزون' : purpose == 'Material Issue' ? 'صرف / تسليم مخزون' : 'تحويل بين المستودعات'),
-        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
-          _field(company, 'الشركة'), _field(item, 'رمز الصنف'), if (purpose != 'Material Receipt') _field(from, 'مستودع المصدر'),
-          if (purpose != 'Material Issue') _field(to, 'مستودع الوجهة / الاستلام'),
-          _field(qty, 'الكمية', number: true), if (purpose == 'Material Receipt') _field(rate, 'سعر التقييم', number: true),
-        ])),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
-          FilledButton(onPressed: () {
-            final q = double.tryParse(qty.text.trim()), r = double.tryParse(rate.text.trim());
-            if (company.text.trim().isEmpty || item.text.trim().isEmpty || q == null || q <= 0 ||
-              (purpose != 'Material Receipt' && from.text.trim().isEmpty) ||
-              (purpose != 'Material Issue' && to.text.trim().isEmpty) ||
-              (purpose == 'Material Transfer' && from.text.trim() == to.text.trim()) ||
-              (purpose == 'Material Receipt' && (r == null || r < 0)) ) return;
-            Navigator.pop(c, true);
-          }, child: const Text('إنشاء المسودة')),
-        ]));
+      return await showDialog<List<Map<String, dynamic>>>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(builder: (context, refresh) => AlertDialog(
+          title: Text(title),
+          content: SizedBox(width: 480, child: SingleChildScrollView(child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(children: [
+                const Expanded(child: Text('الأصناف والكميات', style: TextStyle(fontWeight: FontWeight.w600))),
+                TextButton.icon(onPressed: () => refresh(addLine),
+                  icon: const Icon(Icons.add), label: const Text('إضافة صنف')),
+              ]),
+              ...List.generate(lines.length, (index) {
+                final row = lines[index];
+                final item = widget.items.firstWhere((x) => x.code == row['item'], orElse: () => widget.items.first);
+                return Card(child: Padding(padding: const EdgeInsets.all(8), child: Column(children: [
+                  Row(children: [
+                    Expanded(child: Text('الصنف \${index + 1}')),
+                    if (lines.length > 1) IconButton(onPressed: () => refresh(() {
+                      final removed = lines.removeAt(index);
+                      (removed['qty'] as TextEditingController).dispose();
+                      (removed['rate'] as TextEditingController).dispose();
+                    }), icon: const Icon(Icons.delete_outline)),
+                  ]),
+                  DropdownButtonFormField<String>(
+                    value: item.code, isExpanded: true,
+                    decoration: InputDecoration(labelText: 'الصنف', helperText: item.name),
+                    items: widget.items.map((x) => DropdownMenuItem(value: x.code,
+                      child: Text('\${x.name} (\${x.code})', overflow: TextOverflow.ellipsis))).toList(),
+                    onChanged: (v) => refresh(() { if (v != null) row['item'] = v; }),
+                  ),
+                  _field(row['qty'] as TextEditingController, allowZeroQuantity ? 'الكمية الفعلية' : 'الكمية', number: true),
+                  if (includeRate) _field(row['rate'] as TextEditingController, 'سعر التقييم', number: true),
+                ])));
+              }),
+            ],
+          ))),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+            FilledButton(onPressed: () {
+              final result = <Map<String, dynamic>>[];
+              for (final row in lines) {
+                final qty = double.tryParse((row['qty'] as TextEditingController).text.trim());
+                final rate = double.tryParse((row['rate'] as TextEditingController).text.trim());
+                if (qty == null || !qty.isFinite ||
+                    (allowZeroQuantity ? qty < 0 : qty <= 0) ||
+                    (includeRate && (rate == null || !rate.isFinite || rate < 0))) return;
+                result.add({'item_code': row['item'], 'qty': qty, if (includeRate) 'valuation_rate': rate});
+              }
+              if (result.isNotEmpty) Navigator.pop(dialogContext, result);
+            }, child: const Text('متابعة')),
+          ],
+        )),
+      );
+    } finally {
+      for (final row in lines) {
+        (row['qty'] as TextEditingController).dispose();
+        (row['rate'] as TextEditingController).dispose();
+      }
+    }
+  }
+
+  Future<void> movement(String purpose) async {
+    if (widget.companies.isEmpty || widget.items.isEmpty || widget.warehouses.isEmpty) {
+      notice('حمّل الشركات والأصناف والمستودعات أولاً.');
+      return;
+    }
+    final company = TextEditingController(text: widget.companies.first.name);
+    final from = TextEditingController();
+    final to = TextEditingController();
+    try {
+      final warehouses = widget.warehouses;
+      final values = await showDialog<bool>(context: context, builder: (c) => StatefulBuilder(
+        builder: (context, refresh) => AlertDialog(
+          title: Text(purpose == 'Material Receipt' ? 'استلام مخزون' :
+              purpose == 'Material Issue' ? 'صرف / تسليم مخزون' : 'تحويل بين المستودعات'),
+          content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            DropdownButtonFormField<String>(
+              value: widget.companies.first.name, isExpanded: true,
+              decoration: const InputDecoration(labelText: 'الشركة'),
+              items: widget.companies.map((x) => DropdownMenuItem(value: x.name, child: Text(x.name))).toList(),
+              onChanged: (v) { if (v != null) company.text = v; },
+            ),
+            if (purpose != 'Material Receipt')
+              DropdownButtonFormField<String>(
+                value: null, isExpanded: true,
+                decoration: const InputDecoration(labelText: 'مستودع المصدر'),
+                items: warehouses.where((w) => w.company == null || w.company == company.text)
+                    .map((w) => DropdownMenuItem(value: w.id, child: Text('\${w.name} (\${w.id})'))).toList(),
+                onChanged: (v) => from.text = v ?? '',
+              ),
+            if (purpose != 'Material Issue')
+              DropdownButtonFormField<String>(
+                value: null, isExpanded: true,
+                decoration: const InputDecoration(labelText: 'مستودع الوجهة / الاستلام'),
+                items: warehouses.where((w) => w.company == null || w.company == company.text)
+                    .map((w) => DropdownMenuItem(value: w.id, child: Text('\${w.name} (\${w.id})'))).toList(),
+                onChanged: (v) => to.text = v ?? '',
+              ),
+            const SizedBox(height: 8),
+            const Text('ستحدد الأصناف والكميات في الخطوة التالية.'),
+          ])),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
+            FilledButton(onPressed: () {
+              if ((purpose != 'Material Receipt' && from.text.trim().isEmpty) ||
+                  (purpose != 'Material Issue' && to.text.trim().isEmpty) ||
+                  (purpose == 'Material Transfer' && from.text.trim() == to.text.trim())) return;
+              Navigator.pop(c, true);
+            }, child: const Text('التالي')),
+          ],
+        ),
+      ));
       if (values != true || !mounted) return;
-      final q = double.parse(qty.text.trim()), r = double.parse(rate.text.trim());
-      final doc = await widget.api.createStockEntry(company: company.text.trim(), purpose: purpose,
+      final items = await _stockItemLinesDialog(
+        title: 'أصناف حركة المخزون', includeRate: purpose == 'Material Receipt',
+      );
+      if (items == null || !mounted) return;
+      final doc = await widget.api.createStockEntry(
+        company: company.text.trim(), purpose: purpose,
         fromWarehouse: from.text.trim().isEmpty ? null : from.text.trim(),
         toWarehouse: to.text.trim().isEmpty ? null : to.text.trim(),
-        items: [{'item_code': item.text.trim(), 'qty': q, if (purpose == 'Material Receipt') 'valuation_rate': r}]);
-      if (await confirm('ترحيل حركة المخزون', 'تم إنشاء المسودة ' + (doc['name'] ?? '').toString() + '. الترحيل سيغير أرصدة المخزون.')) {
+        items: items,
+      );
+      if (await confirm('ترحيل حركة المخزون',
+          'تم إنشاء المسودة \${doc['name'] ?? ''} بعدد \${items.length} صنف. الترحيل سيغير أرصدة المخزون.')) {
         try {
           final result = await widget.api.submitStockEntry(doc);
-          notice('تم ترحيل الحركة ' + (result['name'] ?? doc['name']).toString());
-          await load(); widget.onChanged?.call();
+          notice('تم ترحيل الحركة \${result['name'] ?? doc['name']}');
+          await load();
+          widget.onChanged?.call();
         } catch (e) {
-          notice('حُفظت مسودة الحركة ' + (doc['name'] ?? '').toString() + ' ولم يؤكد ترحيلها. راجعها قبل إنشاء حركة بديلة. ' + e.toString().replaceFirst('Exception: ', ''));
+          notice('حُفظت مسودة الحركة \${doc['name'] ?? ''} ولم يؤكد ترحيلها. راجعها قبل إنشاء حركة بديلة. \${e.toString().replaceFirst('Exception: ', '')}');
         }
-      } else { notice('حُفظت المسودة ' + (doc['name'] ?? '').toString()); }
-    } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
-    finally { company.dispose(); item.dispose(); from.dispose(); to.dispose(); qty.dispose(); rate.dispose(); }
+      } else {
+        notice('حُفظت المسودة \${doc['name'] ?? ''}');
+      }
+    } catch (e) {
+      notice(e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      company.dispose();
+      from.dispose();
+      to.dispose();
+    }
   }
 
   Future<void> purchaseReceipt() async {
