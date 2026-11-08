@@ -23,7 +23,7 @@ void main() {
       api.receiveSalesInvoicePayment(invoiceName: 'SINV-1', amount: 0),
       throwsFormatException,
     );
-    await expectLater(api.createSalesReturn('  '), throwsFormatException);
+    await expectLater(api.createSalesReturn('  '), throwsFormatException);\n    await expectLater(\n      api.updateDraftSalesInvoice(invoiceName: '  ', changes: {'customer': 'CUST-1', 'company': 'COMP-1', 'items': [{'item_code': 'ITEM-1', 'qty': 1, 'rate': 1}]}),\n      throwsFormatException,\n    );
     api.dispose();
   });
 
