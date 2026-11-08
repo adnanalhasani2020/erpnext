@@ -173,20 +173,22 @@ void main() {
       ),
     ));
 
-    final companyField = tester.widget<DropdownButtonFormField<ErpCompany>>(
+    var companyField = tester.widget<DropdownButtonFormField<ErpCompany>>(
       find.byType(DropdownButtonFormField<ErpCompany>),
     );
-    companyField.onChanged!(const ErpCompany(name: 'Company A'));
+    final companyA = companyField.items!
+        .singleWhere((item) => item.value?.name == 'Company A')
+        .value!;
+    companyField.onChanged!(companyA);
     await tester.pump();
 
-    final itemField = tester.widget<DropdownButtonFormField<ErpItem>>(
+    var itemField = tester.widget<DropdownButtonFormField<ErpItem>>(
       find.byType(DropdownButtonFormField<ErpItem>),
     );
-    itemField.onChanged!(const ErpItem(
-      code: 'ITEM-1',
-      name: 'صنف مخزني',
-      isStockItem: true,
-    ));
+    final stockItem = itemField.items!
+        .singleWhere((item) => item.value?.code == 'ITEM-1')
+        .value!;
+    itemField.onChanged!(stockItem);
     await tester.pump();
 
     final warehouseField = tester.widget<DropdownButtonFormField<ErpWarehouse>>(
