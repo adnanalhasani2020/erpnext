@@ -885,6 +885,16 @@ class _MobileHomePageState extends State<MobileHomePage> {
           Text('متاح: ${balance.availableQty.toStringAsFixed(2)}', style: Theme.of(context).textTheme.bodySmall),
           Text(balance.stockUom ?? '—', style: Theme.of(context).textTheme.bodySmall),
         ]),
+        onTap: () {
+          final matches = _items.where((item) => item.code == balance.itemCode);
+          if (matches.isNotEmpty) {
+            _showItemDetails(matches.first);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('تفاصيل الصنف غير موجودة ضمن البيانات المحمّلة. حدّث قائمة الأصناف أولاً.')),
+            );
+          }
+        },
       ))),
       if (_stockHasMore || _loadingMoreStock) Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: FilledButton.tonal(onPressed: _loadingMoreStock ? null : _loadMoreStock, child: Text(_loadingMoreStock ? 'جارٍ تحميل المزيد...' : 'تحميل المزيد من الأرصدة'))),
     ]);
