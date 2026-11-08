@@ -1258,7 +1258,19 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
 
   Future<void> _purchaseReceiptFromOrder() async {
     try {
-      final orders = await widget.api.fetchPurchaseOrders();
+      final orders = <Map<String, dynamic>>[];
+      var orderOffset = 0;
+      while (true) {
+        final page = await widget.api.fetchPurchaseOrders(start: orderOffset);
+        orders.addAll(page);
+        if (page.length < FrappeApi.pageSize) break;
+        orderOffset += page.length;
+        if (orders.length >= 5000) {
+          throw const FormatException(
+            'تجاوز عدد أوامر الشراء حد التحميل الآمن (5000). استخدم البحث في ERPNext لتقليل النتائج.',
+          );
+        }
+      }
       if (!mounted) return;
       if (orders.isEmpty) {
         notice('لا توجد أوامر شراء مرحلة متاحة، أو لا تتوفر صلاحية قراءتها.');
