@@ -4,8 +4,9 @@ import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
 
 class PurchaseWorkflowPage extends StatefulWidget {
-  const PurchaseWorkflowPage({super.key, required this.api, required this.companies, required this.suppliers, required this.items, required this.warehouses, this.onChanged});
+  const PurchaseWorkflowPage({super.key, required this.api, required this.companies, required this.suppliers, required this.items, required this.warehouses, this.initialInvoiceName, this.onChanged});
   final FrappeApi api;
+  final String? initialInvoiceName;
   final List<ErpCompany> companies;
   final List<ErpSupplier> suppliers;
   final List<ErpItem> items;
@@ -49,7 +50,16 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
   int paymentOffset = 0;
   String? error;
   final search = TextEditingController();
-  @override void initState() { super.initState(); load(); }
+  @override void initState() {
+    super.initState();
+    load();
+    final initialName = widget.initialInvoiceName?.trim();
+    if (initialName != null && initialName.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) details(initialName);
+      });
+    }
+  }
   @override void dispose() { search.dispose(); super.dispose(); }
   Future<void> load() async {
     if (loading) {
