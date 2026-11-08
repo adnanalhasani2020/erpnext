@@ -161,6 +161,8 @@ class StockWorkflowPage extends StatefulWidget {
 
 class _StockWorkflowPageState extends State<StockWorkflowPage> {
   List<Map<String, dynamic>> movements = [];
+  List<Map<String, dynamic>> drafts = [];
+  String? draftError;
   bool loading = false;
   bool loadingMore = false;
   bool hasMore = false;
@@ -180,7 +182,34 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       final data = await widget.api.fetchStockMovements(itemCode: itemFilter.text.trim().isEmpty ? null : itemFilter.text.trim(), warehouse: warehouseFilter.text.trim().isEmpty ? null : warehouseFilter.text.trim());
       if (mounted) setState(() { movements = data; offset = data.length; hasMore = data.length == FrappeApi.pageSize; });
     } catch (e) { if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', '')); }
-    finally { if (mounted) setState(() => loading = false); }
+    final loadedDrafts = <Map<String, dynamic>>[];
+    final draftErrors = <String>[];
+    for (final type in const ['Purchase Receipt', 'Stock Entry', 'Stock Reconciliation']) {
+      try { loadedDrafts.addAll(await widget.api.fetchDraftStockDocuments(type)); }
+      catch (e) { draftErrors.add(type + ': ' + e.toString().replaceFirst('Exception: ', '')); }
+    }
+    if (mounted) setState(() { drafts = loadedDrafts; draftError = draftErrors.isEmpty ? null : draftErrors.join('\\n'); });
+    if (mounted) setState(() => loading = false);
+  }
+  Future<void> submitDraft(Map<String, dynamic> summary) async {
+    final type = summary['doctype'].toString();
+    final name = summary['name'].toString();
+    if (!await confirm('ترحيل مسودة ' + name, 'سيتم ترحيل المستند وتحديث المخزون أو القيود حسب نوعه. راجع تفاصيله في ERPNext إذا لزم الأمر.')) return;
+    try {
+      final doc = await widget.api.fetchStockDocument(type, name);
+      if (doc['docstatus'] != 0) throw const FormatException('المستند لم يعد مسودة.');
+      if (type == 'Purchase Receipt') {
+        await widget.api.submitPurchaseReceipt(doc);
+      } else if (type == 'Stock Entry') {
+        await widget.api.submitStockEntry(doc);
+      } else if (type == 'Stock Reconciliation') {
+        await widget.api.submitStockReconciliation(doc);
+      } else {
+        throw ArgumentError('نوع المستند غير مدعوم.');
+      }
+      notice('تم ترحيل ' + name + ' بنجاح.');
+      await load(); widget.onChanged?.call();
+    } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
   }
   Future<void> loadMoreMovements() async {
     if (loadingMore || !hasMore) return;
@@ -320,6 +349,16 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         FilledButton.tonal(onPressed: () => movement('Material Transfer'), child: const Text('تحويل')),
         FilledButton.icon(onPressed: reconcile, icon: const Icon(Icons.fact_check_outlined), label: const Text('جرد وتسوية')),
       ]),
+      const Divider(height: 28),
+      Text('المسودات غير المرحلة (' + drafts.length.toString() + ')', style: Theme.of(context).textTheme.titleMedium),
+      if (draftError != null) Text(draftError!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
+      if (drafts.isEmpty && !loading) const ListTile(title: Text('لا توجد مسودات مخزون ظاهرة.')),
+      ...drafts.map((draft) => Card(child: ListTile(
+        leading: const Icon(Icons.pending_actions_outlined),
+        title: Text((draft['doctype'] ?? '').toString() + ' • ' + (draft['name'] ?? '').toString()),
+        subtitle: Text((draft['company'] ?? '').toString() + ' • ' + (draft['posting_date'] ?? '').toString()),
+        trailing: IconButton(tooltip: 'ترحيل المسودة', onPressed: () => submitDraft(draft), icon: const Icon(Icons.check_circle_outline)),
+      ))),
       const Divider(height: 28), Text('سجل الحركات', style: Theme.of(context).textTheme.titleMedium),
       _field(itemFilter, 'رمز الصنف للبحث'), _field(warehouseFilter, 'رمز المستودع للبحث'),
       Align(alignment: AlignmentDirectional.centerEnd, child: TextButton.icon(onPressed: load, icon: const Icon(Icons.search), label: const Text('بحث'))),
