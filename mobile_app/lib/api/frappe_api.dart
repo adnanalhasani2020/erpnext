@@ -120,7 +120,7 @@ class FrappeApi {
       if (rows.length < companyPageSize) {
         return companies;
       }
-      if (companies.length >= maxCompanyCount) {
+      if (companies.length > maxCompanyCount) {
         throw const FormatException(
           'تجاوز عدد الشركات الحد الآمن للتحميل دفعة واحدة؛ استخدم البحث أو راجع إعدادات ERPNext.',
         );
