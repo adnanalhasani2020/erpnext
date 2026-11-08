@@ -27,9 +27,13 @@ Arabic-first Android companion app for an ERPNext instance.
 
 ## Current limits
 
-- Item, warehouse, Bin, Customer, Sales Invoice, and Purchase Invoice lists are paginated in pages of 100; purchase invoice and stock movement screens provide load-more controls.
-- Purchase invoices support multiple item rows, draft editing, explicit submission, full or partial debit-note drafts through ERPNext's debit-note mapper, with per-original-line quantity selection and a server-mapped remaining-quantity ceiling, and supplier Payment Entries with a selected company Cash/Bank account. Partial purchase returns are not yet supported in the mobile form. Supplier Purchase Receipts support direct entry or receipt against a submitted Purchase Order with source-row linkage and remaining-quantity limits. Stock receipts, issues, transfers, and reconciliations support multiple item rows and explicit review/submission.
-- Purchase invoices support multiple item rows in one document, editing the same saved draft, and master-data selectors for company, supplier, item, and optional warehouse. Stock Entry receipt/issue/transfer, supplier Purchase Receipt, and Stock Reconciliation forms support multiple item rows; company, supplier, item, and warehouse selection uses loaded master data. Supplier payment reconciliation, standalone accounting ledgers, and financial reports are not implemented.
+- Item, warehouse, Bin, Customer, Sales Invoice, and Purchase Invoice lists are paginated in pages of 100. Purchase invoice and stock movement screens provide load-more controls; selectors use master-data rows currently loaded by the dashboard.
+- Purchase invoices support multiple item rows, draft editing, explicit submission, full or partial debit-note drafts through ERPNext's official mapper, and supplier Payment Entries with a selected company Cash/Bank account.
+- Purchase returns select quantities per original invoice row. The client caps each quantity at the quantity returned by ERPNext's mapper; ERPNext remains authoritative for cumulative return eligibility when the debit note is submitted.
+- Supplier Purchase Receipts support direct entry or receipt against a submitted Purchase Order. PO-linked receipts preserve source-row references and restrict each line to its unreceived quantity.
+- Material Receipt, Material Issue, Material Transfer, and Stock Reconciliation support multiple item rows, draft review, and explicit submission. Stock movement history is read from Stock Ledger Entry with item/warehouse filters and pagination.
+- Serial/batch-managed items are detected and blocked in the purchase and stock forms. Full serial-number and batch bundle entry is not implemented yet, so these items must be processed through the ERPNext web interface.
+- Supplier payment history/reconciliation, standalone accounting ledgers, and financial reports are not implemented.
 - A successful APK build does not prove connection to a live ERPNext server. A real site and appropriately permissioned test account are required for integration testing.
 
 ## ERPNext integration validation
