@@ -112,4 +112,60 @@ void main() {
       await server.close(force: true);
     }
   });
+
+  test('purchase invoice API accepts multiple validated item rows', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      final payload = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+      expect((payload['items'] as List).length, 2);
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'data': {
+        'doctype': 'Purchase Invoice', 'name': 'PINV-MULTI-1', 'docstatus': 0,
+      }}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:\${server.port}');
+    try {
+      final result = await api.createPurchaseInvoice({
+        'doctype': 'Purchase Invoice', 'company': 'COMP-1', 'supplier': 'SUP-1',
+        'items': [
+          {'item_code': 'ITEM-1', 'qty': 2, 'rate': 5},
+          {'item_code': 'ITEM-2', 'qty': 3, 'rate': 7},
+        ],
+      });
+      expect(result['name'], 'PINV-MULTI-1');
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
+  test('purchase receipt API accepts multiple item rows with warehouse per row', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      final payload = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+      final rows = payload['items'] as List;
+      expect(rows.length, 2);
+      expect(rows.every((row) => row['warehouse'] == 'WH-1'), isTrue);
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'data': {
+        'doctype': 'Purchase Receipt', 'name': 'PREC-MULTI-1', 'docstatus': 0,
+      }}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:\${server.port}');
+    try {
+      final result = await api.createPurchaseReceipt({
+        'doctype': 'Purchase Receipt', 'company': 'COMP-1', 'supplier': 'SUP-1',
+        'items': [
+          {'item_code': 'ITEM-1', 'qty': 2, 'rate': 5, 'warehouse': 'WH-1'},
+          {'item_code': 'ITEM-2', 'qty': 3, 'rate': 7, 'warehouse': 'WH-1'},
+        ],
+      });
+      expect(result['name'], 'PREC-MULTI-1');
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
 }
