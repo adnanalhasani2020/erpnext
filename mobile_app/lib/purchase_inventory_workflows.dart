@@ -404,7 +404,12 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                   final qty = double.tryParse((row['qty'] as TextEditingController).text.trim());
                   final rate = double.tryParse((row['rate'] as TextEditingController).text.trim());
                   final code = row['item'] as String;
-                  final selectedItem = widget.items.firstWhere((x) => x.code == code, orElse: () => widget.items.first);
+                  final matchingItems = widget.items.where((x) => x.code == code).toList();
+                  if (matchingItems.isEmpty) {
+                    notice('الصنف $code غير موجود في قائمة الأصناف المحملة. حدّث قائمة الأصناف ثم أعد المحاولة.');
+                    return;
+                  }
+                  final selectedItem = matchingItems.first;
                   if (selectedItem.hasSerialNo || selectedItem.hasBatchNo) {
                     notice('الصنف ${selectedItem.name} يتطلب أرقاماً تسلسلية أو دفعات. هذه الشاشة لا تدعم إدخالها بعد؛ أوقف الحفظ واستخدم شاشة ERPNext المكتبية لهذا الصنف.');
                     return;
@@ -1075,7 +1080,12 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                 }
                 final qty = double.tryParse((row['qty'] as TextEditingController).text.trim());
                 final rate = double.tryParse((row['rate'] as TextEditingController).text.trim());
-                final selectedItem = widget.items.firstWhere((x) => x.code == row['item'], orElse: () => widget.items.first);
+                final matchingItems = widget.items.where((x) => x.code == row['item']).toList();
+                if (matchingItems.isEmpty) {
+                  notice('الصنف ${row['item']} غير موجود في قائمة الأصناف المحملة. حدّث قائمة الأصناف ثم أعد المحاولة.');
+                  return;
+                }
+                final selectedItem = matchingItems.first;
                 if (selectedItem.hasSerialNo || selectedItem.hasBatchNo) {
                   notice('الصنف ${selectedItem.name} يتطلب أرقاماً تسلسلية أو دفعات. هذه الشاشة لا تدعم إدخالها بعد.');
                   return;
