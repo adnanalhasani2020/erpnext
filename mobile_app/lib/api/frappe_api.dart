@@ -257,6 +257,46 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().map(ErpSupplier.fromJson).toList(growable: false);
   }
 
+  Future<List<Map<String, dynamic>>> fetchPurchaseOrders({int start = 0, String? search}) async {
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Purchase Order',
+      fields: const ['name', 'supplier', 'supplier_name', 'company', 'transaction_date', 'status', 'per_received'],
+      filters: const [['docstatus', '=', 1]],
+      orFilters: search == null || search.trim().isEmpty ? null : [
+        ['name', 'like', '%\${search.trim()}%'],
+        ['supplier', 'like', '%\${search.trim()}%'],
+      ],
+      orderBy: 'transaction_date desc, name desc',
+      start: start,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل أوامر الشراء المرحلة.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة أوامر الشراء غير متوقعة.');
+    return rows.whereType<Map<String, dynamic>>().toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>> fetchPurchaseOrderDocument(String name) async {
+    if (name.trim().isEmpty) throw const FormatException('رقم أمر الشراء غير موجود.');
+    final response = await _send('GET',
+        '/api/resource/Purchase%20Order/' + Uri.encodeComponent(name));
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل تفاصيل أمر الشراء.'));
+    }
+    final document = data['data'];
+    if (document is! Map<String, dynamic> ||
+        document['doctype'] != 'Purchase Order' ||
+        document['docstatus'] != 1) {
+      throw const FormatException('أمر الشراء غير مرحّل أو أن بياناته غير مكتملة.');
+    }
+    return document;
+  }
+
   Future<List<ErpPurchaseInvoice>> fetchPurchaseInvoices({int start = 0, String? search}) async {
     final uri = Uri.parse('$_baseUrl/api/resource/Purchase%20Invoice').replace(queryParameters: {
       'fields': jsonEncode(['name', 'supplier', 'supplier_name', 'posting_date', 'due_date', 'currency', 'grand_total', 'outstanding_amount', 'status', 'is_return', 'return_against']),
