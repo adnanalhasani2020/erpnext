@@ -33,7 +33,7 @@ Arabic-first Android companion app for an ERPNext instance.
 - Supplier Purchase Receipts support direct entry or receipt against a submitted Purchase Order. PO-linked receipts preserve source-row references and restrict each line to its unreceived quantity.
 - Material Receipt, Material Issue, Material Transfer, and Stock Reconciliation support multiple item rows, draft review, explicit submission, and confirmed deletion of unsubmitted drafts. Purchase Invoice drafts can also be deleted after the API re-fetches the document and verifies `docstatus=0`; submitted documents are never sent to the delete endpoint. Stock movement history is read from Stock Ledger Entry with item/warehouse filters and pagination.
 - Serial/batch-managed items are detected and blocked in the purchase and stock forms. Full serial-number and batch bundle entry is not implemented yet, so these items must be processed through the ERPNext web interface.
-- Supplier payment history/reconciliation, standalone accounting ledgers, and financial reports are not implemented.
+- Supplier payment history is searchable and paginated, and the mobile purchases screen includes a read-only supplier statement from non-canceled General Ledger Entries with supplier filtering and pagination. Payment reconciliation, standalone accounting reports, and aging analysis are not implemented.
 - A successful APK build does not prove connection to a live ERPNext server. A real site and appropriately permissioned test account are required for integration testing.
 
 ## ERPNext integration validation
