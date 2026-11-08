@@ -1143,10 +1143,11 @@ class FrappeApi {
     return doc;
   }
 
-  Future<List<Map<String, dynamic>>> fetchStockMovements({int start = 0, String? itemCode, String? warehouse}) async {
+  Future<List<Map<String, dynamic>>> fetchStockMovements({int start = 0, String? itemCode, String? warehouse, String? company}) async {
     final filters = <List<dynamic>>[];
     if (itemCode != null && itemCode.trim().isNotEmpty) filters.add(['item_code', '=', itemCode.trim()]);
     if (warehouse != null && warehouse.trim().isNotEmpty) filters.add(['warehouse', '=', warehouse.trim()]);
+    if (company != null && company.trim().isNotEmpty) filters.add(['company', '=', company.trim()]);
     final uri = buildResourcePageUri(
       baseUrl: _baseUrl, resource: 'Stock Ledger Entry',
       fields: const ['name', 'posting_date', 'posting_time', 'item_code', 'warehouse', 'actual_qty', 'qty_after_transaction', 'voucher_type', 'voucher_no', 'company'],
