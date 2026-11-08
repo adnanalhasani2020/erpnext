@@ -1349,6 +1349,30 @@ class FrappeApi {
     }
   }
 
+  Future<void> _validateWarehouseForCompany(String warehouseName, String company) async {
+    final normalizedWarehouse = warehouseName.trim();
+    final normalizedCompany = company.trim();
+    if (normalizedWarehouse.isEmpty || normalizedCompany.isEmpty) {
+      throw const FormatException('حدد مستودعاً وشركة صالحين.');
+    }
+    final response = await _send('GET',
+      '/api/resource/Warehouse/' + Uri.encodeComponent(normalizedWarehouse),
+    );
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر التحقق من المستودع ' + normalizedWarehouse + '.'));
+    }
+    final warehouse = data['data'];
+    if (warehouse is! Map<String, dynamic> ||
+        warehouse['doctype'] != 'Warehouse' ||
+        warehouse['name'] != normalizedWarehouse ||
+        warehouse['company'] != normalizedCompany ||
+        warehouse['is_group'] == 1 || warehouse['is_group'] == true ||
+        warehouse['disabled'] == 1 || warehouse['disabled'] == true) {
+      throw FormatException('المستودع ' + normalizedWarehouse + ' غير صالح أو لا يتبع الشركة ' + normalizedCompany + '. اختر مستودعاً فعّالاً تابعاً للشركة.');
+    }
+  }
+
   Future<Map<String, dynamic>> createStockEntry({
     required String company, required String purpose, required List<Map<String, dynamic>> items,
     String? fromWarehouse, String? toWarehouse, String? remarks,
@@ -1380,6 +1404,9 @@ class FrappeApi {
               !((row['qty'] as num) * (row['valuation_rate'] as num)).isFinite)) {
         throw const FormatException('سعر التقييم أو إجمالي قيمة البند غير صحيح.');
       }
+    }
+    for (final warehouse in {if (fromWarehouse != null) fromWarehouse, if (toWarehouse != null) toWarehouse}) {
+      await _validateWarehouseForCompany(warehouse, company);
     }
     final payload = <String, dynamic>{
       'doctype': 'Stock Entry', 'company': company, 'purpose': purpose, 'stock_entry_type': purpose,
@@ -1482,6 +1509,10 @@ class FrappeApi {
         }
       }
     }
+    final receiptWarehouses = items.map((row) => (row as Map<String, dynamic>)['warehouse'].toString()).toSet();
+    for (final warehouse in receiptWarehouses) {
+      await _validateWarehouseForCompany(warehouse, document['company'] as String);
+    }
     final response = await _sendJson('POST', '/api/resource/Purchase%20Receipt', document);
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر إنشاء سند استلام المشتريات.'));
@@ -1519,6 +1550,7 @@ class FrappeApi {
         throw const FormatException('سعر تقييم بند الجرد أو إجمالي قيمته غير صحيح.');
       }
     }
+    await _validateWarehouseForCompany(warehouse, company);
     final payload = <String, dynamic>{
       'doctype': 'Stock Reconciliation', 'company': company, 'purpose': 'Stock Reconciliation',
       'items': items.map((row) => <String, dynamic>{...row, 'warehouse': warehouse}).toList(),
