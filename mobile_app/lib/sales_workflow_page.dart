@@ -319,16 +319,16 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
     final draft = widget.initialDraft;
     final companyName = draft?['company']?.toString();
     final customerId = draft?['customer']?.toString();
-    _company = widget.companies.where((x) => x.name == companyName).isEmpty ? null : widget.companies.firstWhere((x) => x.name == companyName) ??
+    _company = _firstOrNull(widget.companies.where((x) => x.name == companyName)) ??
       (companyName == null ? null : ErpCompany(name: companyName));
-    _customer = widget.customers.where((x) => x.id == customerId).isEmpty ? null : widget.customers.firstWhere((x) => x.id == customerId) ??
+    _customer = _firstOrNull(widget.customers.where((x) => x.id == customerId)) ??
       (customerId == null ? null : ErpCustomer(id: customerId, name: draft?['customer_name']?.toString() ?? customerId));
     final rawItems = draft?['items'];
     if (rawItems is List) {
       for (final raw in rawItems.whereType<Map<String, dynamic>>()) {
         final line = _SalesLineDraft();
         final code = raw['item_code']?.toString();
-        line.item = widget.items.where((x) => x.code == code).isEmpty ? null : widget.items.firstWhere((x) => x.code == code) ??
+        line.item = _firstOrNull(widget.items.where((x) => x.code == code)) ??
           (code == null ? null : ErpItem(code: code, name: raw['item_name']?.toString() ?? code));
         line.qty.text = raw['qty']?.toString() ?? '1';
         line.rate.text = raw['rate']?.toString() ?? '0';
@@ -354,6 +354,8 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
         'company': _company!.name,
         'customer': _customer!.id,
         'transaction_date': DateTime.now().toIso8601String().substring(0, 10),
+        if (widget.doctype == 'Quotation') 'quotation_to': 'Customer',
+        if (widget.doctype == 'Sales Order') 'order_type': 'Sales',
         'items': _lines.map((line) => {
           'item_code': line.item!.code,
           'qty': double.parse(line.qty.text.trim()),
@@ -436,4 +438,9 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
       ]),
     ),
   );
+}
+
+T? _firstOrNull<T>(Iterable<T> values) {
+  for (final value in values) { return value; }
+  return null;
 }
