@@ -89,7 +89,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                 value: selectedSupplier, isExpanded: true,
                 decoration: const InputDecoration(labelText: 'المورد'),
                 items: widget.suppliers.map((s) => DropdownMenuItem(value: s.id,
-                  child: Text('\${s.name} (\${s.id})', overflow: TextOverflow.ellipsis))).toList(),
+                  child: Text('${s.name} (${s.id})', overflow: TextOverflow.ellipsis))).toList(),
                 onChanged: (v) => refreshDialog(() { if (v != null) selectedSupplier = v; }),
               ),
               const Divider(height: 24),
@@ -104,7 +104,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                 return Card(margin: const EdgeInsets.only(bottom: 10), child: Padding(
                   padding: const EdgeInsets.all(10), child: Column(children: [
                     Row(children: [
-                      Expanded(child: Text('الصنف \${index + 1}', style: const TextStyle(fontWeight: FontWeight.w600))),
+                      Expanded(child: Text('الصنف ${index + 1}', style: const TextStyle(fontWeight: FontWeight.w600))),
                       if (lineRows.length > 1) IconButton(
                         tooltip: 'حذف الصنف',
                         onPressed: () => refreshDialog(() {
@@ -118,7 +118,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                       value: item.code, isExpanded: true,
                       decoration: InputDecoration(labelText: 'الصنف', helperText: item.name),
                       items: widget.items.map((x) => DropdownMenuItem(value: x.code,
-                        child: Text('\${x.name} (\${x.code})', overflow: TextOverflow.ellipsis))).toList(),
+                        child: Text('${x.name} (${x.code})', overflow: TextOverflow.ellipsis))).toList(),
                       onChanged: (v) => refreshDialog(() { if (v != null) row['item'] = v; }),
                     ),
                     Row(children: [
@@ -132,7 +132,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                       items: [
                         const DropdownMenuItem<String>(value: null, child: Text('حسب إعدادات الصنف')),
                         ...warehouses.map((w) => DropdownMenuItem(value: w.id,
-                          child: Text('\${w.name} (\${w.id})', overflow: TextOverflow.ellipsis))),
+                          child: Text('${w.name} (${w.id})', overflow: TextOverflow.ellipsis))),
                       ],
                       onChanged: (v) => refreshDialog(() => row['warehouse'] = v),
                     ),
@@ -178,15 +178,15 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
           ? await widget.api.createPurchaseInvoice(payload)
           : await widget.api.updateDraftPurchaseInvoice(invoiceName: draft['name'].toString(), changes: payload);
       if (await confirm('ترحيل الفاتورة؟',
-          'تم حفظ المسودة \${saved['name'] ?? ''} بعدد \${values['items'].length} صنف. هل تريد ترحيلها الآن؟')) {
+          'تم حفظ المسودة ${saved['name'] ?? ''} بعدد ${values['items'].length} صنف. هل تريد ترحيلها الآن؟')) {
         try {
           final submitted = await widget.api.submitPurchaseInvoice(saved);
-          notice('تم ترحيل فاتورة المشتريات \${submitted['name'] ?? saved['name']}');
+          notice('تم ترحيل فاتورة المشتريات ${submitted['name'] ?? saved['name']}');
         } catch (e) {
-          notice('حُفظت المسودة \${saved['name'] ?? ''} لكن تعذر تأكيد ترحيلها. راجعها قبل إعادة المحاولة. \${e.toString().replaceFirst('Exception: ', '')}');
+          notice('حُفظت المسودة ${saved['name'] ?? ''} لكن تعذر تأكيد ترحيلها. راجعها قبل إعادة المحاولة. ${e.toString().replaceFirst('Exception: ', '')}');
         }
       } else {
-        notice('تم حفظ مسودة فاتورة المشتريات \${saved['name'] ?? ''}');
+        notice('تم حفظ مسودة فاتورة المشتريات ${saved['name'] ?? ''}');
       }
       await load();
       widget.onChanged?.call();
@@ -282,7 +282,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                 decoration: const InputDecoration(labelText: 'حساب الصندوق / البنك'),
                 items: accounts.map((x) => DropdownMenuItem(
                   value: x.name,
-                  child: Text('\${x.accountName} • \${x.accountType}', overflow: TextOverflow.ellipsis),
+                  child: Text('${x.accountName} • ${x.accountType}', overflow: TextOverflow.ellipsis),
                 )).toList(),
                 onChanged: (v) => refresh(() { if (v != null) account = v; }),
               ),
@@ -449,7 +449,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                 final item = widget.items.firstWhere((x) => x.code == row['item'], orElse: () => widget.items.first);
                 return Card(child: Padding(padding: const EdgeInsets.all(8), child: Column(children: [
                   Row(children: [
-                    Expanded(child: Text('الصنف \${index + 1}')),
+                    Expanded(child: Text('الصنف ${index + 1}')),
                     if (lines.length > 1) IconButton(onPressed: () => refresh(() {
                       final removed = lines.removeAt(index);
                       (removed['qty'] as TextEditingController).dispose();
@@ -460,7 +460,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                     value: item.code, isExpanded: true,
                     decoration: InputDecoration(labelText: 'الصنف', helperText: item.name),
                     items: widget.items.map((x) => DropdownMenuItem(value: x.code,
-                      child: Text('\${x.name} (\${x.code})', overflow: TextOverflow.ellipsis))).toList(),
+                      child: Text('${x.name} (${x.code})', overflow: TextOverflow.ellipsis))).toList(),
                     onChanged: (v) => refresh(() { if (v != null) row['item'] = v; }),
                   ),
                   _field(row['qty'] as TextEditingController, allowZeroQuantity ? 'الكمية الفعلية' : 'الكمية', number: true),
@@ -532,7 +532,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                 value: null, isExpanded: true,
                 decoration: const InputDecoration(labelText: 'مستودع المصدر'),
                 items: warehouses.where((w) => w.company == null || w.company == company.text)
-                    .map((w) => DropdownMenuItem(value: w.id, child: Text('\${w.name} (\${w.id})'))).toList(),
+                    .map((w) => DropdownMenuItem(value: w.id, child: Text('${w.name} (${w.id})'))).toList(),
                 onChanged: (v) => from.text = v ?? '',
               ),
             if (purpose != 'Material Issue')
@@ -540,7 +540,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                 value: null, isExpanded: true,
                 decoration: const InputDecoration(labelText: 'مستودع الوجهة / الاستلام'),
                 items: warehouses.where((w) => w.company == null || w.company == company.text)
-                    .map((w) => DropdownMenuItem(value: w.id, child: Text('\${w.name} (\${w.id})'))).toList(),
+                    .map((w) => DropdownMenuItem(value: w.id, child: Text('${w.name} (${w.id})'))).toList(),
                 onChanged: (v) => to.text = v ?? '',
               ),
             const SizedBox(height: 8),
@@ -569,17 +569,17 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         items: items,
       );
       if (await confirm('ترحيل حركة المخزون',
-          'تم إنشاء المسودة \${doc['name'] ?? ''} بعدد \${items.length} صنف. الترحيل سيغير أرصدة المخزون.')) {
+          'تم إنشاء المسودة ${doc['name'] ?? ''} بعدد ${items.length} صنف. الترحيل سيغير أرصدة المخزون.')) {
         try {
           final result = await widget.api.submitStockEntry(doc);
-          notice('تم ترحيل الحركة \${result['name'] ?? doc['name']}');
+          notice('تم ترحيل الحركة ${result['name'] ?? doc['name']}');
           await load();
           widget.onChanged?.call();
         } catch (e) {
-          notice('حُفظت مسودة الحركة \${doc['name'] ?? ''} ولم يؤكد ترحيلها. راجعها قبل إنشاء حركة بديلة. \${e.toString().replaceFirst('Exception: ', '')}');
+          notice('حُفظت مسودة الحركة ${doc['name'] ?? ''} ولم يؤكد ترحيلها. راجعها قبل إنشاء حركة بديلة. ${e.toString().replaceFirst('Exception: ', '')}');
         }
       } else {
-        notice('حُفظت المسودة \${doc['name'] ?? ''}');
+        notice('حُفظت المسودة ${doc['name'] ?? ''}');
       }
     } catch (e) {
       notice(e.toString().replaceFirst('Exception: ', ''));
@@ -615,14 +615,14 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
               value: supplier, isExpanded: true,
               decoration: const InputDecoration(labelText: 'المورد'),
               items: widget.suppliers.map((x) => DropdownMenuItem(value: x.id,
-                child: Text('\${x.name} (\${x.id})', overflow: TextOverflow.ellipsis))).toList(),
+                child: Text('${x.name} (${x.id})', overflow: TextOverflow.ellipsis))).toList(),
               onChanged: (v) => refresh(() { if (v != null) supplier = v; }),
             ),
             DropdownButtonFormField<String>(
               value: warehouse, isExpanded: true,
               decoration: const InputDecoration(labelText: 'مستودع الاستلام'),
               items: available.map((w) => DropdownMenuItem(value: w.id,
-                child: Text('\${w.name} (\${w.id})', overflow: TextOverflow.ellipsis))).toList(),
+                child: Text('${w.name} (${w.id})', overflow: TextOverflow.ellipsis))).toList(),
               onChanged: (v) => refresh(() => warehouse = v),
             ),
             const Text('يمكن إضافة عدة أصناف في سند الاستلام نفسه.'),
@@ -649,17 +649,17 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         }).toList(),
       });
       if (await confirm('ترحيل سند الاستلام',
-          'تم إنشاء سند الاستلام \${doc['name'] ?? ''} بعدد \${lines.length} صنف. الترحيل سيضيف الكميات للمخزون.')) {
+          'تم إنشاء سند الاستلام ${doc['name'] ?? ''} بعدد ${lines.length} صنف. الترحيل سيضيف الكميات للمخزون.')) {
         try {
           final result = await widget.api.submitPurchaseReceipt(doc);
-          notice('تم ترحيل سند الاستلام \${result['name'] ?? doc['name']}');
+          notice('تم ترحيل سند الاستلام ${result['name'] ?? doc['name']}');
           await load();
           widget.onChanged?.call();
         } catch (e) {
-          notice('حُفظ سند الاستلام \${doc['name'] ?? ''} كمسودة. راجعه قبل إنشاء سند آخر. \${e.toString().replaceFirst('Exception: ', '')}');
+          notice('حُفظ سند الاستلام ${doc['name'] ?? ''} كمسودة. راجعه قبل إنشاء سند آخر. ${e.toString().replaceFirst('Exception: ', '')}');
         }
       } else {
-        notice('حُفظت مسودة سند الاستلام \${doc['name'] ?? ''}');
+        notice('حُفظت مسودة سند الاستلام ${doc['name'] ?? ''}');
       }
     } catch (e) {
       notice(e.toString().replaceFirst('Exception: ', ''));
@@ -690,7 +690,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
               value: warehouse, isExpanded: true,
               decoration: const InputDecoration(labelText: 'المستودع'),
               items: available.map((w) => DropdownMenuItem(value: w.id,
-                child: Text('\${w.name} (\${w.id})', overflow: TextOverflow.ellipsis))).toList(),
+                child: Text('${w.name} (${w.id})', overflow: TextOverflow.ellipsis))).toList(),
               onChanged: (v) => refresh(() => warehouse = v),
             ),
             const Text('أدخل الكمية الفعلية لكل صنف. الكمية صفر مسموحة.'),
@@ -718,17 +718,17 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         items: lines,
       );
       if (await confirm('تأكيد تسوية المخزون',
-          'تم إنشاء مسودة \${doc['name'] ?? ''} بعدد \${lines.length} صنف. ستضبط الأرصدة إلى الكميات الفعلية المدخلة. هل تريد الترحيل؟')) {
+          'تم إنشاء مسودة ${doc['name'] ?? ''} بعدد ${lines.length} صنف. ستضبط الأرصدة إلى الكميات الفعلية المدخلة. هل تريد الترحيل؟')) {
         try {
           final result = await widget.api.submitStockReconciliation(doc);
-          notice('تم ترحيل التسوية \${result['name'] ?? doc['name']}');
+          notice('تم ترحيل التسوية ${result['name'] ?? doc['name']}');
           await load();
           widget.onChanged?.call();
         } catch (e) {
-          notice('حُفظت مسودة التسوية \${doc['name'] ?? ''} ولم يؤكد ترحيلها. راجعها قبل إنشاء تسوية أخرى. \${e.toString().replaceFirst('Exception: ', '')}');
+          notice('حُفظت مسودة التسوية ${doc['name'] ?? ''} ولم يؤكد ترحيلها. راجعها قبل إنشاء تسوية أخرى. ${e.toString().replaceFirst('Exception: ', '')}');
         }
       } else {
-        notice('حُفظت مسودة التسوية \${doc['name'] ?? ''}');
+        notice('حُفظت مسودة التسوية ${doc['name'] ?? ''}');
       }
     } catch (e) {
       notice(e.toString().replaceFirst('Exception: ', ''));
