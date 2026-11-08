@@ -53,6 +53,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
           _field(warehouse, 'رمز مستودع الاستلام'),
           ValueListenableBuilder<bool>(valueListenable: updateStock, builder: (_, v, __) => SwitchListTile(value: v, onChanged: (x) => updateStock.value = x, title: const Text('تحديث المخزون عند الترحيل'))),
           const Text('أدخل رموز ERPNext كما تظهر في النظام. الضرائب والإجماليات يحسبها الخادم.', style: TextStyle(fontSize: 12)),
+          const Text('تنبيه: إذا استلمت البضاعة بسند Purchase Receipt، عطّل تحديث المخزون في فاتورة الشراء حتى لا تُضاف الكمية مرتين.', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
         ]))),
         actions: [
           TextButton(onPressed: () => Navigator.pop(c), child: const Text('إلغاء')),
