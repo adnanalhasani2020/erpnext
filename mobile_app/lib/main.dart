@@ -1153,9 +1153,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
       Text('فواتير المبيعات (${_salesInvoices.length})', style: Theme.of(context).textTheme.titleMedium),
       if (_salesInvoices.isEmpty && !_salesLoading) const Card(child: ListTile(title: Text('لا توجد فواتير ظاهرة أو تعذر تحميلها'))),
       ..._salesInvoices.map((invoice) => Card(child: ListTile(
-        leading: const CircleAvatar(child: Icon(Icons.receipt_long_outlined)),
-        title: Text(invoice.id),
-        subtitle: Text('${invoice.customerName} • ${invoice.postingDate ?? '—'}\n${invoice.status ?? 'حالة غير محددة'} • متبقٍ: ${invoice.outstandingAmount.toStringAsFixed(2)} ${invoice.currency ?? ''}'),
+        leading: CircleAvatar(child: Icon(invoice.isReturn ? Icons.assignment_return_outlined : Icons.receipt_long_outlined)),
+        title: Text(invoice.isReturn ? 'مرتجع • ${invoice.id}' : invoice.id),
+        subtitle: Text('${invoice.customerName} • ${invoice.postingDate ?? '—'}${invoice.returnAgainst == null ? '' : '\nمرتبط بالفاتورة: ${invoice.returnAgainst}'}\n${invoice.status ?? 'حالة غير محددة'} • متبقٍ: ${invoice.outstandingAmount.toStringAsFixed(2)} ${invoice.currency ?? ''}'),
         isThreeLine: true,
         trailing: Text(invoice.grandTotal.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
         onTap: () => _showInvoiceDetails('Sales Invoice', invoice.id),
