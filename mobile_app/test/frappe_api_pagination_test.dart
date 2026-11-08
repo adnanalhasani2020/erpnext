@@ -23,7 +23,7 @@ void main() {
           final pageLength = int.parse(request.uri.queryParameters['limit_page_length'] ?? '0');
           companyPageStarts.add(start);
           companyCookieHeaders.add(request.headers.value(HttpHeaders.cookieHeader));
-          final count = start == 0 ? pageLength : (101 - start).clamp(0, pageLength);
+          final count = start == 0 ? pageLength : (101 - start).clamp(0, pageLength).toInt();
           final rows = List.generate(
             count,
             (index) {
