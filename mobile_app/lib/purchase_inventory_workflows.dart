@@ -763,6 +763,18 @@ class StockWorkflowPage extends StatefulWidget {
 }
 
 class _StockWorkflowPageState extends State<StockWorkflowPage> {
+  bool _actionInProgress = false;
+
+  Future<void> _runExclusive(Future<void> Function() action) async {
+    if (_actionInProgress || !mounted) return;
+    setState(() => _actionInProgress = true);
+    try {
+      await action();
+    } finally {
+      if (mounted) setState(() => _actionInProgress = false);
+    }
+  }
+
   List<Map<String, dynamic>> movements = [];
   List<Map<String, dynamic>> drafts = [];
   String? draftError;
@@ -839,7 +851,10 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         ]))));
     } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
   }
-  Future<void> submitDraft(Map<String, dynamic> summary) async {
+  Future<void> submitDraft(Map<String, dynamic> summary) =>
+      _runExclusive(() => _submitDraft(summary));
+
+  Future<void> _submitDraft(Map<String, dynamic> summary) async {
     final type = summary['doctype'].toString();
     final name = summary['name'].toString();
     if (!await confirm('ترحيل مسودة ' + name, 'سيتم ترحيل المستند وتحديث المخزون أو القيود حسب نوعه. راجع تفاصيله في ERPNext إذا لزم الأمر.')) return;
@@ -982,7 +997,10 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     }
   }
 
-  Future<void> movement(String purpose) async {
+  Future<void> movement(String purpose) =>
+      _runExclusive(() => _movement(purpose));
+
+  Future<void> _movement(String purpose) async {
     if (widget.companies.isEmpty || widget.items.isEmpty || widget.warehouses.isEmpty) {
       notice('حمّل الشركات والأصناف والمستودعات أولاً.');
       return;
@@ -1220,7 +1238,10 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     }
   }
 
-  Future<void> purchaseReceiptFromOrder() async {
+  Future<void> purchaseReceiptFromOrder() =>
+      _runExclusive(_purchaseReceiptFromOrder);
+
+  Future<void> _purchaseReceiptFromOrder() async {
     try {
       final orders = await widget.api.fetchPurchaseOrders();
       if (!mounted) return;
@@ -1279,7 +1300,10 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     }
   }
 
-  Future<void> purchaseReceipt() async {
+  Future<void> purchaseReceipt() =>
+      _runExclusive(_purchaseReceipt);
+
+  Future<void> _purchaseReceipt() async {
     if (widget.companies.isEmpty || widget.suppliers.isEmpty || widget.items.isEmpty || widget.warehouses.isEmpty) {
       notice('حمّل الشركات والموردين والأصناف والمستودعات أولاً.');
       return;
@@ -1355,7 +1379,10 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     }
   }
 
-  Future<void> reconcile() async {
+  Future<void> reconcile() =>
+      _runExclusive(_reconcile);
+
+  Future<void> _reconcile() async {
     if (widget.companies.isEmpty || widget.items.isEmpty || widget.warehouses.isEmpty) {
       notice('حمّل الشركات والأصناف والمستودعات أولاً.');
       return;
