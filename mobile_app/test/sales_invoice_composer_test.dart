@@ -201,6 +201,33 @@ void main() {
         .toList();
 
     expect(availableWarehouseIds, ['WH-A']);
+
+    final companyWarehouse = warehouseField.items!
+        .singleWhere((item) => item.value?.id == 'WH-A')
+        .value!;
+    warehouseField.onChanged!(companyWarehouse);
+    await tester.pump();
+
+    companyField = tester.widget<DropdownButtonFormField<ErpCompany>>(
+      find.byType(DropdownButtonFormField<ErpCompany>),
+    );
+    final companyB = companyField.items!
+        .singleWhere((item) => item.value?.name == 'Company B')
+        .value!;
+    companyField.onChanged!(companyB);
+    await tester.pump();
+
+    final switchedWarehouseField =
+        tester.widget<DropdownButtonFormField<ErpWarehouse>>(
+      find.byType(DropdownButtonFormField<ErpWarehouse>),
+    );
+    expect(switchedWarehouseField.initialValue, isNull);
+    expect(
+      switchedWarehouseField.items!
+          .where((item) => item.value != null)
+          .map((item) => item.value!.id),
+      ['WH-B'],
+    );
     api.dispose();
   });
 
