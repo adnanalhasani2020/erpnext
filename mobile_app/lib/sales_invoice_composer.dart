@@ -159,8 +159,8 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
   double get _subtotal => _lines.fold<double>(0, (sum, line) => sum + line.total);
 
   List<ErpWarehouse> get _companyWarehouses => _availableWarehouses
-      .where((warehouse) =>
-          warehouse.company == null || warehouse.company == _company?.name)
+      .where((warehouse) => _company != null &&
+          warehouse.company == _company!.name)
       .toList(growable: false);
 
   void _addLine() => setState(() => _lines.add(_SalesInvoiceLineDraft()));
@@ -290,8 +290,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
                                 _company = value;
                                 for (final line in _lines) {
                                   final warehouseCompany = line.warehouse?.company;
-                                  if (warehouseCompany != null &&
-                                      warehouseCompany != value?.name) {
+                                  if (warehouseCompany != value?.name) {
                                     line.warehouse = null;
                                   }
                                 }
