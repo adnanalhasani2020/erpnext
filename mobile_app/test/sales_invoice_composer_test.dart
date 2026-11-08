@@ -90,7 +90,11 @@ void main() {
     await tester.scrollUntilVisible(find.text('حفظ تعديلات المسودة'), 300, scrollable: find.byType(Scrollable).first);
     await tester.pumpAndSettle();
     expect(find.text('حفظ تعديلات المسودة'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('رقم المسودة: SINV-DRAFT-1'), 250, scrollable: find.byType(Scrollable).first);
+    await tester.pumpAndSettle();
     expect(find.text('رقم المسودة: SINV-DRAFT-1'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('الإجمالي: 30.00'), 250, scrollable: find.byType(Scrollable).first);
+    await tester.pumpAndSettle();
     expect(find.text('الإجمالي: 30.00'), findsOneWidget);
     api.dispose();
   });
