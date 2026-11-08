@@ -67,6 +67,7 @@ class FrappeApi {
       throw const FormatException('أدخل اسم المستخدم وكلمة المرور.');
     }
     final request = await _client.postUrl(Uri.parse('$_baseUrl/api/method/login'));
+    request.followRedirects = false;
     request.headers.contentType =
         ContentType('application', 'x-www-form-urlencoded', charset: 'utf-8');
     request.write(Uri(queryParameters: {'usr': username.trim(), 'pwd': password}).query);
@@ -588,6 +589,10 @@ class FrappeApi {
   Future<_ApiResponse> _sendUri(String method, Uri uri) async {
     final generation = _sessionGeneration;
     final request = await _client.openUrl(method, uri);
+    // Session cookies must never be forwarded automatically to a redirect target.
+    // Frappe API endpoints should return their response directly; surface redirects
+    // to the caller as non-success HTTP statuses instead.
+    request.followRedirects = false;
     if (_cookies.isNotEmpty) {
       request.headers.set(
         HttpHeaders.cookieHeader,
@@ -610,6 +615,7 @@ class FrappeApi {
   Future<_ApiResponse> _sendJson(String method, String path, Map<String, dynamic> payload) async {
     final generation = _sessionGeneration;
     final request = await _client.openUrl(method, Uri.parse('$_baseUrl$path'));
+    request.followRedirects = false;
     request.headers.contentType = ContentType.json;
     if (_cookies.isNotEmpty) {
       request.headers.set(HttpHeaders.cookieHeader, _cookies.entries.map((entry) => '${entry.key}=${entry.value}').join('; '));
