@@ -273,4 +273,68 @@ void main() {
       await server.close(force: true);
     }
   });
+
+  test('stock entry API accepts multiple transfer rows with source and target warehouses', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      final payload = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+      final rows = payload['items'] as List;
+      expect(rows.length, 2);
+      expect(rows.every((row) => row['s_warehouse'] == 'WH-FROM'), isTrue);
+      expect(rows.every((row) => row['t_warehouse'] == 'WH-TO'), isTrue);
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'data': {
+        'doctype': 'Stock Entry', 'name': 'STE-MULTI-1', 'docstatus': 0,
+      }}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      final result = await api.createStockEntry(
+        company: 'COMP-1',
+        purpose: 'Material Transfer',
+        fromWarehouse: 'WH-FROM',
+        toWarehouse: 'WH-TO',
+        items: [
+          {'item_code': 'ITEM-1', 'qty': 2},
+          {'item_code': 'ITEM-2', 'qty': 4},
+        ],
+      );
+      expect(result['name'], 'STE-MULTI-1');
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
+  test('stock reconciliation API accepts multiple distinct items including zero count', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      final payload = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+      final rows = payload['items'] as List;
+      expect(rows.length, 2);
+      expect(rows.any((row) => row['item_code'] == 'ITEM-1' && row['qty'] == 0), isTrue);
+      expect(rows.every((row) => row['warehouse'] == 'WH-1'), isTrue);
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'data': {
+        'doctype': 'Stock Reconciliation', 'name': 'RECON-MULTI-1', 'docstatus': 0,
+      }}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      final result = await api.createStockReconciliation(
+        company: 'COMP-1',
+        warehouse: 'WH-1',
+        items: [
+          {'item_code': 'ITEM-1', 'qty': 0, 'valuation_rate': 0},
+          {'item_code': 'ITEM-2', 'qty': 5, 'valuation_rate': 8},
+        ],
+      );
+      expect(result['name'], 'RECON-MULTI-1');
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
 }
