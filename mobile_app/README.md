@@ -19,7 +19,7 @@ Arabic-first Android companion app for an ERPNext instance.
 - Record full or partial customer receipts against submitted invoices using ERPNext's `get_payment_entry` flow, selecting an enabled Cash or Bank account belonging to the invoice's company.
 - Create a draft Sales Return / Credit Note from a submitted original invoice using ERPNext's official return mapper, preserving original item references, negative quantities, taxes, and returned-quantity calculations.
 - Retry submission of the same saved draft after a submission error instead of silently creating a duplicate invoice.
-- Supplier and Purchase Invoice lists, invoice details, and purchase workflows: create and edit drafts, submit invoices, create draft debit notes/returns from submitted invoices, and record supplier payments through ERPNext Payment Entry.
+- Supplier and Purchase Invoice lists, invoice details, and purchase workflows: create and edit drafts, submit invoices, cancel submitted invoices through ERPNext after confirmation, create draft debit notes/returns from submitted invoices, and record supplier payments through ERPNext Payment Entry.
 - Tap a sales or purchase invoice to retrieve its full document from Frappe and view invoice totals, due dates, and item lines.
 - Customer, invoice, supplier, and purchase-invoice requests are loaded independently so one permission failure does not hide other successfully loaded records.
 - Inventory and sales resources load independently. A permission error for one resource does not clear successful data from the other resources.
@@ -33,7 +33,7 @@ Arabic-first Android companion app for an ERPNext instance.
 - Supplier Purchase Receipts support direct entry or receipt against a submitted Purchase Order. PO-linked receipts preserve source-row references and restrict each line to its unreceived quantity.
 - Material Receipt, Material Issue, Material Transfer, and Stock Reconciliation support multiple item rows, draft review, explicit submission, and confirmed deletion of unsubmitted drafts. Purchase Invoice drafts can also be deleted after the API re-fetches the document and verifies `docstatus=0`; submitted documents are never sent to the delete endpoint. Stock movement history is read from Stock Ledger Entry with item/warehouse filters and pagination.
 - Serial/batch-managed items are detected and blocked in the purchase and stock forms. Full serial-number and batch bundle entry is not implemented yet, so these items must be processed through the ERPNext web interface.
-- Supplier payment history is searchable and paginated, and the mobile purchases screen includes a read-only supplier statement from non-canceled General Ledger Entries with supplier filtering and pagination. Payment reconciliation, standalone accounting reports, and aging analysis are not implemented.
+- Supplier payment history is searchable and paginated, and the mobile purchases screen includes a read-only supplier statement from non-canceled General Ledger Entries with supplier filtering and pagination. Payment reconciliation, standalone accounting reports, and aging analysis are not implemented. ERPNext may reject invoice cancellation when linked payments, returns, or dependent documents exist.
 - A successful APK build does not prove connection to a live ERPNext server. A real site and appropriately permissioned test account are required for integration testing.
 
 ## ERPNext integration validation
