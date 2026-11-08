@@ -423,4 +423,42 @@ void main() {
       await server.close(force: true);
     }
   });
+
+  test('purchase return rejects selected source rows omitted by ERPNext mapper', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      if (request.method == 'GET' && request.uri.path.endsWith('/PINV-1')) {
+        request.response.write(jsonEncode({'data': {
+          'doctype': 'Purchase Invoice', 'name': 'PINV-1', 'docstatus': 1,
+          'supplier': 'SUP-1', 'items': [
+            {'name': 'PINV-ITEM-1', 'item_code': 'ITEM-1', 'qty': 5},
+            {'name': 'PINV-ITEM-2', 'item_code': 'ITEM-2', 'qty': 2},
+          ],
+        }}));
+      } else if (request.method == 'GET' && request.uri.pathSegments.contains('Purchase Invoice') && request.uri.pathSegments.length == 3) {
+        request.response.write(jsonEncode({'data': []}));
+      } else if (request.method == 'POST' && request.uri.path.endsWith('make_debit_note')) {
+        request.response.write(jsonEncode({'message': {
+          'doctype': 'Purchase Invoice', 'is_return': 1, 'return_against': 'PINV-1',
+          'items': [{'item_code': 'ITEM-1', 'qty': -1, 'purchase_invoice_item': 'PINV-ITEM-1'}],
+        }}));
+      } else {
+        fail('A selected source row missing from the mapper must be rejected before insertion.');
+      }
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      await expectLater(
+        api.createPurchaseReturn('PINV-1', quantitiesBySourceItem: {
+          'PINV-ITEM-1': 1, 'PINV-ITEM-2': 1,
+        }),
+        throwsFormatException,
+      );
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
 }
