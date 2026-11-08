@@ -275,7 +275,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
                     Text('بيانات الفاتورة', style: Theme.of(context).textTheme.titleMedium),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<ErpCompany>(
-                      value: _company,
+                      initialValue: _company,
                       isExpanded: true,
                       decoration: const InputDecoration(labelText: 'الشركة'),
                       items: _availableCompanies.map((company) => DropdownMenuItem(value: company, child: Text(company.name, overflow: TextOverflow.ellipsis))).toList(),
@@ -284,7 +284,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<ErpCustomer>(
-                      value: _customer,
+                      initialValue: _customer,
                       isExpanded: true,
                       decoration: const InputDecoration(labelText: 'العميل'),
                       items: _availableCustomers.map((customer) => DropdownMenuItem(value: customer, child: Text('${customer.name} • ${customer.id}', overflow: TextOverflow.ellipsis))).toList(),
@@ -365,7 +365,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
             IconButton(tooltip: 'حذف البند', onPressed: _saving || _pendingDraft != null || _lines.length == 1 ? null : () => _removeLine(index), icon: const Icon(Icons.delete_outline)),
           ]),
           DropdownButtonFormField<ErpItem>(
-            value: line.item,
+            initialValue: line.item,
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'الصنف'),
             items: _availableItems.map((item) => DropdownMenuItem(value: item, child: Text('${item.name} • ${item.code}', overflow: TextOverflow.ellipsis))).toList(),
@@ -399,7 +399,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
           if (_updateStock && line.item?.isStockItem == true) ...[
             const SizedBox(height: 10),
             DropdownButtonFormField<ErpWarehouse>(
-              value: line.warehouse,
+              initialValue: line.warehouse,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'مستودع الصرف'),
               items: _availableWarehouses.map((warehouse) => DropdownMenuItem(value: warehouse, child: Text(warehouse.name, overflow: TextOverflow.ellipsis))).toList(),
