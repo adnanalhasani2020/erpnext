@@ -37,7 +37,7 @@ class ErpSupplier {
 }
 
 class ErpPurchaseInvoice {
-  const ErpPurchaseInvoice({required this.id, required this.supplier, required this.supplierName, this.postingDate, this.dueDate, this.currency, required this.grandTotal, required this.outstandingAmount, this.status});
+  const ErpPurchaseInvoice({required this.id, required this.supplier, required this.supplierName, this.postingDate, this.dueDate, this.currency, required this.grandTotal, required this.outstandingAmount, this.status, this.isReturn = false, this.returnAgainst});
   final String id;
   final String supplier;
   final String supplierName;
@@ -47,6 +47,8 @@ class ErpPurchaseInvoice {
   final double grandTotal;
   final double outstandingAmount;
   final String? status;
+  final bool isReturn;
+  final String? returnAgainst;
   factory ErpPurchaseInvoice.fromJson(Map<String, dynamic> json) {
     final id = json['name'];
     final supplier = json['supplier'];
@@ -61,7 +63,9 @@ class ErpPurchaseInvoice {
       dueDate: json['due_date'] is String ? json['due_date'] as String : null,
       currency: json['currency'] is String ? json['currency'] as String : null,
       grandTotal: amount(json['grand_total']), outstandingAmount: amount(json['outstanding_amount']),
-      status: json['status'] is String ? json['status'] as String : null);
+      status: json['status'] is String ? json['status'] as String : null,
+      isReturn: json['is_return'] == 1 || json['is_return'] == true,
+      returnAgainst: json['return_against'] is String ? json['return_against'] as String : null);
   }
 }
 class ErpCustomer {
