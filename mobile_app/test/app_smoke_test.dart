@@ -23,13 +23,19 @@ void main() {
   testWidgets('login screen can show and hide the password', (tester) async {
     await tester.pumpWidget(const ErpNextMobileApp());
 
-    final passwordField = tester.widget<TextFormField>(find.byType(TextFormField).at(2));
+    final passwordField = tester.widget<TextField>(find.descendant(
+      of: find.byType(TextFormField).at(2),
+      matching: find.byType(TextField),
+    ));
     expect(passwordField.obscureText, isTrue);
 
     await tester.tap(find.byTooltip('إظهار كلمة المرور'));
     await tester.pump();
 
-    final visiblePasswordField = tester.widget<TextFormField>(find.byType(TextFormField).at(2));
+    final visiblePasswordField = tester.widget<TextField>(find.descendant(
+      of: find.byType(TextFormField).at(2),
+      matching: find.byType(TextField),
+    ));
     expect(visiblePasswordField.obscureText, isFalse);
     expect(find.byTooltip('إخفاء كلمة المرور'), findsOneWidget);
   });
