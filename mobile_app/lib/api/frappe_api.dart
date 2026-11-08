@@ -88,23 +88,45 @@ class FrappeApi {
   }
 
   Future<List<ErpCompany>> fetchCompanies() async {
-    final uri = Uri.parse('$_baseUrl/api/resource/Company').replace(
-      queryParameters: {
-        'fields': jsonEncode(['name', 'abbr']),
-        'limit_page_length': '20',
-        'order_by': 'name asc',
-      },
-    );
-    final response = await _sendUri('GET', uri);
-    final data = _decode(response.body);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(data, 'تعذر جلب الشركات. تحقق من صلاحية قراءة Company.'));
+    const companyPageSize = pageSize;
+    const maxCompanyCount = 10000;
+    final companies = <ErpCompany>[];
+    var start = 0;
+
+    while (true) {
+      final uri = buildResourcePageUri(
+        baseUrl: _baseUrl,
+        resource: 'Company',
+        fields: const ['name', 'abbr'],
+        orderBy: 'name asc',
+        start: start,
+        pageLength: companyPageSize,
+      );
+      final response = await _sendUri('GET', uri);
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر جلب الشركات. تحقق من صلاحية قراءة Company.'));
+      }
+      final rows = data['data'];
+      if (rows is! List) {
+        throw Exception('استجابة الشركات من ERPNext غير متوقعة.');
+      }
+
+      final page = rows
+          .whereType<Map<String, dynamic>>()
+          .map(ErpCompany.fromJson)
+          .toList(growable: false);
+      companies.addAll(page);
+      if (rows.length < companyPageSize) {
+        return companies;
+      }
+      if (companies.length >= maxCompanyCount) {
+        throw const FormatException(
+          'تجاوز عدد الشركات الحد الآمن للتحميل دفعة واحدة؛ استخدم البحث أو راجع إعدادات ERPNext.',
+        );
+      }
+      start += rows.length;
     }
-    final rows = data['data'];
-    if (rows is! List) {
-      throw Exception('استجابة الشركات من ERPNext غير متوقعة.');
-    }
-    return rows.whereType<Map<String, dynamic>>().map(ErpCompany.fromJson).toList(growable: false);
   }
 
 
@@ -631,9 +653,39 @@ class FrappeApi {
   }
   void _captureCookies(HttpClientResponse response) {
     for (final header in response.headers[HttpHeaders.setCookieHeader] ?? []) {
-      final pair = header.split(';').first.split('=');
-      if (pair.length >= 2) {
-        _cookies[pair.first.trim()] = pair.sublist(1).join('=').trim();
+      final parts = header.split(';');
+      final pair = parts.first.trim();
+      final separator = pair.indexOf('=');
+      if (separator <= 0) continue;
+
+      final name = pair.substring(0, separator).trim();
+      final value = pair.substring(separator + 1).trim();
+      var shouldDelete = value.isEmpty;
+      for (final attribute in parts.skip(1)) {
+        final attributePair = attribute.trim().split('=');
+        final attributeName = attributePair.first.trim().toLowerCase();
+        final attributeValue = attributePair.length > 1
+            ? attributePair.sublist(1).join('=').trim()
+            : '';
+        if (attributeName == 'max-age') {
+          final maxAge = int.tryParse(attributeValue);
+          if (maxAge != null && maxAge <= 0) shouldDelete = true;
+        } else if (attributeName == 'expires' && attributeValue.isNotEmpty) {
+          try {
+            if (HttpDate.parse(attributeValue).isBefore(DateTime.now())) {
+              shouldDelete = true;
+            }
+          } on FormatException {
+            // Ignore malformed Expires attributes; Max-Age and empty values
+            // are still honored as deletion signals.
+          }
+        }
+      }
+
+      if (shouldDelete) {
+        _cookies.remove(name);
+      } else {
+        _cookies[name] = value;
       }
     }
   }
