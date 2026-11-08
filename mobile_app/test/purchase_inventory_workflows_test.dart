@@ -346,4 +346,15 @@ void main() {
     );
     api.dispose();
   });
+
+  test('item model exposes serial and batch tracking requirements', () {
+    final item = ErpItem.fromJson({
+      'item_code': 'TRACKED-1',
+      'item_name': 'Tracked item',
+      'has_serial_no': 1,
+      'has_batch_no': 0,
+    });
+    expect(item.hasSerialNo, isTrue);
+    expect(item.hasBatchNo, isFalse);
+  });
 }
