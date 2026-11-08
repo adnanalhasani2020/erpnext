@@ -237,10 +237,10 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
               catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
             }, child: const Text('تسجيل دفعة المورد')),
             OutlinedButton(onPressed: () async {
-              if (!await confirm('إنشاء مرتجع', 'سيتم إنشاء مسودة إشعار خصم مرتبطة بالفاتورة الأصلية.')) return;
+              if (!await confirm('إنشاء مرتجع كامل', 'سيجهز ERPNext مسودة مرتجع بجميع بنود وكميات الفاتورة الأصلية. المرتجع الجزئي غير مدعوم من هذه الشاشة حالياً؛ لا تتابع إذا كنت تريد إرجاع جزء من البضاعة فقط. لن يتم ترحيل المرتجع إلا بعد مراجعته.')) return;
               try { final result = await widget.api.createPurchaseReturn(name); if (sheet.mounted) Navigator.pop(sheet); notice('تم إنشاء مسودة المرتجع ' + (result['name'] ?? '').toString()); await load(); }
               catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
-            }, child: const Text('إنشاء مرتجع مشتريات')),
+            }, child: const Text('إنشاء مرتجع كامل')),
           ],
           if (doc['docstatus'] == 1 && (doc['is_return'] == 1 || doc['is_return'] == true))
             const ListTile(leading: Icon(Icons.check_circle_outline), title: Text('المرتجع مرحّل بالفعل')),
