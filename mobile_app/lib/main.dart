@@ -886,6 +886,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
               final currency = document['currency'] is String ? document['currency'] as String : '';
               final docStatus = document['docstatus'] is num ? (document['docstatus'] as num).toInt() : -1;
               final updatesStock = document['update_stock'] == 1 || document['update_stock'] == true;
+              final outstandingAmount = double.tryParse(document['outstanding_amount']?.toString() ?? '') ?? 0;
               String amount(String field) {
                 final value = document[field];
                 if (value is num) return '${value.toStringAsFixed(2)} $currency';
@@ -937,6 +938,53 @@ class _MobileHomePageState extends State<MobileHomePage> {
                     },
                     icon: const Icon(Icons.check_circle_outline),
                     label: const Text('ترحيل المسودة'),
+                  ),
+                  if (docStatus == 1 && outstandingAmount > 0) FilledButton.icon(
+                    onPressed: () async {
+                      final amountController = TextEditingController(text: outstandingAmount.toStringAsFixed(2));
+                      final paymentAmount = await showDialog<double>(
+                        context: context,
+                        builder: (dialogContext) => AlertDialog(
+                          title: const Text('تسجيل دفعة من العميل'),
+                          content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                            Text('المبلغ المتبقي: ${outstandingAmount.toStringAsFixed(2)} ${currency}'),
+                            const SizedBox(height: 12),
+                            TextField(
+                              controller: amountController,
+                              autofocus: true,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: const InputDecoration(labelText: 'مبلغ الدفعة', border: OutlineInputBorder()),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text('سيستخدم ERPNext حساب الصندوق أو البنك الافتراضي للشركة.'),
+                          ]),
+                          actions: [
+                            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+                            FilledButton(
+                              onPressed: () {
+                                final value = double.tryParse(amountController.text.trim());
+                                if (value == null || !value.isFinite || value <= 0 || value > outstandingAmount) return;
+                                Navigator.pop(dialogContext, value);
+                              },
+                              child: const Text('تأكيد المبلغ'),
+                            ),
+                          ],
+                        ),
+                      );
+                      amountController.dispose();
+                      if (paymentAmount == null) return;
+                      try {
+                        await _api.receiveSalesInvoicePayment(invoiceName: invoiceId, amount: paymentAmount);
+                        if (!mounted) return;
+                        Navigator.of(sheetContext).pop();
+                        _loadSales();
+                        ScaffoldMessenger.of(this.context).showSnackBar(const SnackBar(content: Text('تم تسجيل وترحيل سند القبض.')));
+                      } catch (error) {
+                        if (mounted) ScaffoldMessenger.of(this.context).showSnackBar(SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))));
+                      }
+                    },
+                    icon: const Icon(Icons.payments_outlined),
+                    label: const Text('تسجيل دفعة من العميل'),
                   ),
                   if (docStatus == 1) OutlinedButton.icon(
                     onPressed: () async {
