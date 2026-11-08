@@ -309,6 +309,10 @@ class _SalesDraftEditor extends StatefulWidget {
 class _SalesDraftEditorState extends State<_SalesDraftEditor> {
   final _key = GlobalKey<FormState>();
   final _lines = <_SalesLineDraft>[];
+  late final List<ErpCompany> _availableCompanies;
+  late final List<ErpCustomer> _availableCustomers;
+  late final List<ErpItem> _availableItems;
+  late final List<ErpWarehouse> _availableWarehouses;
   ErpCompany? _company;
   ErpCustomer? _customer;
   bool _saving = false;
@@ -317,24 +321,43 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
   @override
   void initState() {
     super.initState();
+    _availableCompanies = List<ErpCompany>.of(widget.companies);
+    _availableCustomers = List<ErpCustomer>.of(widget.customers);
+    _availableItems = List<ErpItem>.of(widget.items);
+    _availableWarehouses = List<ErpWarehouse>.of(widget.warehouses);
     final draft = widget.initialDraft;
     final companyName = draft?['company']?.toString();
     final customerId = draft?['customer']?.toString();
-    _company = _firstOrNull(widget.companies.where((x) => x.name == companyName)) ??
-      (companyName == null ? null : ErpCompany(name: companyName));
-    _customer = _firstOrNull(widget.customers.where((x) => x.id == customerId)) ??
-      (customerId == null ? null : ErpCustomer(id: customerId, name: draft?['customer_name']?.toString() ?? customerId));
+    _company = _firstOrNull(_availableCompanies.where((x) => x.name == companyName));
+    if (_company == null && companyName != null) {
+      _company = ErpCompany(name: companyName);
+      _availableCompanies.add(_company!);
+    }
+    _customer = _firstOrNull(_availableCustomers.where((x) => x.id == customerId));
+    if (_customer == null && customerId != null) {
+      _customer = ErpCustomer(id: customerId, name: draft?['customer_name']?.toString() ?? customerId);
+      _availableCustomers.add(_customer!);
+    }
     final rawItems = draft?['items'];
     if (rawItems is List) {
       for (final raw in rawItems.whereType<Map<String, dynamic>>()) {
         final line = _SalesLineDraft();
         final code = raw['item_code']?.toString();
-        line.item = _firstOrNull(widget.items.where((x) => x.code == code)) ??
-          (code == null ? null : ErpItem(code: code, name: raw['item_name']?.toString() ?? code));
+        line.item = _firstOrNull(_availableItems.where((x) => x.code == code));
+        if (line.item == null && code != null) {
+          line.item = ErpItem(code: code, name: raw['item_name']?.toString() ?? code);
+          _availableItems.add(line.item!);
+        }
         line.qty.text = raw['qty']?.toString() ?? '1';
         line.rate.text = raw['rate']?.toString() ?? '0';
         final warehouseId = raw['warehouse']?.toString();
-        if (warehouseId != null) line.warehouse = _firstOrNull(widget.warehouses.where((x) => x.id == warehouseId));
+        if (warehouseId != null) {
+          line.warehouse = _firstOrNull(_availableWarehouses.where((x) => x.id == warehouseId));
+          if (line.warehouse == null) {
+            line.warehouse = ErpWarehouse(id: warehouseId, name: warehouseId, company: companyName);
+            _availableWarehouses.add(line.warehouse!);
+          }
+        }
         _lines.add(line);
       }
     }
@@ -401,7 +424,7 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
         DropdownButtonFormField<ErpCompany>(
           value: _company, isExpanded: true,
           decoration: const InputDecoration(labelText: 'الشركة'),
-          items: widget.companies.map((x) => DropdownMenuItem(value: x, child: Text(x.name))).toList(),
+          items: _availableCompanies.map((x) => DropdownMenuItem(value: x, child: Text(x.name))).toList(),
           onChanged: _saving ? null : (v) => setState(() { _company = v; for (final line in _lines) { line.warehouse = null; } }),
           validator: (v) => v == null ? 'اختر الشركة.' : null,
         ),
@@ -409,7 +432,7 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
         DropdownButtonFormField<ErpCustomer>(
           value: _customer, isExpanded: true,
           decoration: const InputDecoration(labelText: 'العميل'),
-          items: widget.customers.map((x) => DropdownMenuItem(value: x, child: Text('\${x.name} • \${x.id}', overflow: TextOverflow.ellipsis))).toList(),
+          items: _availableCustomers.map((x) => DropdownMenuItem(value: x, child: Text('\${x.name} • \${x.id}', overflow: TextOverflow.ellipsis))).toList(),
           onChanged: _saving ? null : (v) => setState(() => _customer = v),
           validator: (v) => v == null ? 'اختر العميل.' : null,
         ),
@@ -430,7 +453,7 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
               DropdownButtonFormField<ErpItem>(
                 value: line.item, isExpanded: true,
                 decoration: const InputDecoration(labelText: 'الصنف'),
-                items: widget.items.map((x) => DropdownMenuItem(value: x, child: Text('\${x.name} • \${x.code}', overflow: TextOverflow.ellipsis))).toList(),
+                items: _availableItems.map((x) => DropdownMenuItem(value: x, child: Text('\${x.name} • \${x.code}', overflow: TextOverflow.ellipsis))).toList(),
                 onChanged: _saving ? null : (v) => setState(() { line.item = v; line.warehouse = null; }),
                 validator: (v) => v == null ? 'اختر الصنف.' : null,
               ),
@@ -439,7 +462,7 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
                 DropdownButtonFormField<ErpWarehouse>(
                   value: line.warehouse, isExpanded: true,
                   decoration: const InputDecoration(labelText: 'مستودع التسليم'),
-                  items: widget.warehouses.where((w) => w.company == _company?.name).map((w) => DropdownMenuItem(value: w, child: Text(w.name, overflow: TextOverflow.ellipsis))).toList(),
+                  items: _availableWarehouses.where((w) => w.company == _company?.name).map((w) => DropdownMenuItem(value: w, child: Text(w.name, overflow: TextOverflow.ellipsis))).toList(),
                   onChanged: _saving ? null : (v) => setState(() => line.warehouse = v),
                   validator: (v) => widget.doctype == 'Sales Order' && line.item?.isStockItem == true && v == null ? 'اختر مستودعاً تابعاً للشركة.' : null,
                 ),
