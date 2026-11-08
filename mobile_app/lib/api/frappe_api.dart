@@ -1266,10 +1266,17 @@ class FrappeApi {
       throw const FormatException('ترحيل هذا المستند قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
     }
     try {
-    if (doc['doctype'] != doctype || doc['name'] is! String || doc['docstatus'] != 0) {
+    if (doc['doctype'] != doctype || doc['name'] is! String || (doc['name'] as String).trim().isEmpty || doc['docstatus'] != 0) {
       throw FormatException('لا يمكن ترحيل المستند من النوع أو الحالة الحالية.');
     }
-    final response = await _sendJson('POST', '/api/method/frappe.client.submit', {'doc': doc});
+    // Never submit a stale object supplied by the screen. Re-read the canonical
+    // server document immediately before submission and verify its identity/state.
+    final name = (doc['name'] as String).trim();
+    final current = await fetchStockDocument(doctype, name);
+    if (current['doctype'] != doctype || current['name'] != name || current['docstatus'] != 0) {
+      throw const FormatException('تغيرت حالة المسودة على الخادم؛ حدّث قائمة المستندات قبل محاولة الترحيل.');
+    }
+    final response = await _sendJson('POST', '/api/method/frappe.client.submit', {'doc': current});
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر ترحيل المستند.'));
     final submitted = data['message'];
