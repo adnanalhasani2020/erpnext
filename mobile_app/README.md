@@ -15,6 +15,7 @@ Arabic-first Android companion app for an ERPNext instance.
 - Create Sales Invoice drafts from the mobile app with customer, company, item, quantity, unit rate, and warehouse selection.
 - Explicitly submit a Sales Invoice after a confirmation step; ERPNext performs its normal validations and stock-ledger processing.
 - Submit saved draft invoices and cancel submitted invoices from their details screen, with confirmation and ERPNext permission checks.
+- Record full or partial customer receipts against submitted invoices using ERPNext's `get_payment_entry` flow and the company's configured default cash/bank account.
 - Retry submission of the same saved draft after a submission error instead of silently creating a duplicate invoice.
 - Read-only supplier and Purchase Invoice lists, including invoice status, total, and outstanding amount.
 - Tap a sales or purchase invoice to retrieve its full document from Frappe and view invoice totals, due dates, and item lines.
@@ -25,7 +26,7 @@ Arabic-first Android companion app for an ERPNext instance.
 
 - Item, warehouse, Bin, Customer, and Sales Invoice lists are paginated in pages of 100; the composer currently selects from the master-data pages loaded by the dashboard.
 - Purchase invoices and stock balances remain read-only. Sales invoices can be created as drafts and explicitly submitted from the mobile app.
-- Payment Entry, customer receipts, sales returns/credit notes, editing invoices, accounting ledgers, and financial reports are not implemented yet.
+- Choosing an arbitrary cash/bank account, editing invoices, sales returns/credit notes, payment reconciliation, accounting ledgers, and financial reports are not implemented yet.
 - A successful APK build does not prove connection to a live ERPNext server. A real site and appropriately permissioned test account are required for integration testing.
 
 ## Requirements
