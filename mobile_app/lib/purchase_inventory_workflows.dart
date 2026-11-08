@@ -344,9 +344,10 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
   bool hasMore = false;
   int offset = 0;
   String? error;
-  final itemFilter = TextEditingController(), warehouseFilter = TextEditingController();
+  String? selectedMovementItem;
+  String? selectedMovementWarehouse;
   @override void initState() { super.initState(); load(); }
-  @override void dispose() { itemFilter.dispose(); warehouseFilter.dispose(); super.dispose(); }
+  @override void dispose() { super.dispose(); }
   void notice(String s) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(s))); }
   Future<bool> confirm(String title, String message) async => await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: Text(title), content: Text(message), actions: [
     TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('لاحقاً')),
@@ -355,7 +356,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
   Future<void> load() async {
     if (loading) return; setState(() { loading = true; error = null; });
     try {
-      final data = await widget.api.fetchStockMovements(itemCode: itemFilter.text.trim().isEmpty ? null : itemFilter.text.trim(), warehouse: warehouseFilter.text.trim().isEmpty ? null : warehouseFilter.text.trim());
+      final data = await widget.api.fetchStockMovements(itemCode: selectedMovementItem, warehouse: selectedMovementWarehouse);
       if (mounted) setState(() { movements = data; offset = data.length; hasMore = data.length == FrappeApi.pageSize; });
     } catch (e) { if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', '')); }
     final loadedDrafts = <Map<String, dynamic>>[];
@@ -414,8 +415,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     setState(() => loadingMore = true);
     try {
       final data = await widget.api.fetchStockMovements(start: offset,
-        itemCode: itemFilter.text.trim().isEmpty ? null : itemFilter.text.trim(),
-        warehouse: warehouseFilter.text.trim().isEmpty ? null : warehouseFilter.text.trim());
+        itemCode: selectedMovementItem,
+        warehouse: selectedMovementWarehouse);
       if (mounted) setState(() { movements = [...movements, ...data]; offset += data.length; hasMore = data.length == FrappeApi.pageSize; });
     } catch (e) { if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', '')); }
     finally { if (mounted) setState(() => loadingMore = false); }
@@ -759,8 +760,28 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         onTap: () => reviewDraft(draft),
       ))),
       const Divider(height: 28), Text('سجل الحركات', style: Theme.of(context).textTheme.titleMedium),
-      _field(itemFilter, 'رمز الصنف للبحث'), _field(warehouseFilter, 'رمز المستودع للبحث'),
-      Align(alignment: AlignmentDirectional.centerEnd, child: TextButton.icon(onPressed: load, icon: const Icon(Icons.search), label: const Text('بحث'))),
+      DropdownButtonFormField<String>(
+        value: selectedMovementItem,
+        isExpanded: true,
+        decoration: const InputDecoration(labelText: 'تصفية حسب الصنف'),
+        items: [
+          const DropdownMenuItem<String>(value: null, child: Text('كل الأصناف')),
+          ...widget.items.map((x) => DropdownMenuItem(value: x.code,
+            child: Text('${x.name} (${x.code})', overflow: TextOverflow.ellipsis))),
+        ],
+        onChanged: (v) { setState(() => selectedMovementItem = v); load(); },
+      ),
+      DropdownButtonFormField<String>(
+        value: selectedMovementWarehouse,
+        isExpanded: true,
+        decoration: const InputDecoration(labelText: 'تصفية حسب المستودع'),
+        items: [
+          const DropdownMenuItem<String>(value: null, child: Text('كل المستودعات')),
+          ...widget.warehouses.map((w) => DropdownMenuItem(value: w.id,
+            child: Text('${w.name} (${w.id})', overflow: TextOverflow.ellipsis))),
+        ],
+        onChanged: (v) { setState(() => selectedMovementWarehouse = v); load(); },
+      ),
       if (loading) const LinearProgressIndicator(), if (error != null) Text(error!),
       if (movements.isEmpty && !loading) const ListTile(title: Text('لا توجد حركات ظاهرة أو لا تتوفر صلاحية قراءة سجل المخزون.')),
       ...movements.map((x) => Card(child: ListTile(leading: const Icon(Icons.swap_horiz),
