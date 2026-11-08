@@ -197,7 +197,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
 
     if (!_isCurrentSession(sessionGeneration)) return;
     try {
-      final balances = await _api.fetchStockBalances();
+      final balances = await _api.fetchStockBalances(
+        search: _stockSearch.isEmpty ? null : _stockSearch,
+        warehouse: _selectedWarehouse,
+      );
       if (!_isCurrentSession(sessionGeneration)) return;
       setState(() { _stockBalances = balances; _stockOffset = balances.length; _stockHasMore = balances.length == FrappeApi.pageSize; });
     } catch (error) {
