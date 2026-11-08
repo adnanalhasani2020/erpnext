@@ -341,7 +341,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
               ]),
               ...List.generate(lineRows.length, (index) {
                 final row = lineRows[index];
-                final item = widget.items.firstWhere((x) => x.code == row['item'], orElse: () => widget.items.first);
+                final matchingItems = widget.items.where((x) => x.code == row['item']).toList();
+                final item = matchingItems.isEmpty ? null : matchingItems.first;
                 return Card(margin: const EdgeInsets.only(bottom: 10), child: Padding(
                   padding: const EdgeInsets.all(10), child: Column(children: [
                     Row(children: [
@@ -356,11 +357,11 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                         icon: const Icon(Icons.delete_outline)),
                     ]),
                     DropdownButtonFormField<String>(
-                initialValue: item.code, isExpanded: true,
-                      decoration: InputDecoration(labelText: 'الصنف', helperText: item.name),
+                initialValue: item?.code, isExpanded: true,
+                      decoration: InputDecoration(labelText: 'الصنف', helperText: item?.name ?? 'حمّل قائمة الأصناف لاختيار صنف.'),
                       items: widget.items.map((x) => DropdownMenuItem(value: x.code,
                         child: Text('${x.name} (${x.code})', overflow: TextOverflow.ellipsis))).toList(),
-                      onChanged: (v) => refreshDialog(() {
+                      onChanged: widget.items.isEmpty ? null : (v) => refreshDialog(() {
                         if (v == null || v == row['item']) return;
                         row['item'] = v;
                         final source = row['source'];
@@ -1044,7 +1045,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
               ]),
               ...List.generate(lines.length, (index) {
                 final row = lines[index];
-                final item = widget.items.firstWhere((x) => x.code == row['item'], orElse: () => widget.items.first);
+                final matchingItems = widget.items.where((x) => x.code == row['item']).toList();
+                final item = matchingItems.isEmpty ? null : matchingItems.first;
                 return Card(child: Padding(padding: const EdgeInsets.all(8), child: Column(children: [
                   Row(children: [
                     Expanded(child: Text('الصنف ${index + 1}')),
@@ -1055,11 +1057,11 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                     }), icon: const Icon(Icons.delete_outline)),
                   ]),
                   DropdownButtonFormField<String>(
-                initialValue: item.code, isExpanded: true,
-                    decoration: InputDecoration(labelText: 'الصنف', helperText: item.name),
+                initialValue: item?.code, isExpanded: true,
+                    decoration: InputDecoration(labelText: 'الصنف', helperText: item?.name ?? 'حمّل قائمة الأصناف لاختيار صنف.'),
                     items: widget.items.map((x) => DropdownMenuItem(value: x.code,
                       child: Text('${x.name} (${x.code})', overflow: TextOverflow.ellipsis))).toList(),
-                    onChanged: (v) => refresh(() { if (v != null) row['item'] = v; }),
+                    onChanged: widget.items.isEmpty ? null : (v) => refresh(() { if (v != null) row['item'] = v; }),
                   ),
                   _field(row['qty'] as TextEditingController, allowZeroQuantity ? 'الكمية الفعلية' : 'الكمية', number: true),
                   if (includeRate) _field(row['rate'] as TextEditingController, 'سعر التقييم', number: true),
