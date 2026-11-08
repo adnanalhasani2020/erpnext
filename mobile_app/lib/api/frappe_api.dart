@@ -40,6 +40,8 @@ class FrappeApi {
   final Map<String, String> _cookies = {};
   final Set<String> _inFlightSalesActions = <String>{};
   final Set<String> _inFlightPaymentActions = <String>{};
+  final Set<String> _inFlightPurchaseActions = <String>{};
+  final Set<String> _inFlightDocumentActions = <String>{};
   String _baseUrl = '';
   int _sessionGeneration = 0;
 
@@ -1091,6 +1093,11 @@ class FrappeApi {
   }
 
   Future<Map<String, dynamic>> createPurchaseReturn(String invoiceName, {Map<String, double?>? quantitiesBySourceItem}) async {
+    final actionKey = 'purchase-return:$invoiceName';
+    if (!_inFlightPurchaseActions.add(actionKey)) {
+      throw const FormatException('إنشاء مرتجع المشتريات قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
+    }
+    try {
     final source = await fetchInvoiceDocument('Purchase Invoice', invoiceName);
     if (source['docstatus'] != 1 || source['is_return'] == 1 || source['is_return'] == true) {
       throw const FormatException('المرتجع يتطلب فاتورة مشتريات أصلية مرحلة.');
@@ -1161,6 +1168,9 @@ class FrappeApi {
       throw Exception('لم يتم تأكيد حفظ مسودة المرتجع.');
     }
     return created;
+    } finally {
+      _inFlightPurchaseActions.remove(actionKey);
+    }
   }
 
   Future<Map<String, dynamic>> payPurchaseInvoice({
@@ -1230,6 +1240,12 @@ class FrappeApi {
   }
 
   Future<Map<String, dynamic>> _submitMobileDocument(Map<String, dynamic> doc, String doctype) async {
+    final name = doc['name']?.toString() ?? '';
+    final actionKey = '$doctype:$name';
+    if (!_inFlightDocumentActions.add(actionKey)) {
+      throw const FormatException('ترحيل هذا المستند قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
+    }
+    try {
     if (doc['doctype'] != doctype || doc['name'] is! String || doc['docstatus'] != 0) {
       throw FormatException('لا يمكن ترحيل المستند من النوع أو الحالة الحالية.');
     }
@@ -1244,9 +1260,17 @@ class FrappeApi {
       throw Exception('أرسل ERPNext استجابة غير مؤكدة للترحيل. أعد تحميل المستند قبل محاولة ترحيله مرة أخرى.');
     }
     return submitted;
+    } finally {
+      _inFlightDocumentActions.remove(actionKey);
+    }
   }
 
   Future<Map<String, dynamic>> cancelPurchaseInvoice(String name) async {
+    final actionKey = 'cancel-purchase:$name';
+    if (!_inFlightPurchaseActions.add(actionKey)) {
+      throw const FormatException('إلغاء فاتورة المشتريات قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
+    }
+    try {
     if (name.trim().isEmpty) throw const FormatException('رقم فاتورة المشتريات غير موجود.');
     final current = await fetchInvoiceDocument('Purchase Invoice', name);
     if (current['doctype'] != 'Purchase Invoice' || current['name'] != name || current['docstatus'] != 1) {
@@ -1268,6 +1292,9 @@ class FrappeApi {
       throw Exception('لم يؤكد ERPNext إلغاء الفاتورة. أعد تحميلها للتحقق قبل أي إجراء آخر.');
     }
     return canceled;
+    } finally {
+      _inFlightPurchaseActions.remove(actionKey);
+    }
   }
 
   Future<Map<String, dynamic>> createStockEntry({
