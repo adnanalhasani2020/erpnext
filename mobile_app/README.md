@@ -116,3 +116,7 @@ The APK is written to `build/app/outputs/flutter-apk/app-debug.apk`.
 - Editing the customer/supplier or any date filter invalidates the loaded reconciliation preview and its allocations; inputs are locked while a reconciliation request is running.
 - After ERPNext confirms reconciliation, the previous allocation preview is cleared so it cannot be submitted a second time from stale UI state. Fetch current entries again to review remaining balances.
 - The mobile UI uses ERPNext's native Payment Reconciliation methods; FIFO allocation is a preview and must be checked against the target site's live behavior before production use.
+
+### Large sales pricing catalogs
+- Sales Pricing loads selling Pricing Rules in ERPNext-sized pages and offers an explicit load-more action; subsequent pages are appended without duplicate rule IDs.
+- The initial list is refreshed from offset zero after creating, editing, or disabling a rule. Large catalogs should be verified with a role that can read the full Pricing Rule list.
