@@ -445,6 +445,41 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().toList(growable: false);
   }
 
+  Future<List<Map<String, dynamic>>> fetchCustomerLedger({
+    required String customer, int start = 0, String? company,
+  }) async {
+    if (customer.trim().isEmpty) {
+      throw const FormatException('حدد العميل لعرض كشف حسابه.');
+    }
+    final filters = <List<dynamic>>[
+      ['party_type', '=', 'Customer'],
+      ['party', '=', customer.trim()],
+      ['is_cancelled', '=', 0],
+    ];
+    if (company != null && company.trim().isNotEmpty) {
+      filters.add(['company', '=', company.trim()]);
+    }
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'GL Entry',
+      fields: const [
+        'name', 'posting_date', 'account', 'against', 'debit', 'credit',
+        'voucher_type', 'voucher_no', 'remarks', 'company', 'party',
+      ],
+      filters: filters,
+      orderBy: 'posting_date desc, creation desc, name desc',
+      start: start,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل كشف حساب العميل. تحقق من صلاحية قراءة GL Entry.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة كشف حساب العميل غير متوقعة.');
+    return rows.whereType<Map<String, dynamic>>().toList(growable: false);
+  }
+
   Future<List<Map<String, dynamic>>> fetchSupplierPayments({int start = 0, String? search}) async {
     final uri = buildResourcePageUri(
       baseUrl: _baseUrl,
