@@ -187,6 +187,60 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().map(ErpItem.fromJson).toList(growable: false);
   }
 
+
+  Future<List<Map<String, dynamic>>> fetchAvailableBatches({
+    required String itemCode,
+    required String warehouse,
+  }) async {
+    if (itemCode.trim().isEmpty || warehouse.trim().isEmpty) {
+      throw const FormatException('حدد الصنف والمستودع لعرض الدفعات المتاحة.');
+    }
+    final uri = Uri.parse('$_baseUrl/api/method/erpnext.stock.doctype.batch.batch.get_batch_qty')
+        .replace(queryParameters: {
+      'item_code': itemCode.trim(),
+      'warehouse': warehouse.trim(),
+      'ignore_reserved_stock': '0',
+      'consider_negative_batches': '0',
+    });
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر جلب الدفعات المتاحة من ERPNext.'));
+    }
+    final message = data['message'];
+    if (message is! List) throw Exception('استجابة الدفعات المتاحة من ERPNext غير متوقعة.');
+    return message.whereType<Map<String, dynamic>>().map((row) => Map<String, dynamic>.from(row))
+        .where((row) => row['batch_no'] is String &&
+            (double.tryParse(row['qty']?.toString() ?? '') ?? 0) > 0)
+        .toList(growable: false);
+  }
+
+  Future<List<String>> fetchAvailableSerialNumbers({
+    required String itemCode,
+    required String warehouse,
+    required int quantity,
+    List<String> batchNumbers = const [],
+  }) async {
+    if (itemCode.trim().isEmpty || warehouse.trim().isEmpty || quantity < 1 || quantity > 200) {
+      throw const FormatException('بيانات طلب الأرقام التسلسلية غير صحيحة؛ الكمية القصوى للبحث 200 وحدة.');
+    }
+    final response = await _sendJson('POST',
+        '/api/method/erpnext.stock.doctype.serial_no.serial_no.auto_fetch_serial_number', {
+      'item_code': itemCode.trim(),
+      'warehouse': warehouse.trim(),
+      'qty': quantity,
+      if (batchNumbers.isNotEmpty) 'batch_nos': jsonEncode(batchNumbers),
+    });
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر جلب الأرقام التسلسلية المتاحة من ERPNext.'));
+    }
+    final message = data['message'];
+    if (message is! List) throw Exception('استجابة الأرقام التسلسلية من ERPNext غير متوقعة.');
+    return message.whereType<String>().map((value) => value.trim()).where((value) => value.isNotEmpty)
+        .toSet().toList(growable: false);
+  }
+
   Future<List<ErpWarehouse>> fetchWarehouses({int start = 0, String? search}) async {
     final query = search?.trim();
     final uri = buildResourcePageUri(
@@ -1999,11 +2053,14 @@ class FrappeApi {
     required String company, required String warehouse, required List<Map<String, dynamic>> items, String? remarks,
   }) async {
     if (company.trim().isEmpty || warehouse.trim().isEmpty || items.isEmpty) throw const FormatException('حدد الشركة والمستودع وأصناف الجرد.');
+    _validateSerialBatchRows(items);
     final seen = <String>{};
     for (final row in items) {
       final code = row['item_code'];
       final qty = row['qty'];
-      if (code is! String || code.trim().isEmpty || !seen.add(code) || qty is! num || !qty.isFinite || qty < 0) {
+      final batchNo = row['batch_no']?.toString().trim() ?? '';
+      final uniqueKey = code is String ? code + '|' + batchNo : '';
+      if (code is! String || code.trim().isEmpty || !seen.add(uniqueKey) || qty is! num || !qty.isFinite || qty < 0) {
         throw const FormatException('أصناف الجرد يجب أن تكون غير مكررة وكمياتها صفر أو أكثر.');
       }
       if (row.containsKey('valuation_rate') &&
@@ -2017,7 +2074,7 @@ class FrappeApi {
     await _validateWarehouseForCompany(warehouse, company);
     final payload = <String, dynamic>{
       'doctype': 'Stock Reconciliation', 'company': company, 'purpose': 'Stock Reconciliation',
-      'items': items.map((row) => <String, dynamic>{...row, 'warehouse': warehouse}).toList(),
+      'items': _cleanSerialBatchRows(items).map((row) => <String, dynamic>{...row, 'warehouse': warehouse}).toList(),
       if (remarks != null && remarks.trim().isNotEmpty) 'remarks': remarks.trim(),
     };
     final response = await _sendJson('POST', '/api/resource/Stock%20Reconciliation', payload);

@@ -1459,6 +1459,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
   }
   Future<List<Map<String, dynamic>>?> _stockItemLinesDialog({
     required String title, bool includeRate = false, bool allowZeroQuantity = false, bool requirePositiveRate = false,
+    String? trackingWarehouse,
   }) async {
     if (widget.items.isEmpty) return null;
     final lines = <Map<String, dynamic>>[];
@@ -1509,11 +1510,32 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                   ),
                   _field(row['qty'] as TextEditingController, allowZeroQuantity ? 'الكمية الفعلية' : 'الكمية', number: true),
                   if (includeRate) _field(row['rate'] as TextEditingController, 'سعر التقييم', number: true),
-                  if (!allowZeroQuantity && item?.hasSerialNo == true)
+                  if (item?.hasSerialNo == true)
                     TextField(controller: row['serial_no'] as TextEditingController, minLines: 2, maxLines: 4,
                       decoration: const InputDecoration(labelText: 'الأرقام التسلسلية', helperText: 'رقم لكل وحدة.')),
-                  if (!allowZeroQuantity && item?.hasBatchNo == true)
+                  if (item?.hasBatchNo == true)
                     TextField(controller: row['batch_no'] as TextEditingController, decoration: const InputDecoration(labelText: 'رقم الدفعة')),
+                  if (trackingWarehouse != null && item != null &&
+                      (item.hasSerialNo || item.hasBatchNo))
+                    Align(alignment: AlignmentDirectional.centerEnd, child: TextButton.icon(
+                      onPressed: () async {
+                        final qty = double.tryParse((row['qty'] as TextEditingController).text.trim()) ?? 0;
+                        try {
+                          final picked = await showAvailableSerialBatchPicker(
+                            context: context, api: widget.api, item: item,
+                            quantity: qty, warehouse: trackingWarehouse,
+                          );
+                          if (picked != null) refresh(() {
+                            (row['serial_no'] as TextEditingController).text = picked['serial_no']?.toString() ?? '';
+                            (row['batch_no'] as TextEditingController).text = picked['batch_no']?.toString() ?? '';
+                          });
+                        } catch (error) {
+                          notice(error.toString().replaceFirst('Exception: ', ''));
+                        }
+                      },
+                      icon: const Icon(Icons.qr_code_scanner),
+                      label: const Text('اختيار من المتاح في مستودع المصدر'),
+                    )),
                 ])));
               }),
             ],
@@ -1525,10 +1547,6 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
               final seenItems = <String>{};
               for (final row in lines) {
                 final itemCode = row['item'] as String;
-                if (allowZeroQuantity && !seenItems.add(itemCode)) {
-                  notice('لا تكرر الصنف نفسه في تسوية الجرد؛ اجمع كميته في سطر واحد.');
-                  return;
-                }
                 final qty = double.tryParse((row['qty'] as TextEditingController).text.trim());
                 final rate = double.tryParse((row['rate'] as TextEditingController).text.trim());
                 final matchingItems = widget.items.where((x) => x.code == row['item']).toList();
@@ -1537,19 +1555,27 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                   return;
                 }
                 final selectedItem = matchingItems.first;
-                if (allowZeroQuantity && (selectedItem.hasSerialNo || selectedItem.hasBatchNo)) {
-                  notice('تسوية الجرد للأصناف ذات الأرقام التسلسلية أو الدفعات تحتاج إلى محرر Bundle مخصص؛ لم يتم ترحيلها من هذه الشاشة.');
-                  return;
-                }
                 if (qty == null || !qty.isFinite ||
                     (allowZeroQuantity ? qty < 0 : qty <= 0) ||
                     (includeRate && (rate == null || !rate.isFinite || (requirePositiveRate ? rate <= 0 : rate < 0)))) return;
+                final serialText = (row['serial_no'] as TextEditingController).text;
+                final batchText = (row['batch_no'] as TextEditingController).text;
+                if (allowZeroQuantity && qty == 0 && (selectedItem.hasSerialNo || selectedItem.hasBatchNo)) {
+                  notice('تسوية الصنف المتتبع إلى صفر تتطلب تحديد الأرقام الحالية التي ستُزال؛ لم يتم إنشاء تسوية غير مكتملة.');
+                  return;
+                }
+                final trackingKey = selectedItem.hasBatchNo
+                    ? itemCode + '|' + batchText.trim()
+                    : itemCode;
+                if (allowZeroQuantity && !seenItems.add(trackingKey)) {
+                  notice('لا تكرر الصنف والدفعة نفسيهما في تسوية الجرد.');
+                  return;
+                }
                 try {
                   result.add({'item_code': row['item'], 'qty': qty,
                     if (includeRate) 'valuation_rate': rate,
-                    ...(!allowZeroQuantity ? buildSerialBatchFields(item: selectedItem, quantity: qty,
-                      serialNumbers: (row['serial_no'] as TextEditingController).text,
-                      batchNumber: (row['batch_no'] as TextEditingController).text) : const <String, dynamic>{})});
+                    ...buildSerialBatchFields(item: selectedItem, quantity: qty,
+                      serialNumbers: serialText, batchNumber: batchText)});
                 } catch (error) { notice(error.toString().replaceFirst('FormatException: ', '')); return; }
               }
               if (result.isNotEmpty) Navigator.pop(dialogContext, result);
@@ -1631,6 +1657,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       final items = await _stockItemLinesDialog(
         title: 'أصناف حركة المخزون', includeRate: purpose == 'Material Receipt',
         requirePositiveRate: purpose == 'Material Receipt',
+        trackingWarehouse: purpose == 'Material Issue' || purpose == 'Material Transfer'
+            ? from.text.trim() : null,
       );
       if (items == null || !mounted) return;
       final doc = await widget.api.createStockEntry(

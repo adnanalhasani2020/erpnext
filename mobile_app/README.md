@@ -91,3 +91,9 @@ The APK is written to `build/app/outputs/flutter-apk/app-debug.apk`.
 - Item/batch ownership, serial status, warehouse availability, and bundle lifecycle remain server-authoritative and require verification on a real ERPNext v15 site.
 
 - Delivery Note drafts now include a tracking-allocation step for serial/batch items before submission; ERPNext validates the selected stock allocation.
+
+
+### Available serial and batch selection
+- Outward Sales Invoice, Delivery Note and Stock Entry issue/transfer lines can request available serial numbers through ERPNext's `auto_fetch_serial_number` method and available batch quantities through ERPNext's `get_batch_qty` method, scoped to the selected item and source warehouse.
+- The app requires one selected serial per unit and checks the selected batch quantity before creating the draft. ERPNext remains authoritative for final availability, reservations, posting date and bundle validation.
+- Stock Reconciliation supports positive counted quantities with explicit serial/batch fields; zero-count tracked rows remain blocked until the current serial/batch snapshot can be supplied safely.

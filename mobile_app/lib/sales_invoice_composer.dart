@@ -479,6 +479,27 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
               TextFormField(controller: line.batchNumber, enabled: !_saving && _pendingDraft == null,
                 decoration: const InputDecoration(labelText: 'رقم الدفعة', helperText: 'لأكثر من دفعة، قسّم الكمية إلى بنود منفصلة.')),
           ],
+          if (_updateStock && line.item?.isStockItem == true &&
+              (line.item?.hasSerialNo == true || line.item?.hasBatchNo == true) &&
+              line.warehouse != null && line.sourceRow?['serial_and_batch_bundle'] == null)
+            Align(alignment: AlignmentDirectional.centerEnd, child: TextButton.icon(
+              onPressed: _saving || _pendingDraft != null ? null : () async {
+                try {
+                  final picked = await showAvailableSerialBatchPicker(
+                    context: context, api: widget.api, item: line.item!,
+                    quantity: line.qty, warehouse: line.warehouse!.id,
+                  );
+                  if (picked != null && mounted) setState(() {
+                    line.serialNumbers.text = picked['serial_no']?.toString() ?? '';
+                    line.batchNumber.text = picked['batch_no']?.toString() ?? '';
+                  });
+                } catch (error) {
+                  if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+                }
+              },
+              icon: const Icon(Icons.qr_code_scanner),
+              label: const Text('اختيار من الأرقام والدفعات المتاحة'),
+            )),
           const SizedBox(height: 8),
           Align(alignment: AlignmentDirectional.centerEnd, child: Text('الإجمالي: ${line.total.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold))),
         ]),

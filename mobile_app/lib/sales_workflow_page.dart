@@ -291,6 +291,27 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
                         decoration: const InputDecoration(labelText: 'الأرقام التسلسلية', helperText: 'رقم لكل وحدة. افصل بينها بسطر جديد أو فاصلة.')),
                     if (item.hasBatchNo)
                       TextField(controller: fields['batch'], decoration: const InputDecoration(labelText: 'رقم الدفعة')),
+                    if (row['warehouse'] is String && row['warehouse'].toString().isNotEmpty)
+                      Align(alignment: AlignmentDirectional.centerEnd, child: TextButton.icon(
+                        onPressed: () async {
+                          try {
+                            final picked = await showAvailableSerialBatchPicker(
+                              context: dialogContext, api: widget.api, item: item,
+                              quantity: double.tryParse(row['qty']?.toString() ?? '') ?? 0,
+                              warehouse: row['warehouse'].toString(),
+                            );
+                            if (picked != null && dialogContext.mounted) refresh(() {
+                              fields['serial']!.text = picked['serial_no']?.toString() ?? '';
+                              fields['batch']!.text = picked['batch_no']?.toString() ?? '';
+                            });
+                          } catch (error) {
+                            if (dialogContext.mounted) ScaffoldMessenger.of(dialogContext).showSnackBar(
+                              SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))));
+                          }
+                        },
+                        icon: const Icon(Icons.qr_code_scanner),
+                        label: const Text('اختيار من المتاح في المستودع'),
+                      )),
                   ],
                 )));
               }),
