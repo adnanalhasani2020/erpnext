@@ -153,6 +153,7 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 - [ ] Verify stock document creation responses identify the expected DocType, document name, and draft status before the UI reports a saved draft.
 - [ ] Verify stock submit responses identify the same document and `docstatus = 1` before the UI reports success.
 - [ ] Open and review draft Purchase Receipts, Stock Entries, and Stock Reconciliations; delete only drafts and never submitted documents.
+- [ ] Verify stock draft lists paginate independently for Purchase Receipt, Stock Entry, and Stock Reconciliation without duplicate or missing records.
 - [ ] Filter Stock Ledger Entry history by company, item, and warehouse; compare quantities and running balances with ERPNext.
 - [ ] Create sales, purchase and stock documents for serial-tracked and batch-tracked items; use the warehouse-scoped serial/batch picker and confirm ERPNext creates/validates native Serial and Batch Bundles on submit.
 - [ ] Verify serial numbers are unique and one-per-unit, batch quantity is sufficient, batch expiry rules are enforced, and allocations are preserved on draft edits and cleared when item/warehouse/quantity changes.
