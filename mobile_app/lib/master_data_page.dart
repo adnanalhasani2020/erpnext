@@ -122,6 +122,7 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
   String supplierType = 'Company';
   String? company, error;
   final Map<String, List<Map<String, dynamic>>> references = {};
+  final List<_ItemUomLine> itemUoms = [];
   bool referencesLoading = false;
   bool get editing => widget.name != null;
 
@@ -144,7 +145,11 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
   }
 
   @override
-  void dispose() { for (final c in fields.values) { c.dispose(); } super.dispose(); }
+  void dispose() {
+    for (final c in fields.values) { c.dispose(); }
+    for (final row in itemUoms) { row.dispose(); }
+    super.dispose();
+  }
 
   Future<void> _loadReferences() async {
     final requiredTypes = switch (widget.type) {
@@ -210,6 +215,16 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
       final d = await widget.api.fetchMasterDataDocument(doctype: widget.type, name: widget.name!);
       if (!mounted) return;
       for (final e in fields.entries) { e.value.text = d[e.key]?.toString() ?? ''; }
+      for (final row in itemUoms) { row.dispose(); }
+      itemUoms.clear();
+      if (widget.type == 'Item' && d['uoms'] is List) {
+        for (final raw in (d['uoms'] as List).whereType<Map>()) {
+          itemUoms.add(_ItemUomLine(
+            uom: raw['uom']?.toString() ?? '',
+            factor: raw['conversion_factor']?.toString() ?? '',
+          ));
+        }
+      }
       setState(() {
         stock = d['is_stock_item'] == 1 || d['is_stock_item'] == true;
         serial = d['has_serial_no'] == 1 || d['has_serial_no'] == true;
@@ -243,7 +258,13 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
     setState(() { saving = true; error = null; });
     try {
       final values = <String, dynamic>{for (final e in fields.entries) e.key: e.value.text.trim()};
-      if (widget.type == 'Item') values.addAll({'is_stock_item': stock, 'has_serial_no': serial, 'has_batch_no': batch, 'has_expiry_date': expiry, 'disabled': disabled});
+      if (widget.type == 'Item') values.addAll({
+        'is_stock_item': stock, 'has_serial_no': serial, 'has_batch_no': batch,
+        'has_expiry_date': expiry, 'disabled': disabled,
+        'uoms': itemUoms.where((row) => row.uom.trim().isNotEmpty || row.factor.text.trim().isNotEmpty)
+            .map((row) => {'uom': row.uom, 'conversion_factor': double.tryParse(row.factor.text.trim()) ?? 0})
+            .toList(),
+      });
       if (widget.type == 'Supplier') values.addAll({'supplier_type': supplierType, 'disabled': disabled});
       if (widget.type == 'Warehouse') values.addAll({'company': company, 'is_group': group, 'disabled': disabled});
       if (widget.type == 'Item Group' || widget.type == 'Supplier Group') values.addAll({'is_group': group, 'disabled': disabled});
@@ -272,6 +293,51 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
             toggle('تتبع بالأرقام التسلسلية', serial, (v) => setState(() { serial = v; if (v) batch = false; })),
             toggle('تتبع بالدفعات', batch, (v) => setState(() { batch = v; if (v) serial = false; })),
             toggle('يتطلب تاريخ انتهاء', expiry, (v) => setState(() => expiry = v)),
+            const Divider(height: 28),
+            Row(children: [
+              const Expanded(child: Text('تحويلات وحدات القياس', style: TextStyle(fontWeight: FontWeight.bold))),
+              IconButton(
+                tooltip: 'إضافة وحدة بديلة',
+                onPressed: saving || referencesLoading ? null : () => setState(() => itemUoms.add(_ItemUomLine())),
+                icon: const Icon(Icons.add_circle_outline),
+              ),
+            ]),
+            const Text('أدخل معامل التحويل بالنسبة لوحدة المخزون الأساسية؛ مثال: 1 كرتون = 12 قطعة.'),
+            ...List.generate(itemUoms.length, (index) {
+              final row = itemUoms[index];
+              final available = (references['UOM'] ?? const <Map<String, dynamic>>[])
+                  .where((u) => u['enabled'] != 0 && u['enabled'] != false)
+                  .map((u) => u['name']?.toString() ?? '')
+                  .where((name) => name.isNotEmpty && name != fields['stock_uom']!.text.trim())
+                  .toSet().toList();
+              if (row.uom.isNotEmpty && !available.contains(row.uom)) available.insert(0, row.uom);
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(children: [
+                    Row(children: [
+                      Expanded(child: DropdownButtonFormField<String>(
+                        initialValue: row.uom.isEmpty ? null : row.uom,
+                        isExpanded: true,
+                        decoration: const InputDecoration(labelText: 'الوحدة البديلة'),
+                        items: available.map((name) => DropdownMenuItem(value: name, child: Text(name, overflow: TextOverflow.ellipsis))).toList(),
+                        onChanged: saving ? null : (value) => setState(() => row.uom = value ?? ''),
+                      )),
+                      IconButton(
+                        tooltip: 'حذف التحويل',
+                        onPressed: saving ? null : () => setState(() { itemUoms.removeAt(index).dispose(); }),
+                        icon: const Icon(Icons.delete_outline),
+                      ),
+                    ]),
+                    TextField(
+                      controller: row.factor,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'معامل التحويل إلى وحدة المخزون'),
+                    ),
+                  ]),
+                ),
+              );
+            }),
           ] else if (widget.type == 'Supplier') ...[
             field('supplier_name', 'اسم المورد', required: true),
             DropdownButtonFormField<String>(initialValue: supplierType, decoration: const InputDecoration(labelText: 'نوع المورد'),
@@ -319,4 +385,13 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
       )),
     );
   }
+}
+
+
+class _ItemUomLine {
+  _ItemUomLine({this.uom = '', String factor = ''})
+      : factor = TextEditingController(text: factor);
+  String uom;
+  final TextEditingController factor;
+  void dispose() => factor.dispose();
 }
