@@ -41,7 +41,7 @@ Arabic-first Android companion app for an ERPNext instance.
 
 ## Current limits
 
-- The master-data screen supports Item, Supplier, Warehouse, Item Group, Supplier Group, UOM, and Price List records. UOM conversion factors, advanced warehouse-tree administration, and dynamic dropdowns backed by reference masters still need deeper workflows. Reference fields are entered by name and validated by ERPNext; this screen does not automatically create missing parent/reference records.
+- The master-data screen supports Item, Supplier, Warehouse, Item Group, Supplier Group, UOM, and Price List records. UOM conversion factors and advanced warehouse-tree administration still need deeper workflows. Item groups, UOMs, supplier groups, and same-company parent warehouses now use bounded reference selectors loaded from ERPNext; missing reference records must still be created separately.
 
 - Item, warehouse, Bin, Customer, Sales Invoice, Purchase Invoice, and Purchase Order lists are paginated in pages of 100. Purchase invoice and stock movement screens provide load-more controls; selectors use master-data rows currently loaded by the dashboard.
 - Purchase invoices support multiple item rows, draft editing, explicit submission, full or partial debit-note drafts through ERPNext's official mapper, and supplier Payment Entries with a selected company Cash/Bank account. The purchases screen also provides a paginated, searchable history of submitted supplier payments, with a detail view showing the invoices and amounts allocated by each payment.
