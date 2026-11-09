@@ -40,6 +40,15 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 - [ ] Submit a separate invoice with stock update disabled; confirm no stock movement is created.
 - [ ] Attempt invalid quantity, rate, missing customer, and missing warehouse cases; confirm ERPNext rejects invalid documents without duplicate invoices.
 
+## Sales Team and commission allocation
+
+- [ ] Open the Sales Invoice composer and load active Sales Persons from ERPNext.
+- [ ] Add two Sales Persons to a draft and allocate 60% / 40%; save, reopen, and confirm both rows and percentages persist.
+- [ ] Attempt duplicate Sales Person entries, zero/negative percentages, values above 100%, and totals other than 100%; confirm validation blocks the save before any invoice request.
+- [ ] Edit the draft to change the allocation; confirm the same invoice document is updated and not duplicated.
+- [ ] Submit the invoice and verify ERPNext's Sales Team child rows and calculated commission values in Desk.
+- [ ] Compare the Sales Person Commission Summary report with ERPNext's commission entries and confirm the mobile base commission editor does not overwrite submitted invoice allocations.
+
 ## Customer receipts and payment terms
 
 - [ ] Record a partial receipt using the Cash account; verify the Payment Entry is submitted and linked to the intended invoice.
@@ -109,7 +118,8 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 - [ ] Verify stock submit responses identify the same document and `docstatus = 1` before the UI reports success.
 - [ ] Open and review draft Purchase Receipts, Stock Entries, and Stock Reconciliations; delete only drafts and never submitted documents.
 - [ ] Filter Stock Ledger Entry history by company, item, and warehouse; compare quantities and running balances with ERPNext.
-- [ ] Do not use mobile workflows for items requiring serial numbers or batch numbers until serial/batch bundle entry and validation are implemented and tested. The current composer intentionally blocks these tracked items.
+- [ ] Create sales, purchase and stock documents for serial-tracked and batch-tracked items; use the warehouse-scoped serial/batch picker and confirm ERPNext creates/validates native Serial and Batch Bundles on submit.
+- [ ] Verify serial numbers are unique and one-per-unit, batch quantity is sufficient, batch expiry rules are enforced, and allocations are preserved on draft edits and cleared when item/warehouse/quantity changes.
 
 ## Automated mobile-client regression checks
 
