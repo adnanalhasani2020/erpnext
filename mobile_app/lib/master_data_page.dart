@@ -258,13 +258,15 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
     setState(() { saving = true; error = null; });
     try {
       final values = <String, dynamic>{for (final e in fields.entries) e.key: e.value.text.trim()};
-      if (widget.type == 'Item') values.addAll({
-        'is_stock_item': stock, 'has_serial_no': serial, 'has_batch_no': batch,
-        'has_expiry_date': expiry, 'disabled': disabled,
-        'uoms': itemUoms.where((row) => row.uom.trim().isNotEmpty || row.factor.text.trim().isNotEmpty)
-            .map((row) => {'uom': row.uom, 'conversion_factor': double.tryParse(row.factor.text.trim()) ?? 0})
-            .toList(),
-      });
+      if (widget.type == 'Item') {
+        values.addAll({
+          'is_stock_item': stock, 'has_serial_no': serial, 'has_batch_no': batch,
+          'has_expiry_date': expiry, 'disabled': disabled,
+          'uoms': itemUoms.where((row) => row.uom.trim().isNotEmpty || row.factor.text.trim().isNotEmpty)
+              .map((row) => {'uom': row.uom, 'conversion_factor': double.tryParse(row.factor.text.trim()) ?? 0})
+              .toList(),
+        });
+      }
       if (widget.type == 'Supplier') values.addAll({'supplier_type': supplierType, 'disabled': disabled});
       if (widget.type == 'Warehouse') values.addAll({'company': company, 'is_group': group, 'disabled': disabled});
       if (widget.type == 'Item Group' || widget.type == 'Supplier Group') values.addAll({'is_group': group, 'disabled': disabled});
