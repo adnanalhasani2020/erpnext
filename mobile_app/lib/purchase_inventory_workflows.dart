@@ -346,9 +346,11 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
         context: context,
         builder: (dialogContext) => StatefulBuilder(builder: (context, refreshDialog) {
           final companies = widget.companies.map((x) => x.name).toSet().toList();
-          if (!companies.contains(selectedCompany)) selectedCompany = companies.first;
+          final companyOptions = [...companies];
+          if (!companyOptions.contains(selectedCompany)) companyOptions.insert(0, selectedCompany);
           final suppliers = widget.suppliers.map((x) => x.id).toSet().toList();
-          if (!suppliers.contains(selectedSupplier)) selectedSupplier = suppliers.first;
+          final supplierOptions = [...suppliers];
+          if (!supplierOptions.contains(selectedSupplier)) supplierOptions.insert(0, selectedSupplier);
           final warehouses = widget.warehouses.where((w) => w.company == selectedCompany).toList();
           return AlertDialog(
             title: Text(draft == null ? 'فاتورة مشتريات جديدة' : 'تعديل مسودة مشتريات'),
@@ -356,7 +358,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
               DropdownButtonFormField<String>(
                 initialValue: selectedCompany, isExpanded: true,
                 decoration: const InputDecoration(labelText: 'الشركة'),
-                items: companies.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+                items: companyOptions.map((v) => DropdownMenuItem(value: v, child: Text(companies.contains(v) ? v : '$v (غير متاح في القائمة)'))).toList(),
                 onChanged: (v) => refreshDialog(() {
                   if (v == null || v == selectedCompany) return;
                   selectedCompany = v;
@@ -376,8 +378,11 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
               DropdownButtonFormField<String>(
                 initialValue: selectedSupplier, isExpanded: true,
                 decoration: const InputDecoration(labelText: 'المورد'),
-                items: widget.suppliers.map((s) => DropdownMenuItem(value: s.id,
-                  child: Text('${s.name} (${s.id})', overflow: TextOverflow.ellipsis))).toList(),
+                items: [
+                  ...supplierOptions.where((id) => !suppliers.contains(id)).map((id) => DropdownMenuItem(value: id, child: Text('$id (غير متاح في القائمة)'))),
+                  ...widget.suppliers.map((s) => DropdownMenuItem(value: s.id,
+                    child: Text('${s.name} (${s.id})', overflow: TextOverflow.ellipsis))),
+                ],
                 onChanged: (v) => refreshDialog(() { if (v != null) selectedSupplier = v; }),
               ),
               const Divider(height: 24),
@@ -447,6 +452,11 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
               TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
               FilledButton(onPressed: () {
                 if (selectedCompany.isEmpty || selectedSupplier.isEmpty || lineRows.isEmpty) return;
+                if (!widget.companies.any((x) => x.name == selectedCompany) ||
+                    !widget.suppliers.any((x) => x.id == selectedSupplier)) {
+                  notice('الشركة أو المورد الموجود في المسودة غير موجود ضمن البيانات المحمّلة. حدّث القوائم قبل الحفظ.');
+                  return;
+                }
                 final items = <Map<String, dynamic>>[];
                 for (final row in lineRows) {
                   final qty = double.tryParse((row['qty'] as TextEditingController).text.trim());
@@ -558,9 +568,11 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
         context: context,
         builder: (dialogContext) => StatefulBuilder(builder: (context, refresh) {
           final companies = widget.companies.map((x) => x.name).toSet().toList();
-          if (!companies.contains(company)) company = companies.first;
+          final companyOptions = [...companies];
+          if (!companyOptions.contains(company)) companyOptions.insert(0, company);
           final suppliers = widget.suppliers.map((x) => x.id).toSet().toList();
-          if (!suppliers.contains(supplier)) supplier = suppliers.first;
+          final supplierOptions = [...suppliers];
+          if (!supplierOptions.contains(supplier)) supplierOptions.insert(0, supplier);
           final warehouses = widget.warehouses.where((w) => w.company == null || w.company == company).toList();
           return AlertDialog(
             title: Text(draft == null ? 'أمر شراء جديد' : 'تعديل مسودة أمر الشراء'),
@@ -570,7 +582,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                 DropdownButtonFormField<String>(
                   initialValue: company, isExpanded: true,
                   decoration: const InputDecoration(labelText: 'الشركة'),
-                  items: companies.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+                  items: companyOptions.map((v) => DropdownMenuItem(value: v, child: Text(companies.contains(v) ? v : '$v (غير متاح في القائمة)'))).toList(),
                   onChanged: (v) => refresh(() {
                     if (v == null) return;
                     company = v;
@@ -584,9 +596,12 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                 DropdownButtonFormField<String>(
                   initialValue: supplier, isExpanded: true,
                   decoration: const InputDecoration(labelText: 'المورد'),
-                  items: widget.suppliers.map((s) => DropdownMenuItem(
-                    value: s.id, child: Text('${s.name} (${s.id})', overflow: TextOverflow.ellipsis),
-                  )).toList(),
+                  items: [
+                    ...supplierOptions.where((id) => !suppliers.contains(id)).map((id) => DropdownMenuItem(value: id, child: Text('$id (غير متاح في القائمة)'))),
+                    ...widget.suppliers.map((s) => DropdownMenuItem(
+                      value: s.id, child: Text('${s.name} (${s.id})', overflow: TextOverflow.ellipsis),
+                    )),
+                  ],
                   onChanged: (v) => refresh(() { if (v != null) supplier = v; }),
                 ),
                 _field(scheduleDate, 'تاريخ التوريد المطلوب (YYYY-MM-DD)'),
@@ -655,6 +670,11 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                 final parsedDate = DateTime.tryParse(scheduleDate.text.trim());
                 if (company.trim().isEmpty || supplier.trim().isEmpty || parsedDate == null || lines.isEmpty) {
                   notice('حدد الشركة والمورد وتاريخ توريد صحيحاً وأضف بنداً واحداً على الأقل.');
+                  return;
+                }
+                if (!widget.companies.any((x) => x.name == company) ||
+                    !widget.suppliers.any((x) => x.id == supplier)) {
+                  notice('الشركة أو المورد الموجود في المسودة غير موجود ضمن البيانات المحمّلة. حدّث القوائم قبل الحفظ.');
                   return;
                 }
                 final payloadLines = <Map<String, dynamic>>[];
