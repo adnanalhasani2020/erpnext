@@ -29,6 +29,10 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
   }
 
   List<ErpPurchaseInvoice> rows = [];
+  List<Map<String, dynamic>> purchaseOrders = [];
+  int purchaseOrderOffset = 0;
+  bool hasMorePurchaseOrders = false;
+  bool loadingMorePurchaseOrders = false;
   List<Map<String, dynamic>> supplierPayments = [];
   List<Map<String, dynamic>> supplierLedger = [];
   String? selectedLedgerSupplier;
@@ -82,6 +86,20 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     } catch (e) {
       if (requestId == listRequestId) {
         errors.add('الفواتير: ${e.toString().replaceFirst('Exception: ', '')}');
+      }
+    }
+    try {
+      final result = await widget.api.fetchPurchaseOrderRecords(start: 0, search: query);
+      if (mounted && requestId == listRequestId) {
+        setState(() {
+          purchaseOrders = result;
+          purchaseOrderOffset = result.length;
+          hasMorePurchaseOrders = result.length == FrappeApi.pageSize;
+        });
+      }
+    } catch (e) {
+      if (requestId == listRequestId) {
+        errors.add('أوامر الشراء: ${e.toString().replaceFirst('Exception: ', '')}');
       }
     }
     try {
@@ -193,6 +211,30 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       }
     } finally {
       if (mounted) setState(() => loadingMorePayments = false);
+    }
+  }
+
+  Future<void> loadMorePurchaseOrders() async {
+    if (loading || loadingMorePurchaseOrders || !hasMorePurchaseOrders) return;
+    final requestId = listRequestId;
+    final query = search.text.trim().isEmpty ? null : search.text.trim();
+    final start = purchaseOrderOffset;
+    setState(() => loadingMorePurchaseOrders = true);
+    try {
+      final result = await widget.api.fetchPurchaseOrderRecords(start: start, search: query);
+      if (mounted && requestId == listRequestId) {
+        setState(() {
+          purchaseOrders = [...purchaseOrders, ...result];
+          purchaseOrderOffset = start + result.length;
+          hasMorePurchaseOrders = result.length == FrappeApi.pageSize;
+        });
+      }
+    } catch (e) {
+      if (mounted && requestId == listRequestId) {
+        setState(() => error = 'أوامر الشراء: ${e.toString().replaceFirst('Exception: ', '')}');
+      }
+    } finally {
+      if (mounted) setState(() => loadingMorePurchaseOrders = false);
     }
   }
 
