@@ -1304,6 +1304,43 @@ void main() {
     }
   });
 
+  test('purchase order creation permits deferred warehouse selection until receipt', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      if (request.method == 'POST' && request.uri.pathSegments.contains('Purchase Order')) {
+        final payload = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+        expect(payload['doctype'], 'Purchase Order');
+        expect(payload['supplier'], 'SUP-1');
+        expect(payload['company'], 'COMP-1');
+        expect(payload['items'], hasLength(1));
+        expect(payload['items'][0].containsKey('warehouse'), isFalse);
+        request.response.write(jsonEncode({'data': {
+          'doctype': 'Purchase Order', 'name': 'PO-NEW-1', 'docstatus': 0,
+        }}));
+      } else {
+        request.response.statusCode = 404;
+        request.response.write(jsonEncode({'message': 'unexpected path: ${request.uri.path}'}));
+      }
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      final created = await api.createPurchaseOrder({
+        'doctype': 'Purchase Order',
+        'company': 'COMP-1',
+        'supplier': 'SUP-1',
+        'schedule_date': '2026-11-10',
+        'items': [{'item_code': 'ITEM-1', 'qty': 3, 'rate': 12}],
+      });
+      expect(created['name'], 'PO-NEW-1');
+      expect(created['docstatus'], 0);
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
   test('purchase order creation rejects missing parties, empty rows and invalid values before network access', () async {
     final api = FrappeApi();
     await expectLater(
