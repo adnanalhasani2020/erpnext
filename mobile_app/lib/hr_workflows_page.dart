@@ -196,6 +196,87 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
     toDate.dispose(); description.dispose();
   }
 
+  Future<void> _createExpenseClaim() async {
+    final employee = TextEditingController();
+    final date = TextEditingController(text: DateTime.now().toIso8601String().substring(0, 10));
+    final amount = TextEditingController();
+    final account = TextEditingController();
+    final description = TextEditingController();
+    final costCenter = TextEditingController();
+    List<Map<String, dynamic>> types = [];
+    try {
+      types = await widget.api.fetchExpenseClaimTypes();
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      employee.dispose(); date.dispose(); amount.dispose(); account.dispose();
+      description.dispose(); costCenter.dispose();
+      return;
+    }
+    String? selectedType = types.isEmpty ? null : types.first['name']?.toString();
+    final formKey = GlobalKey<FormState>();
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(builder: (context, refresh) =>
+        AlertDialog(
+          title: const Text('مطالبة مصروفات جديدة'),
+          content: Form(key: formKey, child: SingleChildScrollView(child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(controller: employee, decoration: const InputDecoration(labelText: 'رقم الموظف'), validator: _required),
+              TextFormField(controller: date, decoration: const InputDecoration(labelText: 'تاريخ المطالبة YYYY-MM-DD'), validator: _dateRequired),
+              DropdownButtonFormField<String>(
+                value: selectedType,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'نوع المصروف'),
+                items: types.map((row) => DropdownMenuItem(
+                  value: row['name']?.toString(),
+                  child: Text((row['name'] ?? '').toString(), overflow: TextOverflow.ellipsis),
+                )).toList(),
+                onChanged: (value) => refresh(() => selectedType = value),
+                validator: (value) => value == null || value.isEmpty ? 'لا توجد أنواع مصروفات مفعلة' : null,
+              ),
+              TextFormField(controller: amount, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'المبلغ'), validator: (value) {
+                final parsed = double.tryParse(value?.trim() ?? '');
+                return parsed == null || !parsed.isFinite || parsed <= 0 ? 'أدخل مبلغاً أكبر من صفر' : null;
+              }),
+              TextFormField(controller: account, decoration: const InputDecoration(labelText: 'حساب المصروف (إذا لم يحدد النوع حساباً افتراضياً)')),
+              TextFormField(controller: costCenter, decoration: const InputDecoration(labelText: 'مركز التكلفة (اختياري)')),
+              TextFormField(controller: description, maxLines: 2, decoration: const InputDecoration(labelText: 'وصف المصروف')),
+              const SizedBox(height: 8),
+              const Text('سيُحفظ الطلب كمسودة. قد يرفض ERPNext الترحيل حتى اكتمال الموافقات والسياسات الداخلية.'),
+            ],
+          ))),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('إلغاء')),
+            FilledButton(onPressed: () {
+              if (formKey.currentState?.validate() ?? false) Navigator.pop(dialogContext, true);
+            }, child: const Text('حفظ المسودة')),
+          ],
+        ),
+      ),
+    );
+    if (created == true && mounted) {
+      await _runSave(() async {
+        final row = await widget.api.createExpenseClaimDraft(
+          employee: employee.text,
+          company: _company ?? '',
+          postingDate: date.text,
+          expenseType: selectedType ?? '',
+          amount: amount.text,
+          account: account.text,
+          description: description.text,
+          costCenter: costCenter.text,
+        );
+        if (!mounted) return;
+        _showMessage('تم إنشاء مسودة المطالبة: ${row['name']}');
+        _tabs.animateTo(3);
+        await _load();
+      });
+    }
+    employee.dispose(); date.dispose(); amount.dispose(); account.dispose();
+    description.dispose(); costCenter.dispose();
+  }
+
   Future<void> _submit(String doctype, Map<String, dynamic> row) async {
     final name = row['name']?.toString() ?? '';
     final confirmed = await showDialog<bool>(
@@ -246,7 +327,7 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
 
   @override
   Widget build(BuildContext context) {
-    final canCreate = _tabs.index == 1 || _tabs.index == 2;
+    final canCreate = _tabs.index == 1 || _tabs.index == 2 || _tabs.index == 3;
     return Scaffold(
       appBar: AppBar(
         title: const Text('الموارد البشرية'),
@@ -254,7 +335,7 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
           IconButton(onPressed: _loading ? null : _load, tooltip: 'تحديث', icon: const Icon(Icons.refresh)),
           if (canCreate)
             IconButton(
-              onPressed: _saving ? null : (_tabs.index == 1 ? _createAttendance : _createLeaveApplication),
+              onPressed: _saving ? null : (_tabs.index == 1 ? _createAttendance : _tabs.index == 2 ? _createLeaveApplication : _createExpenseClaim),
               tooltip: 'إضافة سجل',
               icon: const Icon(Icons.add_circle_outline),
             ),
@@ -366,7 +447,13 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
           title: Text((row['employee_name'] ?? row['employee'] ?? row['name'] ?? 'مطالبة').toString()),
           subtitle: Text('${row['name']} • ${row['posting_date'] ?? ''}\n${row['approval_status'] ?? row['status'] ?? '—'}'),
           isThreeLine: true,
-          trailing: Text((row['total_claimed_amount'] ?? '—').toString()),
+          trailing: (row['docstatus'] == 0 || row['docstatus'] == '0')
+            ? IconButton(
+                tooltip: 'ترحيل إلى مسار الموافقات',
+                onPressed: _saving ? null : () => _submit('Expense Claim', row),
+                icon: const Icon(Icons.send_outlined),
+              )
+            : Text((row['total_claimed_amount'] ?? '—').toString()),
         ));
       },
     );
