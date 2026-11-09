@@ -176,7 +176,7 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
       _error = null;
     });
     try {
-      final result = await widget.api.reconcilePaymentAllocations(document);
+      await widget.api.reconcilePaymentAllocations(document);
       if (!mounted) return;
       setState(() => _document = null);
       ScaffoldMessenger.of(context).showSnackBar(
