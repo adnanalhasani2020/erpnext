@@ -24,9 +24,11 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
   bool _hasMore = false;
   bool _showDiscounts = false;
   bool _loadingDiscounts = false;
+  bool _discountHasMore = false;
   List<Map<String, dynamic>> _discountRules = const [];
   String? _error;
   int _offset = 0;
+  int _discountOffset = 0;
 
   @override
   void initState() {
@@ -96,15 +98,32 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
     }
   }
 
-  Future<void> _loadDiscounts() async {
+  Future<void> _loadDiscounts({bool more = false}) async {
+    if (_loadingDiscounts || (more && !_discountHasMore)) return;
     setState(() {
       _loadingDiscounts = true;
-      _error = null;
+      if (!more) {
+        _error = null;
+        _discountRules = const [];
+        _discountOffset = 0;
+        _discountHasMore = false;
+      }
     });
     try {
-      final rows = await widget.api.fetchSellingPricingRules();
+      final page = await widget.api.fetchSellingPricingRules(
+        start: more ? _discountOffset : 0,
+      );
       if (!mounted) return;
-      setState(() => _discountRules = rows);
+      setState(() {
+        final combined = more ? [..._discountRules, ...page] : page;
+        final seen = <String>{};
+        _discountRules = combined.where((row) {
+          final id = row['name']?.toString() ?? '';
+          return id.isNotEmpty && seen.add(id);
+        }).toList(growable: false);
+        _discountOffset = more ? _discountOffset + page.length : page.length;
+        _discountHasMore = page.length == FrappeApi.pageSize;
+      });
     } catch (error) {
       if (mounted) {
         setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
@@ -777,6 +796,14 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                       },
                     )),
             ),
+            if (_showDiscounts && (_discountHasMore ||
+                (_loadingDiscounts && _discountRules.isNotEmpty)))
+              OutlinedButton(
+                onPressed: _loadingDiscounts
+                    ? null
+                    : () => _loadDiscounts(more: true),
+                child: const Text('تحميل قواعد خصم إضافية'),
+              ),
             if (!_showDiscounts && (_hasMore || (_loading && _prices.isNotEmpty)))
               OutlinedButton(
                 onPressed: _loading ? null : () => _loadPrices(more: true),
