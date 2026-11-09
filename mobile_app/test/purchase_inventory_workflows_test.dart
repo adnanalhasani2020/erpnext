@@ -1253,6 +1253,53 @@ void main() {
     }
   });
 
+  testWidgets('purchase workflow displays draft and submitted purchase orders', (tester) async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      if (request.method == 'GET' && request.uri.path.endsWith('/PO-DRAFT-1')) {
+        request.response.write(jsonEncode({'data': {
+          'doctype': 'Purchase Order', 'name': 'PO-DRAFT-1', 'docstatus': 0,
+          'supplier': 'SUP-1', 'supplier_name': 'مورد تجريبي',
+          'company': 'COMP-1', 'status': 'Draft', 'grand_total': 50,
+          'currency': 'YER', 'items': [],
+        }}));
+      } else if (request.method == 'GET' && request.uri.pathSegments.contains('Purchase Order')) {
+        request.response.write(jsonEncode({'data': [{
+          'name': 'PO-DRAFT-1', 'docstatus': 0, 'supplier': 'SUP-1',
+          'supplier_name': 'مورد تجريبي', 'company': 'COMP-1',
+          'status': 'Draft', 'grand_total': 50, 'currency': 'YER',
+        }]}));
+      } else {
+        request.response.write(jsonEncode({'data': []}));
+      }
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      await tester.pumpWidget(MaterialApp(
+        home: PurchaseWorkflowPage(
+          api: api,
+          companies: const [ErpCompany(name: 'COMP-1')],
+          suppliers: const [ErpSupplier(id: 'SUP-1', name: 'مورد تجريبي')],
+          items: const [ErpItem(code: 'ITEM-1', name: 'صنف تجريبي')],
+          warehouses: const [],
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('أوامر الشراء (1)'), findsOneWidget);
+      expect(find.text('PO-DRAFT-1'), findsOneWidget);
+      await tester.tap(find.text('PO-DRAFT-1'));
+      await tester.pumpAndSettle();
+      expect(find.text('تعديل المسودة'), findsOneWidget);
+      expect(find.text('ترحيل أمر الشراء'), findsOneWidget);
+    } finally {
+      await tester.pumpWidget(const SizedBox());
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
   test('purchase order creation rejects missing parties, empty rows and invalid values before network access', () async {
     final api = FrappeApi();
     await expectLater(
