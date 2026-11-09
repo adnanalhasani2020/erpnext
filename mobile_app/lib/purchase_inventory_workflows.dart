@@ -302,9 +302,9 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
   }
 
   void notice(String value) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(value))); }
-  Future<bool> confirm(String title, String message) async => await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: Text(title), content: Text(message), actions: [
+  Future<bool> confirm(String title, String message, {String actionLabel = 'تأكيد'}) async => await showDialog<bool>(context: context, builder: (c) => AlertDialog(title: Text(title), content: Text(message), actions: [
     TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('إلغاء')),
-    FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('تأكيد')),
+    FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(actionLabel)),
   ])) == true;
 
   Future<void> compose({Map<String, dynamic>? draft}) =>
