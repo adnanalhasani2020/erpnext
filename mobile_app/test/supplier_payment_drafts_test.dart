@@ -26,7 +26,7 @@ void main() {
       }],
     };
     server.listen((request) async {
-      calls.add('${request.method} ${request.uri.path}');
+      calls.add('${request.method} /${request.uri.pathSegments.join('/')}');
       request.response.headers.contentType = ContentType.json;
       if (request.method == 'GET' && request.uri.pathSegments.length == 3 && request.uri.pathSegments[2] == 'Payment Entry') {
         final fields = jsonDecode(request.uri.queryParameters['fields']!) as List;
@@ -75,8 +75,8 @@ void main() {
       final submitted = await api.submitSupplierPaymentDraft(loaded);
       expect(submitted['docstatus'], 1);
       expect(calls, [
-        'GET /api/resource/Payment%20Entry',
-        'GET /api/resource/Payment%20Entry/PAY-DRAFT-1',
+        'GET /api/resource/Payment Entry',
+        'GET /api/resource/Payment Entry/PAY-DRAFT-1',
         'GET /api/resource/Payment%20Entry/PAY-DRAFT-1',
         'POST /api/method/frappe.client.submit',
       ]);
