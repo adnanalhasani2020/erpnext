@@ -1554,6 +1554,62 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().toList(growable: false);
   }
 
+  Future<List<Map<String, dynamic>>> fetchDraftSupplierPayments({
+    int start = 0,
+    String? search,
+  }) async {
+    final query = search?.trim() ?? '';
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Payment Entry',
+      fields: const [
+        'name', 'posting_date', 'party', 'party_name', 'paid_amount',
+        'paid_from', 'reference_no', 'reference_date', 'status', 'docstatus',
+      ],
+      filters: const [
+        ['payment_type', '=', 'Pay'],
+        ['party_type', '=', 'Supplier'],
+        ['docstatus', '=', 0],
+      ],
+      orFilters: query.isEmpty ? null : [
+        ['name', 'like', '%$query%'],
+        ['party', 'like', '%$query%'],
+        ['party_name', 'like', '%$query%'],
+      ],
+      orderBy: 'modified desc, name desc',
+      start: start,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل مسودات دفعات الموردين.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة مسودات دفعات الموردين غير متوقعة.');
+    return rows.whereType<Map<String, dynamic>>()
+        .where((row) => row['docstatus'] == 0 &&
+            row['payment_type'] == 'Pay' && row['party_type'] == 'Supplier')
+        .toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>> fetchSupplierPaymentDraftDocument(String name) =>
+      _fetchPaymentEntryDraft(
+        name,
+        paymentType: 'Pay',
+        partyType: 'Supplier',
+      );
+
+  Future<Map<String, dynamic>> submitSupplierPaymentDraft(
+    Map<String, dynamic> draft,
+  ) async {
+    if (draft['doctype'] != 'Payment Entry' ||
+        draft['payment_type'] != 'Pay' ||
+        draft['party_type'] != 'Supplier') {
+      throw const FormatException('المستند ليس مسودة سند صرف مورد صحيحة.');
+    }
+    return _submitMobileDocument(draft, 'Payment Entry');
+  }
+
   Future<Map<String, dynamic>> fetchSupplierPaymentDocument(String name) async {
     if (name.trim().isEmpty) throw const FormatException('رقم سند صرف المورد غير موجود.');
     final response = await _send(
