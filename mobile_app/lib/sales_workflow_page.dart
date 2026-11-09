@@ -117,6 +117,7 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
   void _selectTab(int index) {
     if (index == _tab) return;
     _loadGeneration++;
+    _pendingReload = false;
     setState(() { _tab = index; _offset = 0; _rows = []; _search = ''; _loading = false; _searchController.clear(); });
     _load(reset: true);
   }
