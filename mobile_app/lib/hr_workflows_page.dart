@@ -28,11 +28,12 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
   List<Map<String, dynamic>> _attendance = [];
   List<Map<String, dynamic>> _leaveApplications = [];
   List<Map<String, dynamic>> _expenseClaims = [];
+  List<Map<String, dynamic>> _salarySlips = [];
 
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 4, vsync: this)..addListener(_onTabChanged);
+    _tabs = TabController(length: 5, vsync: this)..addListener(_onTabChanged);
     _company = widget.companies.isEmpty ? null : widget.companies.first.name;
     _load();
   }
@@ -53,7 +54,8 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
     0 => 'Employee',
     1 => 'Attendance',
     2 => 'Leave Application',
-    _ => 'Expense Claim',
+    3 => 'Expense Claim',
+    _ => 'Salary Slip',
   };
 
   Future<void> _load() async {
@@ -79,6 +81,7 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
           case 'Attendance': _attendance = rows;
           case 'Leave Application': _leaveApplications = rows;
           case 'Expense Claim': _expenseClaims = rows;
+          case 'Salary Slip': _salarySlips = rows;
         }
       });
     } catch (error) {
@@ -111,6 +114,7 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
           case 'Attendance': _attendance = [..._attendance, ...rows];
           case 'Leave Application': _leaveApplications = [..._leaveApplications, ...rows];
           case 'Expense Claim': _expenseClaims = [..._expenseClaims, ...rows];
+          case 'Salary Slip': _salarySlips = [..._salarySlips, ...rows];
         }
         _offset += rows.length;
         _hasMore = rows.length == 50;
@@ -384,6 +388,7 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
           Tab(text: 'الحضور'),
           Tab(text: 'الإجازات'),
           Tab(text: 'المطالبات'),
+          Tab(text: 'الرواتب'),
         ]),
       ),
       body: Column(children: [
@@ -421,6 +426,7 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
           _documentList(_attendance, 'Attendance'),
           _documentList(_leaveApplications, 'Leave Application'),
           _expenseList(),
+          _salaryList(),
         ])),
       ]),
     );
@@ -487,6 +493,32 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
     )),
   );
 
+
+  Widget _salaryList() {
+    if (_salarySlips.isEmpty && !_loading) {
+      return const Center(child: Text('لا توجد كشوف رواتب ظاهرة أو لا تتوفر صلاحية القراءة.'));
+    }
+    return ListView.builder(
+      itemCount: _salarySlips.length + (_hasMore ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index == _salarySlips.length) return _loadMoreTile();
+        final row = _salarySlips[index];
+        final currency = row['currency']?.toString() ?? '';
+        String money(String key) {
+          final value = row[key];
+          if (value is num) return '${value.toStringAsFixed(2)} $currency';
+          return '${value ?? '—'} $currency';
+        }
+        return Card(child: ListTile(
+          leading: const CircleAvatar(child: Icon(Icons.payments_outlined)),
+          title: Text((row['employee_name'] ?? row['employee'] ?? row['name'] ?? 'موظف').toString()),
+          subtitle: Text('${row['name']} • ${row['start_date'] ?? ''} — ${row['end_date'] ?? ''}\nالإجمالي: ${money('gross_pay')} • الاستقطاعات: ${money('total_deduction')}'),
+          isThreeLine: true,
+          trailing: Text(money('net_pay'), textAlign: TextAlign.end),
+        ));
+      },
+    );
+  }
 
   Widget _expenseList() {
     if (_expenseClaims.isEmpty && !_loading) {
