@@ -281,15 +281,29 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
           'posting_date': _postingDate ?? _today(),
           'update_stock': _updateStock ? 1 : 0,
           'items': _lines.map((line) {
-            return buildSalesInvoiceLinePayload(
+            final linePayload = buildSalesInvoiceLinePayload(
               sourceRow: line.sourceRow,
               itemCode: line.item!.code,
               quantity: line.qty,
               rate: line.unitRate,
               warehouse: line.warehouse?.id,
               removeWarehouse: _updateStock && line.item!.isStockItem,
-            )..addAll(_updateStock && line.sourceRow?['serial_and_batch_bundle'] == null ? buildSerialBatchFields(item: line.item!, quantity: line.qty,
-              serialNumbers: line.serialNumbers.text, batchNumber: line.batchNumber.text) : const {});
+            );
+            if (!_updateStock) {
+              for (final field in const [
+                'serial_and_batch_bundle', 'rejected_serial_and_batch_bundle',
+                'serial_no', 'batch_no', 'use_serial_batch_fields',
+              ]) {
+                linePayload.remove(field);
+              }
+            } else if (linePayload['serial_and_batch_bundle'] == null) {
+              linePayload.addAll(buildSerialBatchFields(
+                item: line.item!, quantity: line.qty,
+                serialNumbers: line.serialNumbers.text,
+                batchNumber: line.batchNumber.text,
+              ));
+            }
+            return linePayload;
           }).toList(growable: false),
         };
         final created = _existingDraft == null

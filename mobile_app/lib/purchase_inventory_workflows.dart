@@ -496,11 +496,20 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                   itemRow['qty'] = qty;
                   itemRow['rate'] = rate;
                   try {
-                    if (updateStock.value && itemRow['serial_and_batch_bundle'] == null) itemRow.addAll(buildSerialBatchFields(
-                      item: selectedItem, quantity: qty,
-                      serialNumbers: (row['serial_no'] as TextEditingController).text,
-                      batchNumber: (row['batch_no'] as TextEditingController).text,
-                    ));
+                    if (!updateStock.value) {
+                      for (final field in const [
+                        'serial_and_batch_bundle', 'rejected_serial_and_batch_bundle',
+                        'serial_no', 'rejected_serial_no', 'batch_no', 'use_serial_batch_fields',
+                      ]) {
+                        itemRow.remove(field);
+                      }
+                    } else if (itemRow['serial_and_batch_bundle'] == null) {
+                      itemRow.addAll(buildSerialBatchFields(
+                        item: selectedItem, quantity: qty,
+                        serialNumbers: (row['serial_no'] as TextEditingController).text,
+                        batchNumber: (row['batch_no'] as TextEditingController).text,
+                      ));
+                    }
                   } catch (error) { notice(error.toString().replaceFirst('FormatException: ', '')); return; }
                   if (row['warehouse'] != null) {
                     itemRow['warehouse'] = row['warehouse'];
