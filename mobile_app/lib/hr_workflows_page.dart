@@ -255,6 +255,11 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
       description.dispose(); costCenter.dispose();
       return;
     }
+    if (!mounted) {
+      employee.dispose(); date.dispose(); amount.dispose(); account.dispose();
+      description.dispose(); costCenter.dispose();
+      return;
+    }
     String? selectedType = types.isEmpty ? null : types.first['name']?.toString();
     final formKey = GlobalKey<FormState>();
     final created = await showDialog<bool>(
