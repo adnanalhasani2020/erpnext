@@ -223,74 +223,134 @@ class FrappeApi {
       final batchNo = raw['batch_no']?.toString().trim() ?? '';
       if (batchNo.isEmpty) continue;
       final itemCode = raw['item_code']?.toString().trim() ?? '';
-      if (itemCode.isEmpty) throw const FormatException('رمز الصنف مطلوب لإنشاء الدفعة.');
+      if (itemCode.isEmpty) {
+        throw const FormatException('رمز الصنف مطلوب لإنشاء الدفعة.');
+      }
+      final key = '$itemCode|$batchNo';
       final expiryDate = raw['expiry_date']?.toString().trim() ?? '';
       if (expiryDate.isNotEmpty) {
         final parsed = DateTime.tryParse(expiryDate);
-        final canonical = RegExp(r'^\\d{4}-\\d{2}-\\d{2}
+        final canonical = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+        if (parsed == null || !canonical.hasMatch(expiryDate) ||
+            parsed.toIso8601String().substring(0, 10) != expiryDate) {
+          throw FormatException('تاريخ انتهاء الدفعة $batchNo غير صحيح. استخدم YYYY-MM-DD.');
+        }
+      }
+      if (!seen.add(key)) {
+        final previousExpiry = seenExpiry[key] ?? '';
+        if (previousExpiry != expiryDate) {
+          throw FormatException('توجد بيانات انتهاء متعارضة للدفعة $batchNo.');
+        }
+        continue;
+      }
+      seenExpiry[key] = expiryDate;
+
       Future<Map<String, dynamic>?> readBatch() async {
-        final uri = Uri.parse('$_baseUrl/api/resource/Batch/' + Uri.encodeComponent(batchNo));
+        final uri = Uri.parse(
+          '$_baseUrl/api/resource/Batch/' + Uri.encodeComponent(batchNo),
+        );
         final response = await _sendUri('GET', uri);
         if (response.statusCode == 404) return null;
         final data = _decode(response.body);
         if (response.statusCode < 200 || response.statusCode >= 300) {
-          throw Exception(_message(data, 'تعذر التحقق من سجل الدفعة ' + batchNo + '. تحقق من صلاحية قراءة Batch.'));
+          throw Exception(_message(
+            data,
+            'تعذر التحقق من سجل الدفعة $batchNo. تحقق من صلاحية قراءة Batch.',
+          ));
         }
         final batch = data['data'];
-        if (batch is! Map<String, dynamic>) throw Exception('استجابة سجل الدفعة غير صحيحة: ' + batchNo);
+        if (batch is! Map<String, dynamic>) {
+          throw Exception('استجابة سجل الدفعة غير صحيحة: $batchNo');
+        }
         return batch;
       }
+
       void validateExisting(Map<String, dynamic> batch) {
-        if (batch['item'] != itemCode) throw FormatException('رقم الدفعة ' + batchNo + ' مسجل لصنف آخر.');
-        if (batch['disabled'] == 1 || batch['disabled'] == true) throw FormatException('الدفعة ' + batchNo + ' معطلة ولا يمكن استخدامها.');
+        if (batch['item'] != itemCode) {
+          throw FormatException('رقم الدفعة $batchNo مسجل لصنف آخر.');
+        }
+        if (batch['disabled'] == 1 || batch['disabled'] == true) {
+          throw FormatException('الدفعة $batchNo معطلة ولا يمكن استخدامها.');
+        }
         if (expiryDate.isNotEmpty) {
           final existingExpiry = batch['expiry_date']?.toString().trim() ?? '';
-          final normalizedExisting = existingExpiry.length >= 10 ? existingExpiry.substring(0, 10) : existingExpiry;
+          final normalizedExisting = existingExpiry.length >= 10
+              ? existingExpiry.substring(0, 10)
+              : existingExpiry;
           if (normalizedExisting != expiryDate) {
-            throw FormatException('تاريخ انتهاء الدفعة ' + batchNo + ' لا يطابق التاريخ المسجل في ERPNext (' + (existingExpiry.isEmpty ? 'غير محدد' : existingExpiry) + ').');
+            final shownExpiry = existingExpiry.isEmpty ? 'غير محدد' : existingExpiry;
+            throw FormatException(
+              'تاريخ انتهاء الدفعة $batchNo لا يطابق التاريخ المسجل في ERPNext ($shownExpiry).',
+            );
           }
         }
       }
+
       final existing = await readBatch();
       if (existing != null) {
         validateExisting(existing);
         continue;
       }
-      final itemUri = Uri.parse('$_baseUrl/api/resource/Item/' + Uri.encodeComponent(itemCode))
-          .replace(queryParameters: {'fields': jsonEncode(['item_code', 'has_batch_no', 'has_expiry_date'])});
+
+      final itemUri = Uri.parse(
+        '$_baseUrl/api/resource/Item/' + Uri.encodeComponent(itemCode),
+      ).replace(queryParameters: {
+        'fields': jsonEncode(['item_code', 'has_batch_no', 'has_expiry_date']),
+      });
       final itemResponse = await _sendUri('GET', itemUri);
       final itemData = _decode(itemResponse.body);
       if (itemResponse.statusCode < 200 || itemResponse.statusCode >= 300 ||
           itemData['data'] is! Map<String, dynamic>) {
-        throw Exception(_message(itemData, 'تعذر قراءة إعدادات الصنف قبل إنشاء الدفعة.'));
+        throw Exception(_message(
+          itemData,
+          'تعذر قراءة إعدادات الصنف قبل إنشاء الدفعة.',
+        ));
       }
       final item = itemData['data'] as Map<String, dynamic>;
       if (item['has_batch_no'] != 1 && item['has_batch_no'] != true) {
-        throw FormatException('الصنف ' + itemCode + ' غير مفعّل لتتبع الدفعات.');
+        throw FormatException('الصنف $itemCode غير مفعّل لتتبع الدفعات.');
       }
-      if ((item['has_expiry_date'] == 1 || item['has_expiry_date'] == true) &&
-          expiryDate.isEmpty) {
-        throw FormatException('أدخل تاريخ انتهاء صحيحاً للدفعة ' + batchNo + ' بصيغة YYYY-MM-DD.');
+      final requiresExpiry =
+          item['has_expiry_date'] == 1 || item['has_expiry_date'] == true;
+      if (requiresExpiry && expiryDate.isEmpty) {
+        throw FormatException(
+          'أدخل تاريخ انتهاء صحيحاً للدفعة $batchNo بصيغة YYYY-MM-DD.',
+        );
       }
+
       final payload = <String, dynamic>{
-        'doctype': 'Batch', 'batch_id': batchNo, 'item': itemCode,
-        if (expiryDate.isNotEmpty) 'expiry_date': expiryDate.substring(0, 10),
+        'doctype': 'Batch',
+        'batch_id': batchNo,
+        'item': itemCode,
+        if (expiryDate.isNotEmpty) 'expiry_date': expiryDate,
       };
-      final createdResponse = await _sendJson('POST', '/api/resource/Batch', payload);
+      final createdResponse = await _sendJson(
+        'POST',
+        '/api/resource/Batch',
+        payload,
+      );
       final createdData = _decode(createdResponse.body);
-      if (createdResponse.statusCode >= 200 && createdResponse.statusCode < 300) {
+      if (createdResponse.statusCode >= 200 &&
+          createdResponse.statusCode < 300) {
         final created = createdData['data'];
-        if (created is! Map<String, dynamic> || created['name'] != batchNo || created['item'] != itemCode) {
-          throw Exception('لم يؤكد ERPNext إنشاء الدفعة ' + batchNo + '.');
+        if (created is! Map<String, dynamic> ||
+            created['name'] != batchNo ||
+            created['item'] != itemCode) {
+          throw Exception('لم يؤكد ERPNext إنشاء الدفعة $batchNo.');
         }
         continue;
       }
+
+      // A concurrent request may have created the same batch after our read.
       final raced = await readBatch();
       if (raced != null) {
         validateExisting(raced);
         continue;
       }
-      throw Exception(_message(createdData, 'تعذر إنشاء الدفعة ' + batchNo + '. يحتاج المستخدم إلى صلاحية إنشاء Batch.'));
+      throw Exception(_message(
+        createdData,
+        'تعذر إنشاء الدفعة $batchNo. يحتاج المستخدم إلى صلاحية إنشاء Batch.',
+      ));
     }
   }
 
