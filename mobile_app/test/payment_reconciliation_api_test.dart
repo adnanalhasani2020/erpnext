@@ -12,7 +12,7 @@ void main() {
     final calls = <String>[];
     server.listen((request) async {
       expect(request.method, 'POST');
-      expect(request.uri.path, '/api/method/run_doc_method');
+      expect(request.uri.pathSegments, ['api', 'method', 'run_doc_method']);
       final body = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
       final method = body['method'] as String;
       calls.add(method);
