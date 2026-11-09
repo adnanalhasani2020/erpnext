@@ -580,9 +580,15 @@ class FrappeApi {
     final mappedData = _decode(mapped.body);
     if (mapped.statusCode < 200 || mapped.statusCode >= 300) throw Exception(_message(mappedData, 'تعذر تجهيز $targetDoctype من $sourceDoctype.'));
     final raw = mappedData['message'];
-    if (raw is! Map<String, dynamic> || raw['doctype'] != targetDoctype || raw['items'] is! List || (raw['items'] as List).isEmpty) {
+    if (raw is! Map<String, dynamic> || raw['doctype'] != targetDoctype ||
+        raw['company'] is! String || (raw['company'] as String).trim().isEmpty ||
+        raw['customer'] is! String || (raw['customer'] as String).trim().isEmpty ||
+        raw['items'] is! List || (raw['items'] as List).isEmpty) {
       throw Exception('لم يُرجع ERPNext مستند $targetDoctype صالحاً من أداة التحويل.');
     }
+    // Mapped rows inherit warehouses from their source document. Validate
+    // those references against the live company/warehouse records before insert.
+    await _validateDocumentWarehouses(raw);
     final inserted = await _sendJson('POST', '/api/resource/${_salesWorkflowResource(targetDoctype)}', Map<String, dynamic>.from(raw));
     final insertedData = _decode(inserted.body);
     if (inserted.statusCode < 200 || inserted.statusCode >= 300) throw Exception(_message(insertedData, 'تعذر حفظ مسودة $targetDoctype.'));
