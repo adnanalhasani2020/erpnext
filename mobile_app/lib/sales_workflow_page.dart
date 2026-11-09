@@ -191,7 +191,7 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
                     icon: const Icon(Icons.edit_outlined), label: const Text('تعديل المسودة'),
                   ),
                   if (_doctype == 'Delivery Note' && items.any((row) {
-                    final item = widget.items.where((x) => x.code == row['item_code']).firstOrNull;
+                    final item = _firstOrNull(widget.items.where((x) => x.code == row['item_code']));
                     return item?.hasSerialNo == true || item?.hasBatchNo == true;
                   }))
                     OutlinedButton.icon(
@@ -254,7 +254,7 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
     final rows = (document['items'] as List? ?? [])
         .whereType<Map<String, dynamic>>()
         .where((row) {
-          final item = widget.items.where((x) => x.code == row['item_code']).firstOrNull;
+          final item = _firstOrNull(widget.items.where((x) => x.code == row['item_code']));
           return item?.hasSerialNo == true || item?.hasBatchNo == true;
         }).toList(growable: false);
     if (rows.isEmpty) {
