@@ -250,7 +250,7 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
         dynamic value;
         if (row is Map) {
           value = row[field];
-          if (value == null) value = row[column['label']];
+          value ??= row[column['label']];
         } else if (row is List && index < row.length) {
           value = row[index];
         }
