@@ -950,7 +950,10 @@ class FrappeApi {
         if (tracking['item_code'] != source['item_code']) {
           throw const FormatException('لا يمكن تغيير الصنف أثناء تخصيص أرقامه التسلسلية أو دفعاته.');
         }
-        byName[rowName] = {...source, ...tracking};
+        final updatedRow = <String, dynamic>{...source, ...tracking}
+          ..remove('serial_and_batch_bundle')
+          ..remove('rejected_serial_and_batch_bundle');
+        byName[rowName] = updatedRow;
       }
       final rowsToValidate = trackingRows.map((tracking) {
         final source = byName[tracking['name']]!;

@@ -23,6 +23,16 @@ Map<String, dynamic> buildSalesInvoiceLinePayload({
       row.remove(field);
     }
   }
+  final sourceQuantity = double.tryParse(row['qty']?.toString() ?? '');
+  if (row['serial_and_batch_bundle'] != null &&
+      (sourceQuantity == null || (sourceQuantity - quantity).abs() > 0.000001)) {
+    for (final field in const [
+      'serial_and_batch_bundle', 'rejected_serial_and_batch_bundle',
+      'serial_no', 'batch_no', 'use_serial_batch_fields',
+    ]) {
+      row.remove(field);
+    }
+  }
   row
     ..['item_code'] = itemCode
     ..['qty'] = quantity
@@ -76,6 +86,12 @@ class _SalesInvoiceLineDraft {
   }
 
   double get qty => double.tryParse(quantity.text.trim()) ?? 0;
+  bool get needsTrackingSelection {
+    if (sourceRow?['serial_and_batch_bundle'] == null) return true;
+    final sourceQty = double.tryParse(sourceRow?['qty']?.toString() ?? '');
+    return sourceRow?['item_code'] != item?.code ||
+        sourceQty == null || (sourceQty - qty).abs() > 0.000001;
+  }
   double get unitRate => double.tryParse(rate.text.trim()) ?? 0;
   double get total => qty * unitRate;
 }
@@ -481,7 +497,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
           ],
           if (_updateStock && line.item?.isStockItem == true &&
               (line.item?.hasSerialNo == true || line.item?.hasBatchNo == true) &&
-              line.warehouse != null && line.sourceRow?['serial_and_batch_bundle'] == null)
+              line.warehouse != null && line.needsTrackingSelection)
             Align(alignment: AlignmentDirectional.centerEnd, child: TextButton.icon(
               onPressed: _saving || _pendingDraft != null ? null : () async {
                 try {
