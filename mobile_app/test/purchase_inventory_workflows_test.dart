@@ -632,6 +632,12 @@ void main() {
           'doctype': 'Purchase Invoice', 'name': 'PINV-1', 'docstatus': 1,
           'is_return': 0, 'supplier': 'SUP-1', 'outstanding_amount': 100,
         }}));
+      } else if (request.method == 'GET' && request.uri.path.endsWith('/PAY-1')) {
+        request.response.write(jsonEncode({'data': {
+          'doctype': 'Payment Entry', 'name': 'PAY-1', 'docstatus': 0,
+          'payment_type': 'Pay', 'party_type': 'Supplier',
+          'party': 'SUP-1', 'references': [],
+        }}));
       } else if (request.method == 'POST' && request.uri.path.endsWith('get_payment_entry')) {
         final payload = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
         expect(payload['dt'], 'Purchase Invoice');
@@ -649,10 +655,13 @@ void main() {
       } else if (request.method == 'POST' && request.uri.pathSegments.contains('Payment Entry')) {
         request.response.write(jsonEncode({'data': {
           'doctype': 'Payment Entry', 'name': 'PAY-1', 'docstatus': 0,
+          'payment_type': 'Pay', 'party_type': 'Supplier',
+          'party': 'SUP-1', 'references': [],
         }}));
       } else if (request.method == 'POST' && request.uri.path.endsWith('frappe.client.submit')) {
         request.response.write(jsonEncode({'message': {
           'doctype': 'Payment Entry', 'name': 'PAY-1', 'docstatus': 1,
+          'payment_type': 'Pay', 'party_type': 'Supplier', 'party': 'SUP-1',
         }}));
       } else {
         request.response.statusCode = 404;
