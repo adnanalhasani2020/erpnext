@@ -1013,6 +1013,81 @@ class FrappeApi {
     if (rows is! List) throw Exception('استجابة فواتير المبيعات من ERPNext غير متوقعة.');
     return rows.whereType<Map<String, dynamic>>().map(ErpSalesInvoice.fromJson).toList(growable: false);
   }
+  Future<List<Map<String, dynamic>>> fetchSalesPersons({
+    int start = 0,
+    String? search,
+  }) async {
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Sales Person',
+      fields: const [
+        'name', 'sales_person_name', 'parent_sales_person',
+        'commission_rate', 'is_group', 'enabled', 'employee', 'department',
+      ],
+      filters: const [
+        ['is_group', '=', 0],
+        ['enabled', '=', 1],
+      ],
+      orFilters: search == null || search.trim().isEmpty
+          ? null
+          : [
+              ['name', 'like', '%' + search.trim() + '%'],
+              ['sales_person_name', 'like', '%' + search.trim() + '%'],
+            ],
+      orderBy: 'sales_person_name asc, name asc',
+      start: start,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل مندوبي المبيعات. تحقق من صلاحية قراءة Sales Person.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة مندوبي المبيعات غير صحيحة.');
+    return rows.whereType<Map<String, dynamic>>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>> updateSalesPersonCommission({
+    required String salesPersonId,
+    required double commissionRate,
+  }) async {
+    final id = salesPersonId.trim();
+    if (id.isEmpty || !commissionRate.isFinite ||
+        commissionRate < 0 || commissionRate > 100) {
+      throw const FormatException('حدد مندوباً وأدخل نسبة عمولة من 0 إلى 100.');
+    }
+    final uri = Uri.parse(
+      '$_baseUrl/api/resource/Sales%20Person/' + Uri.encodeComponent(id),
+    );
+    final currentResponse = await _sendUri('GET', uri);
+    final currentData = _decode(currentResponse.body);
+    final current = currentData['data'];
+    if (currentResponse.statusCode < 200 || currentResponse.statusCode >= 300 ||
+        current is! Map<String, dynamic> || current['name'] != id ||
+        current['is_group'] == 1 || current['is_group'] == true ||
+        current['enabled'] == 0 || current['enabled'] == false) {
+      throw const FormatException('مندوب المبيعات تغير أو غير مفعل ولا يمكن تعديل عمولته.');
+    }
+    final response = await _sendJson(
+      'PUT',
+      '/api/resource/Sales%20Person/' + Uri.encodeComponent(id),
+      {'commission_rate': commissionRate},
+    );
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحديث نسبة عمولة مندوب المبيعات.'));
+    }
+    final updated = data['data'];
+    final savedRate = updated is Map ? double.tryParse(updated['commission_rate']?.toString() ?? '') : null;
+    if (updated is! Map<String, dynamic> || updated['name'] != id ||
+        savedRate == null || (savedRate - commissionRate).abs() > 0.000001) {
+      throw Exception('لم يؤكد ERPNext حفظ نسبة العمولة؛ أعد تحميل سجل المندوب.');
+    }
+    return Map<String, dynamic>.from(updated);
+  }
+
   Future<List<ErpSupplier>> fetchSuppliers({int start = 0, String? search}) async {
     final uri = Uri.parse('$_baseUrl/api/resource/Supplier').replace(queryParameters: {
       'fields': jsonEncode(['name', 'supplier_name', 'supplier_group', 'supplier_type']),
@@ -1388,6 +1463,8 @@ class FrappeApi {
       'Trial Balance',
       'Sales Register',
       'Sales Analytics',
+      'Sales Person Commission Summary',
+      'Sales Person-wise Transaction Summary',
       'Purchase Register',
       'Bank Reconciliation Statement',
       'Payment Ledger',
