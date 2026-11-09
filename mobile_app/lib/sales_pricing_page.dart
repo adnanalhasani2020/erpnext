@@ -289,7 +289,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
       await widget.api.saveSellingPricingRule(
         ruleId: existing?['name']?.toString(),
         title: values['title'] as String,
-        priceList: _selectedPriceList!,
+        priceList: existing?['for_price_list']?.toString() ?? _selectedPriceList!,
         currency: values['currency'] as String,
         discountType: values['discount_type'] as String,
         discountValue: values['discount_value'] as double,
@@ -382,7 +382,8 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                 if (action == 'disable') _disableDiscount(row);
               },
               itemBuilder: (context) => [
-                const PopupMenuItem(value: 'edit', child: Text('تعديل')),
+                if (!disabled)
+                  const PopupMenuItem(value: 'edit', child: Text('تعديل')),
                 if (!disabled)
                   const PopupMenuItem(value: 'disable', child: Text('إيقاف')),
               ],
@@ -601,7 +602,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                   title: Text('لا توجد قوائم أسعار بيع مفعّلة أو لا تتوفر صلاحية قراءتها.'),
                 ),
               )
-            else if (!_showDiscounts)
+            else
               DropdownButtonFormField<String>(
                 initialValue: _selectedPriceList,
                 isExpanded: true,
