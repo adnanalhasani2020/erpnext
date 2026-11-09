@@ -7,6 +7,7 @@ import 'purchase_inventory_workflows.dart';
 import 'invoice_action_policy.dart';
 import 'financial_reports_page.dart';
 import 'sales_pricing_page.dart';
+import 'sales_commission_page.dart';
 import 'models/erp_models.dart';
 import 'widgets/count_card.dart';
 import 'widgets/load_more_button.dart';
@@ -946,6 +947,16 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ]);
   }
 
+  void _openSalesCommissions() {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => SalesCommissionPage(api: _api),
+    );
+  }
+
   void _openSalesPricing() {
     showModalBottomSheet<void>(
       context: context,
@@ -1347,6 +1358,11 @@ class _MobileHomePageState extends State<MobileHomePage> {
             onPressed: _salesLoading ? null : _openSalesPricing,
             icon: const Icon(Icons.price_change_outlined),
             label: const Text('أسعار البيع'),
+          ),
+          OutlinedButton.icon(
+            onPressed: _salesLoading ? null : _openSalesCommissions,
+            icon: const Icon(Icons.percent_outlined),
+            label: const Text('العمولات'),
           ),
         ],
       ),
