@@ -57,7 +57,8 @@ void main() {
     try {
       final alerts = await api.fetchStockReorderAlerts();
       expect(alerts, hasLength(2));
-      expect(alerts.map((x) => x.itemCode), ['ITEM-LOW', 'ITEM-ZERO']);
+      // The most urgent warehouse (lowest projected quantity) is listed first.
+      expect(alerts.map((x) => x.itemCode), ['ITEM-ZERO', 'ITEM-LOW']);
       expect(alerts.first.actualQty, 3);
       expect(alerts.first.projectedQty, 7);
       expect(alerts.first.reorderLevel, 10);
