@@ -100,6 +100,32 @@ void main() {
     expect(invoice.returnAgainst, 'PINV-1');
   });
 
+  test('stock draft retrieval forwards pagination and document filters', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      expect(request.uri.pathSegments, ['api', 'resource', 'Purchase Receipt']);
+      expect(request.uri.queryParameters['limit_start'], '40');
+      expect(
+        jsonDecode(request.uri.queryParameters['filters']!),
+        [['docstatus', '=', 0]],
+      );
+      request.response.write(jsonEncode({'data': [
+        {'name': 'PREC-DRAFT-41', 'docstatus': 0, 'company': 'COMP-1'},
+      ]}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      final rows = await api.fetchDraftStockDocuments('Purchase Receipt', start: 40);
+      expect(rows.single['name'], 'PREC-DRAFT-41');
+      expect(rows.single['doctype'], 'Purchase Receipt');
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
   test('stock draft retrieval rejects unsupported document types before network access', () async {
     final api = FrappeApi();
     await expectLater(api.fetchDraftStockDocuments('Sales Invoice'), throwsArgumentError);
