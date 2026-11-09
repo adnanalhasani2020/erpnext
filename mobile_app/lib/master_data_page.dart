@@ -73,14 +73,14 @@ class _MasterDataPageState extends State<MasterDataPage> {
     floatingActionButton: FloatingActionButton.extended(onPressed: loading ? null : () => edit(), icon: const Icon(Icons.add), label: const Text('إضافة')),
     body: Column(children: [
       Padding(padding: const EdgeInsets.all(12), child: DropdownButtonFormField<String>(
-        value: type,
+        initialValue: type,
         decoration: const InputDecoration(labelText: 'نوع البيانات'),
         items: types.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
         onChanged: (v) { if (v != null) { setState(() { type = v; rows = []; offset = 0; hasMore = false; error = null; }); load(); } },
       )),
       Padding(padding: const EdgeInsets.fromLTRB(12, 0, 12, 8), child: TextField(
         controller: search, textInputAction: TextInputAction.search, onSubmitted: (_) => load(),
-        decoration: InputDecoration(labelText: 'بحث في ' + types[type]!, prefixIcon: const Icon(Icons.search),
+        decoration: InputDecoration(labelText: 'بحث في ${types[type]!}', prefixIcon: const Icon(Icons.search),
           suffixIcon: IconButton(onPressed: loading ? null : () => load(), icon: const Icon(Icons.arrow_forward))),
       )),
       if (loading) const LinearProgressIndicator(),
@@ -165,7 +165,7 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
       }
       setState(() {});
     } catch (e) {
-      if (mounted) setState(() => error = 'تعذر تحميل القوائم المرجعية: ' + e.toString().replaceFirst('Exception: ', ''));
+      if (mounted) setState(() => error = 'تعذر تحميل القوائم المرجعية: ${e.toString().replaceFirst('Exception: ', '')}');
     } finally {
       if (mounted) setState(() => referencesLoading = false);
     }
@@ -179,7 +179,7 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
       if (groupsOnly && row['is_group'] != 1 && row['is_group'] != true) return false;
       if (sameCompany && row['company'] != company) return false;
       if (editing && key != 'parent_warehouse' && key != 'item_group' && key != 'supplier_group' &&
-          row['name'] == widget.name) return false;
+          row['name'] == widget.name) { return false; }
       if (key.startsWith('parent_') && row['name'] == widget.name) return false;
       return true;
     }).toList(growable: false);
@@ -188,7 +188,7 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: DropdownButtonFormField<String>(
-        value: current.isEmpty ? null : current,
+        initialValue: current.isEmpty ? null : current,
         isExpanded: true,
         decoration: InputDecoration(labelText: label, suffixIcon: referencesLoading ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))) : null),
         items: [
@@ -274,7 +274,7 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
             toggle('يتطلب تاريخ انتهاء', expiry, (v) => setState(() => expiry = v)),
           ] else if (widget.type == 'Supplier') ...[
             field('supplier_name', 'اسم المورد', required: true),
-            DropdownButtonFormField<String>(value: supplierType, decoration: const InputDecoration(labelText: 'نوع المورد'),
+            DropdownButtonFormField<String>(initialValue: supplierType, decoration: const InputDecoration(labelText: 'نوع المورد'),
               items: const [DropdownMenuItem(value: 'Company', child: Text('شركة')), DropdownMenuItem(value: 'Individual', child: Text('فرد'))],
               onChanged: saving ? null : (v) { if (v != null) setState(() => supplierType = v); }),
             const SizedBox(height: 10), referenceField('supplier_group', 'مجموعة الموردين', 'Supplier Group', required: true, groupsOnly: true),
@@ -283,7 +283,7 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
             field('website', 'الموقع الإلكتروني'),
           ] else if (widget.type == 'Warehouse') ...[
             field('warehouse_name', 'اسم المستودع', required: true),
-            DropdownButtonFormField<String>(value: company, decoration: const InputDecoration(labelText: 'الشركة'),
+            DropdownButtonFormField<String>(initialValue: company, decoration: const InputDecoration(labelText: 'الشركة'),
               items: widget.companies.map((c) => DropdownMenuItem(value: c.name, child: Text(c.name))).toList(),
               onChanged: saving || editing ? null : (v) => setState(() => company = v),
               validator: (v) => v == null || v.isEmpty ? 'حدد الشركة' : null),
