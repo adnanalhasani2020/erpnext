@@ -532,8 +532,10 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     final lines = <Map<String, dynamic>>[];
     void addLine([Map<String, dynamic>? source]) {
       final code = source?['item_code']?.toString();
-      final validCode = widget.items.any((item) => item.code == code)
-          ? code!
+      // Preserve an existing draft's item code even when the current
+      // dashboard catalog is incomplete; never silently replace it with item 1.
+      final validCode = code != null && code.isNotEmpty
+          ? code
           : widget.items.first.code;
       final sourceWarehouse = source?['warehouse']?.toString();
       lines.add({
