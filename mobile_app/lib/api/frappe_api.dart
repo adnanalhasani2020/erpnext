@@ -3795,6 +3795,8 @@ class FrappeApi {
     'Expense Claim': ['name', 'employee', 'employee_name', 'company', 'posting_date',
       'total_claimed_amount', 'total_sanctioned_amount', 'approval_status',
       'status', 'docstatus'],
+    'Salary Slip': ['name', 'employee', 'employee_name', 'company', 'start_date',
+      'end_date', 'gross_pay', 'total_deduction', 'net_pay', 'currency', 'status', 'docstatus'],
   };
 
   Future<List<Map<String, dynamic>>> fetchHrRecords({
@@ -3812,6 +3814,7 @@ class FrappeApi {
       'Attendance' => const ['name', 'employee', 'employee_name'],
       'Leave Application' => const ['name', 'employee', 'employee_name', 'leave_type'],
       'Expense Claim' => const ['name', 'employee', 'employee_name'],
+      'Salary Slip' => const ['name', 'employee', 'employee_name', 'payroll_frequency'],
       _ => const <String>[],
     };
     final filters = <List<dynamic>>[];
