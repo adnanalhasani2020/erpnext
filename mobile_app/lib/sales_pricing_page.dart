@@ -136,10 +136,24 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
           existing?['customer_group']?.toString() ??
           existing?['territory']?.toString() ?? '',
     );
+    final existingItems = existing?['items'];
+    final existingItem = existingItems is List && existingItems.isNotEmpty &&
+            existingItems.first is Map
+        ? existingItems.first as Map
+        : null;
+    final itemCode = TextEditingController(
+      text: existingItem?['item_code']?.toString() ?? '',
+    );
+    final minQty = TextEditingController(
+      text: existingItem?['min_qty']?.toString() ?? '',
+    );
+    var applyOn = existing?['apply_on']?.toString() == 'Item Code'
+        ? 'Item Code'
+        : 'Transaction';
     var discountType = existing?['rate_or_discount']?.toString() == 'Discount Amount'
         ? 'Discount Amount'
         : 'Discount Percentage';
-    var applyOn = existing?['apply_discount_on']?.toString() == 'Net Total'
+    var applyDiscountOn = existing?['apply_discount_on']?.toString() == 'Net Total'
         ? 'Net Total'
         : 'Grand Total';
     var applicableFor = existing?['applicable_for']?.toString() ?? '';
@@ -161,6 +175,42 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                       decoration: const InputDecoration(labelText: 'اسم قاعدة الخصم'),
                       validator: (v) => v == null || v.trim().isEmpty ? 'الاسم مطلوب' : null,
                     ),
+                    DropdownButtonFormField<String>(
+                      initialValue: applyOn,
+                      decoration: const InputDecoration(labelText: 'نوع العرض'),
+                      items: const [
+                        DropdownMenuItem(value: 'Transaction', child: Text('خصم على إجمالي المعاملة')),
+                        DropdownMenuItem(value: 'Item Code', child: Text('خصم على صنف محدد')),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) setDialogState(() => applyOn = v);
+                      },
+                    ),
+                    if (applyOn == 'Item Code') ...[
+                      TextFormField(
+                        controller: itemCode,
+                        decoration: const InputDecoration(labelText: 'رمز الصنف'),
+                        validator: (v) => applyOn == 'Item Code' &&
+                                (v == null || v.trim().isEmpty)
+                            ? 'رمز الصنف مطلوب'
+                            : null,
+                      ),
+                      TextFormField(
+                        controller: minQty,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(
+                          labelText: 'الحد الأدنى للكمية',
+                          helperText: 'يُطبق العرض عند بلوغ هذه الكمية أو تجاوزها.',
+                        ),
+                        validator: (v) {
+                          if (applyOn != 'Item Code') return null;
+                          final n = double.tryParse(v?.trim() ?? '');
+                          return n == null || !n.isFinite || n <= 0
+                              ? 'أدخل كمية دنيا أكبر من صفر'
+                              : null;
+                        },
+                      ),
+                    ],
                     DropdownButtonFormField<String>(
                       initialValue: discountType,
                       decoration: const InputDecoration(labelText: 'نوع الخصم'),
@@ -193,14 +243,14 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                       validator: (v) => v == null || v.trim().isEmpty ? 'العملة مطلوبة' : null,
                     ),
                     DropdownButtonFormField<String>(
-                      initialValue: applyOn,
+                      initialValue: applyDiscountOn,
                       decoration: const InputDecoration(labelText: 'يطبق الخصم على'),
                       items: const [
                         DropdownMenuItem(value: 'Grand Total', child: Text('الإجمالي النهائي')),
                         DropdownMenuItem(value: 'Net Total', child: Text('الإجمالي الصافي')),
                       ],
                       onChanged: (v) {
-                        if (v != null) setDialogState(() => applyOn = v);
+                        if (v != null) setDialogState(() => applyDiscountOn = v);
                       },
                     ),
                     DropdownButtonFormField<String>(
@@ -253,7 +303,10 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                   'discount_type': discountType,
                   'discount_value': double.parse(value.text.trim()),
                   'currency': currency.text.trim(),
-                  'apply_discount_on': applyOn,
+                  'apply_discount_on': applyDiscountOn,
+                  'apply_on': applyOn,
+                  'item_code': itemCode.text.trim(),
+                  'min_qty': applyOn == 'Item Code' ? double.parse(minQty.text.trim()) : 0.0,
                   'applicable_for': applicableFor,
                   'applicable_value': target.text.trim(),
                   'valid_from': from.text.trim(),
@@ -274,6 +327,8 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
     until.dispose();
     company.dispose();
     target.dispose();
+    itemCode.dispose();
+    minQty.dispose();
     return result;
   }
 
@@ -301,6 +356,9 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
             : values['applicable_for'] as String,
         applicableValue: values['applicable_value'] as String,
         applyDiscountOn: values['apply_discount_on'] as String,
+        applyOn: values['apply_on'] as String,
+        itemCode: values['item_code'] as String,
+        minQty: values['min_qty'] as double,
       );
       if (!mounted) return;
       await _loadDiscounts();
@@ -371,6 +429,15 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
             subtitle: Text([
               amount,
               row['for_price_list']?.toString() ?? '',
+              if (row['apply_on'] == 'Item Code' && row['items'] is List &&
+                  (row['items'] as List).isNotEmpty)
+                'صنف: ' + (((row['items'] as List).first is Map)
+                    ? ((row['items'] as List).first as Map)['item_code']?.toString() ?? ''
+                    : ''),
+              if (row['apply_on'] == 'Item Code' && row['items'] is List &&
+                  (row['items'] as List).isNotEmpty &&
+                  (row['items'] as List).first is Map)
+                'الكمية الدنيا: ' + (((row['items'] as List).first as Map)['min_qty']?.toString() ?? ''),
               if (scope.isNotEmpty) scope + ': ' + (scopeValue?.toString() ?? ''),
               if (row['valid_from'] != null) 'من ' + row['valid_from'].toString(),
               if (row['valid_upto'] != null) 'إلى ' + row['valid_upto'].toString(),
