@@ -3351,6 +3351,21 @@ class FrappeApi {
     'Price List': {'price_list_name', 'currency', 'buying', 'selling', 'enabled'},
   };
 
+
+  Future<List<Map<String, dynamic>>> fetchMasterDataOptions(String doctype) async {
+    if (!_masterDataFields.containsKey(doctype)) throw ArgumentError.value(doctype, 'doctype', 'نوع بيانات غير مدعوم.');
+    const maxRows = 2000;
+    final result = <Map<String, dynamic>>[];
+    var start = 0;
+    while (true) {
+      final page = await fetchMasterDataRows(doctype: doctype, start: start);
+      result.addAll(page);
+      if (page.length < pageSize) return result;
+      start += page.length;
+      if (result.length >= maxRows) return result;
+    }
+  }
+
   Future<List<Map<String, dynamic>>> fetchMasterDataRows({
     required String doctype,
     int start = 0,
