@@ -792,6 +792,184 @@ class FrappeApi {
     return Map<String, dynamic>.from(saved);
   }
 
+  Future<List<Map<String, dynamic>>> fetchSellingPricingRules({
+    int start = 0,
+  }) async {
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Pricing Rule',
+      fields: const [
+        'name', 'title', 'apply_on', 'price_or_product_discount',
+        'selling', 'buying', 'disable', 'rate_or_discount',
+        'discount_percentage', 'discount_amount', 'for_price_list',
+        'currency', 'valid_from', 'valid_upto', 'company',
+        'apply_discount_on', 'applicable_for', 'customer',
+        'customer_group', 'territory',
+      ],
+      filters: const [
+        ['selling', '=', 1],
+        ['buying', '=', 0],
+      ],
+      orderBy: 'modified desc, name desc',
+      start: start,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل قواعد خصومات البيع.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة قواعد الخصم غير صحيحة.');
+    return rows.whereType<Map<String, dynamic>>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>> saveSellingPricingRule({
+    String? ruleId,
+    required String title,
+    required String priceList,
+    required String currency,
+    required String discountType,
+    required double discountValue,
+    required String validFrom,
+    String? validUpto,
+    String? company,
+    String? applicableFor,
+    String? applicableValue,
+    String applyDiscountOn = 'Grand Total',
+  }) async {
+    final cleanTitle = title.trim();
+    final cleanList = priceList.trim();
+    final cleanCurrency = currency.trim();
+    if (cleanTitle.isEmpty || cleanList.isEmpty || cleanCurrency.isEmpty ||
+        !discountValue.isFinite || discountValue <= 0 ||
+        !{'Discount Percentage', 'Discount Amount'}.contains(discountType) ||
+        (discountType == 'Discount Percentage' && discountValue > 100) ||
+        !{'Grand Total', 'Net Total'}.contains(applyDiscountOn)) {
+      throw const FormatException('بيانات قاعدة الخصم غير صحيحة.');
+    }
+    String validateDate(String raw, String label) {
+      final parsed = DateTime.tryParse(raw);
+      final pattern = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+      if (parsed == null || !pattern.hasMatch(raw) ||
+          parsed.toIso8601String().substring(0, 10) != raw) {
+        throw FormatException('$label يجب أن يكون بصيغة YYYY-MM-DD.');
+      }
+      return raw;
+    }
+    final from = validateDate(validFrom.trim(), 'تاريخ بداية الخصم');
+    final untilRaw = validUpto?.trim() ?? '';
+    final until = untilRaw.isEmpty ? null : validateDate(untilRaw, 'تاريخ نهاية الخصم');
+    if (until != null && from.compareTo(until) > 0) {
+      throw const FormatException('تاريخ نهاية الخصم يجب ألا يسبق تاريخ بدايته.');
+    }
+    const applicableFields = {
+      'Customer': 'customer',
+      'Customer Group': 'customer_group',
+      'Territory': 'territory',
+    };
+    final applicableField = applicableFields[applicableFor];
+    final target = applicableValue?.trim() ?? '';
+    if (applicableFor != null &&
+        (applicableField == null || target.isEmpty)) {
+      throw const FormatException('حدد قيمة صالحة لنطاق تطبيق الخصم.');
+    }
+    if (applicableFor == null && target.isNotEmpty) {
+      throw const FormatException('حدد نوع نطاق الخصم قبل إدخال قيمته.');
+    }
+
+    final payload = <String, dynamic>{
+      'doctype': 'Pricing Rule',
+      'title': cleanTitle,
+      'apply_on': 'Transaction',
+      'price_or_product_discount': 'Price',
+      'selling': 1,
+      'buying': 0,
+      'rate_or_discount': discountType,
+      if (discountType == 'Discount Percentage')
+        'discount_percentage': discountValue,
+      if (discountType == 'Discount Amount') 'discount_amount': discountValue,
+      'apply_discount_on': applyDiscountOn,
+      'for_price_list': cleanList,
+      'currency': cleanCurrency,
+      'valid_from': from,
+      if (until != null) 'valid_upto': until,
+      if (company != null && company.trim().isNotEmpty) 'company': company.trim(),
+      if (applicableFor != null) 'applicable_for': applicableFor,
+      if (applicableField != null) applicableField: target,
+    };
+
+    final id = ruleId?.trim() ?? '';
+    late final _ApiResponse response;
+    if (id.isEmpty) {
+      response = await _sendJson('POST', '/api/resource/Pricing%20Rule', payload);
+    } else {
+      final uri = Uri.parse(
+        '$_baseUrl/api/resource/Pricing%20Rule/' + Uri.encodeComponent(id),
+      );
+      final currentResponse = await _sendUri('GET', uri);
+      final currentData = _decode(currentResponse.body);
+      final current = currentData['data'];
+      if (currentResponse.statusCode < 200 || currentResponse.statusCode >= 300 ||
+          current is! Map<String, dynamic> || current['name'] != id ||
+          current['apply_on'] != 'Transaction' ||
+          current['selling'] != 1 || current['buying'] == 1) {
+        throw const FormatException('قاعدة الخصم تغيرت أو لا تنتمي إلى قواعد خصومات البيع المدعومة.');
+      }
+      response = await _sendJson(
+        'PUT',
+        '/api/resource/Pricing%20Rule/' + Uri.encodeComponent(id),
+        Map<String, dynamic>.from(payload)..remove('doctype'),
+      );
+    }
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر حفظ قاعدة خصم البيع.'));
+    }
+    final saved = data['data'];
+    if (saved is! Map<String, dynamic> ||
+        saved['doctype'] != 'Pricing Rule' ||
+        saved['apply_on'] != 'Transaction' ||
+        saved['selling'] != 1 ||
+        saved['title'] != cleanTitle) {
+      throw Exception('لم يؤكد ERPNext حفظ قاعدة الخصم؛ أعد تحميل القائمة.');
+    }
+    return Map<String, dynamic>.from(saved);
+  }
+
+  Future<void> disableSellingPricingRule(String ruleId) async {
+    final id = ruleId.trim();
+    if (id.isEmpty) throw const FormatException('حدد قاعدة الخصم أولاً.');
+    final uri = Uri.parse(
+      '$_baseUrl/api/resource/Pricing%20Rule/' + Uri.encodeComponent(id),
+    );
+    final currentResponse = await _sendUri('GET', uri);
+    final currentData = _decode(currentResponse.body);
+    final current = currentData['data'];
+    if (currentResponse.statusCode < 200 || currentResponse.statusCode >= 300 ||
+        current is! Map<String, dynamic> || current['name'] != id ||
+        current['apply_on'] != 'Transaction' ||
+        current['selling'] != 1 || current['buying'] == 1) {
+      throw const FormatException('تعذر التحقق من قاعدة الخصم قبل إيقافها.');
+    }
+    final response = await _sendJson(
+      'PUT',
+      '/api/resource/Pricing%20Rule/' + Uri.encodeComponent(id),
+      {'disable': 1},
+    );
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر إيقاف قاعدة الخصم.'));
+    }
+    final updated = data['data'];
+    if (updated is! Map<String, dynamic> ||
+        updated['name'] != id ||
+        updated['disable'] != 1) {
+      throw Exception('لم يؤكد ERPNext إيقاف قاعدة الخصم.');
+    }
+  }
+
   Future<_ApiResponse> _updateExistingItemPrice(
     String id,
     String itemCode,
