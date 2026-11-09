@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-import '../lib/api/frappe_api.dart';
+import 'package:erpnext_mobile/api/frappe_api.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
