@@ -60,14 +60,18 @@ void main() {
       await tester.pumpWidget(MaterialApp(
         home: FinancialReportsPage(api: api, companies: const []),
       ));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+      await tester.pump();
       expect(find.text('SINV-AGING-1'), findsOneWidget);
       expect(find.textContaining('عميل تجريبي'), findsOneWidget);
       expect(find.textContaining('1250.00 YER'), findsWidgets);
       expect(find.textContaining('20.00 USD'), findsOneWidget);
 
       await tester.tap(find.text('ذمم الموردين'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+      await tester.pump();
       expect(find.text('PINV-AGING-1'), findsOneWidget);
       expect(find.textContaining('مورد تجريبي'), findsOneWidget);
       expect(requestedTypes, ['Sales Invoice', 'Purchase Invoice']);
