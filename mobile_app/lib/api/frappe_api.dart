@@ -1563,7 +1563,7 @@ class FrappeApi {
       baseUrl: _baseUrl,
       resource: 'Payment Entry',
       fields: const [
-        'name', 'posting_date', 'party', 'party_name', 'paid_amount',
+        'name', 'posting_date', 'party', 'party_name', 'paid_amount', 'payment_type', 'party_type',
         'paid_from', 'reference_no', 'reference_date', 'status', 'docstatus',
       ],
       filters: const [
