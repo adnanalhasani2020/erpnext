@@ -381,8 +381,8 @@ class FrappeApi {
     final document = data['data'];
     if (document is! Map<String, dynamic> ||
         document['doctype'] != 'Payment Entry' ||
-        document['payment_type'] != 'Pay' ||
-        document['party_type'] != 'Supplier' ||
+        document['payment_type'] != paymentType ||
+        document['party_type'] != partyType ||
         document['docstatus'] != 1 ||
         document['references'] is! List) {
       throw const FormatException('سند الصرف غير مرحّل أو لا يخص دفعات الموردين.');
@@ -1280,7 +1280,7 @@ class FrappeApi {
     }
   }
 
-  Future<Map<String, dynamic>> _fetchPaymentEntryDraft(String name) async {
+  Future<Map<String, dynamic>> _fetchPaymentEntryDraft(String name, {required String paymentType, required String partyType}) async {
     if (name.trim().isEmpty) throw const FormatException('رقم سند الدفع غير موجود.');
     final response = await _send('GET',
       '/api/resource/Payment%20Entry/' + Uri.encodeComponent(name.trim()),
@@ -1315,7 +1315,11 @@ class FrappeApi {
     // server document immediately before submission and verify its identity/state.
     final name = (doc['name'] as String).trim();
     final current = switch (doctype) {
-      'Payment Entry' => await _fetchPaymentEntryDraft(name),
+      'Payment Entry' => await _fetchPaymentEntryDraft(
+        name,
+        paymentType: doc['payment_type']?.toString() ?? '',
+        partyType: doc['party_type']?.toString() ?? '',
+      ),
       'Purchase Invoice' => await fetchInvoiceDocument('Purchase Invoice', name),
       _ => await fetchStockDocument(doctype, name),
     };
