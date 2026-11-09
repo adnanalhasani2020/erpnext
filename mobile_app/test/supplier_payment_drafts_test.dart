@@ -28,7 +28,7 @@ void main() {
     server.listen((request) async {
       calls.add('${request.method} ${request.uri.path}');
       request.response.headers.contentType = ContentType.json;
-      if (request.method == 'GET' && request.uri.path == '/api/resource/Payment%20Entry') {
+      if (request.method == 'GET' && request.uri.pathSegments.length == 3 && request.uri.pathSegments[2] == 'Payment Entry') {
         final fields = jsonDecode(request.uri.queryParameters['fields']!) as List;
         expect(fields, contains('payment_type'));
         expect(fields, contains('party_type'));
@@ -47,10 +47,10 @@ void main() {
           'docstatus': 0,
         }]}));
       } else if (request.method == 'GET' &&
-          request.uri.path == '/api/resource/Payment%20Entry/PAY-DRAFT-1') {
+          request.uri.pathSegments.length == 4 && request.uri.pathSegments[2] == 'Payment Entry' && request.uri.pathSegments[3] == 'PAY-DRAFT-1') {
         request.response.write(jsonEncode({'data': draft}));
       } else if (request.method == 'POST' &&
-          request.uri.path == '/api/method/frappe.client.submit') {
+          request.uri.pathSegments.length == 4 && request.uri.pathSegments[2] == 'method' && request.uri.pathSegments[3] == 'frappe.client.submit') {
         final body = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
         final submittedDoc = body['doc'] as Map<String, dynamic>;
         expect(submittedDoc['name'], 'PAY-DRAFT-1');
