@@ -227,6 +227,49 @@ class ErpWarehouse {
 }
 
 
+class ErpStockReorderAlert {
+  const ErpStockReorderAlert({
+    required this.itemCode,
+    required this.warehouse,
+    required this.projectedQty,
+    required this.reorderLevel,
+    required this.reorderQty,
+    this.actualQty = 0,
+    this.stockUom,
+    this.company,
+  });
+  final String itemCode;
+  final String warehouse;
+  final double projectedQty;
+  final double reorderLevel;
+  final double reorderQty;
+  final double actualQty;
+  final String? stockUom;
+  final String? company;
+
+  factory ErpStockReorderAlert.fromJson(Map<String, dynamic> json) {
+    final item = json['item_code'];
+    final warehouse = json['warehouse'];
+    if (item is! String || item.isEmpty || warehouse is! String || warehouse.isEmpty) {
+      throw const FormatException('بيانات تنبيه إعادة الطلب الأساسية ناقصة.');
+    }
+    double number(dynamic value) {
+      final parsed = value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '');
+      return parsed != null && parsed.isFinite ? parsed : 0;
+    }
+    return ErpStockReorderAlert(
+      itemCode: item,
+      warehouse: warehouse,
+      projectedQty: number(json['projected_qty']),
+      reorderLevel: number(json['warehouse_reorder_level']),
+      reorderQty: number(json['warehouse_reorder_qty']),
+      actualQty: number(json['actual_qty']),
+      stockUom: json['stock_uom'] is String ? json['stock_uom'] as String : null,
+      company: json['company'] is String ? json['company'] as String : null,
+    );
+  }
+}
+
 class ErpStockBalance {
   const ErpStockBalance({
     required this.itemCode,
