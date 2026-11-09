@@ -10,7 +10,7 @@ void main() {
   group('HR workflow validation', () {
     test('rejects unsupported HR doctypes before network access', () async {
       await expectLater(
-        api.fetchHrRecords(doctype: 'Salary Slip'),
+        api.fetchHrRecords(doctype: 'Payroll Entry'),
         throwsA(isA<ArgumentError>()),
       );
     });
