@@ -489,8 +489,8 @@ class FrappeApi {
     final document = data['data'];
     if (document is! Map<String, dynamic> ||
         document['doctype'] != 'Payment Entry' ||
-        document['payment_type'] != paymentType ||
-        document['party_type'] != partyType ||
+        document['payment_type'] != 'Pay' ||
+        document['party_type'] != 'Supplier' ||
         document['docstatus'] != 1 ||
         document['references'] is! List) {
       throw const FormatException('سند الصرف غير مرحّل أو لا يخص دفعات الموردين.');
@@ -1397,8 +1397,8 @@ class FrappeApi {
     if (document is! Map<String, dynamic> ||
         document['doctype'] != 'Payment Entry' ||
         document['name'] != name.trim() || document['docstatus'] != 0 ||
-        document['payment_type'] != 'Pay' ||
-        document['party_type'] != 'Supplier' ||
+        document['payment_type'] != paymentType ||
+        document['party_type'] != partyType ||
         document['references'] is! List) {
       throw const FormatException('سند الدفع لم يعد مسودة أو أن بياناته غير صحيحة.');
     }
