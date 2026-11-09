@@ -775,8 +775,17 @@ class FrappeApi {
       throw Exception(_message(setupData, 'تعذر تجهيز سند القبض. تحقق من الحسابات الافتراضية وصلاحيات Payment Entry.'));
     }
     final rawDocument = setupData['message'];
-    if (rawDocument is! Map<String, dynamic>) {
-      throw Exception('استجابة تجهيز سند القبض غير متوقعة.');
+    if (rawDocument is! Map<String, dynamic> ||
+        rawDocument['doctype'] != 'Payment Entry' ||
+        rawDocument['payment_type'] != 'Receive' ||
+        rawDocument['party_type'] != 'Customer' ||
+        rawDocument['party'] != invoice['customer'] ||
+        rawDocument['company'] != invoice['company']) {
+      throw const FormatException('بيانات سند القبض التي جهزها ERPNext لا تطابق العميل والشركة والفاتورة المطلوبة.');
+    }
+    if (bankAccount != null && bankAccount.trim().isNotEmpty &&
+        rawDocument['paid_to'] != bankAccount.trim()) {
+      throw const FormatException('حساب الصندوق أو البنك الذي جهزه ERPNext لا يطابق الحساب الذي اخترته.');
     }
     final references = rawDocument['references'];
     if (references is! List || references.isEmpty) {
