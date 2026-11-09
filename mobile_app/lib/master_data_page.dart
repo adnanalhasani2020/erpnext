@@ -48,9 +48,9 @@ class _MasterDataPageState extends State<MasterDataPage> {
   }
 
   String subtitleOf(Map<String, dynamic> row) {
-    if (type == 'Item') return [row['name'], row['item_group'], row['stock_uom']].where((v) => v != null && v.toString().isNotEmpty).join(' • ');
-    if (type == 'Supplier') return [row['name'], row['supplier_group'], row['supplier_type']].where((v) => v != null && v.toString().isNotEmpty).join(' • ');
-    return [row['name'], row['company'], (row['is_group'] == 1 || row['is_group'] == true) ? 'مجموعة' : 'مستودع فعلي'].where((v) => v != null && v.toString().isNotEmpty).join(' • ');
+    if (type == 'Item') return [row['name'], row['item_group'], row['stock_uom'], (row['disabled'] == 1 || row['disabled'] == true) ? 'معطل' : 'نشط'].where((v) => v != null && v.toString().isNotEmpty).join(' • ');
+    if (type == 'Supplier') return [row['name'], row['supplier_group'], row['supplier_type'], (row['disabled'] == 1 || row['disabled'] == true) ? 'معطل' : 'نشط'].where((v) => v != null && v.toString().isNotEmpty).join(' • ');
+    return [row['name'], row['company'], (row['is_group'] == 1 || row['is_group'] == true) ? 'مجموعة' : 'مستودع فعلي', (row['disabled'] == 1 || row['disabled'] == true) ? 'معطل' : 'نشط'].where((v) => v != null && v.toString().isNotEmpty).join(' • ');
   }
 
   Future<void> edit([String? name]) async {
@@ -208,7 +208,7 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
             field('warehouse_name', 'اسم المستودع', required: true),
             DropdownButtonFormField<String>(value: company, decoration: const InputDecoration(labelText: 'الشركة'),
               items: widget.companies.map((c) => DropdownMenuItem(value: c.name, child: Text(c.name))).toList(),
-              onChanged: saving ? null : (v) => setState(() => company = v),
+              onChanged: saving || editing ? null : (v) => setState(() => company = v),
               validator: (v) => v == null || v.isEmpty ? 'حدد الشركة' : null),
             const SizedBox(height: 10), field('parent_warehouse', 'المستودع الأب (اختياري)'),
             toggle('مجموعة مستودعات', group, (v) => setState(() => group = v)),
