@@ -60,6 +60,7 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
   int _tab = 0;
   int _offset = 0;
   bool _loading = false, _hasMore = false;
+  bool _pendingReload = false;
   int _loadGeneration = 0;
   String _search = '';
   final _searchController = TextEditingController();
@@ -82,7 +83,10 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
   }
 
   Future<void> _load({bool reset = false}) async {
-    if (_loading) return;
+    if (_loading) {
+      if (reset) _pendingReload = true;
+      return;
+    }
     final generation = ++_loadGeneration;
     final doctype = _doctype;
     final start = reset ? 0 : _offset;
@@ -100,7 +104,13 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
     } catch (error) {
       if (mounted && generation == _loadGeneration) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
     } finally {
-      if (mounted && generation == _loadGeneration) setState(() => _loading = false);
+      if (mounted && generation == _loadGeneration) {
+        setState(() => _loading = false);
+        if (_pendingReload) {
+          _pendingReload = false;
+          _load(reset: true);
+        }
+      }
     }
   }
 
