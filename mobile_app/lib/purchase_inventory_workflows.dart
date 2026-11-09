@@ -1167,6 +1167,9 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     }
   }
 
+  List<Map<String, dynamic>> reorderAlerts = [];
+  bool loadingReorderAlerts = false;
+  String? reorderAlertError;
   List<Map<String, dynamic>> movements = [];
   List<Map<String, dynamic>> drafts = [];
   String? draftError;
@@ -1251,6 +1254,22 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       }
     }
   }
+  Future<void> loadReorderAlerts() async {
+    if (loadingReorderAlerts || !mounted) return;
+    setState(() {
+      loadingReorderAlerts = true;
+      reorderAlertError = null;
+    });
+    try {
+      final rows = await widget.api.fetchStockReorderAlerts();
+      if (mounted) setState(() => reorderAlerts = rows);
+    } catch (e) {
+      if (mounted) setState(() => reorderAlertError = e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => loadingReorderAlerts = false);
+    }
+  }
+
   Future<void> reviewDraft(Map<String, dynamic> summary) async {
     try {
       final type = summary['doctype'].toString();
@@ -2014,6 +2033,27 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     appBar: AppBar(title: const Text('عمليات المخزون'), actions: [IconButton(onPressed: load, icon: const Icon(Icons.refresh))]),
     body: ListView(padding: const EdgeInsets.all(16), children: [
       const Text('الاستلام والصرف والتحويل والجرد تُنفّذ بمستندات ERPNext الرسمية. لا يتم تعديل Bin مباشرة.'),
+      const SizedBox(height: 12),
+      OutlinedButton.icon(
+        onPressed: loadingReorderAlerts ? null : loadReorderAlerts,
+        icon: loadingReorderAlerts
+            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+            : const Icon(Icons.notifications_active_outlined),
+        label: Text(loadingReorderAlerts ? 'جارٍ فحص حدود إعادة الطلب...' : 'فحص الأصناف تحت حد إعادة الطلب'),
+      ),
+      if (reorderAlertError != null)
+        Card(child: Padding(padding: const EdgeInsets.all(12), child: Text(reorderAlertError!))),
+      if (reorderAlerts.isNotEmpty) ...[
+        Text('تنبيهات إعادة الطلب (${reorderAlerts.length})', style: Theme.of(context).textTheme.titleMedium),
+        ...reorderAlerts.map((alert) => Card(child: ListTile(
+          leading: const Icon(Icons.warning_amber_outlined),
+          title: Text('${alert['item_code']} • ${alert['warehouse']}'),
+          subtitle: Text('المتاح المتوقع: ${alert['projected_qty']} • حد إعادة الطلب: ${alert['warehouse_reorder_level']} • كمية الطلب المقترحة: ${alert['warehouse_reorder_qty']}'),
+          isThreeLine: true,
+        ))),
+      ] else if (!loadingReorderAlerts && reorderAlertError == null)
+        const Text('اضغط فحص الأصناف لعرض الأصناف التي وصلت كميتها المتوقعة إلى حد إعادة الطلب أو أقل.'),
+
       Wrap(spacing: 8, runSpacing: 8, children: [
         FilledButton.tonal(onPressed: () => movement('Material Receipt'), child: const Text('استلام مخزون')),
         FilledButton.tonal(onPressed: purchaseReceipt, child: const Text('استلام مشتريات مباشر')),
