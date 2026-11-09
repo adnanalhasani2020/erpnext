@@ -653,7 +653,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                 final payloadLines = <Map<String, dynamic>>[];
                 for (final line in lines) {
                   final code = line['item'] as String;
-                  final item = widget.items.where((x) => x.code == code).firstOrNull;
+                  final matching = widget.items.where((x) => x.code == code).toList();
+                  final item = matching.isEmpty ? null : matching.first;
                   final qty = double.tryParse((line['qty'] as TextEditingController).text.trim());
                   final rate = double.tryParse((line['rate'] as TextEditingController).text.trim());
                   if (item == null || qty == null || !qty.isFinite || qty <= 0 ||
@@ -721,7 +722,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
 
   Future<void> purchaseOrderDetails(String name) async {
     try {
-      final doc = await widget.api._fetchPurchaseOrderAnyStatus(name);
+      final doc = await widget.api.fetchPurchaseOrderRecordDocument(name);
       if (!mounted) return;
       await showModalBottomSheet<void>(
         context: context, isScrollControlled: true, showDragHandle: true,
@@ -985,10 +986,36 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     appBar: AppBar(title: const Text('إدارة المشتريات'), actions: [IconButton(onPressed: load, icon: const Icon(Icons.refresh))]),
     floatingActionButton: FloatingActionButton.extended(onPressed: () => compose(), icon: const Icon(Icons.add), label: const Text('فاتورة مشتريات')),
     body: ListView(padding: const EdgeInsets.all(16), children: [
-      const Text('إنشاء الفواتير وتعديل المسودات وترحيلها وسداد الموردين والمرتجعات.'),
-      TextField(controller: search, onSubmitted: (_) => load(), decoration: InputDecoration(labelText: 'بحث بالفاتورة أو المورد', suffixIcon: IconButton(onPressed: load, icon: const Icon(Icons.search)))),
+      const Text('إدارة أوامر الشراء وفواتير الموردين والاستلام والدفعات والمرتجعات.'),
+      Row(children: [
+        Expanded(child: TextField(controller: search, onSubmitted: (_) => load(),
+          decoration: InputDecoration(labelText: 'بحث بالمستند أو المورد', suffixIcon: IconButton(onPressed: load, icon: const Icon(Icons.search))))),
+        const SizedBox(width: 8),
+        FilledButton.tonalIcon(onPressed: () => composePurchaseOrder(),
+          icon: const Icon(Icons.playlist_add), label: const Text('أمر شراء')),
+      ]),
       if (loading) const LinearProgressIndicator(),
       if (error != null) Text(error!),
+      Text('أوامر الشراء (${purchaseOrders.length})', style: Theme.of(context).textTheme.titleMedium),
+      if (purchaseOrders.isEmpty && !loading) const ListTile(title: Text('لا توجد أوامر شراء ظاهرة')),
+      ...purchaseOrders.map((order) {
+        final status = (order['docstatus'] as num?)?.toInt() ?? 0;
+        final total = double.tryParse(order['grand_total']?.toString() ?? '') ?? 0;
+        return Card(child: ListTile(
+          leading: Icon(status == 1 ? Icons.shopping_bag_outlined : status == 2 ? Icons.cancel_outlined : Icons.edit_note),
+          title: Text((order['name'] ?? '—').toString()),
+          subtitle: Text('${order['supplier_name'] ?? order['supplier'] ?? '—'} • ${order['status'] ?? (status == 0 ? 'مسودة' : status == 2 ? 'ملغي' : 'مرحّل')} • مستلم ${order['per_received'] ?? 0}%'),
+          trailing: Text(total.toStringAsFixed(2)),
+          onTap: () => purchaseOrderDetails(order['name'].toString()),
+        ));
+      }),
+      if (hasMorePurchaseOrders || loadingMorePurchaseOrders)
+        Center(child: TextButton.icon(
+          onPressed: loadingMorePurchaseOrders ? null : loadMorePurchaseOrders,
+          icon: loadingMorePurchaseOrders ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.expand_more),
+          label: const Text('تحميل أوامر شراء إضافية'),
+        )),
+      const Divider(height: 24),
       Text('فواتير المشتريات (' + rows.length.toString() + ')', style: Theme.of(context).textTheme.titleMedium),
       if (rows.isEmpty && !loading) const ListTile(title: Text('لا توجد فواتير ظاهرة')),
       ...rows.map((x) => Card(child: ListTile(leading: Icon(x.isReturn ? Icons.assignment_return_outlined : Icons.shopping_cart_outlined), title: Text((x.isReturn ? 'مرتجع • ' : '') + x.id), subtitle: Text(x.supplierName + (x.returnAgainst == null ? '' : ' • أصل: ' + x.returnAgainst!) + ' • ' + (x.status ?? '—') + ' • المتبقي ' + x.outstandingAmount.toStringAsFixed(2)), trailing: Text(x.grandTotal.toStringAsFixed(2)), onTap: () => details(x.id)))),
