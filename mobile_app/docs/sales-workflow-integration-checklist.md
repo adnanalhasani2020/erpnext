@@ -43,6 +43,7 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 ## Supplier payment draft recovery
 
 - [ ] Verify draft supplier Payment Entries appear separately from submitted payment history.
+- [ ] Verify supplier payment draft history paginates without duplicates or skipped records and preserves the active search filter.
 - [ ] Open a draft and confirm supplier, company, payment account, amount and invoice allocations match the canonical ERPNext document.
 - [ ] Submit a reviewed draft and verify the same Payment Entry is submitted without creating a second voucher.
 - [ ] Verify customer receipts and non-Pay Payment Entries cannot be submitted through the supplier draft action.
