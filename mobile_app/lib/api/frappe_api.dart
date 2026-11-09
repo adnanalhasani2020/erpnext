@@ -913,9 +913,9 @@ class FrappeApi {
       if (discountType == 'Discount Amount') 'discount_amount': discountValue,
       'apply_discount_on': applyDiscountOn,
       'for_price_list': cleanList,
-      if (applyOn == 'Item Code') 'items': [
-        {'item_code': itemCode!.trim(), 'min_qty': minQty},
-      ],
+      'items': applyOn == 'Item Code'
+          ? [{'item_code': itemCode!.trim(), 'min_qty': minQty}]
+          : <Map<String, dynamic>>[],
       'currency': cleanCurrency,
       'valid_from': from,
       if (until != null) 'valid_upto': until,
