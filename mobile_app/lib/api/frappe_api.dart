@@ -3619,6 +3619,101 @@ class FrappeApi {
     return message is String && message.isNotEmpty ? message : fallback;
   }
 
+
+  Future<List<Map<String, dynamic>>> fetchJournalEntryDrafts({required String company, int start = 0, String? search}) async {
+    final normalized = company.trim();
+    if (normalized.isEmpty) throw const FormatException('حدد الشركة أولاً.');
+    final query = search?.trim() ?? '';
+    final uri = buildResourcePageUri(baseUrl: _baseUrl, resource: 'Journal Entry',
+      fields: const ['name', 'posting_date', 'company', 'total_debit', 'total_credit', 'user_remark', 'docstatus'],
+      filters: [['company', '=', normalized], ['docstatus', '=', 0]],
+      orFilters: query.isEmpty ? null : [['name', 'like', '%$query%'], ['user_remark', 'like', '%$query%']],
+      orderBy: 'modified desc, name desc', start: start, pageLength: 50);
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تحميل مسودات القيود اليومية.'));
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة القيود اليومية غير متوقعة.');
+    return rows.whereType<Map<String, dynamic>>().where((row) => row['company'] == normalized && row['docstatus'] == 0)
+      .map((row) => Map<String, dynamic>.from(row)).toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>> fetchJournalEntryDocument(String name) async {
+    final id = name.trim();
+    if (id.isEmpty) throw const FormatException('رقم القيد غير موجود.');
+    final response = await _send('GET', '/api/resource/Journal%20Entry/' + Uri.encodeComponent(id));
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تحميل القيد اليومي.'));
+    final doc = data['data'];
+    if (doc is! Map<String, dynamic> || doc['name'] != id || doc['doctype'] != 'Journal Entry') throw const FormatException('هوية القيد المسترجع غير مطابقة.');
+    return Map<String, dynamic>.from(doc);
+  }
+
+  Future<Map<String, dynamic>> saveJournalEntryDraft({String? name, required String company, required String postingDate, required String remark, required List<Map<String, dynamic>> accounts}) async {
+    final normalizedCompany = company.trim();
+    final date = DateTime.tryParse(postingDate.trim());
+    if (normalizedCompany.isEmpty || date == null || date.toIso8601String().substring(0, 10) != postingDate.trim()) throw const FormatException('الشركة وتاريخ القيد بصيغة YYYY-MM-DD حقول مطلوبة.');
+    if (accounts.length < 2) throw const FormatException('القيد يتطلب حسابين على الأقل.');
+    final companyResponse = await _send('GET', '/api/resource/Company/' + Uri.encodeComponent(normalizedCompany));
+    final companyData = _decode(companyResponse.body);
+    final companyDoc = companyData['data'];
+    if (companyResponse.statusCode < 200 || companyResponse.statusCode >= 300 || companyDoc is! Map<String, dynamic>) throw Exception(_message(companyData, 'تعذر التحقق من الشركة.'));
+    final currency = companyDoc['default_currency']?.toString() ?? '';
+    if (currency.isEmpty) throw const FormatException('عملة الشركة غير محددة في ERPNext.');
+    final clean = <Map<String, dynamic>>[];
+    var debitTotal = 0.0, creditTotal = 0.0;
+    final seen = <String>{};
+    for (final row in accounts) {
+      final account = row['account']?.toString().trim() ?? '';
+      final debit = row['debit'] is num ? (row['debit'] as num).toDouble() : double.tryParse(row['debit']?.toString() ?? '') ?? 0;
+      final credit = row['credit'] is num ? (row['credit'] as num).toDouble() : double.tryParse(row['credit']?.toString() ?? '') ?? 0;
+      if (account.isEmpty || !debit.isFinite || !credit.isFinite || debit < 0 || credit < 0 || (debit > 0 && credit > 0) || (debit == 0 && credit == 0)) throw const FormatException('كل سطر يجب أن يحتوي حساباً ومبلغاً مديناً أو دائناً واحداً فقط.');
+      if (!seen.add(account)) throw FormatException('الحساب مكرر في القيد: ' + account);
+      final accountResponse = await _send('GET', '/api/resource/Account/' + Uri.encodeComponent(account));
+      final accountData = _decode(accountResponse.body);
+      final accountDoc = accountData['data'];
+      if (accountResponse.statusCode < 200 || accountResponse.statusCode >= 300 || accountDoc is! Map<String, dynamic> || accountDoc['company'] != normalizedCompany || accountDoc['is_group'] == 1 || accountDoc['is_group'] == true || accountDoc['disabled'] == 1 || accountDoc['disabled'] == true) throw FormatException('الحساب ' + account + ' غير صالح أو لا يتبع الشركة المحددة أو ليس حساب حركة.');
+      if ((accountDoc['account_currency']?.toString().isNotEmpty ?? false) && accountDoc['account_currency'] != currency) throw FormatException('الحساب ' + account + ' بعملة مختلفة. هذه الشاشة تدعم حالياً حسابات عملة الشركة فقط (' + currency + ').');
+      debitTotal += debit; creditTotal += credit;
+      clean.add({'doctype': 'Journal Entry Account', 'account': account, 'debit_in_account_currency': debit, 'credit_in_account_currency': credit});
+    }
+    if (debitTotal <= 0 || (debitTotal - creditTotal).abs() > 0.005) throw FormatException('القيد غير متوازن. المدين ' + debitTotal.toStringAsFixed(2) + ' والدائن ' + creditTotal.toStringAsFixed(2) + '.');
+    final id = name?.trim() ?? '';
+    final payload = <String, dynamic>{'doctype': 'Journal Entry', 'voucher_type': 'Journal Entry', 'company': normalizedCompany, 'posting_date': postingDate.trim(), 'user_remark': remark.trim(), 'multi_currency': 0, 'accounts': clean};
+    if (id.isEmpty) {
+      final response = await _sendJson('POST', '/api/resource/Journal%20Entry', payload);
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر إنشاء مسودة القيد.'));
+      final created = data['data'];
+      if (created is! Map<String, dynamic> || created['doctype'] != 'Journal Entry' || created['name'] is! String || created['docstatus'] != 0) throw const FormatException('لم يؤكد ERPNext إنشاء مسودة القيد.');
+      return Map<String, dynamic>.from(created);
+    }
+    final current = await fetchJournalEntryDocument(id);
+    if (current['company'] != normalizedCompany || current['docstatus'] != 0) throw const FormatException('لا يمكن تعديل القيد: تغيرت الشركة أو لم تعد حالته مسودة.');
+    final response = await _sendJson('POST', '/api/method/frappe.client.save', {'doc': {...current, ...payload, 'name': id}});
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تحديث مسودة القيد.'));
+    final saved = data['message'];
+    if (saved is! Map<String, dynamic> || saved['doctype'] != 'Journal Entry' || saved['name'] != id || saved['docstatus'] != 0) throw const FormatException('لم يؤكد ERPNext تحديث مسودة القيد.');
+    return Map<String, dynamic>.from(saved);
+  }
+
+  Future<Map<String, dynamic>> submitJournalEntry(String name, {required String company}) async {
+    final id = name.trim();
+    if (id.isEmpty) throw const FormatException('رقم القيد غير موجود.');
+    final current = await fetchJournalEntryDocument(id);
+    if (current['company'] != company || current['docstatus'] != 0) throw const FormatException('لا يمكن ترحيل القيد: تغيرت الشركة أو لم تعد حالته مسودة.');
+    final accounts = current['accounts'];
+    if (accounts is! List || accounts.length < 2) throw const FormatException('القيد لا يحتوي سطرين صالحين على الأقل.');
+    final response = await _sendJson('POST', '/api/method/frappe.client.submit', {'doc': current});
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر ترحيل القيد اليومي.'));
+    final submitted = data['message'];
+    if (submitted is! Map<String, dynamic> || submitted['doctype'] != 'Journal Entry' || submitted['name'] != id || submitted['docstatus'] != 1) throw const FormatException('لم يؤكد ERPNext ترحيل القيد اليومي.');
+    return Map<String, dynamic>.from(submitted);
+  }
+
+
   void dispose() => _client.close(force: true);
 }
 
