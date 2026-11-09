@@ -40,6 +40,17 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 - [ ] Submit a separate invoice with stock update disabled; confirm no stock movement is created.
 - [ ] Attempt invalid quantity, rate, missing customer, and missing warehouse cases; confirm ERPNext rejects invalid documents without duplicate invoices.
 
+## Payment reconciliation
+
+- [ ] Fetch unreconciled entries for a Customer and verify company, party and receivable account scoping.
+- [ ] Fetch unreconciled entries for a Supplier and verify payable account scoping.
+- [ ] Verify invoice and payment date filters, and the configured result limits.
+- [ ] Preview ERPNext's FIFO allocation and compare each payment, invoice and allocated amount in Desk.
+- [ ] Cancel the preview and confirm no allocation is written.
+- [ ] Confirm reconciliation and verify the invoice outstanding amount and Payment Ledger entries in ERPNext.
+- [ ] Verify the action does not create a duplicate Payment Entry or bank transaction.
+- [ ] Verify users lacking Payment Reconciliation permissions receive a server error without a success message.
+
 ## Item and quantity-based promotions
 
 - [ ] Create an Item Code Pricing Rule with a minimum quantity and verify ERPNext saves the child item row.
