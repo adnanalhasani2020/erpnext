@@ -3782,6 +3782,196 @@ class FrappeApi {
   }
 
 
+  // HR mobile access is intentionally allow-listed. ERPNext permissions,
+  // employee/company rules and document validation remain authoritative.
+  static const Map<String, List<String>> _hrFields = {
+    'Employee': ['name', 'employee_name', 'company', 'department', 'designation',
+      'status', 'date_of_joining', 'reports_to', 'cell_number', 'prefered_email'],
+    'Attendance': ['name', 'employee', 'employee_name', 'company', 'attendance_date',
+      'status', 'docstatus', 'leave_type'],
+    'Leave Application': ['name', 'employee', 'employee_name', 'company', 'leave_type',
+      'from_date', 'to_date', 'total_leave_days', 'status', 'docstatus',
+      'posting_date', 'description'],
+    'Expense Claim': ['name', 'employee', 'employee_name', 'company', 'posting_date',
+      'total_claimed_amount', 'total_sanctioned_amount', 'approval_status',
+      'status', 'docstatus'],
+  };
+
+  Future<List<Map<String, dynamic>>> fetchHrRecords({
+    required String doctype,
+    String? company,
+    int start = 0,
+    String? search,
+  }) async {
+    final fields = _hrFields[doctype];
+    if (fields == null) throw ArgumentError.value(doctype, 'doctype', 'نوع سجل موارد بشرية غير مدعوم.');
+    final normalizedCompany = company?.trim() ?? '';
+    final query = search?.trim() ?? '';
+    final searchFields = switch (doctype) {
+      'Employee' => const ['name', 'employee_name', 'department', 'designation'],
+      'Attendance' => const ['name', 'employee', 'employee_name'],
+      'Leave Application' => const ['name', 'employee', 'employee_name', 'leave_type'],
+      'Expense Claim' => const ['name', 'employee', 'employee_name'],
+      _ => const <String>[],
+    };
+    final filters = <List<dynamic>>[];
+    if (normalizedCompany.isNotEmpty) filters.add(['company', '=', normalizedCompany]);
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: doctype,
+      fields: fields,
+      filters: filters,
+      orFilters: query.isEmpty ? null : searchFields.map((field) => [field, 'like', '%$query%']).toList(),
+      orderBy: doctype == 'Employee' ? 'employee_name asc, name asc' : 'modified desc, name desc',
+      start: start,
+      pageLength: 50,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل سجلات $doctype. تحقق من صلاحية القراءة.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة سجلات $doctype غير متوقعة.');
+    return rows.whereType<Map<String, dynamic>>()
+      .where((row) => normalizedCompany.isEmpty || row['company'] == normalizedCompany)
+      .map((row) => Map<String, dynamic>.from(row)).toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>> _fetchHrEmployee(String employee, String company) async {
+    final id = employee.trim(), normalizedCompany = company.trim();
+    if (id.isEmpty || normalizedCompany.isEmpty) throw const FormatException('حدد الموظف والشركة.');
+    final response = await _send('GET', '/api/resource/Employee/' + Uri.encodeComponent(id));
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر التحقق من الموظف. تحقق من صلاحية قراءة Employee.'));
+    }
+    final row = data['data'];
+    if (row is! Map<String, dynamic> || row['name'] != id ||
+        row['company'] != normalizedCompany || row['status'] == 'Left' ||
+        row['status'] == 'Inactive') {
+      throw const FormatException('الموظف غير موجود أو لا يتبع الشركة المحددة أو غير نشط.');
+    }
+    return Map<String, dynamic>.from(row);
+  }
+
+  Future<Map<String, dynamic>> createAttendanceDraft({
+    required String employee,
+    required String company,
+    required String attendanceDate,
+    required String status,
+    String? leaveType,
+  }) async {
+    final date = DateTime.tryParse(attendanceDate.trim());
+    if (date == null || date.toIso8601String().substring(0, 10) != attendanceDate.trim()) {
+      throw const FormatException('تاريخ الحضور يجب أن يكون بصيغة YYYY-MM-DD.');
+    }
+    if (!const {'Present', 'Absent', 'On Leave', 'Half Day', 'Work From Home'}.contains(status)) {
+      throw const FormatException('حالة الحضور المحددة غير مدعومة.');
+    }
+    await _fetchHrEmployee(employee, company);
+    if (status == 'On Leave' && (leaveType?.trim().isEmpty ?? true)) {
+      throw const FormatException('حدد نوع الإجازة عند تسجيل حالة في إجازة.');
+    }
+    final payload = <String, dynamic>{
+      'doctype': 'Attendance',
+      'employee': employee.trim(),
+      'company': company.trim(),
+      'attendance_date': attendanceDate.trim(),
+      'status': status,
+      if (leaveType?.trim().isNotEmpty ?? false) 'leave_type': leaveType!.trim(),
+    };
+    final response = await _sendJson('POST', '/api/resource/Attendance', payload);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر إنشاء مسودة الحضور.'));
+    }
+    final created = data['data'];
+    if (created is! Map<String, dynamic> || created['doctype'] != 'Attendance' ||
+        created['name'] is! String || created['docstatus'] != 0 ||
+        created['employee'] != employee.trim() || created['company'] != company.trim()) {
+      throw const FormatException('لم يؤكد ERPNext إنشاء مسودة الحضور المطابقة.');
+    }
+    return Map<String, dynamic>.from(created);
+  }
+
+  Future<Map<String, dynamic>> createLeaveApplicationDraft({
+    required String employee,
+    required String company,
+    required String leaveType,
+    required String fromDate,
+    required String toDate,
+    String description = '',
+  }) async {
+    final from = DateTime.tryParse(fromDate.trim()), to = DateTime.tryParse(toDate.trim());
+    if (from == null || to == null ||
+        from.toIso8601String().substring(0, 10) != fromDate.trim() ||
+        to.toIso8601String().substring(0, 10) != toDate.trim() ||
+        to.isBefore(from)) {
+      throw const FormatException('تحقق من تاريخ بداية الإجازة ونهايتها بصيغة YYYY-MM-DD.');
+    }
+    if (leaveType.trim().isEmpty) throw const FormatException('حدد نوع الإجازة.');
+    await _fetchHrEmployee(employee, company);
+    final payload = <String, dynamic>{
+      'doctype': 'Leave Application',
+      'employee': employee.trim(),
+      'company': company.trim(),
+      'leave_type': leaveType.trim(),
+      'from_date': fromDate.trim(),
+      'to_date': toDate.trim(),
+      'description': description.trim(),
+    };
+    final response = await _sendJson('POST', '/api/resource/Leave%20Application', payload);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر إنشاء طلب الإجازة.'));
+    }
+    final created = data['data'];
+    if (created is! Map<String, dynamic> || created['doctype'] != 'Leave Application' ||
+        created['name'] is! String || created['docstatus'] != 0 ||
+        created['employee'] != employee.trim() || created['company'] != company.trim()) {
+      throw const FormatException('لم يؤكد ERPNext إنشاء طلب الإجازة المطابق.');
+    }
+    return Map<String, dynamic>.from(created);
+  }
+
+  Future<Map<String, dynamic>> submitHrDraft({
+    required String doctype,
+    required String name,
+    required String company,
+  }) async {
+    if (doctype != 'Attendance' && doctype != 'Leave Application') {
+      throw ArgumentError.value(doctype, 'doctype', 'ترحيل هذا النوع من سجلات الموارد البشرية غير مدعوم.');
+    }
+    final id = name.trim(), normalizedCompany = company.trim();
+    if (id.isEmpty || normalizedCompany.isEmpty) throw const FormatException('رقم المستند والشركة مطلوبان.');
+    final response = await _send('GET', '/api/resource/' +
+      Uri.encodeComponent(doctype) + '/' + Uri.encodeComponent(id));
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر إعادة قراءة المستند قبل الترحيل.'));
+    }
+    final current = data['data'];
+    if (current is! Map<String, dynamic> || current['doctype'] != doctype ||
+        current['name'] != id || current['company'] != normalizedCompany ||
+        current['docstatus'] != 0 || (current['employee']?.toString().isEmpty ?? true)) {
+      throw const FormatException('تم رفض الترحيل لأن هوية المستند أو الشركة أو حالته تغيرت.');
+    }
+    final submittedResponse = await _sendJson('POST', '/api/method/frappe.client.submit', {'doc': current});
+    final submittedData = _decode(submittedResponse.body);
+    if (submittedResponse.statusCode < 200 || submittedResponse.statusCode >= 300) {
+      throw Exception(_message(submittedData, 'تعذر ترحيل مستند الموارد البشرية.'));
+    }
+    final submitted = submittedData['message'];
+    if (submitted is! Map<String, dynamic> || submitted['doctype'] != doctype ||
+        submitted['name'] != id || submitted['company'] != normalizedCompany ||
+        submitted['docstatus'] != 1) {
+      throw const FormatException('لم يؤكد ERPNext ترحيل المستند المطلوب.');
+    }
+    return Map<String, dynamic>.from(submitted);
+  }
+
+
   void dispose() => _client.close(force: true);
 }
 
