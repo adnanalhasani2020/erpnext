@@ -323,8 +323,13 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
         ? (draft!['items'] as List).whereType<Map<String, dynamic>>().toList()
         : <Map<String, dynamic>>[];
     void addLine([Map<String, dynamic>? source]) {
-      final validItem = widget.items.any((x) => x.code == source?['item_code'])
-          ? source!['item_code'].toString() : widget.items.first.code;
+      // Keep the original item code if the catalog page does not contain it.
+      // Saving is blocked until the user selects a loaded item; never substitute
+      // the first catalog item into an existing purchase invoice draft.
+      final sourceCode = source?['item_code']?.toString();
+      final validItem = sourceCode != null && sourceCode.isNotEmpty
+          ? sourceCode
+          : widget.items.first.code;
       final allowed = widget.warehouses.where((w) => w.company == selectedCompany);
       final sourceWarehouse = source?['warehouse']?.toString();
       lineRows.add({
