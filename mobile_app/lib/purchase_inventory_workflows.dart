@@ -374,6 +374,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                         if (source['name'] != null) 'name': source['name'],
                       };
                     }
+                    (row['serial_no'] as TextEditingController).clear();
+                    (row['batch_no'] as TextEditingController).clear();
                   }
                 }),
               ),
@@ -421,6 +423,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                       onChanged: widget.items.isEmpty ? null : (v) => refreshDialog(() {
                         if (v == null || v == row['item']) return;
                         row['item'] = v;
+                        (row['serial_no'] as TextEditingController).clear();
+                        (row['batch_no'] as TextEditingController).clear();
                         final source = row['source'];
                         if (source is Map<String, dynamic>) {
                           row['source'] = <String, dynamic>{
@@ -1473,6 +1477,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         'batch_no': TextEditingController(),
         'current_serial_no': TextEditingController(),
         'current_qty': null,
+        'current_item_code': null,
+        'current_batch_no': null,
       });
     }
     addLine();
@@ -1510,7 +1516,15 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                     decoration: InputDecoration(labelText: 'الصنف', helperText: item?.name ?? 'حمّل قائمة الأصناف لاختيار صنف.'),
                     items: widget.items.map((x) => DropdownMenuItem(value: x.code,
                       child: Text('${x.name} (${x.code})', overflow: TextOverflow.ellipsis))).toList(),
-                    onChanged: widget.items.isEmpty ? null : (v) => refresh(() { if (v != null) row['item'] = v; }),
+                    onChanged: widget.items.isEmpty ? null : (v) => refresh(() {
+                      if (v != null && v != row['item']) {
+                        row['item'] = v;
+                        (row['serial_no'] as TextEditingController).clear();
+                        (row['batch_no'] as TextEditingController).clear();
+                        (row['current_serial_no'] as TextEditingController).clear();
+                        row['current_qty'] = null;
+                      }
+                    }),
                   ),
                   _field(row['qty'] as TextEditingController, allowZeroQuantity ? 'الكمية الفعلية' : 'الكمية', number: true),
                   if (includeRate) _field(row['rate'] as TextEditingController, 'سعر التقييم', number: true),
@@ -1518,7 +1532,18 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                     TextField(controller: row['serial_no'] as TextEditingController, minLines: 2, maxLines: 4,
                       decoration: const InputDecoration(labelText: 'الأرقام التسلسلية', helperText: 'رقم لكل وحدة.')),
                   if (item?.hasBatchNo == true)
-                    TextField(controller: row['batch_no'] as TextEditingController, decoration: const InputDecoration(labelText: 'رقم الدفعة')),
+                    TextField(controller: row['batch_no'] as TextEditingController,
+                      onChanged: (value) {
+                        if (allowZeroQuantity && row['current_batch_no'] != null &&
+                            value.trim() != row['current_batch_no']) {
+                          refresh(() {
+                            row['current_qty'] = null;
+                            row['current_batch_no'] = null;
+                            (row['current_serial_no'] as TextEditingController).clear();
+                          });
+                        }
+                      },
+                      decoration: const InputDecoration(labelText: 'رقم الدفعة')),
                   if (allowZeroQuantity && item != null && (item.hasSerialNo || item.hasBatchNo)) ...[
                     TextField(controller: row['current_serial_no'] as TextEditingController, readOnly: true,
                       minLines: 1, maxLines: 4,
@@ -1586,6 +1611,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                           }
                           refresh(() {
                             row['current_qty'] = currentQty;
+                            row['current_item_code'] = item.code;
+                            row['current_batch_no'] = batchNo;
                             (row['current_serial_no'] as TextEditingController).text = currentSerials.join('\n');
                           });
                         } catch (error) {
@@ -1644,7 +1671,9 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                 final currentQty = row['current_qty'];
                 final currentSerialText = (row['current_serial_no'] as TextEditingController).text;
                 if (allowZeroQuantity && (selectedItem.hasSerialNo || selectedItem.hasBatchNo) &&
-                    (currentQty is! num || !currentQty.isFinite || currentQty < 0)) {
+                    (row['current_item_code'] != selectedItem.code ||
+                     (selectedItem.hasBatchNo && row['current_batch_no'] != batchText.trim()) ||
+                     currentQty is! num || !currentQty.isFinite || currentQty < 0)) {
                   notice('حمّل الأرقام والكمية الحالية للصنف المتتبع قبل التسوية.');
                   return;
                 }

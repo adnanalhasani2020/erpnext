@@ -90,7 +90,8 @@ class _SalesInvoiceLineDraft {
     if (sourceRow?['serial_and_batch_bundle'] == null) return true;
     final sourceQty = double.tryParse(sourceRow?['qty']?.toString() ?? '');
     return sourceRow?['item_code'] != item?.code ||
-        sourceQty == null || (sourceQty - qty).abs() > 0.000001;
+        sourceQty == null || (sourceQty - qty).abs() > 0.000001 ||
+        sourceRow?['warehouse']?.toString() != warehouse?.id;
   }
   double get unitRate => double.tryParse(rate.text.trim()) ?? 0;
   double get total => qty * unitRate;
@@ -448,8 +449,11 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
             decoration: const InputDecoration(labelText: 'الصنف'),
             items: _availableItems.map((item) => DropdownMenuItem(value: item, child: Text('${item.name} • ${item.code}', overflow: TextOverflow.ellipsis))).toList(),
             onChanged: _saving || _pendingDraft != null ? null : (value) => setState(() {
+              if (line.item?.code != value?.code) {
+                line.serialNumbers.clear();
+                line.batchNumber.clear();
+              }
               line.item = value;
-              if (line.rate.text.trim() == '0') line.rate.text = '0';
               if (!_updateStock || value?.isStockItem != true) line.warehouse = null;
             }),
             validator: (value) => value == null ? 'اختر الصنف.' : null,
@@ -482,7 +486,13 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'مستودع الصرف'),
               items: _companyWarehouses.map((warehouse) => DropdownMenuItem(value: warehouse, child: Text(warehouse.name, overflow: TextOverflow.ellipsis))).toList(),
-              onChanged: _saving || _pendingDraft != null ? null : (value) => setState(() => line.warehouse = value),
+              onChanged: _saving || _pendingDraft != null ? null : (value) => setState(() {
+                if (line.warehouse?.id != value?.id) {
+                  line.serialNumbers.clear();
+                  line.batchNumber.clear();
+                }
+                line.warehouse = value;
+              }),
               validator: (value) => _updateStock && line.item?.isStockItem == true && value == null ? 'اختر مستودع الصرف.' : null,
             ),
           ],
