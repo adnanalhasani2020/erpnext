@@ -40,6 +40,14 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 - [ ] Submit a separate invoice with stock update disabled; confirm no stock movement is created.
 - [ ] Attempt invalid quantity, rate, missing customer, and missing warehouse cases; confirm ERPNext rejects invalid documents without duplicate invoices.
 
+## Supplier payment draft recovery
+
+- [ ] Verify draft supplier Payment Entries appear separately from submitted payment history.
+- [ ] Open a draft and confirm supplier, company, payment account, amount and invoice allocations match the canonical ERPNext document.
+- [ ] Submit a reviewed draft and verify the same Payment Entry is submitted without creating a second voucher.
+- [ ] Verify customer receipts and non-Pay Payment Entries cannot be submitted through the supplier draft action.
+- [ ] Verify permission errors leave the draft visible as unsubmitted and do not show a success message.
+
 ## Payment reconciliation
 
 - [ ] Fetch unreconciled entries for a Customer and verify company, party and receivable account scoping.
