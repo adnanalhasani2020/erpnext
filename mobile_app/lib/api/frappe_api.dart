@@ -3995,8 +3995,8 @@ class FrappeApi {
     if (value == null || !value.isFinite || value <= 0) {
       throw const FormatException('أدخل مبلغ مصروف أكبر من صفر.');
     }
-    if (expenseType.trim().isEmpty || account.trim().isEmpty) {
-      throw const FormatException('نوع المصروف والحساب حقول مطلوبة.');
+    if (expenseType.trim().isEmpty) {
+      throw const FormatException('نوع المصروف حقل مطلوب.');
     }
     await _fetchHrEmployee(employee, company);
     final typeResponse = await _send('GET', '/api/resource/Expense%20Claim%20Type/' + Uri.encodeComponent(expenseType.trim()));
@@ -4009,6 +4009,7 @@ class FrappeApi {
     }
     final configuredAccount = type['default_account']?.toString().trim() ?? '';
     final selectedAccount = configuredAccount.isNotEmpty ? configuredAccount : account.trim();
+    if (selectedAccount.isEmpty) throw const FormatException('حدد حساب المصروف أو استخدم نوعاً له حساب افتراضي.');
     final accountResponse = await _send('GET', '/api/resource/Account/' + Uri.encodeComponent(selectedAccount));
     final accountData = _decode(accountResponse.body);
     final accountDoc = accountData['data'];
