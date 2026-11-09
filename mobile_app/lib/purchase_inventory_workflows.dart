@@ -340,6 +340,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
         'rate': TextEditingController(text: (source?['rate'] ?? 0).toString()),
         'serial_no': TextEditingController(text: source?['serial_no']?.toString() ?? ''),
         'batch_no': TextEditingController(text: source?['batch_no']?.toString() ?? ''),
+        'expiry_date': TextEditingController(),
         'warehouse': allowed.any((w) => w.id == sourceWarehouse) ? sourceWarehouse : null,
       });
     }
@@ -376,6 +377,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                     }
                     (row['serial_no'] as TextEditingController).clear();
                     (row['batch_no'] as TextEditingController).clear();
+                    (row['expiry_date'] as TextEditingController).clear();
                   }
                 }),
               ),
@@ -412,6 +414,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                           (removed['rate'] as TextEditingController).dispose();
                           (removed['serial_no'] as TextEditingController).dispose();
                           (removed['batch_no'] as TextEditingController).dispose();
+                          (removed['expiry_date'] as TextEditingController).dispose();
+                          (removed['expiry_date'] as TextEditingController).dispose();
                         }),
                         icon: const Icon(Icons.delete_outline)),
                     ]),
@@ -425,6 +429,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                         row['item'] = v;
                         (row['serial_no'] as TextEditingController).clear();
                         (row['batch_no'] as TextEditingController).clear();
+                        (row['expiry_date'] as TextEditingController).clear();
                         final source = row['source'];
                         if (source is Map<String, dynamic>) {
                           row['source'] = <String, dynamic>{
@@ -443,6 +448,9 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                         decoration: const InputDecoration(labelText: 'الأرقام التسلسلية', helperText: 'رقم لكل وحدة، افصل بينها بسطر جديد أو فاصلة.')),
                     if (item?.hasBatchNo == true)
                       TextField(controller: row['batch_no'] as TextEditingController, decoration: const InputDecoration(labelText: 'رقم الدفعة')),
+                    if (updateStock.value && item?.hasExpiryDate == true)
+                      TextField(controller: row['expiry_date'] as TextEditingController,
+                        decoration: const InputDecoration(labelText: 'تاريخ انتهاء الدفعة (YYYY-MM-DD)')),
                     DropdownButtonFormField<String>(
                 initialValue: row['warehouse'] as String?, isExpanded: true,
                       decoration: const InputDecoration(labelText: 'مستودع الصنف (اختياري)'),
@@ -509,6 +517,10 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                         serialNumbers: (row['serial_no'] as TextEditingController).text,
                         batchNumber: (row['batch_no'] as TextEditingController).text,
                       ));
+                      if (selectedItem.hasBatchNo) {
+                        final expiry = (row['expiry_date'] as TextEditingController).text.trim();
+                        if (expiry.isNotEmpty) itemRow['expiry_date'] = expiry;
+                      }
                     }
                   } catch (error) { notice(error.toString().replaceFirst('FormatException: ', '')); return; }
                   if (row['warehouse'] != null) {
@@ -557,6 +569,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
         (row['rate'] as TextEditingController).dispose();
         (row['serial_no'] as TextEditingController).dispose();
         (row['batch_no'] as TextEditingController).dispose();
+        (row['expiry_date'] as TextEditingController).dispose();
       }
       updateStock.dispose();
     }
@@ -1484,6 +1497,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         'rate': TextEditingController(text: '0'),
         'serial_no': TextEditingController(),
         'batch_no': TextEditingController(),
+        'expiry_date': TextEditingController(),
         'current_serial_no': TextEditingController(),
         'current_qty': null,
         'current_item_code': null,
@@ -1517,6 +1531,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                       (removed['rate'] as TextEditingController).dispose();
                       (removed['serial_no'] as TextEditingController).dispose();
                       (removed['batch_no'] as TextEditingController).dispose();
+                      (removed['expiry_date'] as TextEditingController).dispose();
                       (removed['current_serial_no'] as TextEditingController).dispose();
                     }), icon: const Icon(Icons.delete_outline)),
                   ]),
@@ -1553,6 +1568,9 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                         }
                       },
                       decoration: const InputDecoration(labelText: 'رقم الدفعة')),
+                  if ((includeRate || allowZeroQuantity) && item?.hasBatchNo == true && item?.hasExpiryDate == true)
+                    TextField(controller: row['expiry_date'] as TextEditingController,
+                      decoration: const InputDecoration(labelText: 'تاريخ انتهاء الدفعة (YYYY-MM-DD)')),
                   if (allowZeroQuantity && item != null && (item.hasSerialNo || item.hasBatchNo)) ...[
                     TextField(controller: row['current_serial_no'] as TextEditingController, readOnly: true,
                       minLines: 1, maxLines: 4,
@@ -1715,8 +1733,10 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                         }
                       : buildSerialBatchFields(item: selectedItem, quantity: qty,
                           serialNumbers: serialText, batchNumber: batchText);
+                  final expiry = (row['expiry_date'] as TextEditingController).text.trim();
                   result.add({'item_code': row['item'], 'qty': qty,
                     if (includeRate) 'valuation_rate': rate,
+                    if (expiry.isNotEmpty) 'expiry_date': expiry,
                     if (allowZeroQuantity && (selectedItem.hasSerialNo || selectedItem.hasBatchNo)) ...{
                       'current_qty': currentQty,
                       'current_serial_no': currentSerialText,
@@ -1735,6 +1755,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         (row['rate'] as TextEditingController).dispose();
         (row['serial_no'] as TextEditingController).dispose();
         (row['batch_no'] as TextEditingController).dispose();
+        (row['expiry_date'] as TextEditingController).dispose();
         (row['current_serial_no'] as TextEditingController).dispose();
       }
     }
@@ -1865,6 +1886,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         'rate': TextEditingController(text: (source['rate'] ?? 0).toString()),
         'serial_no': TextEditingController(),
         'batch_no': TextEditingController(),
+        'expiry_date': TextEditingController(),
         'warehouse': availableWarehouses.any((w) => w.id == suggestedWarehouse)
             ? suggestedWarehouse
             : null,
@@ -1919,6 +1941,9 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                         decoration: const InputDecoration(labelText: 'الأرقام التسلسلية', helperText: 'رقم لكل وحدة.')),
                     if (item?.hasBatchNo == true)
                       TextField(controller: row['batch_no'] as TextEditingController, decoration: const InputDecoration(labelText: 'رقم الدفعة')),
+                    if (item?.hasExpiryDate == true)
+                      TextField(controller: row['expiry_date'] as TextEditingController,
+                        decoration: const InputDecoration(labelText: 'تاريخ انتهاء الدفعة (YYYY-MM-DD)')),
                     DropdownButtonFormField<String>(
                 initialValue: row['warehouse'] as String?,
                       isExpanded: true,
@@ -1971,8 +1996,10 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                     serialNumbers: (row['serial_no'] as TextEditingController).text,
                     batchNumber: (row['batch_no'] as TextEditingController).text));
                 } catch (error) { notice(error.toString().replaceFirst('FormatException: ', '')); return; }
+                final expiry = (row['expiry_date'] as TextEditingController).text.trim();
                 receiptLine.addAll({
                   'item_code': code,
+                  if (expiry.isNotEmpty) 'expiry_date': expiry,
                   'qty': qty,
                   'rate': rate,
                   'warehouse': row['warehouse'],
@@ -1992,6 +2019,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         (row['rate'] as TextEditingController).dispose();
         (row['serial_no'] as TextEditingController).dispose();
         (row['batch_no'] as TextEditingController).dispose();
+        (row['expiry_date'] as TextEditingController).dispose();
       }
     }
   }

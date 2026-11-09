@@ -140,7 +140,9 @@ class FrappeApi {
   }
   List<Map<String, dynamic>> _cleanSerialBatchRows(List<dynamic> items) {
     _validateSerialBatchRows(items);
-    return items.whereType<Map<String, dynamic>>().map((row) => Map<String, dynamic>.from(row)).toList(growable: false);
+    return items.whereType<Map<String, dynamic>>().map((row) => Map<String, dynamic>.from(row)
+      ..remove('expiry_date')
+      ..remove('manufacturing_date')).toList(growable: false);
   }
 
   Future<List<ErpCompany>> fetchCompanies() async {
@@ -190,7 +192,7 @@ class FrappeApi {
     final uri = buildResourcePageUri(
       baseUrl: _baseUrl,
       resource: 'Item',
-      fields: ['item_code', 'item_name', 'item_group', 'stock_uom', 'is_stock_item', 'has_serial_no', 'has_batch_no'],
+      fields: ['item_code', 'item_name', 'item_group', 'stock_uom', 'is_stock_item', 'has_serial_no', 'has_batch_no', 'has_expiry_date'],
       filters: [['disabled', '=', 0]],
       orFilters: search == null || search.trim().isEmpty
           ? null
@@ -211,6 +213,76 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().map(ErpItem.fromJson).toList(growable: false);
   }
 
+
+
+  Future<void> _ensureIncomingBatchNumbers(List<dynamic> items) async {
+    final seen = <String>{};
+    for (final raw in items) {
+      if (raw is! Map<String, dynamic>) continue;
+      final batchNo = raw['batch_no']?.toString().trim() ?? '';
+      if (batchNo.isEmpty) continue;
+      final itemCode = raw['item_code']?.toString().trim() ?? '';
+      if (itemCode.isEmpty) throw const FormatException('رمز الصنف مطلوب لإنشاء الدفعة.');
+      if (!seen.add(itemCode + '|' + batchNo)) continue;
+      Future<Map<String, dynamic>?> readBatch() async {
+        final uri = Uri.parse('$_baseUrl/api/resource/Batch/' + Uri.encodeComponent(batchNo));
+        final response = await _sendUri('GET', uri);
+        if (response.statusCode == 404) return null;
+        final data = _decode(response.body);
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          throw Exception(_message(data, 'تعذر التحقق من سجل الدفعة ' + batchNo + '. تحقق من صلاحية قراءة Batch.'));
+        }
+        final batch = data['data'];
+        if (batch is! Map<String, dynamic>) throw Exception('استجابة سجل الدفعة غير صحيحة: ' + batchNo);
+        return batch;
+      }
+      void validateExisting(Map<String, dynamic> batch) {
+        if (batch['item'] != itemCode) throw FormatException('رقم الدفعة ' + batchNo + ' مسجل لصنف آخر.');
+        if (batch['disabled'] == 1 || batch['disabled'] == true) throw FormatException('الدفعة ' + batchNo + ' معطلة ولا يمكن استخدامها.');
+      }
+      final existing = await readBatch();
+      if (existing != null) {
+        validateExisting(existing);
+        continue;
+      }
+      final itemUri = Uri.parse('$_baseUrl/api/resource/Item/' + Uri.encodeComponent(itemCode))
+          .replace(queryParameters: {'fields': jsonEncode(['item_code', 'has_batch_no', 'has_expiry_date'])});
+      final itemResponse = await _sendUri('GET', itemUri);
+      final itemData = _decode(itemResponse.body);
+      if (itemResponse.statusCode < 200 || itemResponse.statusCode >= 300 ||
+          itemData['data'] is! Map<String, dynamic>) {
+        throw Exception(_message(itemData, 'تعذر قراءة إعدادات الصنف قبل إنشاء الدفعة.'));
+      }
+      final item = itemData['data'] as Map<String, dynamic>;
+      if (item['has_batch_no'] != 1 && item['has_batch_no'] != true) {
+        throw FormatException('الصنف ' + itemCode + ' غير مفعّل لتتبع الدفعات.');
+      }
+      final expiryDate = raw['expiry_date']?.toString().trim() ?? '';
+      if ((item['has_expiry_date'] == 1 || item['has_expiry_date'] == true) &&
+          (expiryDate.isEmpty || DateTime.tryParse(expiryDate) == null)) {
+        throw FormatException('أدخل تاريخ انتهاء صحيحاً للدفعة ' + batchNo + ' بصيغة YYYY-MM-DD.');
+      }
+      final payload = <String, dynamic>{
+        'doctype': 'Batch', 'batch_id': batchNo, 'item': itemCode,
+        if (expiryDate.isNotEmpty) 'expiry_date': expiryDate.substring(0, 10),
+      };
+      final createdResponse = await _sendJson('POST', '/api/resource/Batch', payload);
+      final createdData = _decode(createdResponse.body);
+      if (createdResponse.statusCode >= 200 && createdResponse.statusCode < 300) {
+        final created = createdData['data'];
+        if (created is! Map<String, dynamic> || created['name'] != batchNo || created['item'] != itemCode) {
+          throw Exception('لم يؤكد ERPNext إنشاء الدفعة ' + batchNo + '.');
+        }
+        continue;
+      }
+      final raced = await readBatch();
+      if (raced != null) {
+        validateExisting(raced);
+        continue;
+      }
+      throw Exception(_message(createdData, 'تعذر إنشاء الدفعة ' + batchNo + '. يحتاج المستخدم إلى صلاحية إنشاء Batch.'));
+    }
+  }
 
   Future<List<Map<String, dynamic>>> fetchAvailableBatches({
     required String itemCode,
@@ -1516,6 +1588,10 @@ class FrappeApi {
 
 
   Future<Map<String, dynamic>> createPurchaseInvoice(Map<String, dynamic> invoice) async {
+    if (invoice['update_stock'] == 1 || invoice['update_stock'] == true) {
+      final items = invoice['items'];
+      if (items is List) await _ensureIncomingBatchNumbers(items);
+    }
     _validatePurchase(invoice);
     await _validateDocumentWarehouses(invoice);
     final response = await _sendJson('POST', '/api/resource/Purchase%20Invoice', invoice);
@@ -1553,6 +1629,10 @@ class FrappeApi {
   Future<Map<String, dynamic>> updateDraftPurchaseInvoice({
     required String invoiceName, required Map<String, dynamic> changes,
   }) async {
+    if (changes['update_stock'] == 1 || changes['update_stock'] == true) {
+      final items = changes['items'];
+      if (items is List) await _ensureIncomingBatchNumbers(items);
+    }
     _validatePurchase(changes);
     await _validateDocumentWarehouses(changes);
     if (invoiceName.trim().isEmpty) throw const FormatException('رقم المسودة غير موجود.');
@@ -1931,6 +2011,7 @@ class FrappeApi {
       throw const FormatException('حدد مستودعَي تحويل مختلفين.');
     }
     _validateSerialBatchRows(items);
+    if (purpose == 'Material Receipt') await _ensureIncomingBatchNumbers(items);
     for (final row in items) {
       if (row['item_code'] is! String || (row['item_code'] as String).trim().isEmpty ||
           row['qty'] is! num || !(row['qty'] as num).isFinite || (row['qty'] as num) <= 0) {
@@ -1995,6 +2076,7 @@ class FrappeApi {
         items is! List || items.isEmpty) {
       throw const FormatException('حدد الشركة والمورد وأضف صنفاً لاستلام البضائع.');
     }
+    await _ensureIncomingBatchNumbers(items);
     document['items'] = _cleanSerialBatchRows(items);
     for (final row in items) {
       if (row is! Map<String, dynamic> || row['item_code'] is! String ||
@@ -2083,6 +2165,7 @@ class FrappeApi {
   }) async {
     if (company.trim().isEmpty || warehouse.trim().isEmpty || items.isEmpty) throw const FormatException('حدد الشركة والمستودع وأصناف الجرد.');
     _validateSerialBatchRows(items);
+    await _ensureIncomingBatchNumbers(items);
     final seen = <String>{};
     for (final row in items) {
       final code = row['item_code'];
