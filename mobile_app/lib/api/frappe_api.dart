@@ -106,8 +106,8 @@ class FrappeApi {
       final currentSerialText = raw['current_serial_no']?.toString() ?? '';
       final currentSerials = currentSerialText.split(RegExp(r'[\r\n,;]+')).map((v) => v.trim()).where((v) => v.isNotEmpty).toList();
       if (qty is! num || !qty.isFinite || qty < 0) throw const FormatException('كمية الصنف المتتبع غير صحيحة.');
-      if (currentQty != null && (currentQty is! num || !currentQty.isFinite || currentQty < 0)) {
-        throw const FormatException('الكمية الحالية للصنف المتتبع غير صحيحة.');
+      if (currentQty == null || currentQty is! num || !currentQty.isFinite || currentQty < 0) {
+        throw const FormatException('يجب إرسال لقطة الكمية الحالية للصنف المتتبع عند تسوية الجرد.');
       }
       if (currentSerials.isNotEmpty &&
           (currentQty is! num || (currentQty - currentQty.round()).abs() > 0.000001 ||
@@ -209,6 +209,7 @@ class FrappeApi {
   Future<List<Map<String, dynamic>>> fetchAvailableBatches({
     required String itemCode,
     required String warehouse,
+    bool ignoreReservedStock = false,
   }) async {
     if (itemCode.trim().isEmpty || warehouse.trim().isEmpty) {
       throw const FormatException('حدد الصنف والمستودع لعرض الدفعات المتاحة.');
@@ -217,7 +218,7 @@ class FrappeApi {
         .replace(queryParameters: {
       'item_code': itemCode.trim(),
       'warehouse': warehouse.trim(),
-      'ignore_reserved_stock': '0',
+      'ignore_reserved_stock': ignoreReservedStock ? '1' : '0',
       'consider_negative_batches': '0',
     });
     final response = await _sendUri('GET', uri);

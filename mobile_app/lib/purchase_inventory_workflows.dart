@@ -1528,7 +1528,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                       onPressed: () async {
                         try {
                           final balanceRows = await widget.api.fetchStockBalances(
-                            warehouse: trackingWarehouseForReconciliation,
+                            warehouse: reconciliationWarehouse!,
                             search: item.code,
                           );
                           final balances = balanceRows.where((entry) =>
@@ -1650,6 +1650,11 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                     (currentQty is! num || !currentQty.isFinite || currentQty < 0)) {
                   notice('حمّل الأرقام والكمية الحالية للصنف المتتبع قبل التسوية.');
                   return;
+                }
+                if (allowZeroQuantity && qty == 0 &&
+                    (selectedItem.hasSerialNo || selectedItem.hasBatchNo) &&
+                    (currentQty as num) == 0) {
+                  continue;
                 }
                 if (allowZeroQuantity && qty == 0 && (selectedItem.hasSerialNo || selectedItem.hasBatchNo) &&
                     ((selectedItem.hasSerialNo && currentSerialText.trim().isEmpty && (currentQty as num) > 0) ||
