@@ -184,6 +184,14 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
           'from_date': _reportDate(_reportFrom),
           'to_date': _reportDate(_reportTo),
         });
+      } else if (_standardReportName == 'Sales Person Commission Summary' ||
+          _standardReportName == 'Sales Person-wise Transaction Summary') {
+        filters.addAll({
+          'doc_type': 'Sales Invoice',
+          'from_date': _reportDate(_reportFrom),
+          'to_date': _reportDate(_reportTo),
+          'show_return_entries': 0,
+        });
       } else {
         filters.addAll({
           'from_date': _reportDate(_reportFrom),
@@ -249,6 +257,8 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
             DropdownMenuItem(value: 'Trial Balance', child: Text('ميزان المراجعة')),
             DropdownMenuItem(value: 'Sales Register', child: Text('سجل المبيعات')),
             DropdownMenuItem(value: 'Sales Analytics', child: Text('تحليل المبيعات')),
+            DropdownMenuItem(value: 'Sales Person Commission Summary', child: Text('ملخص عمولات مندوبي المبيعات')),
+            DropdownMenuItem(value: 'Sales Person-wise Transaction Summary', child: Text('ملخص معاملات مندوبي المبيعات')),
             DropdownMenuItem(value: 'Purchase Register', child: Text('سجل المشتريات')),
             DropdownMenuItem(value: 'Bank Reconciliation Statement', child: Text('كشف التسوية البنكية')),
             DropdownMenuItem(value: 'Payment Ledger', child: Text('دفتر المدفوعات')),
