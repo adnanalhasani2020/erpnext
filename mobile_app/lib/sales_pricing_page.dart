@@ -1,3 +1,5 @@
+// ignore_for_file: prefer_interpolation_to_compose_strings
+
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
@@ -289,7 +291,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
               )
             else
               DropdownButtonFormField<String>(
-                value: _selectedPriceList,
+                initialValue: _selectedPriceList,
                 isExpanded: true,
                 decoration: const InputDecoration(labelText: 'قائمة الأسعار'),
                 items: _priceLists
