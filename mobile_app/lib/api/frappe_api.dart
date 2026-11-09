@@ -218,7 +218,7 @@ class FrappeApi {
   /// Finds Item warehouse reorder rules whose projected quantity is at or
   /// below the configured threshold. Group-based rules are omitted because
   /// they require aggregating projected stock across a warehouse tree.
-  Future<List<Map<String, dynamic>>> fetchStockReorderAlerts() async {
+  Future<List<ErpStockReorderAlert>> fetchStockReorderAlerts() async {
     const maxRules = 10000;
     final rules = <Map<String, dynamic>>[];
     var start = 0;
@@ -297,7 +297,7 @@ class FrappeApi {
       if (value is num) return value.toDouble();
       return double.tryParse(value?.toString() ?? '') ?? 0;
     }
-    final alerts = <Map<String, dynamic>>[];
+    final alerts = <ErpStockReorderAlert>[];
     for (final rule in supportedRules) {
       final itemCode = rule['parent'] as String;
       final warehouse = rule['warehouse'] as String;
@@ -305,20 +305,19 @@ class FrappeApi {
       final projected = number(bin?['projected_qty']);
       final level = number(rule['warehouse_reorder_level']);
       if (projected <= level) {
-        alerts.add({
-          ...rule,
-          'item_code': itemCode,
-          'actual_qty': number(bin?['actual_qty']),
-          'projected_qty': projected,
-          'stock_uom': bin?['stock_uom'],
-          'company': bin?['company'],
-          'warehouse_reorder_level': level,
-          'warehouse_reorder_qty': number(rule['warehouse_reorder_qty']),
-          'is_below_reorder_level': true,
-        });
+        alerts.add(ErpStockReorderAlert(
+          itemCode: itemCode,
+          warehouse: warehouse,
+          actualQty: number(bin?['actual_qty']),
+          projectedQty: projected,
+          stockUom: bin?['stock_uom'] is String ? bin!['stock_uom'] as String : null,
+          company: bin?['company'] is String ? bin!['company'] as String : null,
+          reorderLevel: level,
+          reorderQty: number(rule['warehouse_reorder_qty']),
+        ));
       }
     }
-    alerts.sort((a, b) => number(a['projected_qty']).compareTo(number(b['projected_qty'])));
+    alerts.sort((a, b) => a.projectedQty.compareTo(b.projectedQty));
     return alerts;
   }
 
