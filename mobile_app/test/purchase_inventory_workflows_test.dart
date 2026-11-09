@@ -1253,4 +1253,44 @@ void main() {
     }
   });
 
+  test('purchase order creation rejects missing parties, empty rows and invalid values before network access', () async {
+    final api = FrappeApi();
+    await expectLater(
+      api.createPurchaseOrder({
+        'doctype': 'Purchase Order', 'company': 'COMP-1', 'supplier': '',
+        'items': [{'item_code': 'ITEM-1', 'qty': 1, 'rate': 10}],
+      }),
+      throwsFormatException,
+    );
+    await expectLater(
+      api.createPurchaseOrder({
+        'doctype': 'Purchase Order', 'company': 'COMP-1', 'supplier': 'SUP-1',
+        'items': [],
+      }),
+      throwsFormatException,
+    );
+    await expectLater(
+      api.createPurchaseOrder({
+        'doctype': 'Purchase Order', 'company': 'COMP-1', 'supplier': 'SUP-1',
+        'items': [{'item_code': 'ITEM-1', 'qty': -1, 'rate': 10}],
+      }),
+      throwsFormatException,
+    );
+    await expectLater(
+      api.createPurchaseOrder({
+        'doctype': 'Purchase Order', 'company': 'COMP-1', 'supplier': 'SUP-1',
+        'items': [{'item_code': 'ITEM-1', 'qty': 1e308, 'rate': 1e308}],
+      }),
+      throwsFormatException,
+    );
+    await expectLater(
+      api.submitPurchaseOrder({
+        'doctype': 'Purchase Order', 'name': 'PO-1', 'docstatus': 1,
+      }),
+      throwsFormatException,
+    );
+    api.dispose();
+  });
+
+
 }
