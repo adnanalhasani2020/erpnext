@@ -35,6 +35,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
   bool hasMorePurchaseOrders = false;
   bool loadingMorePurchaseOrders = false;
   List<Map<String, dynamic>> supplierPayments = [];
+  List<Map<String, dynamic>> draftSupplierPayments = [];
   List<Map<String, dynamic>> supplierLedger = [];
   String? selectedLedgerSupplier;
   String? selectedLedgerCompany;
@@ -115,6 +116,16 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     } catch (e) {
       if (requestId == listRequestId) {
         errors.add('دفعات الموردين: ${e.toString().replaceFirst('Exception: ', '')}');
+      }
+    }
+    try {
+      final result = await widget.api.fetchDraftSupplierPayments(start: 0, search: query);
+      if (mounted && requestId == listRequestId) {
+        setState(() => draftSupplierPayments = result);
+      }
+    } catch (e) {
+      if (requestId == listRequestId) {
+        errors.add('مسودات دفعات الموردين: ${e.toString().replaceFirst('Exception: ', '')}');
       }
     }
     if (mounted && requestId == listRequestId) {
@@ -236,6 +247,61 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       }
     } finally {
       if (mounted) setState(() => loadingMorePurchaseOrders = false);
+    }
+  }
+
+  Future<void> showSupplierPaymentDraftDetails(String name) async {
+    try {
+      final draft = await widget.api.fetchSupplierPaymentDraftDocument(name);
+      if (!mounted) return;
+      final references = (draft['references'] as List)
+          .whereType<Map<String, dynamic>>()
+          .toList(growable: false);
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text('مسودة سند صرف المورد • ${draft['name']}'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('المورد: ${draft['party_name'] ?? draft['party'] ?? '—'}'),
+                Text('التاريخ: ${draft['posting_date'] ?? '—'}'),
+                Text('الحساب: ${draft['paid_from'] ?? '—'}'),
+                Text('المبلغ: ${draft['paid_amount'] ?? '—'} ${draft['paid_from_account_currency'] ?? ''}'),
+                const Divider(),
+                Text('توزيع الفاتورة (${references.length})'),
+                ...references.map((row) => ListTile(
+                  dense: true,
+                  title: Text('${row['reference_doctype'] ?? ''} • ${row['reference_name'] ?? ''}'),
+                  trailing: Text((row['allocated_amount'] ?? '0').toString()),
+                )),
+                const Text('لن يُرحّل السند إلا بعد تأكيدك.'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('إغلاق'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('مراجعة وترحيل'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+      await _runExclusive(() async {
+        final submitted = await widget.api.submitSupplierPaymentDraft(draft);
+        notice('تم ترحيل سند الصرف ${submitted['name']} بنجاح.');
+        await load();
+        widget.onChanged?.call();
+      });
+    } catch (e) {
+      notice(e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -1099,6 +1165,20 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
           icon: loadingMore ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.expand_more),
           label: const Text('تحميل فواتير إضافية'),
         )),
+      const Divider(height: 32),
+      Text('مسودات دفعات الموردين (${draftSupplierPayments.length})', style: Theme.of(context).textTheme.titleMedium),
+      const Text('يمكن مراجعة المسودة والتحقق من إحالات الفواتير ثم ترحيلها دون إنشاء سند مكرر.'),
+      if (draftSupplierPayments.isEmpty && !loading)
+        const ListTile(leading: Icon(Icons.edit_note), title: Text('لا توجد مسودات دفعات موردين.')),
+      ...draftSupplierPayments.map((payment) => Card(
+        child: ListTile(
+          leading: const Icon(Icons.pending_actions_outlined),
+          title: Text((payment['name'] ?? '—').toString()),
+          subtitle: Text('${payment['party_name'] ?? payment['party'] ?? 'مورد غير محدد'} • ${payment['posting_date'] ?? '—'} • مسودة'),
+          trailing: Text((double.tryParse(payment['paid_amount']?.toString() ?? '') ?? 0).toStringAsFixed(2)),
+          onTap: () => showSupplierPaymentDraftDetails(payment['name'].toString()),
+        ),
+      )),
       const Divider(height: 32),
       Text('سجل دفعات الموردين (${supplierPayments.length})', style: Theme.of(context).textTheme.titleMedium),
       const Text('يعرض سندات الصرف المرحلة فقط؛ المسودات والقيود الملغاة لا تدخل في السجل.'),
