@@ -75,6 +75,8 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
             account: item['account']?.toString() ?? '',
             debit: (item['debit_in_account_currency'] ?? item['debit'] ?? '').toString(),
             credit: (item['credit_in_account_currency'] ?? item['credit'] ?? '').toString(),
+            costCenter: item['cost_center']?.toString() ?? '',
+            project: item['project']?.toString() ?? '',
           ));
         }
       }
@@ -96,6 +98,7 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
         name: _editing, company: _company!, postingDate: _date.text.trim(),
         remark: _remark.text, accounts: _lines.map((e) => {
           'account': e.account.text, 'debit': _amount(e.debit.text), 'credit': _amount(e.credit.text),
+          'cost_center': e.costCenter.text, 'project': e.project.text,
         }).toList(),
       );
       if (!mounted) return;
@@ -160,6 +163,10 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
             const SizedBox(width: 8),
             Expanded(child: TextField(controller: line.credit, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'دائن'))),
           ]),
+          const SizedBox(height: 8),
+          TextField(controller: line.costCenter, decoration: const InputDecoration(labelText: 'مركز التكلفة (اختياري)')),
+          const SizedBox(height: 8),
+          TextField(controller: line.project, decoration: const InputDecoration(labelText: 'المشروع (اختياري)')),
         ])));
       }),
       OutlinedButton.icon(onPressed: _saving ? null : () => setState(() => _lines.add(_JournalLine())), icon: const Icon(Icons.add), label: const Text('إضافة سطر')),
@@ -190,10 +197,23 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
 }
 
 class _JournalLine {
-  _JournalLine({String account = '', String debit = '', String credit = ''})
-      : account = TextEditingController(text: account),
+  _JournalLine({
+    String account = '',
+    String debit = '',
+    String credit = '',
+    String costCenter = '',
+    String project = '',
+  })  : account = TextEditingController(text: account),
         debit = TextEditingController(text: debit),
-        credit = TextEditingController(text: credit);
-  final TextEditingController account, debit, credit;
-  void dispose() { account.dispose(); debit.dispose(); credit.dispose(); }
+        credit = TextEditingController(text: credit),
+        costCenter = TextEditingController(text: costCenter),
+        project = TextEditingController(text: project);
+  final TextEditingController account, debit, credit, costCenter, project;
+  void dispose() {
+    account.dispose();
+    debit.dispose();
+    credit.dispose();
+    costCenter.dispose();
+    project.dispose();
+  }
 }
