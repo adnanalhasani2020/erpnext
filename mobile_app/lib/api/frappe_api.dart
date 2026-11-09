@@ -548,6 +548,64 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().map(ErpPurchaseInvoice.fromJson).toList(growable: false);
   }
 
+  /// Loads all submitted, non-return invoices that still have an outstanding
+  /// balance. Results are intentionally bounded to avoid unbounded memory use
+  /// on very large sites; callers can narrow the report by company.
+  Future<List<Map<String, dynamic>>> fetchOutstandingInvoices({
+    required bool receivable,
+    String? company,
+  }) async {
+    const maxRows = 10000;
+    final doctype = receivable ? 'Sales Invoice' : 'Purchase Invoice';
+    final partyField = receivable ? 'customer' : 'supplier';
+    final partyNameField = receivable ? 'customer_name' : 'supplier_name';
+    final filters = <List<dynamic>>[
+      ['docstatus', '=', 1],
+      ['outstanding_amount', '>', 0],
+      ['is_return', '=', 0],
+      if (company != null && company.trim().isNotEmpty)
+        ['company', '=', company.trim()],
+    ];
+    final rows = <Map<String, dynamic>>[];
+    var start = 0;
+    while (true) {
+      final uri = buildResourcePageUri(
+        baseUrl: _baseUrl,
+        resource: doctype,
+        fields: [
+          'name', partyField, partyNameField, 'company', 'posting_date',
+          'due_date', 'currency', 'grand_total', 'outstanding_amount',
+        ],
+        filters: filters,
+        orderBy: 'due_date asc, posting_date asc, name asc',
+        start: start,
+      );
+      final response = await _sendUri('GET', uri);
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(
+          data,
+          receivable
+              ? 'تعذر تحميل الفواتير المستحقة للعملاء.'
+              : 'تعذر تحميل الفواتير المستحقة للموردين.',
+        ));
+      }
+      final page = data['data'];
+      if (page is! List) {
+        throw Exception('استجابة تقرير الفواتير المستحقة غير متوقعة.');
+      }
+      final validRows = page.whereType<Map<String, dynamic>>().toList();
+      rows.addAll(validRows);
+      if (rows.length > maxRows) {
+        throw const FormatException(
+          'تجاوز التقرير 10000 فاتورة مستحقة؛ حدد شركة لتقليل نطاق التقرير.',
+        );
+      }
+      if (page.length < pageSize) return rows;
+      start += page.length;
+    }
+  }
+
   static const Set<String> salesWorkflowDoctypes = {'Quotation', 'Sales Order', 'Delivery Note', 'Sales Invoice'};
 
   String _salesWorkflowResource(String doctype) {
