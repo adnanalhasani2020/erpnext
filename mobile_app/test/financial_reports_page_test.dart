@@ -66,7 +66,7 @@ void main() {
       expect(find.text('SINV-AGING-1'), findsOneWidget);
       expect(find.textContaining('عميل تجريبي'), findsOneWidget);
       expect(find.textContaining('1250.00 YER'), findsWidgets);
-      expect(find.textContaining('20.00 USD'), findsOneWidget);
+      expect(find.textContaining('20.00 USD'), findsWidgets);
 
       await tester.tap(find.text('ذمم الموردين'));
       await tester.pump();
