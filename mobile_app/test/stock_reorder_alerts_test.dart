@@ -57,12 +57,12 @@ void main() {
     try {
       final alerts = await api.fetchStockReorderAlerts();
       expect(alerts, hasLength(2));
-      expect(alerts.map((x) => x['item_code']), ['ITEM-LOW', 'ITEM-ZERO']);
-      expect(alerts.first['actual_qty'], 3);
-      expect(alerts.first['projected_qty'], 7);
-      expect(alerts.first['warehouse_reorder_level'], 10);
-      expect(alerts.last['actual_qty'], 0);
-      expect(alerts.last['projected_qty'], 0);
+      expect(alerts.map((x) => x.itemCode), ['ITEM-LOW', 'ITEM-ZERO']);
+      expect(alerts.first.actualQty, 3);
+      expect(alerts.first.projectedQty, 7);
+      expect(alerts.first.reorderLevel, 10);
+      expect(alerts.last.actualQty, 0);
+      expect(alerts.last.projectedQty, 0);
       expect(requests, contains('/api/resource/Item%20Reorder'));
       expect(requests, contains('/api/resource/Bin'));
     } finally {
