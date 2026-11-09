@@ -9,6 +9,7 @@ import 'financial_reports_page.dart';
 import 'sales_pricing_page.dart';
 import 'sales_commission_page.dart';
 import 'sales_dashboard_page.dart';
+import 'payment_reconciliation_page.dart';
 import 'models/erp_models.dart';
 import 'widgets/count_card.dart';
 import 'widgets/load_more_button.dart';
@@ -958,6 +959,12 @@ class _MobileHomePageState extends State<MobileHomePage> {
     );
   }
 
+  void _openPaymentReconciliation() {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => PaymentReconciliationPage(api: _api, companies: _companies),
+    ));
+  }
+
   void _openSalesDashboard() {
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => SalesDashboardPage(api: _api, companies: _companies),
@@ -1365,6 +1372,11 @@ class _MobileHomePageState extends State<MobileHomePage> {
             onPressed: _salesLoading ? null : _openSalesDashboard,
             icon: const Icon(Icons.insights_outlined),
             label: const Text('مؤشرات المبيعات'),
+          ),
+          OutlinedButton.icon(
+            onPressed: _salesLoading || _purchaseLoading ? null : _openPaymentReconciliation,
+            icon: const Icon(Icons.compare_arrows_outlined),
+            label: const Text('تسوية المدفوعات'),
           ),
           OutlinedButton.icon(
             onPressed: _salesLoading ? null : _openSalesPricing,
