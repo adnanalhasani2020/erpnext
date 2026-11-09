@@ -20,6 +20,14 @@ class FinancialReportsPage extends StatefulWidget {
 class _FinancialReportsPageState extends State<FinancialReportsPage> {
   bool _receivables = true;
   bool _showInventoryValuation = false;
+  bool _showStandardReport = false;
+  bool _standardLoading = false;
+  String _standardReportName = 'Profit and Loss Statement';
+  String? _standardError;
+  List<dynamic> _standardColumns = const [];
+  List<dynamic> _standardRows = const [];
+  DateTime _reportFrom = DateTime(DateTime.now().year, 1, 1);
+  DateTime _reportTo = DateTime.now();
   bool _loading = false;
   bool _stockLoading = false;
   bool _stockLoaded = false;
@@ -118,6 +126,197 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
         setState(() => _stockLoading = false);
       }
     }
+  }
+
+  String _reportDate(DateTime value) {
+    return value.year.toString().padLeft(4, '0') + '-' +
+        value.month.toString().padLeft(2, '0') + '-' +
+        value.day.toString().padLeft(2, '0');
+  }
+
+  Future<void> _loadStandardReport() async {
+    if (_company == null || _company!.trim().isEmpty) {
+      setState(() => _standardError = 'حدد الشركة قبل تشغيل التقرير.');
+      return;
+    }
+    if (_reportFrom.isAfter(_reportTo)) {
+      setState(() => _standardError = 'تاريخ البداية يجب ألا يتجاوز تاريخ النهاية.');
+      return;
+    }
+    setState(() {
+      _standardLoading = true;
+      _standardError = null;
+      _standardRows = const [];
+      _standardColumns = const [];
+    });
+    try {
+      final filters = <String, dynamic>{'company': _company};
+      if (_standardReportName == 'Profit and Loss Statement' ||
+          _standardReportName == 'Balance Sheet' ||
+          _standardReportName == 'Cash Flow') {
+        filters.addAll({
+          'filter_based_on': 'Date Range',
+          'period_start_date': _reportDate(_reportFrom),
+          'period_end_date': _reportDate(_reportTo),
+          'periodicity': 'Monthly',
+        });
+      } else {
+        filters.addAll({
+          'from_date': _reportDate(_reportFrom),
+          'to_date': _reportDate(_reportTo),
+        });
+      }
+      final result = await widget.api.runStandardReport(
+        reportName: _standardReportName,
+        filters: filters,
+      );
+      if (!mounted) return;
+      setState(() {
+        _standardColumns = result['columns'] as List;
+        _standardRows = result['result'] as List;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _standardError = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) setState(() => _standardLoading = false);
+    }
+  }
+
+  Future<void> _pickReportDate({required bool from}) async {
+    final current = from ? _reportFrom : _reportTo;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      if (from) {
+        _reportFrom = picked;
+      } else {
+        _reportTo = picked;
+      }
+    });
+  }
+
+  Widget _buildStandardReport() {
+    final columns = _standardColumns.whereType<Map>().toList(growable: false);
+    final visibleColumns = columns.take(8).toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('القوائم والتقارير المالية', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 6),
+        const Text('تُنفذ التقارير القياسية داخل ERPNext وفق صلاحيات المستخدم وإعدادات الشركة.'),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          value: _standardReportName,
+          isExpanded: true,
+          decoration: const InputDecoration(labelText: 'نوع التقرير'),
+          items: const [
+            DropdownMenuItem(value: 'Profit and Loss Statement', child: Text('الأرباح والخسائر')),
+            DropdownMenuItem(value: 'Balance Sheet', child: Text('الميزانية العمومية')),
+            DropdownMenuItem(value: 'Cash Flow', child: Text('التدفقات النقدية')),
+            DropdownMenuItem(value: 'General Ledger', child: Text('دفتر الأستاذ العام')),
+            DropdownMenuItem(value: 'Stock Balance', child: Text('رصيد وتقييم المخزون')),
+          ],
+          onChanged: _standardLoading ? null : (value) {
+            if (value == null) return;
+            setState(() => _standardReportName = value);
+          },
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _standardLoading ? null : () => _pickReportDate(from: true),
+                icon: const Icon(Icons.calendar_today),
+                label: Text('من: ' + _reportDate(_reportFrom)),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _standardLoading ? null : () => _pickReportDate(from: false),
+                icon: const Icon(Icons.event),
+                label: Text('إلى: ' + _reportDate(_reportTo)),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        FilledButton.icon(
+          onPressed: _standardLoading ? null : _loadStandardReport,
+          icon: const Icon(Icons.play_arrow),
+          label: const Text('تشغيل التقرير'),
+        ),
+        if (_standardLoading) const LinearProgressIndicator(),
+        if (_standardError != null)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(
+                _standardError!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ),
+          ),
+        if (!_standardLoading && _standardError == null && _standardRows.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Text('عدد الصفوف: ' + _standardRows.length.toString(),
+              style: Theme.of(context).textTheme.titleMedium),
+          ..._standardRows.take(300).map((rawRow) {
+            final values = <String>[];
+            for (var index = 0; index < visibleColumns.length; index++) {
+              final column = visibleColumns[index];
+              final field = column['fieldname']?.toString() ?? '';
+              final label = column['label']?.toString() ?? field;
+              dynamic value;
+              if (rawRow is Map) {
+                value = rawRow[field];
+                if (value == null && label.isNotEmpty) value = rawRow[label];
+              } else if (rawRow is List && index < rawRow.length) {
+                value = rawRow[index];
+              }
+              if (value != null && value.toString().trim().isNotEmpty) {
+                values.add(label + ': ' + value.toString());
+              }
+            }
+            if (values.isEmpty && rawRow is Map) {
+              rawRow.forEach((key, value) {
+                if (value != null && value.toString().trim().isNotEmpty) {
+                  values.add(key.toString() + ': ' + value.toString());
+                }
+              });
+            }
+            return Card(
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: values.take(8).map((value) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Text(value),
+                  )).toList(),
+                ),
+              ),
+            );
+          }),
+          if (_standardRows.length > 300)
+            Text('يُعرض أول 300 صف من أصل ' + _standardRows.length.toString() + '. استخدم فلاتر التقرير لتضييق النتائج.'),
+        ],
+        if (!_standardLoading && _standardError == null && _standardRows.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 18),
+            child: Text('حدد الشركة والفترة ثم شغّل التقرير لعرض النتائج.'),
+          ),
+      ],
+    );
   }
 
   Widget _buildInventoryValuation() {
@@ -314,42 +513,62 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(_showInventoryValuation ? 'تقارير المخزون' : 'تقارير الذمم',
+                  Text(_showStandardReport ? 'القوائم المالية' : (_showInventoryValuation ? 'تقارير المخزون' : 'تقارير الذمم'),
                       style: Theme.of(context).textTheme.titleLarge),
-                  Text(_showInventoryValuation
-                      ? 'قيمة المخزون الحالية حسب الشركة والمستودع'
-                      : 'أعمار الفواتير المستحقة للعملاء والموردين',
+                  Text(_showStandardReport
+                      ? 'الأرباح والخسائر والميزانية والتدفقات ودفتر الأستاذ'
+                      : (_showInventoryValuation
+                          ? 'قيمة المخزون الحالية حسب الشركة والمستودع'
+                          : 'أعمار الفواتير المستحقة للعملاء والموردين'),
                       style: Theme.of(context).textTheme.bodySmall),
                 ],
               ),
             ),
             IconButton(
               tooltip: 'تحديث التقرير',
-              onPressed: _showInventoryValuation
-                  ? (_stockLoading ? null : _loadInventoryValuation)
-                  : (_loading ? null : _load),
+              onPressed: _showStandardReport
+                  ? (_standardLoading ? null : _loadStandardReport)
+                  : (_showInventoryValuation
+                      ? (_stockLoading ? null : _loadInventoryValuation)
+                      : (_loading ? null : _load)),
               icon: const Icon(Icons.refresh),
             ),
           ],
         ),
         const SizedBox(height: 10),
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: OutlinedButton.icon(
-            onPressed: () {
-              final showInventory = !_showInventoryValuation;
-              setState(() => _showInventoryValuation = showInventory);
-              if (showInventory) {
-                if (!_stockLoaded && !_stockLoading) _loadInventoryValuation();
-              } else {
-                // Apply any company filter selected while viewing inventory to
-                // the aging report instead of showing stale company results.
-                _load();
-              }
-            },
-            icon: Icon(_showInventoryValuation ? Icons.account_balance_outlined : Icons.inventory_2_outlined),
-            label: Text(_showInventoryValuation ? 'العودة إلى تقارير الذمم' : 'فتح تقرير قيمة المخزون'),
-          ),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _showInventoryValuation = !_showInventoryValuation;
+                  _showStandardReport = false;
+                });
+                if (_showInventoryValuation) {
+                  if (!_stockLoaded && !_stockLoading) _loadInventoryValuation();
+                } else {
+                  _load();
+                }
+              },
+              icon: Icon(_showInventoryValuation ? Icons.account_balance_outlined : Icons.inventory_2_outlined),
+              label: Text(_showInventoryValuation ? 'العودة إلى تقارير الذمم' : 'فتح تقرير قيمة المخزون'),
+            ),
+            OutlinedButton.icon(
+              onPressed: () {
+                setState(() {
+                  _showStandardReport = !_showStandardReport;
+                  _showInventoryValuation = false;
+                });
+                if (!_showStandardReport) {
+                  _load();
+                }
+              },
+              icon: Icon(_showStandardReport ? Icons.arrow_back : Icons.analytics_outlined),
+              label: Text(_showStandardReport ? 'العودة إلى تقارير الذمم' : 'فتح القوائم المالية'),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         if (!_showInventoryValuation) ...[
@@ -379,11 +598,13 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
           ],
           onChanged: (_loading || _stockLoading) ? null : (value) {
             setState(() => _company = value == null || value.isEmpty ? null : value);
-            if (!_showInventoryValuation) _load();
+            if (!_showInventoryValuation && !_showStandardReport) _load();
           },
         ),
         const SizedBox(height: 12),
-        if (_showInventoryValuation)
+        if (_showStandardReport)
+          _buildStandardReport()
+        else if (_showInventoryValuation)
           _buildInventoryValuation()
         else ...[
           if (_loading) const LinearProgressIndicator(),
