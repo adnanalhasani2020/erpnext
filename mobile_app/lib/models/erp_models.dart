@@ -123,9 +123,10 @@ class ErpSalesInvoice {
   }
 }
 class ErpCompany {
-  const ErpCompany({required this.name, this.abbr});
+  const ErpCompany({required this.name, this.abbr, this.defaultCurrency});
   final String name;
   final String? abbr;
+  final String? defaultCurrency;
 
   factory ErpCompany.fromJson(Map<String, dynamic> json) {
     final name = json['name'];
@@ -133,7 +134,12 @@ class ErpCompany {
       throw const FormatException('اسم الشركة مفقود في استجابة ERPNext.');
     }
     final abbr = json['abbr'];
-    return ErpCompany(name: name, abbr: abbr is String ? abbr : null);
+    final currency = json['default_currency'];
+    return ErpCompany(
+      name: name,
+      abbr: abbr is String ? abbr : null,
+      defaultCurrency: currency is String && currency.isNotEmpty ? currency : null,
+    );
   }
 }
 
