@@ -651,7 +651,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                       ]),
                       DropdownButtonFormField<String>(
                         initialValue: line['warehouse'] as String?, isExpanded: true,
-                        decoration: InputDecoration(labelText: item?.isStockItem == true ? 'مستودع الاستلام المقترح' : 'المستودع (اختياري)'),
+                        decoration: InputDecoration(labelText: item?.isStockItem == true ? 'مستودع الاستلام المقترح (اختياري)' : 'المستودع (اختياري)'),
                         items: [
                           const DropdownMenuItem<String>(value: null, child: Text('حسب إعدادات الصنف')),
                           ...warehouses.map((w) => DropdownMenuItem(value: w.id,
@@ -687,8 +687,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                   if (item == null || qty == null || !qty.isFinite || qty <= 0 ||
                       rate == null || !rate.isFinite || rate < 0 ||
                       !(qty * rate).isFinite ||
-                      (item.isStockItem && (line['warehouse'] == null || line['warehouse'] is! String))) {
-                    notice('تحقق من الصنف والكمية والسعر ومستودع كل صنف مخزني.');
+                      (line['warehouse'] != null && line['warehouse'] is! String)) {
+                    notice('تحقق من الصنف والكمية والسعر، وتأكد من صحة المستودع إذا اخترته.');
                     return;
                   }
                   final source = line['source'] is Map<String, dynamic>
