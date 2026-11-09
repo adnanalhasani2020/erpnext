@@ -132,6 +132,11 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       }
     } catch (e) {
       if (requestId == listRequestId) {
+        setState(() {
+          draftSupplierPayments = [];
+          draftPaymentOffset = 0;
+          hasMoreDraftPayments = false;
+        });
         errors.add('مسودات دفعات الموردين: ${e.toString().replaceFirst('Exception: ', '')}');
       }
     }
