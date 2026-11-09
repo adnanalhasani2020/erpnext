@@ -308,7 +308,9 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
               onPressed: () {
                 final value = double.tryParse(percent.text.trim());
                 if (selected == null || value == null || !value.isFinite ||
-                    value <= 0 || value > 100) return;
+                    value <= 0 || value > 100) {
+                  return;
+                }
                 Navigator.pop(dialogContext, {
                   'sales_person': selected,
                   'allocated_percentage': value,
@@ -321,7 +323,9 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
       ),
     );
     percent.dispose();
-    if (result == null || !mounted) return;
+    if (result == null || !mounted) {
+      return;
+    }
     setState(() {
       _salesTeam.add(result);
       _error = null;
@@ -330,7 +334,9 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
 
   Future<void> _editSalesPersonAllocation(int index) async {
     if (_saving || _pendingDraft != null ||
-        index < 0 || index >= _salesTeam.length) return;
+        index < 0 || index >= _salesTeam.length) {
+      return;
+    }
     final controller = TextEditingController(
       text: _salesTeam[index]['allocated_percentage']?.toString() ?? '',
     );
