@@ -134,7 +134,7 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
     appBar: AppBar(title: const Text('القيود اليومية')),
     body: ListView(padding: const EdgeInsets.all(14), children: [
       DropdownButtonFormField<String>(
-        value: _company, isExpanded: true,
+        initialValue: _company, isExpanded: true,
         decoration: const InputDecoration(labelText: 'الشركة'),
         items: widget.companies.map((c) => DropdownMenuItem(value: c.name, child: Text(c.name))).toList(),
         onChanged: _loading || _saving ? null : (v) { setState(() { _company = v; _drafts = []; }); _resetForm(); _load(); },
