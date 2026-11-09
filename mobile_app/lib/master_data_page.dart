@@ -11,7 +11,7 @@ class MasterDataPage extends StatefulWidget {
 }
 
 class _MasterDataPageState extends State<MasterDataPage> {
-  static const types = {'Item': 'الأصناف', 'Supplier': 'الموردون', 'Warehouse': 'المستودعات'};
+  static const types = {'Item': 'الأصناف', 'Supplier': 'الموردون', 'Warehouse': 'المستودعات', 'Item Group': 'مجموعات الأصناف', 'UOM': 'وحدات القياس', 'Supplier Group': 'مجموعات الموردين', 'Price List': 'قوائم الأسعار'};
   String type = 'Item';
   final search = TextEditingController();
   List<Map<String, dynamic>> rows = [];
@@ -43,14 +43,18 @@ class _MasterDataPageState extends State<MasterDataPage> {
   }
 
   String titleOf(Map<String, dynamic> row) {
-    final key = type == 'Item' ? 'item_name' : type == 'Supplier' ? 'supplier_name' : 'warehouse_name';
+    final key = switch (type) { 'Item' => 'item_name', 'Supplier' => 'supplier_name', 'Warehouse' => 'warehouse_name', 'Item Group' => 'item_group_name', 'UOM' => 'uom_name', 'Supplier Group' => 'supplier_group_name', _ => 'price_list_name' };
     return row[key]?.toString() ?? row['name']?.toString() ?? '';
   }
 
   String subtitleOf(Map<String, dynamic> row) {
     if (type == 'Item') return [row['name'], row['item_group'], row['stock_uom'], (row['disabled'] == 1 || row['disabled'] == true) ? 'معطل' : 'نشط'].where((v) => v != null && v.toString().isNotEmpty).join(' • ');
     if (type == 'Supplier') return [row['name'], row['supplier_group'], row['supplier_type'], (row['disabled'] == 1 || row['disabled'] == true) ? 'معطل' : 'نشط'].where((v) => v != null && v.toString().isNotEmpty).join(' • ');
-    return [row['name'], row['company'], (row['is_group'] == 1 || row['is_group'] == true) ? 'مجموعة' : 'مستودع فعلي', (row['disabled'] == 1 || row['disabled'] == true) ? 'معطل' : 'نشط'].where((v) => v != null && v.toString().isNotEmpty).join(' • ');
+    if (type == 'Warehouse') return [row['name'], row['company'], (row['is_group'] == 1 || row['is_group'] == true) ? 'مجموعة' : 'مستودع فعلي', (row['disabled'] == 1 || row['disabled'] == true) ? 'معطل' : 'نشط'].where((v) => v != null && v.toString().isNotEmpty).join(' • ');
+    if (type == 'Item Group') return [row['name'], row['parent_item_group'], (row['is_group'] == 1 || row['is_group'] == true) ? 'مجموعة' : 'تصنيف', (row['disabled'] == 1 || row['disabled'] == true) ? 'معطل' : 'نشط'].where((v) => v != null && v.toString().isNotEmpty).join(' • ');
+    if (type == 'Supplier Group') return [row['name'], row['parent_supplier_group'], (row['is_group'] == 1 || row['is_group'] == true) ? 'مجموعة' : 'تصنيف', (row['disabled'] == 1 || row['disabled'] == true) ? 'معطل' : 'نشط'].where((v) => v != null && v.toString().isNotEmpty).join(' • ');
+    if (type == 'UOM') return [row['name'], (row['must_be_whole_number'] == 1 || row['must_be_whole_number'] == true) ? 'أعداد صحيحة فقط' : 'يسمح بالكسور', (row['enabled'] == 1 || row['enabled'] == true) ? 'نشط' : 'معطل'].where((v) => v != null && v.toString().isNotEmpty).join(' • ');
+    return [row['name'], row['currency'], (row['selling'] == 1 || row['selling'] == true) ? 'مبيعات' : '', (row['buying'] == 1 || row['buying'] == true) ? 'مشتريات' : '', (row['enabled'] == 1 || row['enabled'] == true) ? 'نشط' : 'معطل'].where((v) => v != null && v.toString().isNotEmpty).join(' • ');
   }
 
   Future<void> edit([String? name]) async {
@@ -68,10 +72,11 @@ class _MasterDataPageState extends State<MasterDataPage> {
     ]),
     floatingActionButton: FloatingActionButton.extended(onPressed: loading ? null : () => edit(), icon: const Icon(Icons.add), label: const Text('إضافة')),
     body: Column(children: [
-      Padding(padding: const EdgeInsets.all(12), child: SegmentedButton<String>(
-        segments: types.entries.map((e) => ButtonSegment(value: e.key, label: Text(e.value))).toList(),
-        selected: {type},
-        onSelectionChanged: (v) { setState(() { type = v.first; rows = []; offset = 0; hasMore = false; error = null; }); load(); },
+      Padding(padding: const EdgeInsets.all(12), child: DropdownButtonFormField<String>(
+        value: type,
+        decoration: const InputDecoration(labelText: 'نوع البيانات'),
+        items: types.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
+        onChanged: (v) { if (v != null) { setState(() { type = v; rows = []; offset = 0; hasMore = false; error = null; }); load(); } },
       )),
       Padding(padding: const EdgeInsets.fromLTRB(12, 0, 12, 8), child: TextField(
         controller: search, textInputAction: TextInputAction.search, onSubmitted: (_) => load(),
@@ -113,7 +118,7 @@ class _MasterDataEditor extends StatefulWidget {
 class _MasterDataEditorState extends State<_MasterDataEditor> {
   final form = GlobalKey<FormState>();
   final fields = <String, TextEditingController>{};
-  bool loading = false, saving = false, stock = true, serial = false, batch = false, expiry = false, disabled = false, group = false;
+  bool loading = false, saving = false, stock = true, serial = false, batch = false, expiry = false, disabled = false, group = false, enabled = true, wholeNumber = false, buying = false, selling = true;
   String supplierType = 'Company';
   String? company, error;
   bool get editing => widget.name != null;
@@ -125,7 +130,11 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
       ? ['item_code', 'item_name', 'item_group', 'stock_uom']
       : widget.type == 'Supplier'
         ? ['supplier_name', 'supplier_group', 'country', 'tax_id', 'mobile_no', 'email_id', 'website']
-        : ['warehouse_name', 'parent_warehouse'];
+        : widget.type == 'Warehouse' ? ['warehouse_name', 'parent_warehouse']
+        : widget.type == 'Item Group' ? ['item_group_name', 'parent_item_group']
+        : widget.type == 'UOM' ? ['uom_name']
+        : widget.type == 'Supplier Group' ? ['supplier_group_name', 'parent_supplier_group']
+        : ['price_list_name', 'currency'];
     for (final k in keys) { fields[k] = TextEditingController(); }
     if (widget.companies.isNotEmpty) company = widget.companies.first.name;
     if (editing) load();
@@ -147,6 +156,10 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
         expiry = d['has_expiry_date'] == 1 || d['has_expiry_date'] == true;
         disabled = d['disabled'] == 1 || d['disabled'] == true;
         group = d['is_group'] == 1 || d['is_group'] == true;
+        enabled = d['enabled'] == 1 || d['enabled'] == true;
+        wholeNumber = d['must_be_whole_number'] == 1 || d['must_be_whole_number'] == true;
+        buying = d['buying'] == 1 || d['buying'] == true;
+        selling = d['selling'] == 1 || d['selling'] == true;
         supplierType = d['supplier_type']?.toString() == 'Individual' ? 'Individual' : 'Company';
         company = d['company']?.toString() ?? company;
       });
@@ -172,6 +185,9 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
       if (widget.type == 'Item') values.addAll({'is_stock_item': stock, 'has_serial_no': serial, 'has_batch_no': batch, 'has_expiry_date': expiry, 'disabled': disabled});
       if (widget.type == 'Supplier') values.addAll({'supplier_type': supplierType, 'disabled': disabled});
       if (widget.type == 'Warehouse') values.addAll({'company': company, 'is_group': group, 'disabled': disabled});
+      if (widget.type == 'Item Group' || widget.type == 'Supplier Group') values.addAll({'is_group': group, 'disabled': disabled});
+      if (widget.type == 'UOM') values.addAll({'must_be_whole_number': wholeNumber, 'enabled': enabled});
+      if (widget.type == 'Price List') values.addAll({'buying': buying, 'selling': selling, 'enabled': enabled});
       await widget.api.saveMasterDataDocument(doctype: widget.type, name: widget.name, values: values);
       if (mounted) Navigator.of(context).pop(true);
     } catch (e) { if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', '')); }
@@ -180,7 +196,7 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final label = widget.type == 'Item' ? 'الصنف' : widget.type == 'Supplier' ? 'المورد' : 'المستودع';
+    final label = switch (widget.type) { 'Item' => 'الصنف', 'Supplier' => 'المورد', 'Warehouse' => 'المستودع', 'Item Group' => 'مجموعة الأصناف', 'UOM' => 'وحدة القياس', 'Supplier Group' => 'مجموعة الموردين', _ => 'قائمة الأسعار' };
     return SizedBox(height: MediaQuery.of(context).size.height * .88,
       child: loading ? const Center(child: CircularProgressIndicator()) : Form(key: form, child: ListView(
         padding: EdgeInsets.fromLTRB(16, 8, 16, MediaQuery.of(context).viewInsets.bottom + 24),
@@ -204,7 +220,16 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
             field('country', 'الدولة'), field('tax_id', 'الرقم الضريبي'),
             field('mobile_no', 'الهاتف', keyboard: TextInputType.phone), field('email_id', 'البريد الإلكتروني', keyboard: TextInputType.emailAddress),
             field('website', 'الموقع الإلكتروني'),
-          ] else ...[
+          ] else if (widget.type == 'Supplier') ...[
+            field('supplier_name', 'اسم المورد', required: true),
+            DropdownButtonFormField<String>(value: supplierType, decoration: const InputDecoration(labelText: 'نوع المورد'),
+              items: const [DropdownMenuItem(value: 'Company', child: Text('شركة')), DropdownMenuItem(value: 'Individual', child: Text('فرد'))],
+              onChanged: saving ? null : (v) { if (v != null) setState(() => supplierType = v); }),
+            const SizedBox(height: 10), field('supplier_group', 'مجموعة الموردين', required: true),
+            field('country', 'الدولة'), field('tax_id', 'الرقم الضريبي'),
+            field('mobile_no', 'الهاتف', keyboard: TextInputType.phone), field('email_id', 'البريد الإلكتروني', keyboard: TextInputType.emailAddress),
+            field('website', 'الموقع الإلكتروني'),
+          ] else if (widget.type == 'Warehouse') ...[
             field('warehouse_name', 'اسم المستودع', required: true),
             DropdownButtonFormField<String>(value: company, decoration: const InputDecoration(labelText: 'الشركة'),
               items: widget.companies.map((c) => DropdownMenuItem(value: c.name, child: Text(c.name))).toList(),
@@ -212,8 +237,27 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
               validator: (v) => v == null || v.isEmpty ? 'حدد الشركة' : null),
             const SizedBox(height: 10), field('parent_warehouse', 'المستودع الأب (اختياري)'),
             toggle('مجموعة مستودعات', group, (v) => setState(() => group = v)),
+          ] else if (widget.type == 'Item Group') ...[
+            field('item_group_name', 'اسم المجموعة', required: true),
+            field('parent_item_group', 'المجموعة الأب (اختياري)'),
+            toggle('مجموعة رئيسية', group, (v) => setState(() => group = v)),
+          ] else if (widget.type == 'Supplier Group') ...[
+            field('supplier_group_name', 'اسم مجموعة الموردين', required: true),
+            field('parent_supplier_group', 'المجموعة الأب (اختياري)'),
+            toggle('مجموعة رئيسية', group, (v) => setState(() => group = v)),
+          ] else if (widget.type == 'UOM') ...[
+            field('uom_name', 'اسم وحدة القياس', required: true),
+            toggle('يجب أن تكون الكمية أعداداً صحيحة', wholeNumber, (v) => setState(() => wholeNumber = v)),
+            toggle('الوحدة مفعّلة', enabled, (v) => setState(() => enabled = v)),
+          ] else ...[
+            field('price_list_name', 'اسم قائمة الأسعار', required: true),
+            field('currency', 'العملة', required: true),
+            toggle('قائمة أسعار المبيعات', selling, (v) => setState(() => selling = v)),
+            toggle('قائمة أسعار المشتريات', buying, (v) => setState(() => buying = v)),
+            toggle('القائمة مفعّلة', enabled, (v) => setState(() => enabled = v)),
           ],
-          toggle('تعطيل السجل', disabled, (v) => setState(() => disabled = v)),
+          if (widget.type != 'UOM' && widget.type != 'Price List')
+            toggle('تعطيل السجل', disabled, (v) => setState(() => disabled = v)),
           const SizedBox(height: 8),
           FilledButton.icon(onPressed: saving ? null : save,
             icon: saving ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save),
