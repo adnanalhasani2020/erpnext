@@ -158,6 +158,9 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 - [ ] Create sales, purchase and stock documents for serial-tracked and batch-tracked items; use the warehouse-scoped serial/batch picker and confirm ERPNext creates/validates native Serial and Batch Bundles on submit.
 - [ ] Verify serial numbers are unique and one-per-unit, batch quantity is sufficient, batch expiry rules are enforced, and allocations are preserved on draft edits and cleared when item/warehouse/quantity changes.
 
+- [ ] In Payment Reconciliation, edit the party and each date filter after generating a FIFO allocation; verify the old allocation and submit action are cleared before a new fetch.
+- [ ] Complete a Payment Reconciliation and verify the old allocation preview is cleared after ERPNext confirms success, preventing a duplicate submission from stale UI state.
+
 ## Automated mobile-client regression checks
 
 - [ ] Run `flutter analyze --no-pub` from `mobile_app/`.
