@@ -147,7 +147,7 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
               TextFormField(controller: employee, decoration: const InputDecoration(labelText: 'رقم الموظف'), validator: _required),
               TextFormField(controller: date, decoration: const InputDecoration(labelText: 'تاريخ الحضور YYYY-MM-DD'), validator: _dateRequired),
               DropdownButtonFormField<String>(
-                value: status,
+                initialValue: status,
                 decoration: const InputDecoration(labelText: 'الحالة'),
                 items: const [
                   DropdownMenuItem(value: 'Present', child: Text('حاضر')),
@@ -273,7 +273,7 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
               TextFormField(controller: employee, decoration: const InputDecoration(labelText: 'رقم الموظف'), validator: _required),
               TextFormField(controller: date, decoration: const InputDecoration(labelText: 'تاريخ المطالبة YYYY-MM-DD'), validator: _dateRequired),
               DropdownButtonFormField<String>(
-                value: selectedType,
+                initialValue: selectedType,
                 isExpanded: true,
                 decoration: const InputDecoration(labelText: 'نوع المصروف'),
                 items: types.map((row) => DropdownMenuItem(
@@ -401,7 +401,7 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
           child: Column(children: [
             DropdownButtonFormField<String>(
-              value: _company,
+              initialValue: _company,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'الشركة'),
               items: widget.companies.map((c) => DropdownMenuItem(value: c.name, child: Text(c.name))).toList(),
