@@ -10,7 +10,7 @@ Arabic-first Android companion app for an ERPNext instance.
 - Company list on the dashboard.
 - Separate item, stock balance, warehouse, and sales screens.
 - Server-side item and warehouse search with pagination.
-- Read-only stock balances from ERPNext `Bin`, with server-side item-code and warehouse filters, pagination, and actual, reserved, projected, and calculated available quantities. The UI reports loaded-row counts without summing quantities across different stock units.
+- Read-only stock balances from ERPNext `Bin`, with server-side item-code and warehouse filters, pagination, actual, reserved, projected, and calculated available quantities, plus ERPNext-provided valuation rate and stock value per item/warehouse. Stock values are shown per row in the owning company's currency and are not summed across companies or currencies.
 - Customer and Sales Invoice lists, including invoice status, total, outstanding amount, and a clear Credit Note / Return label linked to its original invoice.
 - Open any customer from the customer list to view a paginated, read-only General Ledger statement, filter it by company or view all companies, and inspect debit/credit movements, voucher references, account, and a net summary explicitly limited to the currently loaded rows.
 - Financial reports screen for submitted customer receivables and supplier payables: fetches all outstanding non-return invoices in bounded 100-row pages, supports company filtering, groups aging totals by currency (never mixing currencies), and lists each invoice with its due date and overdue bucket. The report uses ERPNext's authoritative `outstanding_amount` and falls back to posting date only when a due date is missing.
