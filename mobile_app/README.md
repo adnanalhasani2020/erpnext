@@ -111,3 +111,8 @@ The APK is written to `build/app/outputs/flutter-apk/app-debug.apk`.
 - Sales invoices, delivery notes, material issues and material transfers can allocate serial numbers/batches for the selected source warehouse. For multiple batches, split the quantity into separate document rows.
 - Stock Reconciliation captures the current serial/batch allocation before changing the counted quantity; zero-count rows remove the recorded current allocation. The mobile serial picker is intentionally capped at 200 candidates per line.
 - The app does not fabricate serial numbers, infer stock allocations, or override ERPNext permissions. A real ERPNext site is still required to verify role-specific access and posting behavior.
+
+### Payment reconciliation safeguards
+- Editing the customer/supplier or any date filter invalidates the loaded reconciliation preview and its allocations; inputs are locked while a reconciliation request is running.
+- After ERPNext confirms reconciliation, the previous allocation preview is cleared so it cannot be submitted a second time from stale UI state. Fetch current entries again to review remaining balances.
+- The mobile UI uses ERPNext's native Payment Reconciliation methods; FIFO allocation is a preview and must be checked against the target site's live behavior before production use.
