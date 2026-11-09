@@ -180,7 +180,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
             ))
           else ...[
             DropdownButtonFormField<String>(
-              value: _company,
+              initialValue: _company,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'الشركة'),
               items: widget.companies.map((company) => DropdownMenuItem(
