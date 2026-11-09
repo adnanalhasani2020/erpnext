@@ -113,20 +113,22 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
     return result;
   }
 
-  List<MapEntry<String, double>> get _topCustomers {
-    final totals = <String, double>{};
+  Map<String, List<MapEntry<String, double>>> get _topCustomersByCurrency {
+    final grouped = <String, Map<String, double>>{};
     for (final invoice in _invoices) {
       final customer = invoice['customer_name']?.toString().trim().isNotEmpty == true
           ? invoice['customer_name'].toString()
           : invoice['customer']?.toString() ?? 'غير محدد';
       final currency = invoice['currency']?.toString() ?? '';
-      // Keep customer totals separate by currency.
-      final key = '$customer • $currency';
-      totals[key] = (totals[key] ?? 0) + _number(invoice['grand_total']);
+      final totals = grouped.putIfAbsent(currency, () => <String, double>{});
+      totals[customer] = (totals[customer] ?? 0) + _number(invoice['grand_total']);
     }
-    final entries = totals.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    return entries.take(5).toList(growable: false);
+    return {
+      for (final group in grouped.entries)
+        group.key: (group.value.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value)))
+            .take(5).toList(growable: false),
+    };
   }
 
   Widget _metric(String title, String value, IconData icon) {
@@ -244,15 +246,25 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                 }),
               const SizedBox(height: 12),
               Text('أعلى العملاء حسب قيمة الفواتير', style: Theme.of(context).textTheme.titleMedium),
-              if (_topCustomers.isEmpty)
+              if (_topCustomersByCurrency.isEmpty)
                 const Card(child: ListTile(title: Text('لا توجد بيانات للعملاء.')))
               else
-                ..._topCustomers.asMap().entries.map((entry) => Card(
-                  child: ListTile(
-                    leading: CircleAvatar(child: Text('${entry.key + 1}')),
-                    title: Text(entry.value.key),
-                    trailing: Text(entry.value.value.toStringAsFixed(2)),
-                  ),
+                ..._topCustomersByCurrency.entries.map((group) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsetsDirectional.only(top: 10, bottom: 4),
+                      child: Text(group.key.isEmpty ? 'عملة غير محددة' : group.key,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                    ),
+                    ...group.value.asMap().entries.map((entry) => Card(
+                      child: ListTile(
+                        leading: CircleAvatar(child: Text('${entry.key + 1}')),
+                        title: Text(entry.value.key),
+                        trailing: Text(entry.value.value.toStringAsFixed(2)),
+                      ),
+                    )),
+                  ],
                 )),
               const Padding(
                 padding: EdgeInsets.only(top: 8),
