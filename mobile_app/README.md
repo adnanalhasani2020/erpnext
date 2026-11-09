@@ -97,3 +97,10 @@ The APK is written to `build/app/outputs/flutter-apk/app-debug.apk`.
 - Outward Sales Invoice, Delivery Note and Stock Entry issue/transfer lines can request available serial numbers through ERPNext's `auto_fetch_serial_number` method and available batch quantities through ERPNext's `get_batch_qty` method, scoped to the selected item and source warehouse.
 - The app requires one selected serial per unit and checks the selected batch quantity before creating the draft. ERPNext remains authoritative for final availability, reservations, posting date and bundle validation.
 - Stock Reconciliation supports positive counted quantities with explicit serial/batch fields; zero-count tracked rows load the current serial/batch snapshot first and submit both the current and counted identifiers so ERPNext can reverse the old bundle and apply the new count. If the current balance is already zero, the row is omitted as a no-op.
+
+### Serial and batch tracking (ERPNext v15)
+- The mobile workflows use ERPNext's official serial-number auto-fetch and batch-quantity methods for warehouse selection; ERPNext remains authoritative for availability, reservations, expiry and validation at submit time.
+- Incoming purchase invoices (with stock update), purchase receipts and material receipts accept serial numbers, batch IDs and expiry dates. A missing batch is created as a Batch record only after verifying its item and expiry settings; creating a new Batch requires the user's ERPNext permissions.
+- Sales invoices, delivery notes, material issues and material transfers can allocate serial numbers/batches for the selected source warehouse. For multiple batches, split the quantity into separate document rows.
+- Stock Reconciliation captures the current serial/batch allocation before changing the counted quantity; zero-count rows remove the recorded current allocation. The mobile serial picker is intentionally capped at 200 candidates per line.
+- The app does not fabricate serial numbers, infer stock allocations, or override ERPNext permissions. A real ERPNext site is still required to verify role-specific access and posting behavior.

@@ -340,7 +340,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
         'rate': TextEditingController(text: (source?['rate'] ?? 0).toString()),
         'serial_no': TextEditingController(text: source?['serial_no']?.toString() ?? ''),
         'batch_no': TextEditingController(text: source?['batch_no']?.toString() ?? ''),
-        'expiry_date': TextEditingController(),
+        'expiry_date': TextEditingController(text: source?['expiry_date']?.toString() ?? ''),
         'warehouse': allowed.any((w) => w.id == sourceWarehouse) ? sourceWarehouse : null,
       });
     }
@@ -414,7 +414,6 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                           (removed['rate'] as TextEditingController).dispose();
                           (removed['serial_no'] as TextEditingController).dispose();
                           (removed['batch_no'] as TextEditingController).dispose();
-                          (removed['expiry_date'] as TextEditingController).dispose();
                           (removed['expiry_date'] as TextEditingController).dispose();
                         }),
                         icon: const Icon(Icons.delete_outline)),
@@ -1928,6 +1927,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                           (removed['rate'] as TextEditingController).dispose();
                           (removed['serial_no'] as TextEditingController).dispose();
                           (removed['batch_no'] as TextEditingController).dispose();
+                          (removed['expiry_date'] as TextEditingController).dispose();
                         }),
                         icon: const Icon(Icons.delete_outline),
                       ),
