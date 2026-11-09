@@ -72,6 +72,17 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 - [ ] Verify ERPNext rejects invalid permissions, closed/cancelled source documents, over-delivery, and invalid company/warehouse combinations without creating misleading success states.
 - [ ] Cancel a submitted Quotation, Sales Order, or Delivery Note only when ERPNext allows it; verify linked documents and stock/accounting reversals.
 
+## Purchase Order lifecycle
+
+- [ ] Create a Purchase Order with multiple stock and service rows; verify supplier, company, transaction date, schedule date, quantities, rates, and totals against ERPNext Desk.
+- [ ] Save, reopen, and edit the same Purchase Order draft; confirm the document name remains unchanged and source item-row fields remain intact.
+- [ ] Verify stock-item rows use active warehouses belonging to the selected company; change company and confirm incompatible warehouse selections are cleared.
+- [ ] Submit the Purchase Order from mobile; confirm ERPNext validates it and its status changes to submitted.
+- [ ] Verify the purchase-order register searches by order number, supplier ID, and supplier display name and paginates beyond the first 100 records.
+- [ ] Delete a draft Purchase Order and confirm submitted or canceled orders cannot be deleted.
+- [ ] Cancel a submitted Purchase Order only when ERPNext permits it; confirm ERPNext rejects cancellation when dependent receipts or invoices prevent it.
+- [ ] Create a Purchase Receipt from a submitted order; verify source order-row links and remaining quantities are preserved.
+
 ## Purchase invoices, supplier payments, and returns
 
 - [ ] Create a Purchase Invoice draft with multiple stock and service rows; compare supplier, company, quantities, rates, taxes, and totals with ERPNext Desk.
