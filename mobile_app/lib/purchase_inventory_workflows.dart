@@ -1539,23 +1539,19 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                           if (item.hasBatchNo) {
                             final available = await widget.api.fetchAvailableBatches(
                               itemCode: item.code, warehouse: reconciliationWarehouse,
+                              ignoreReservedStock: true,
                             );
                             if (batchNo.isEmpty && available.length == 1) {
                               batchNo = available.first['batch_no'].toString();
                             } else if (batchNo.isEmpty && available.length > 1) {
                               final chosen = await showDialog<String>(
                                 context: context,
-                                builder: (pickerContext) => AlertDialog(
+                                builder: (pickerContext) => SimpleDialog(
                                   title: const Text('اختر الدفعة الحالية'),
-                                  content: DropdownButtonFormField<String>(
-                                    initialValue: available.first['batch_no'].toString(),
-                                    isExpanded: true,
-                                    items: available.map((entry) => DropdownMenuItem(
-                                      value: entry['batch_no'].toString(),
-                                      child: Text(entry['batch_no'].toString() + ' • ' + (entry['qty'] ?? 0).toString()),
-                                    )).toList(),
-                                    onChanged: (value) => Navigator.pop(pickerContext, value),
-                                  ),
+                                  children: available.map((entry) => SimpleDialogOption(
+                                    onPressed: () => Navigator.pop(pickerContext, entry['batch_no'].toString()),
+                                    child: Text(entry['batch_no'].toString() + ' • الكمية الحالية: ' + (entry['qty'] ?? 0).toString()),
+                                  )).toList(),
                                 ),
                               );
                               if (chosen == null) return;
