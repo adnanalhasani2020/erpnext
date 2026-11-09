@@ -3689,8 +3689,39 @@ class FrappeApi {
       final accountDoc = accountData['data'];
       if (accountResponse.statusCode < 200 || accountResponse.statusCode >= 300 || accountDoc is! Map<String, dynamic> || accountDoc['company'] != normalizedCompany || accountDoc['is_group'] == 1 || accountDoc['is_group'] == true || accountDoc['disabled'] == 1 || accountDoc['disabled'] == true) throw FormatException('الحساب ' + account + ' غير صالح أو لا يتبع الشركة المحددة أو ليس حساب حركة.');
       if ((accountDoc['account_currency']?.toString().isNotEmpty ?? false) && accountDoc['account_currency'] != currency) throw FormatException('الحساب ' + account + ' بعملة مختلفة. هذه الشاشة تدعم حالياً حسابات عملة الشركة فقط (' + currency + ').');
+      final costCenter = row['cost_center']?.toString().trim() ?? '';
+      if (costCenter.isNotEmpty) {
+        final costResponse = await _send('GET',
+          '/api/resource/Cost%20Center/' + Uri.encodeComponent(costCenter));
+        final costData = _decode(costResponse.body);
+        final costDoc = costData['data'];
+        if (costResponse.statusCode < 200 || costResponse.statusCode >= 300 ||
+            costDoc is! Map<String, dynamic> || costDoc['company'] != normalizedCompany ||
+            costDoc['is_group'] == 1 || costDoc['is_group'] == true ||
+            costDoc['disabled'] == 1 || costDoc['disabled'] == true) {
+          throw FormatException('مركز التكلفة $costCenter غير صالح أو لا يتبع الشركة المحددة أو ليس مركز حركة.');
+        }
+      }
+      final project = row['project']?.toString().trim() ?? '';
+      if (project.isNotEmpty) {
+        final projectResponse = await _send('GET',
+          '/api/resource/Project/' + Uri.encodeComponent(project));
+        final projectData = _decode(projectResponse.body);
+        final projectDoc = projectData['data'];
+        if (projectResponse.statusCode < 200 || projectResponse.statusCode >= 300 ||
+            projectDoc is! Map<String, dynamic> || projectDoc['company'] != normalizedCompany) {
+          throw FormatException('المشروع $project غير صالح أو لا يتبع الشركة المحددة.');
+        }
+      }
       debitTotal += debit; creditTotal += credit;
-      clean.add({'doctype': 'Journal Entry Account', 'account': account, 'debit_in_account_currency': debit, 'credit_in_account_currency': credit});
+      clean.add({
+        'doctype': 'Journal Entry Account',
+        'account': account,
+        'debit_in_account_currency': debit,
+        'credit_in_account_currency': credit,
+        if (costCenter.isNotEmpty) 'cost_center': costCenter,
+        if (project.isNotEmpty) 'project': project,
+      });
     }
     if (debitTotal <= 0 || (debitTotal - creditTotal).abs() > 0.005) throw FormatException('القيد غير متوازن. المدين ' + debitTotal.toStringAsFixed(2) + ' والدائن ' + creditTotal.toStringAsFixed(2) + '.');
     final id = name?.trim() ?? '';
