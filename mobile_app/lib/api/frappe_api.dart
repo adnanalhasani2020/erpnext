@@ -3288,6 +3288,44 @@ class FrappeApi {
     if (document is! Map<String, dynamic>) throw Exception('تفاصيل الفاتورة من ERPNext غير متوقعة.');
     return document;
   }
+  Future<List<Map<String, dynamic>>> fetchAccountingAccounts({
+    required String company,
+    int start = 0,
+    String? search,
+  }) async {
+    final normalizedCompany = company.trim();
+    if (normalizedCompany.isEmpty) throw const FormatException('حدد الشركة لعرض دليل الحسابات.');
+    final query = search?.trim();
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Account',
+      fields: const ['name', 'account_name', 'parent_account', 'account_type',
+        'root_type', 'account_currency', 'company', 'is_group', 'disabled'],
+      filters: [
+        ['company', '=', normalizedCompany],
+        ['disabled', '=', 0],
+      ],
+      orFilters: query == null || query.isEmpty ? null : [
+        ['name', 'like', '%$query%'],
+        ['account_name', 'like', '%$query%'],
+        ['account_type', 'like', '%$query%'],
+      ],
+      orderBy: 'lft asc, name asc',
+      start: start,
+      pageLength: 200,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل دليل الحسابات للشركة المحددة.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة دليل الحسابات غير متوقعة.');
+    return rows.whereType<Map<String, dynamic>>()
+        .where((row) => row['company'] == normalizedCompany)
+        .map((row) => Map<String, dynamic>.from(row)).toList(growable: false);
+  }
+
   // Allow-listed mobile master-data access; ERPNext remains authoritative.
   static const Map<String, List<String>> _masterDataFields = {
     'Item': ['name', 'item_code', 'item_name', 'item_group', 'stock_uom',
