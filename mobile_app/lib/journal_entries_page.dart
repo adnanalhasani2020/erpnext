@@ -137,7 +137,7 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
         value: _company, isExpanded: true,
         decoration: const InputDecoration(labelText: 'الشركة'),
         items: widget.companies.map((c) => DropdownMenuItem(value: c.name, child: Text(c.name))).toList(),
-        onChanged: _loading || _saving ? null : (v) { setState(() { _company = v; _drafts = []; _resetForm(); }); _load(); },
+        onChanged: _loading || _saving ? null : (v) { setState(() { _company = v; _drafts = []; }); _resetForm(); _load(); },
       ),
       const SizedBox(height: 12),
       Text(_editing == null ? 'إنشاء مسودة قيد' : 'تعديل المسودة $_editing', style: Theme.of(context).textTheme.titleLarge),
