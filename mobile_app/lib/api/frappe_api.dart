@@ -1896,11 +1896,31 @@ class FrappeApi {
     return doc;
   }
 
-  Future<List<Map<String, dynamic>>> fetchStockMovements({int start = 0, String? itemCode, String? warehouse, String? company}) async {
+  Future<List<Map<String, dynamic>>> fetchStockMovements({
+    int start = 0,
+    String? itemCode,
+    String? warehouse,
+    String? company,
+    DateTime? fromDate,
+    DateTime? toDate,
+  }) async {
+    DateTime? dateOnly(DateTime? value) =>
+        value == null ? null : DateTime(value.year, value.month, value.day);
+    String dateString(DateTime value) =>
+        '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+
+    final from = dateOnly(fromDate);
+    final to = dateOnly(toDate);
+    if (from != null && to != null && from.isAfter(to)) {
+      throw const FormatException('تاريخ بداية التقرير يجب ألا يتجاوز تاريخ نهايته.');
+    }
+
     final filters = <List<dynamic>>[];
     if (itemCode != null && itemCode.trim().isNotEmpty) filters.add(['item_code', '=', itemCode.trim()]);
     if (warehouse != null && warehouse.trim().isNotEmpty) filters.add(['warehouse', '=', warehouse.trim()]);
     if (company != null && company.trim().isNotEmpty) filters.add(['company', '=', company.trim()]);
+    if (from != null) filters.add(['posting_date', '>=', dateString(from)]);
+    if (to != null) filters.add(['posting_date', '<=', dateString(to)]);
     final uri = buildResourcePageUri(
       baseUrl: _baseUrl, resource: 'Stock Ledger Entry',
       fields: const ['name', 'posting_date', 'posting_time', 'item_code', 'warehouse', 'actual_qty', 'qty_after_transaction', 'voucher_type', 'voucher_no', 'company'],
