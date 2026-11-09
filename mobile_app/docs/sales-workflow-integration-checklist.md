@@ -161,6 +161,7 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 - [ ] In Payment Reconciliation, edit the party and each date filter after generating a FIFO allocation; verify the old allocation and submit action are cleared before a new fetch.
 - [ ] Complete a Payment Reconciliation and verify the old allocation preview is cleared after ERPNext confirms success, preventing a duplicate submission from stale UI state.
 
+- [ ] Create or seed more than one page of selling Pricing Rules; load the next page and verify additional rules appear once without replacing the first page or duplicating rule IDs.
 ## Automated mobile-client regression checks
 
 - [ ] Run `flutter analyze --no-pub` from `mobile_app/`.
