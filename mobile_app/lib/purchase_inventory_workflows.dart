@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
+import 'models/serial_batch_tracking.dart';
 
 class PurchaseWorkflowPage extends StatefulWidget {
   const PurchaseWorkflowPage({super.key, required this.api, required this.companies, required this.suppliers, required this.items, required this.warehouses, this.initialInvoiceName, this.onChanged});
@@ -337,6 +338,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
         'source': source == null ? null : Map<String, dynamic>.from(source),
         'qty': TextEditingController(text: (source?['qty'] ?? 1).toString()),
         'rate': TextEditingController(text: (source?['rate'] ?? 0).toString()),
+        'serial_no': TextEditingController(text: source?['serial_no']?.toString() ?? ''),
+        'batch_no': TextEditingController(text: source?['batch_no']?.toString() ?? ''),
         'warehouse': allowed.any((w) => w.id == sourceWarehouse) ? sourceWarehouse : null,
       });
     }
@@ -405,6 +408,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                           final removed = lineRows.removeAt(index);
                           (removed['qty'] as TextEditingController).dispose();
                           (removed['rate'] as TextEditingController).dispose();
+                          (removed['serial_no'] as TextEditingController).dispose();
+                          (removed['batch_no'] as TextEditingController).dispose();
                         }),
                         icon: const Icon(Icons.delete_outline)),
                     ]),
@@ -429,6 +434,11 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                       const SizedBox(width: 8),
                       Expanded(child: _field(row['rate'] as TextEditingController, 'سعر الوحدة', number: true)),
                     ]),
+                    if (updateStock.value && item?.hasSerialNo == true)
+                      TextField(controller: row['serial_no'] as TextEditingController, minLines: 2, maxLines: 4,
+                        decoration: const InputDecoration(labelText: 'الأرقام التسلسلية', helperText: 'رقم لكل وحدة، افصل بينها بسطر جديد أو فاصلة.')),
+                    if (updateStock.value && item?.hasBatchNo == true)
+                      TextField(controller: row['batch_no'] as TextEditingController, decoration: const InputDecoration(labelText: 'رقم الدفعة')),
                     DropdownButtonFormField<String>(
                 initialValue: row['warehouse'] as String?, isExpanded: true,
                       decoration: const InputDecoration(labelText: 'مستودع الصنف (اختياري)'),
@@ -468,10 +478,6 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                     return;
                   }
                   final selectedItem = matchingItems.first;
-                  if (selectedItem.hasSerialNo || selectedItem.hasBatchNo) {
-                    notice('الصنف ${selectedItem.name} يتطلب أرقاماً تسلسلية أو دفعات. هذه الشاشة لا تدعم إدخالها بعد؛ أوقف الحفظ واستخدم شاشة ERPNext المكتبية لهذا الصنف.');
-                    return;
-                  }
                   if (code.isEmpty || qty == null || !qty.isFinite || qty <= 0 ||
                       rate == null || !rate.isFinite || rate < 0) return;
                   final itemRow = row['source'] is Map<String, dynamic>
@@ -480,6 +486,13 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                   itemRow['item_code'] = code;
                   itemRow['qty'] = qty;
                   itemRow['rate'] = rate;
+                  try {
+                    if (updateStock.value) itemRow.addAll(buildSerialBatchFields(
+                      item: selectedItem, quantity: qty,
+                      serialNumbers: (row['serial_no'] as TextEditingController).text,
+                      batchNumber: (row['batch_no'] as TextEditingController).text,
+                    ));
+                  } catch (error) { notice(error.toString().replaceFirst('FormatException: ', '')); return; }
                   if (row['warehouse'] != null) {
                     itemRow['warehouse'] = row['warehouse'];
                   } else {
@@ -524,6 +537,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       for (final row in lineRows) {
         (row['qty'] as TextEditingController).dispose();
         (row['rate'] as TextEditingController).dispose();
+        (row['serial_no'] as TextEditingController).dispose();
+        (row['batch_no'] as TextEditingController).dispose();
       }
       updateStock.dispose();
     }
@@ -625,6 +640,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                             final removed = lines.removeAt(index);
                             (removed['qty'] as TextEditingController).dispose();
                             (removed['rate'] as TextEditingController).dispose();
+                           (removed['serial_no'] as TextEditingController).dispose();
+                           (removed['batch_no'] as TextEditingController).dispose();
                           }),
                           icon: const Icon(Icons.delete_outline),
                         ),
@@ -1445,6 +1462,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         'item': widget.items.first.code,
         'qty': TextEditingController(text: allowZeroQuantity ? '0' : '1'),
         'rate': TextEditingController(text: '0'),
+        'serial_no': TextEditingController(),
+        'batch_no': TextEditingController(),
       });
     }
     addLine();
@@ -1483,6 +1502,11 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                   ),
                   _field(row['qty'] as TextEditingController, allowZeroQuantity ? 'الكمية الفعلية' : 'الكمية', number: true),
                   if (includeRate) _field(row['rate'] as TextEditingController, 'سعر التقييم', number: true),
+                  if (!allowZeroQuantity && item?.hasSerialNo == true)
+                    TextField(controller: row['serial_no'] as TextEditingController, minLines: 2, maxLines: 4,
+                      decoration: const InputDecoration(labelText: 'الأرقام التسلسلية', helperText: 'رقم لكل وحدة.')),
+                  if (!allowZeroQuantity && item?.hasBatchNo == true)
+                    TextField(controller: row['batch_no'] as TextEditingController, decoration: const InputDecoration(labelText: 'رقم الدفعة')),
                 ])));
               }),
             ],
@@ -1506,14 +1530,16 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                   return;
                 }
                 final selectedItem = matchingItems.first;
-                if (selectedItem.hasSerialNo || selectedItem.hasBatchNo) {
-                  notice('الصنف ${selectedItem.name} يتطلب أرقاماً تسلسلية أو دفعات. هذه الشاشة لا تدعم إدخالها بعد.');
-                  return;
-                }
                 if (qty == null || !qty.isFinite ||
                     (allowZeroQuantity ? qty < 0 : qty <= 0) ||
                     (includeRate && (rate == null || !rate.isFinite || (requirePositiveRate ? rate <= 0 : rate < 0)))) return;
-                result.add({'item_code': row['item'], 'qty': qty, if (includeRate) 'valuation_rate': rate});
+                try {
+                  result.add({'item_code': row['item'], 'qty': qty,
+                    if (includeRate) 'valuation_rate': rate,
+                    ...(!allowZeroQuantity ? buildSerialBatchFields(item: selectedItem, quantity: qty,
+                      serialNumbers: (row['serial_no'] as TextEditingController).text,
+                      batchNumber: (row['batch_no'] as TextEditingController).text) : const <String, dynamic>{})});
+                } catch (error) { notice(error.toString().replaceFirst('FormatException: ', '')); return; }
               }
               if (result.isNotEmpty) Navigator.pop(dialogContext, result);
             }, child: const Text('متابعة')),
@@ -1524,6 +1550,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       for (final row in lines) {
         (row['qty'] as TextEditingController).dispose();
         (row['rate'] as TextEditingController).dispose();
+        (row['serial_no'] as TextEditingController).dispose();
+        (row['batch_no'] as TextEditingController).dispose();
       }
     }
   }
@@ -1649,6 +1677,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         'source': source,
         'qty': TextEditingController(text: remaining.toString()),
         'rate': TextEditingController(text: (source['rate'] ?? 0).toString()),
+        'serial_no': TextEditingController(),
+        'batch_no': TextEditingController(),
         'warehouse': availableWarehouses.any((w) => w.id == suggestedWarehouse)
             ? suggestedWarehouse
             : null,
@@ -1696,6 +1726,11 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                         '${item == null ? ' • الصنف غير موجود ضمن البيانات المحمّلة' : ''}'),
                     _field(row['qty'] as TextEditingController, 'الكمية المستلمة', number: true),
                     _field(row['rate'] as TextEditingController, 'سعر الوحدة', number: true),
+                    if (item?.hasSerialNo == true)
+                      TextField(controller: row['serial_no'] as TextEditingController, minLines: 2, maxLines: 4,
+                        decoration: const InputDecoration(labelText: 'الأرقام التسلسلية', helperText: 'رقم لكل وحدة.')),
+                    if (item?.hasBatchNo == true)
+                      TextField(controller: row['batch_no'] as TextEditingController, decoration: const InputDecoration(labelText: 'رقم الدفعة')),
                     DropdownButtonFormField<String>(
                 initialValue: row['warehouse'] as String?,
                       isExpanded: true,
@@ -1725,10 +1760,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                     (double.tryParse(source['received_qty']?.toString() ?? '') ?? 0);
                 final qty = double.tryParse((row['qty'] as TextEditingController).text.trim());
                 final rate = double.tryParse((row['rate'] as TextEditingController).text.trim());
-                if (item == null || item.hasSerialNo || item.hasBatchNo) {
-                  notice('الصنف ${item?.name ?? code} غير متاح أو يتطلب أرقاماً تسلسلية / دفعات غير مدعومة في هذه الشاشة.');
-                  return;
-                }
+                if (item == null) { notice('الصنف ' + code + ' غير موجود ضمن الأصناف المحمّلة.'); return; }
                 if (qty == null || !qty.isFinite || qty <= 0 || qty > remaining + 0.000001 ||
                     rate == null || !rate.isFinite || rate < 0 ||
                     row['warehouse'] is! String || (row['warehouse'] as String).isEmpty) {
@@ -1746,6 +1778,11 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                 ]) {
                   if (source[field] != null) receiptLine[field] = source[field];
                 }
+                try {
+                  receiptLine.addAll(buildSerialBatchFields(item: item, quantity: qty,
+                    serialNumbers: (row['serial_no'] as TextEditingController).text,
+                    batchNumber: (row['batch_no'] as TextEditingController).text));
+                } catch (error) { notice(error.toString().replaceFirst('FormatException: ', '')); return; }
                 receiptLine.addAll({
                   'item_code': code,
                   'qty': qty,
@@ -1765,6 +1802,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       for (final row in rows) {
         (row['qty'] as TextEditingController).dispose();
         (row['rate'] as TextEditingController).dispose();
+        (row['serial_no'] as TextEditingController).dispose();
+        (row['batch_no'] as TextEditingController).dispose();
       }
     }
   }
@@ -1936,6 +1975,9 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         'items': lines.map((row) => {
           'item_code': row['item_code'], 'qty': row['qty'],
           'rate': row['valuation_rate'], 'warehouse': warehouse,
+          if (row['use_serial_batch_fields'] != null) 'use_serial_batch_fields': row['use_serial_batch_fields'],
+          if (row['serial_no'] != null) 'serial_no': row['serial_no'],
+          if (row['batch_no'] != null) 'batch_no': row['batch_no'],
         }).toList(),
       });
       if (await confirm('ترحيل سند الاستلام',

@@ -82,3 +82,10 @@ The APK is written to `build/app/outputs/flutter-apk/app-debug.apk`.
 - The app communicates with Frappe's API; it must not connect directly to PostgreSQL or Supabase.
 - The current session cookie is held in memory and cleared on logout or when the app process exits.
 - A production release still requires security review, release signing, API permission testing, and live-server integration testing.
+
+### Serial and Batch tracking (ERPNext v15)
+- Sales invoices, purchase invoices with stock update enabled, direct and purchase-order receipts, and stock entries accept ERPNext's native item-row fields `serial_no`, `batch_no`, and `use_serial_batch_fields`.
+- ERPNext creates and validates the official Serial and Batch Bundle during document submission; the app does not create stock-ledger or bundle records manually.
+- Serial-tracked quantities must be whole numbers and require one unique serial number per unit. Batch-tracked lines require one batch number per line; split a line when using multiple batches.
+- Returns continue through ERPNext's official return mappers, preserving source allocations where supported.
+- Item/batch ownership, serial status, warehouse availability, and bundle lifecycle remain server-authoritative and require verification on a real ERPNext v15 site.

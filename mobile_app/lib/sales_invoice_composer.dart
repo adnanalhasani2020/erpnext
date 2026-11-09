@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
+import 'models/serial_batch_tracking.dart';
 
 Map<String, dynamic> buildSalesInvoiceLinePayload({
   required Map<String, dynamic>? sourceRow,
@@ -63,10 +64,14 @@ class _SalesInvoiceLineDraft {
   ErpWarehouse? warehouse;
   final quantity = TextEditingController(text: '1');
   final rate = TextEditingController(text: '0');
+  final serialNumbers = TextEditingController();
+  final batchNumber = TextEditingController();
 
   void dispose() {
     quantity.dispose();
     rate.dispose();
+    serialNumbers.dispose();
+    batchNumber.dispose();
   }
 
   double get qty => double.tryParse(quantity.text.trim()) ?? 0;
@@ -155,6 +160,8 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
         line.sourceRow = Map<String, dynamic>.from(raw);
         line.quantity.text = raw['qty']?.toString() ?? '1';
         line.rate.text = raw['rate']?.toString() ?? '0';
+        line.serialNumbers.text = raw['serial_no']?.toString() ?? '';
+        line.batchNumber.text = raw['batch_no']?.toString() ?? '';
         final warehouseId = raw['warehouse']?.toString();
         if (warehouseId != null && warehouseId.isNotEmpty) {
           for (final warehouse in _availableWarehouses) {
@@ -263,7 +270,8 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
               rate: line.unitRate,
               warehouse: line.warehouse?.id,
               removeWarehouse: _updateStock && line.item!.isStockItem,
-            );
+            )..addAll(_updateStock ? buildSerialBatchFields(item: line.item!, quantity: line.qty,
+              serialNumbers: line.serialNumbers.text, batchNumber: line.batchNumber.text) : const {});
           }).toList(growable: false),
         };
         final created = _existingDraft == null
@@ -460,6 +468,15 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
               onChanged: _saving || _pendingDraft != null ? null : (value) => setState(() => line.warehouse = value),
               validator: (value) => _updateStock && line.item?.isStockItem == true && value == null ? 'اختر مستودع الصرف.' : null,
             ),
+          ],
+          if (_updateStock && (line.item?.hasSerialNo == true || line.item?.hasBatchNo == true)) ...[
+            const SizedBox(height: 10),
+            if (line.item?.hasSerialNo == true)
+              TextFormField(controller: line.serialNumbers, enabled: !_saving && _pendingDraft == null, minLines: 2, maxLines: 5,
+                decoration: const InputDecoration(labelText: 'الأرقام التسلسلية', helperText: 'رقم مستقل لكل وحدة، افصل بينها بسطر جديد أو فاصلة.')),
+            if (line.item?.hasBatchNo == true)
+              TextFormField(controller: line.batchNumber, enabled: !_saving && _pendingDraft == null,
+                decoration: const InputDecoration(labelText: 'رقم الدفعة', helperText: 'لأكثر من دفعة، قسّم الكمية إلى بنود منفصلة.')),
           ],
           const SizedBox(height: 8),
           Align(alignment: AlignmentDirectional.centerEnd, child: Text('الإجمالي: ${line.total.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold))),

@@ -92,6 +92,33 @@ class FrappeApi {
     return currentUser();
   }
 
+
+  void _validateSerialBatchRows(List<dynamic> items) {
+    final seenSerials = <String>{};
+    for (final raw in items) {
+      if (raw is! Map<String, dynamic>) throw const FormatException('بيانات بند الصنف المتتبع غير صحيحة.');
+      final serialText = raw['serial_no']?.toString() ?? '';
+      final batch = raw['batch_no']?.toString().trim() ?? '';
+      final useFields = raw['use_serial_batch_fields'] == 1 || raw['use_serial_batch_fields'] == true;
+      if (!useFields && serialText.trim().isEmpty && batch.isEmpty) continue;
+      final qty = raw['qty'];
+      if (qty is! num || !qty.isFinite || qty <= 0) throw const FormatException('كمية الصنف المتتبع غير صحيحة.');
+      final serials = serialText.split(RegExp(r'[\r\n,;]+')).map((v) => v.trim()).where((v) => v.isNotEmpty).toList();
+      if (serials.isNotEmpty) {
+        final rounded = qty.round();
+        if ((qty - rounded).abs() > 0.000001 || serials.length != rounded) throw const FormatException('عدد الأرقام التسلسلية يجب أن يساوي كمية الصنف الصحيحة.');
+        for (final serial in serials) {
+          if (!seenSerials.add(serial)) throw FormatException('الرقم التسلسلي مكرر داخل المستند: ' + serial);
+        }
+      }
+      if (serials.isEmpty && batch.isEmpty) throw const FormatException('أدخل رقماً تسلسلياً أو رقم دفعة للصنف المتتبع.');
+    }
+  }
+  List<Map<String, dynamic>> _cleanSerialBatchRows(List<dynamic> items) {
+    _validateSerialBatchRows(items);
+    return items.whereType<Map<String, dynamic>>().map((row) => Map<String, dynamic>.from(row)..remove('use_serial_batch_fields')).toList(growable: false);
+  }
+
   Future<List<ErpCompany>> fetchCompanies() async {
     const companyPageSize = pageSize;
     const maxCompanyCount = 10000;
@@ -464,6 +491,8 @@ class FrappeApi {
         document['supplier'] is! String || (document['supplier'] as String).trim().isEmpty || items is! List || items.isEmpty) {
       throw const FormatException('حدد الشركة والمورد وأضف صنفاً واحداً على الأقل لأمر الشراء.');
     }
+    doc['items'] = _cleanSerialBatchRows(items);
+    document['items'] = _cleanSerialBatchRows(items);
     for (final row in items) {
       if (row is! Map<String, dynamic> || row['item_code'] is! String || (row['item_code'] as String).trim().isEmpty ||
           row['qty'] is! num || !(row['qty'] as num).isFinite || (row['qty'] as num) <= 0 ||
@@ -916,6 +945,7 @@ class FrappeApi {
     if (invoice['doctype'] != 'Sales Invoice' || customer is! String || customer.trim().isEmpty || company is! String || company.trim().isEmpty || rawItems is! List || rawItems.isEmpty) {
       throw const FormatException('حدد الشركة والعميل وأضف صنفاً واحداً على الأقل.');
     }
+    invoice['items'] = _cleanSerialBatchRows(rawItems);
     for (final rawItem in rawItems) {
       if (rawItem is! Map<String, dynamic> || rawItem['item_code'] is! String || (rawItem['item_code'] as String).trim().isEmpty) {
         throw const FormatException('يوجد بند فاتورة دون رمز صنف صحيح.');
@@ -1168,6 +1198,7 @@ class FrappeApi {
     if (normalizedName.isEmpty || changes['doctype'] != 'Sales Invoice' || changes['items'] is! List || (changes['items'] as List).isEmpty) {
       throw const FormatException('رقم المسودة والبنود المطلوبة للتعديل غير مكتملة.');
     }
+    changes['items'] = _cleanSerialBatchRows(changes['items'] as List);
     final customer = changes['customer'];
     final company = changes['company'];
     if (customer is! String || customer.trim().isEmpty ||
@@ -1754,6 +1785,7 @@ class FrappeApi {
     if (purpose == 'Material Transfer' && ((fromWarehouse ?? '').isEmpty || (toWarehouse ?? '').isEmpty || fromWarehouse == toWarehouse)) {
       throw const FormatException('حدد مستودعَي تحويل مختلفين.');
     }
+    _validateSerialBatchRows(items);
     for (final row in items) {
       if (row['item_code'] is! String || (row['item_code'] as String).trim().isEmpty ||
           row['qty'] is! num || !(row['qty'] as num).isFinite || (row['qty'] as num) <= 0) {
@@ -1776,12 +1808,13 @@ class FrappeApi {
     for (final warehouse in {if (fromWarehouse != null) fromWarehouse, if (toWarehouse != null) toWarehouse}) {
       await _validateWarehouseForCompany(warehouse, company);
     }
+    final cleanItems = _cleanSerialBatchRows(items);
     final payload = <String, dynamic>{
       'doctype': 'Stock Entry', 'company': company, 'purpose': purpose, 'stock_entry_type': purpose,
       if (fromWarehouse != null) 'from_warehouse': fromWarehouse,
       if (toWarehouse != null) 'to_warehouse': toWarehouse,
       if (remarks != null && remarks.trim().isNotEmpty) 'remarks': remarks.trim(),
-      'items': items.map((row) {
+      'items': cleanItems.map((row) {
         final item = Map<String, dynamic>.from(row);
         final valuationRate = item.remove('valuation_rate');
         if (valuationRate != null && purpose == 'Material Receipt') {
