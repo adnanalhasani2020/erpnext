@@ -63,6 +63,48 @@ void main() {
     expect(row.containsKey('dn_detail'), isFalse);
   });
 
+  test('rejects invalid Sales Team allocations before making a network request', () async {
+    final api = FrappeApi();
+    final base = <String, dynamic>{
+      'doctype': 'Sales Invoice',
+      'customer': 'CUST-1',
+      'company': 'COMP-1',
+      'items': [
+        {'item_code': 'ITEM-1', 'qty': 1, 'rate': 10},
+      ],
+    };
+    await expectLater(
+      api.createSalesInvoice({
+        ...base,
+        'sales_team': [
+          {'sales_person': 'SP-1', 'allocated_percentage': 60},
+          {'sales_person': 'SP-2', 'allocated_percentage': 30},
+        ],
+      }),
+      throwsFormatException,
+    );
+    await expectLater(
+      api.createSalesInvoice({
+        ...base,
+        'sales_team': [
+          {'sales_person': 'SP-1', 'allocated_percentage': 50},
+          {'sales_person': 'SP-1', 'allocated_percentage': 50},
+        ],
+      }),
+      throwsFormatException,
+    );
+    await expectLater(
+      api.createSalesInvoice({
+        ...base,
+        'sales_team': [
+          {'sales_person': 'SP-1', 'allocated_percentage': 101},
+        ],
+      }),
+      throwsFormatException,
+    );
+    api.dispose();
+  });
+
   test('rejects an empty Sales Invoice before making a network request', () async {
     final api = FrappeApi();
     await expectLater(
