@@ -1,3 +1,5 @@
+// ignore_for_file: prefer_interpolation_to_compose_strings
+
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
@@ -214,7 +216,7 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
         const Text('تُنفذ التقارير القياسية داخل ERPNext وفق صلاحيات المستخدم وإعدادات الشركة.'),
         const SizedBox(height: 12),
         DropdownButtonFormField<String>(
-          value: _standardReportName,
+          initialValue: _standardReportName,
           isExpanded: true,
           decoration: const InputDecoration(labelText: 'نوع التقرير'),
           items: const [
