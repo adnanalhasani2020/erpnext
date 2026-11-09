@@ -20,6 +20,9 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
   bool _loading = false;
   bool _saving = false;
   int _loadGeneration = 0;
+  int _offset = 0;
+  bool _hasMore = false;
+  bool _loadingMore = false;
   String? _error;
   List<Map<String, dynamic>> _employees = [];
   List<Map<String, dynamic>> _attendance = [];
@@ -69,6 +72,8 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
       );
       if (!mounted || loadGeneration != _loadGeneration || sessionGeneration != widget.api.sessionGeneration) return;
       setState(() {
+        _offset = rows.length;
+        _hasMore = rows.length == 50;
         switch (doctype) {
           case 'Employee': _employees = rows;
           case 'Attendance': _attendance = rows;
@@ -83,6 +88,40 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
     } finally {
       if (mounted && loadGeneration == _loadGeneration && sessionGeneration == widget.api.sessionGeneration) {
         setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore || !mounted) return;
+    final doctype = _activeDoctype;
+    final company = _company;
+    final search = _search.text.trim();
+    final offset = _offset;
+    final sessionGeneration = widget.api.sessionGeneration;
+    setState(() => _loadingMore = true);
+    try {
+      final rows = await widget.api.fetchHrRecords(
+        doctype: doctype, company: company, search: search, start: offset,
+      );
+      if (!mounted || doctype != _activeDoctype || sessionGeneration != widget.api.sessionGeneration) return;
+      setState(() {
+        switch (doctype) {
+          case 'Employee': _employees = [..._employees, ...rows];
+          case 'Attendance': _attendance = [..._attendance, ...rows];
+          case 'Leave Application': _leaveApplications = [..._leaveApplications, ...rows];
+          case 'Expense Claim': _expenseClaims = [..._expenseClaims, ...rows];
+        }
+        _offset += rows.length;
+        _hasMore = rows.length == 50;
+      });
+    } catch (error) {
+      if (mounted && sessionGeneration == widget.api.sessionGeneration) {
+        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted && sessionGeneration == widget.api.sessionGeneration) {
+        setState(() => _loadingMore = false);
       }
     }
   }
@@ -390,8 +429,9 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
   Widget _employeeList() {
     if (_employees.isEmpty && !_loading) return const Center(child: Text('لا توجد سجلات موظفين أو لا تتوفر صلاحية القراءة.'));
     return ListView.builder(
-      itemCount: _employees.length,
+      itemCount: _employees.length + (_hasMore ? 1 : 0),
       itemBuilder: (context, index) {
+        if (index == _employees.length) return _loadMoreTile();
         final row = _employees[index];
         return Card(child: ListTile(
           leading: const CircleAvatar(child: Icon(Icons.badge_outlined)),
@@ -408,8 +448,9 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
   Widget _documentList(List<Map<String, dynamic>> rows, String doctype) {
     if (rows.isEmpty && !_loading) return Center(child: Text('لا توجد سجلات ${doctype == 'Attendance' ? 'حضور' : 'إجازات'} أو لا تتوفر صلاحية القراءة.'));
     return ListView.builder(
-      itemCount: rows.length,
+      itemCount: rows.length + (_hasMore ? 1 : 0),
       itemBuilder: (context, index) {
+        if (index == rows.length) return _loadMoreTile();
         final row = rows[index];
         final name = row['name']?.toString() ?? '';
         final draft = row['docstatus'] == 0 || row['docstatus'] == '0';
@@ -434,13 +475,27 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
     );
   }
 
+
+  Widget _loadMoreTile() => Padding(
+    padding: const EdgeInsets.all(12),
+    child: Center(child: OutlinedButton.icon(
+      onPressed: _loadingMore ? null : _loadMore,
+      icon: _loadingMore
+        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+        : const Icon(Icons.expand_more),
+      label: Text(_loadingMore ? 'جارٍ تحميل المزيد...' : 'تحميل المزيد'),
+    )),
+  );
+
+
   Widget _expenseList() {
     if (_expenseClaims.isEmpty && !_loading) {
       return const Center(child: Text('لا توجد مطالبات مصروفات أو لا تتوفر صلاحية القراءة. إنشاء المطالبات واعتمادها يتطلب إعداد أنواع المصروفات والحسابات ومراكز التكلفة في ERPNext.'));
     }
     return ListView.builder(
-      itemCount: _expenseClaims.length,
+      itemCount: _expenseClaims.length + (_hasMore ? 1 : 0),
       itemBuilder: (context, index) {
+        if (index == _expenseClaims.length) return _loadMoreTile();
         final row = _expenseClaims[index];
         return Card(child: ListTile(
           leading: const CircleAvatar(child: Icon(Icons.receipt_long_outlined)),
