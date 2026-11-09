@@ -1,6 +1,7 @@
 // ignore_for_file: prefer_interpolation_to_compose_strings
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
@@ -235,9 +236,38 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
     });
   }
 
+  Future<void> _copyStandardReportCsv() async {
+    final columns = _standardColumns.whereType<Map>().toList(growable: false);
+    if (columns.isEmpty || _standardRows.isEmpty) return;
+    String cell(dynamic value) => '"' + (value?.toString() ?? '').replaceAll('"', '""') + '"';
+    final headers = columns.map((column) => cell(column['label'] ?? column['fieldname'])).join(',');
+    final lines = <String>[headers];
+    for (final row in _standardRows) {
+      final values = <String>[];
+      for (var index = 0; index < columns.length; index++) {
+        final column = columns[index];
+        final field = column['fieldname']?.toString() ?? '';
+        dynamic value;
+        if (row is Map) {
+          value = row[field];
+          if (value == null) value = row[column['label']];
+        } else if (row is List && index < row.length) {
+          value = row[index];
+        }
+        values.add(cell(value));
+      }
+      lines.add(values.join(','));
+    }
+    await Clipboard.setData(ClipboardData(text: lines.join('\n')));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('تم نسخ التقرير كاملاً: ${_standardRows.length} صف و${columns.length} عمود.')),
+    );
+  }
+
   Widget _buildStandardReport() {
     final columns = _standardColumns.whereType<Map>().toList(growable: false);
-    final visibleColumns = columns.take(8).toList(growable: false);
+    final visibleColumns = columns;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -328,9 +358,11 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
           ),
         if (!_standardLoading && _standardError == null && _standardRows.isNotEmpty) ...[
           const SizedBox(height: 12),
-          Text('عدد الصفوف: ' + _standardRows.length.toString(),
-              style: Theme.of(context).textTheme.titleMedium),
-          ..._standardRows.take(300).map((rawRow) {
+          Row(children: [
+            Expanded(child: Text('عدد الصفوف: ' + _standardRows.length.toString(), style: Theme.of(context).textTheme.titleMedium)),
+            OutlinedButton.icon(onPressed: _copyStandardReportCsv, icon: const Icon(Icons.copy_all), label: const Text('نسخ CSV')),
+          ]),
+          ..._standardRows.map((rawRow) {
             final values = <String>[];
             for (var index = 0; index < visibleColumns.length; index++) {
               final column = visibleColumns[index];
@@ -359,7 +391,7 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
                 padding: const EdgeInsets.all(10),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  children: values.take(8).map((value) => Padding(
+                  children: values.map((value) => Padding(
                     padding: const EdgeInsets.symmetric(vertical: 2),
                     child: Text(value),
                   )).toList(),
@@ -367,8 +399,6 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
               ),
             );
           }),
-          if (_standardRows.length > 300)
-            Text('يُعرض أول 300 صف من أصل ' + _standardRows.length.toString() + '. استخدم فلاتر التقرير لتضييق النتائج.'),
         ],
         if (!_standardLoading && _standardError == null && _standardRows.isEmpty)
           const Padding(
