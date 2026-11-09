@@ -483,6 +483,11 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                   final itemRow = row['source'] is Map<String, dynamic>
                       ? Map<String, dynamic>.from(row['source'] as Map<String, dynamic>)
                       : <String, dynamic>{};
+                  if (itemRow['item_code'] != null && itemRow['item_code'] != code) {
+                    for (final field in const ['serial_and_batch_bundle', 'rejected_serial_and_batch_bundle', 'serial_no', 'batch_no', 'use_serial_batch_fields']) {
+                      itemRow.remove(field);
+                    }
+                  }
                   itemRow['item_code'] = code;
                   itemRow['qty'] = qty;
                   itemRow['rate'] = rate;
