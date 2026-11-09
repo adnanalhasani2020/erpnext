@@ -33,8 +33,20 @@ class FrappeApi {
     final normalizedBase = baseUrl.endsWith('/')
         ? baseUrl.substring(0, baseUrl.length - 1)
         : baseUrl;
-    final endpoint = '$normalizedBase/api/resource/${Uri.encodeComponent(resource)}';
-    return Uri.parse(endpoint).replace(queryParameters: parameters);
+    final baseUri = Uri.parse(normalizedBase);
+    // Build the resource path from decoded segments so names containing spaces
+    // are encoded exactly once. Parsing an already-escaped path and then
+    // replacing query parameters can otherwise double-escape "%20" as "%2520".
+    final pathSegments = <String>[
+      ...baseUri.pathSegments.where((segment) => segment.isNotEmpty),
+      'api',
+      'resource',
+      resource,
+    ];
+    return baseUri.replace(
+      pathSegments: pathSegments,
+      queryParameters: parameters,
+    );
   }
 
   final Map<String, String> _cookies = {};
