@@ -1764,7 +1764,7 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
                       child: Text(company.name),
                     )),
                   ],
-                  onChanged: _loading ? null : (value) {
+                  onChanged: (_loading || _loadingMore) ? null : (value) {
                     setState(() => _company = value == null || value.isEmpty ? null : value);
                     _load();
                   },
