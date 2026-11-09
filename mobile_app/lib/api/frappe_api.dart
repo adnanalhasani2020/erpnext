@@ -302,6 +302,112 @@ class FrappeApi {
     return document;
   }
 
+  Future<List<Map<String, dynamic>>> fetchPurchaseOrderRecords({int start = 0, String? search}) async {
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl, resource: 'Purchase Order',
+      fields: const ['name', 'supplier', 'supplier_name', 'company', 'transaction_date', 'status', 'docstatus', 'per_received', 'per_billed', 'grand_total', 'currency'],
+      orFilters: search == null || search.trim().isEmpty ? null : [
+        ['name', 'like', '%${search.trim()}%'],
+        ['supplier', 'like', '%${search.trim()}%'],
+        ['supplier_name', 'like', '%${search.trim()}%'],
+      ],
+      orderBy: 'modified desc, name desc', start: start,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل سجل أوامر الشراء.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة سجل أوامر الشراء غير متوقعة.');
+    return rows.whereType<Map<String, dynamic>>().toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>> _fetchPurchaseOrderAnyStatus(String name) async {
+    if (name.trim().isEmpty) throw const FormatException('رقم أمر الشراء غير موجود.');
+    final response = await _send('GET', '/api/resource/Purchase%20Order/' + Uri.encodeComponent(name.trim()));
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل تفاصيل أمر الشراء.'));
+    }
+    final document = data['data'];
+    if (document is! Map<String, dynamic> || document['doctype'] != 'Purchase Order' || document['name'] != name.trim()) {
+      throw const FormatException('لم يؤكد ERPNext هوية أمر الشراء المطلوب.');
+    }
+    return document;
+  }
+
+  Future<Map<String, dynamic>> createPurchaseOrder(Map<String, dynamic> document) async {
+    _validatePurchaseOrder(document);
+    await _validateDocumentWarehouses(document);
+    final response = await _sendJson('POST', '/api/resource/Purchase%20Order', document);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر إنشاء أمر الشراء.'));
+    final created = data['data'];
+    if (created is! Map<String, dynamic> || created['doctype'] != 'Purchase Order' || created['name'] is! String || created['docstatus'] != 0) {
+      throw Exception('لم يؤكد ERPNext إنشاء مسودة أمر الشراء.');
+    }
+    return created;
+  }
+
+  void _validatePurchaseOrder(Map<String, dynamic> document) {
+    final items = document['items'];
+    if (document['doctype'] != 'Purchase Order' || document['company'] is! String || (document['company'] as String).trim().isEmpty ||
+        document['supplier'] is! String || (document['supplier'] as String).trim().isEmpty || items is! List || items.isEmpty) {
+      throw const FormatException('حدد الشركة والمورد وأضف صنفاً واحداً على الأقل لأمر الشراء.');
+    }
+    for (final row in items) {
+      if (row is! Map<String, dynamic> || row['item_code'] is! String || (row['item_code'] as String).trim().isEmpty ||
+          row['qty'] is! num || !(row['qty'] as num).isFinite || (row['qty'] as num) <= 0 ||
+          row['rate'] is! num || !(row['rate'] as num).isFinite || (row['rate'] as num) < 0 ||
+          !((row['qty'] as num) * (row['rate'] as num)).isFinite) {
+        throw const FormatException('تحقق من صنف وكمية وسعر كل بند في أمر الشراء.');
+      }
+    }
+  }
+
+  Future<Map<String, dynamic>> updateDraftPurchaseOrder({required String name, required Map<String, dynamic> changes}) async {
+    _validatePurchaseOrder(changes);
+    await _validateDocumentWarehouses(changes);
+    final current = await _fetchPurchaseOrderAnyStatus(name);
+    if (current['docstatus'] != 0) throw const FormatException('يمكن تعديل أوامر الشراء غير المرحلة فقط.');
+    final payload = Map<String, dynamic>.from(current)
+      ..['company'] = changes['company']
+      ..['supplier'] = changes['supplier']
+      ..['transaction_date'] = changes['transaction_date'] ?? current['transaction_date']
+      ..['schedule_date'] = changes['schedule_date'] ?? current['schedule_date']
+      ..['items'] = changes['items'];
+    final response = await _sendJson('POST', '/api/method/frappe.client.save', {'doc': payload});
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تعديل مسودة أمر الشراء.'));
+    final saved = data['message'];
+    if (saved is! Map<String, dynamic> || saved['doctype'] != 'Purchase Order' || saved['name'] != name || saved['docstatus'] != 0) {
+      throw Exception('لم يؤكد ERPNext حفظ مسودة أمر الشراء.');
+    }
+    return saved;
+  }
+
+  Future<Map<String, dynamic>> submitPurchaseOrder(Map<String, dynamic> document) => _submitMobileDocument(document, 'Purchase Order');
+
+  Future<Map<String, dynamic>> cancelPurchaseOrder(String name) async {
+    final key = 'cancel-purchase-order:$name';
+    if (!_inFlightPurchaseActions.add(key)) throw const FormatException('إلغاء أمر الشراء قيد التنفيذ بالفعل.');
+    try {
+      final current = await _fetchPurchaseOrderAnyStatus(name);
+      if (current['docstatus'] != 1) throw const FormatException('يمكن إلغاء أمر الشراء المرحّل فقط.');
+      final response = await _sendJson('POST', '/api/method/frappe.client.cancel', {'doc': current});
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر إلغاء أمر الشراء. قد توجد مستندات استلام أو فواتير مرتبطة.'));
+      final cancelled = data['message'];
+      if (cancelled is! Map<String, dynamic> || cancelled['doctype'] != 'Purchase Order' || cancelled['name'] != name || cancelled['docstatus'] != 2) {
+        throw Exception('لم يؤكد ERPNext إلغاء أمر الشراء.');
+      }
+      return cancelled;
+    } finally {
+      _inFlightPurchaseActions.remove(key);
+    }
+  }
+
   Future<List<Map<String, dynamic>>> fetchSupplierLedger({
     required String supplier, int start = 0, String? company,
   }) async {
@@ -1317,6 +1423,7 @@ class FrappeApi {
         partyType: doc['party_type']?.toString() ?? '',
       ),
       'Purchase Invoice' => await fetchInvoiceDocument('Purchase Invoice', name),
+      'Purchase Order' => await _fetchPurchaseOrderAnyStatus(name),
       _ => await fetchStockDocument(doctype, name),
     };
     if (current['doctype'] != doctype || current['name'] != name || current['docstatus'] != 0) {
