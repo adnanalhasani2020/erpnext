@@ -328,6 +328,49 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
     });
   }
 
+  Future<void> _editSalesPersonAllocation(int index) async {
+    if (_saving || _pendingDraft != null ||
+        index < 0 || index >= _salesTeam.length) return;
+    final controller = TextEditingController(
+      text: _salesTeam[index]['allocated_percentage']?.toString() ?? '',
+    );
+    final result = await showDialog<double>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('تعديل نسبة توزيع المندوب'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          decoration: const InputDecoration(
+            labelText: 'نسبة التوزيع %',
+            helperText: 'يجب أن يصبح مجموع نسب جميع المندوبين 100%.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = double.tryParse(controller.text.trim());
+              if (value == null || !value.isFinite || value <= 0 || value > 100) return;
+              Navigator.pop(dialogContext, value);
+            },
+            child: const Text('حفظ النسبة'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (result == null || !mounted) return;
+    setState(() {
+      _salesTeam[index]['allocated_percentage'] = result;
+      _error = null;
+    });
+  }
+
   void _removeSalesPerson(int index) {
     if (_saving || _pendingDraft != null) return;
     setState(() => _salesTeam.removeAt(index));
@@ -561,7 +604,10 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
                           dense: true,
                           contentPadding: EdgeInsets.zero,
                           title: Text(label),
-                          subtitle: Text('نسبة التوزيع: ${row['allocated_percentage']}%'),
+                          subtitle: Text('نسبة التوزيع: ${row['allocated_percentage']}% • اضغط لتعديل النسبة'),
+                          onTap: _saving || _pendingDraft != null
+                              ? null
+                              : () => _editSalesPersonAllocation(index),
                           trailing: IconButton(
                             tooltip: 'إزالة المندوب',
                             onPressed: _saving || _pendingDraft != null
