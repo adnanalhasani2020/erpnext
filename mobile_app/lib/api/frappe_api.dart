@@ -815,7 +815,7 @@ class FrappeApi {
         'selling', 'buying', 'disable', 'rate_or_discount',
         'discount_percentage', 'discount_amount', 'for_price_list',
         'currency', 'valid_from', 'valid_upto', 'company',
-        'apply_discount_on', 'applicable_for', 'customer',
+        'apply_discount_on', 'applicable_for', 'customer', 'items',
         'customer_group', 'territory',
       ],
       filters: const [
@@ -850,6 +850,9 @@ class FrappeApi {
     String? applicableFor,
     String? applicableValue,
     String applyDiscountOn = 'Grand Total',
+    String applyOn = 'Transaction',
+    String? itemCode,
+    double minQty = 0,
   }) async {
     final cleanTitle = title.trim();
     final cleanList = priceList.trim();
@@ -858,7 +861,13 @@ class FrappeApi {
         !discountValue.isFinite || discountValue <= 0 ||
         !{'Discount Percentage', 'Discount Amount'}.contains(discountType) ||
         (discountType == 'Discount Percentage' && discountValue > 100) ||
-        !{'Grand Total', 'Net Total'}.contains(applyDiscountOn)) {
+        !{'Grand Total', 'Net Total'}.contains(applyDiscountOn) ||
+        !{'Transaction', 'Item Code'}.contains(applyOn) ||
+        !minQty.isFinite || minQty < 0 ||
+        (applyOn == 'Item Code' &&
+            ((itemCode ?? '').trim().isEmpty || minQty <= 0)) ||
+        (applyOn == 'Transaction' &&
+            ((itemCode ?? '').trim().isNotEmpty || minQty > 0))) {
       throw const FormatException('بيانات قاعدة الخصم غير صحيحة.');
     }
     String validateDate(String raw, String label) {
@@ -894,7 +903,7 @@ class FrappeApi {
     final payload = <String, dynamic>{
       'doctype': 'Pricing Rule',
       'title': cleanTitle,
-      'apply_on': 'Transaction',
+      'apply_on': applyOn,
       'price_or_product_discount': 'Price',
       'selling': 1,
       'buying': 0,
@@ -904,6 +913,9 @@ class FrappeApi {
       if (discountType == 'Discount Amount') 'discount_amount': discountValue,
       'apply_discount_on': applyDiscountOn,
       'for_price_list': cleanList,
+      if (applyOn == 'Item Code') 'items': [
+        {'item_code': itemCode!.trim(), 'min_qty': minQty},
+      ],
       'currency': cleanCurrency,
       'valid_from': from,
       if (until != null) 'valid_upto': until,
@@ -925,7 +937,7 @@ class FrappeApi {
       final current = currentData['data'];
       if (currentResponse.statusCode < 200 || currentResponse.statusCode >= 300 ||
           current is! Map<String, dynamic> || current['name'] != id ||
-          current['apply_on'] != 'Transaction' ||
+          !{'Transaction', 'Item Code'}.contains(current['apply_on']) ||
           current['selling'] != 1 || current['buying'] == 1) {
         throw const FormatException('قاعدة الخصم تغيرت أو لا تنتمي إلى قواعد خصومات البيع المدعومة.');
       }
@@ -942,7 +954,7 @@ class FrappeApi {
     final saved = data['data'];
     if (saved is! Map<String, dynamic> ||
         saved['doctype'] != 'Pricing Rule' ||
-        saved['apply_on'] != 'Transaction' ||
+        saved['apply_on'] != applyOn ||
         saved['selling'] != 1 ||
         saved['title'] != cleanTitle) {
       throw Exception('لم يؤكد ERPNext حفظ قاعدة الخصم؛ أعد تحميل القائمة.');
@@ -961,7 +973,7 @@ class FrappeApi {
     final current = currentData['data'];
     if (currentResponse.statusCode < 200 || currentResponse.statusCode >= 300 ||
         current is! Map<String, dynamic> || current['name'] != id ||
-        current['apply_on'] != 'Transaction' ||
+        !{'Transaction', 'Item Code'}.contains(current['apply_on']) ||
         current['selling'] != 1 || current['buying'] == 1) {
       throw const FormatException('تعذر التحقق من قاعدة الخصم قبل إيقافها.');
     }
