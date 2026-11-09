@@ -630,7 +630,7 @@ void main() {
       if (request.method == 'GET' && request.uri.path.endsWith('/PINV-1')) {
         request.response.write(jsonEncode({'data': {
           'doctype': 'Purchase Invoice', 'name': 'PINV-1', 'docstatus': 1,
-          'is_return': 0, 'supplier': 'SUP-1', 'outstanding_amount': 100,
+          'is_return': 0, 'supplier': 'SUP-1', 'company': 'COMP-1', 'outstanding_amount': 100,
         }}));
       } else if (request.method == 'GET' && request.uri.path.endsWith('/PAY-1')) {
         request.response.write(jsonEncode({'data': {
@@ -656,7 +656,11 @@ void main() {
         request.response.write(jsonEncode({'data': {
           'doctype': 'Payment Entry', 'name': 'PAY-1', 'docstatus': 0,
           'payment_type': 'Pay', 'party_type': 'Supplier',
-          'party': 'SUP-1', 'references': [],
+          'party': 'SUP-1', 'company': 'COMP-1', 'paid_from': 'CASH - C',
+          'references': [{
+            'reference_doctype': 'Purchase Invoice',
+            'reference_name': 'PINV-1', 'allocated_amount': 40,
+          }],
         }}));
       } else if (request.method == 'POST' && request.uri.path.endsWith('frappe.client.submit')) {
         request.response.write(jsonEncode({'message': {
