@@ -222,7 +222,14 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
             DropdownMenuItem(value: 'Balance Sheet', child: Text('الميزانية العمومية')),
             DropdownMenuItem(value: 'Cash Flow', child: Text('التدفقات النقدية')),
             DropdownMenuItem(value: 'General Ledger', child: Text('دفتر الأستاذ العام')),
+            DropdownMenuItem(value: 'Trial Balance', child: Text('ميزان المراجعة')),
+            DropdownMenuItem(value: 'Sales Register', child: Text('سجل المبيعات')),
+            DropdownMenuItem(value: 'Sales Analytics', child: Text('تحليل المبيعات')),
+            DropdownMenuItem(value: 'Purchase Register', child: Text('سجل المشتريات')),
+            DropdownMenuItem(value: 'Bank Reconciliation Statement', child: Text('كشف التسوية البنكية')),
+            DropdownMenuItem(value: 'Payment Ledger', child: Text('دفتر المدفوعات')),
             DropdownMenuItem(value: 'Stock Balance', child: Text('رصيد وتقييم المخزون')),
+            DropdownMenuItem(value: 'Stock Ledger', child: Text('دفتر حركة المخزون')),
           ],
           onChanged: _standardLoading ? null : (value) {
             if (value == null) return;
