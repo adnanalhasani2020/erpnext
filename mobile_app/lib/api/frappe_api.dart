@@ -3294,8 +3294,11 @@ class FrappeApi {
       'is_stock_item', 'has_serial_no', 'has_batch_no', 'has_expiry_date', 'disabled'],
     'Supplier': ['name', 'supplier_name', 'supplier_type', 'supplier_group',
       'country', 'tax_id', 'mobile_no', 'email_id', 'website', 'disabled'],
-    'Warehouse': ['name', 'warehouse_name', 'company', 'parent_warehouse',
-      'is_group', 'disabled'],
+    'Warehouse': ['name', 'warehouse_name', 'company', 'parent_warehouse', 'is_group', 'disabled'],
+    'Item Group': ['name', 'item_group_name', 'parent_item_group', 'is_group', 'disabled'],
+    'UOM': ['name', 'uom_name', 'must_be_whole_number', 'enabled'],
+    'Supplier Group': ['name', 'supplier_group_name', 'parent_supplier_group', 'is_group', 'disabled'],
+    'Price List': ['name', 'price_list_name', 'currency', 'buying', 'selling', 'enabled'],
   };
 
   static const Map<String, Set<String>> _masterDataWritableFields = {
@@ -3304,6 +3307,10 @@ class FrappeApi {
     'Supplier': {'supplier_name', 'supplier_type', 'supplier_group',
       'country', 'tax_id', 'mobile_no', 'email_id', 'website', 'disabled'},
     'Warehouse': {'warehouse_name', 'company', 'parent_warehouse', 'is_group', 'disabled'},
+    'Item Group': {'item_group_name', 'parent_item_group', 'is_group', 'disabled'},
+    'UOM': {'uom_name', 'must_be_whole_number', 'enabled'},
+    'Supplier Group': {'supplier_group_name', 'parent_supplier_group', 'is_group', 'disabled'},
+    'Price List': {'price_list_name', 'currency', 'buying', 'selling', 'enabled'},
   };
 
   Future<List<Map<String, dynamic>>> fetchMasterDataRows({
@@ -3318,6 +3325,10 @@ class FrappeApi {
       'Item' => const ['name', 'item_name', 'item_group'],
       'Supplier' => const ['name', 'supplier_name', 'supplier_group'],
       'Warehouse' => const ['name', 'warehouse_name', 'company'],
+      'Item Group' => const ['name', 'item_group_name', 'parent_item_group'],
+      'UOM' => const ['name', 'uom_name'],
+      'Supplier Group' => const ['name', 'supplier_group_name', 'parent_supplier_group'],
+      'Price List' => const ['name', 'price_list_name', 'currency'],
       _ => const <String>[],
     };
     final uri = buildResourcePageUri(
@@ -3401,6 +3412,23 @@ class FrappeApi {
       case 'Warehouse':
         if (requiredValue('warehouse_name').isEmpty || requiredValue('company').isEmpty) {
           throw const FormatException('اسم المستودع والشركة حقول مطلوبة.');
+        }
+        break;
+      case 'Item Group':
+        if (requiredValue('item_group_name').isEmpty) throw const FormatException('اسم مجموعة الأصناف مطلوب.');
+        break;
+      case 'UOM':
+        if (requiredValue('uom_name').isEmpty) throw const FormatException('اسم وحدة القياس مطلوب.');
+        break;
+      case 'Supplier Group':
+        if (requiredValue('supplier_group_name').isEmpty) throw const FormatException('اسم مجموعة الموردين مطلوب.');
+        break;
+      case 'Price List':
+        if (requiredValue('price_list_name').isEmpty || requiredValue('currency').isEmpty) {
+          throw const FormatException('اسم قائمة الأسعار والعملة حقول مطلوبة.');
+        }
+        if (payload['selling'] != true && payload['buying'] != true) {
+          throw const FormatException('حدد استخدام القائمة للمبيعات أو المشتريات على الأقل.');
         }
         break;
     }
