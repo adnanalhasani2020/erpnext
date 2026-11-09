@@ -9,7 +9,7 @@ Arabic-first Android companion app for an ERPNext instance.
 - Logged-in user verification and logout through Frappe API methods.
 - Company list on the dashboard.
 - Separate item, stock balance, warehouse, and sales screens.
-- Master-data management screen for creating and editing Items, Suppliers, and Warehouses with server-side search, pagination, allow-listed fields, pre-update identity revalidation, required-field checks, and ERPNext-authoritative permission/validation handling. Item identity is preserved during edits; serial and batch tracking cannot both be enabled.
+- Master-data management screen for creating and editing Items, Suppliers, Warehouses, Item Groups, Supplier Groups, UOMs, and Price Lists with server-side search, pagination, allow-listed fields, pre-update identity revalidation, required-field checks, and ERPNext-authoritative permission/validation handling. Item identity and warehouse company ownership are preserved during edits; serial and batch tracking cannot both be enabled.
 - Server-side item and warehouse search with pagination.
 - Read-only stock balances from ERPNext `Bin`, with server-side item-code and warehouse filters, pagination, actual, reserved, projected, and calculated available quantities, plus ERPNext-provided valuation rate and stock value per item/warehouse. Stock values are shown per row in the owning company's currency and are not summed across companies or currencies.
 - Warehouse reorder monitoring reads ERPNext `Item Reorder` rules and matches them to `Bin` projected quantities. It flags warehouses at or below the configured reorder level and shows the suggested reorder quantity. Warehouse-group rules are deliberately excluded until stock can be safely aggregated across the full warehouse tree.
@@ -40,7 +40,7 @@ Arabic-first Android companion app for an ERPNext instance.
 
 ## Current limits
 
-- The master-data screen currently supports Item, Supplier, and Warehouse records only. Item Groups, UOM conversions, Supplier Groups, Warehouse tree administration, and Price List master records still need dedicated management workflows. Reference fields such as Item Group and Stock UOM are entered by name and validated by ERPNext; this screen does not create those reference records.
+- The master-data screen supports Item, Supplier, Warehouse, Item Group, Supplier Group, UOM, and Price List records. UOM conversion factors, advanced warehouse-tree administration, and dynamic dropdowns backed by reference masters still need deeper workflows. Reference fields are entered by name and validated by ERPNext; this screen does not automatically create missing parent/reference records.
 
 - Item, warehouse, Bin, Customer, Sales Invoice, Purchase Invoice, and Purchase Order lists are paginated in pages of 100. Purchase invoice and stock movement screens provide load-more controls; selectors use master-data rows currently loaded by the dashboard.
 - Purchase invoices support multiple item rows, draft editing, explicit submission, full or partial debit-note drafts through ERPNext's official mapper, and supplier Payment Entries with a selected company Cash/Bank account. The purchases screen also provides a paginated, searchable history of submitted supplier payments, with a detail view showing the invoices and amounts allocated by each payment.
