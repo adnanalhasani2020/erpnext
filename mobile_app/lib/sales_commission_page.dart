@@ -215,16 +215,15 @@ class _SalesCommissionPageState extends State<SalesCommissionPage> {
                             subtitle: Text([
                               id,
                               if (person['employee'] != null)
-                                'الموظف: ' + person['employee'].toString(),
+                                'الموظف: ${person["employee"]}',
                               if (person['parent_sales_person'] != null)
-                                'الرئيسي: ' +
-                                    person['parent_sales_person'].toString(),
+                                'الرئيسي: ${person["parent_sales_person"]}',
                             ].join(' • ')),
                             trailing: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               crossAxisAlignment: CrossAxisAlignment.end,
                               children: [
-                                Text(rate.toStringAsFixed(2) + '%',
+                                Text('${rate.toStringAsFixed(2)}%',
                                     style: const TextStyle(
                                         fontWeight: FontWeight.bold)),
                                 const Text('عمولة أساسية'),
