@@ -1346,6 +1346,9 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
   String? reorderAlertError;
   List<Map<String, dynamic>> movements = [];
   List<Map<String, dynamic>> drafts = [];
+  final Map<String, int> draftOffsets = {};
+  final Map<String, bool> draftHasMore = {};
+  bool loadingMoreDrafts = false;
   String? draftError;
   bool loading = false;
   bool reloadPending = false;
@@ -1415,11 +1418,30 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     } catch (e) { if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', '')); }
     final loadedDrafts = <Map<String, dynamic>>[];
     final draftErrors = <String>[];
+    final nextOffsets = <String, int>{};
+    final nextHasMore = <String, bool>{};
     for (final type in const ['Purchase Receipt', 'Stock Entry', 'Stock Reconciliation']) {
-      try { loadedDrafts.addAll(await widget.api.fetchDraftStockDocuments(type)); }
-      catch (e) { draftErrors.add(type + ': ' + e.toString().replaceFirst('Exception: ', '')); }
+      try {
+        final page = await widget.api.fetchDraftStockDocuments(type, start: 0);
+        loadedDrafts.addAll(page);
+        nextOffsets[type] = page.length;
+        nextHasMore[type] = page.length == FrappeApi.pageSize;
+      } catch (e) {
+        nextOffsets[type] = 0;
+        nextHasMore[type] = false;
+        draftErrors.add(type + ': ' + e.toString().replaceFirst('Exception: ', ''));
+      }
     }
-    if (mounted) setState(() { drafts = loadedDrafts; draftError = draftErrors.isEmpty ? null : draftErrors.join('\n'); });
+    if (mounted) setState(() {
+      drafts = loadedDrafts;
+      draftOffsets
+        ..clear()
+        ..addAll(nextOffsets);
+      draftHasMore
+        ..clear()
+        ..addAll(nextHasMore);
+      draftError = draftErrors.isEmpty ? null : draftErrors.join('\n');
+    });
     if (mounted) {
       setState(() => loading = false);
       if (reloadPending) {
@@ -1428,6 +1450,37 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       }
     }
   }
+  Future<void> loadMoreStockDrafts() async {
+    if (loading || loadingMoreDrafts ||
+        !draftHasMore.values.any((hasMore) => hasMore)) return;
+    setState(() => loadingMoreDrafts = true);
+    final additions = <Map<String, dynamic>>[];
+    final errors = <String>[];
+    final nextOffsets = <String, int>{};
+    final nextHasMore = <String, bool>{};
+    for (final type in const ['Purchase Receipt', 'Stock Entry', 'Stock Reconciliation']) {
+      if (draftHasMore[type] != true) continue;
+      final start = draftOffsets[type] ?? 0;
+      try {
+        final page = await widget.api.fetchDraftStockDocuments(type, start: start);
+        additions.addAll(page);
+        nextOffsets[type] = start + page.length;
+        nextHasMore[type] = page.length == FrappeApi.pageSize;
+      } catch (e) {
+        errors.add('$type: ${e.toString().replaceFirst('Exception: ', '')}');
+      }
+    }
+    if (mounted) setState(() {
+      drafts = [...drafts, ...additions];
+      draftOffsets.addAll(nextOffsets);
+      draftHasMore.addAll(nextHasMore);
+      if (errors.isNotEmpty) {
+        draftError = [if (draftError != null && draftError!.isNotEmpty) draftError!, ...errors].join('\n');
+      }
+      loadingMoreDrafts = false;
+    });
+  }
+
   Future<void> loadReorderAlerts() async {
     if (loadingReorderAlerts || !mounted) return;
     setState(() {
@@ -2459,6 +2512,14 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         trailing: IconButton(tooltip: 'مراجعة المسودة', onPressed: () => reviewDraft(draft), icon: const Icon(Icons.visibility_outlined)),
         onTap: () => reviewDraft(draft),
       ))),
+      if (draftHasMore.values.any((hasMore) => hasMore) || loadingMoreDrafts)
+        Center(child: TextButton.icon(
+          onPressed: loadingMoreDrafts ? null : loadMoreStockDrafts,
+          icon: loadingMoreDrafts
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.expand_more),
+          label: const Text('تحميل مسودات مخزون إضافية'),
+        )),
       const Divider(height: 28), Text('سجل الحركات', style: Theme.of(context).textTheme.titleMedium),
       Wrap(
         spacing: 8,
