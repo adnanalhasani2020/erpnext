@@ -21,6 +21,7 @@ Arabic-first Android companion app for an ERPNext instance.
 - Record full or partial customer receipts against submitted invoices using ERPNext's `get_payment_entry` flow, selecting an enabled Cash or Bank account belonging to the invoice's company. The app verifies the generated Payment Entry's customer, company, payment direction, selected account, and invoice allocations, then re-fetches the saved draft before submission.
 - Create a draft Sales Return / Credit Note from a submitted original invoice using ERPNext's official return mapper, preserving original item references, negative quantities, taxes, and returned-quantity calculations.
 - Retry submission of the same saved draft after a submission error instead of silently creating a duplicate invoice.
+- Purchase Order management now includes a searchable, paginated register across drafts, submitted, and canceled orders; create/edit drafts, validate supplier/company/item/quantity/rate and live warehouse ownership, submit, cancel through ERPNext, and safely delete unsubmitted drafts. The API re-fetches canonical Purchase Order documents before submission and cancellation.
 - Supplier and Purchase Invoice lists, invoice details, and purchase workflows: create and edit drafts, submit invoices, cancel submitted invoices through ERPNext after confirmation, create draft debit notes/returns from submitted invoices, and record supplier payments through ERPNext Payment Entry.
 - Tap a sales or purchase invoice to retrieve its full document from Frappe and view invoice totals, due dates, and item lines.
 - Customer, invoice, supplier, and purchase-invoice requests are loaded independently so one permission failure does not hide other successfully loaded records.
@@ -29,7 +30,7 @@ Arabic-first Android companion app for an ERPNext instance.
 
 ## Current limits
 
-- Item, warehouse, Bin, Customer, Sales Invoice, and Purchase Invoice lists are paginated in pages of 100. Purchase invoice and stock movement screens provide load-more controls; selectors use master-data rows currently loaded by the dashboard.
+- Item, warehouse, Bin, Customer, Sales Invoice, Purchase Invoice, and Purchase Order lists are paginated in pages of 100. Purchase invoice and stock movement screens provide load-more controls; selectors use master-data rows currently loaded by the dashboard.
 - Purchase invoices support multiple item rows, draft editing, explicit submission, full or partial debit-note drafts through ERPNext's official mapper, and supplier Payment Entries with a selected company Cash/Bank account. The purchases screen also provides a paginated, searchable history of submitted supplier payments, with a detail view showing the invoices and amounts allocated by each payment.
 - Supplier payment creation is guarded against concurrent duplicate taps. If a submit response is lost, the app re-reads the same Payment Entry before reporting an uncertain result; it never creates a replacement payment automatically.
 - Purchase return creation, Purchase Invoice cancellation, and submission of Purchase Receipts, Stock Entries, Stock Reconciliations, and Payment Entries are guarded per document to prevent concurrent duplicate requests.
