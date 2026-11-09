@@ -77,7 +77,7 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
     ]),
     body: Column(children: [
       Padding(padding: const EdgeInsets.all(12), child: DropdownButtonFormField<String>(
-        value: company,
+        initialValue: company,
         decoration: const InputDecoration(labelText: 'الشركة'),
         items: widget.companies.map((c) => DropdownMenuItem(value: c.name, child: Text(c.name))).toList(),
         onChanged: loading || loadingMore ? null : (v) {
