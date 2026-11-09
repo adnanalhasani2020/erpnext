@@ -222,13 +222,26 @@ class ErpWarehouse {
 
 
 class ErpStockBalance {
-  const ErpStockBalance({required this.itemCode, required this.warehouse, required this.actualQty, this.reservedQty = 0, this.projectedQty = 0, this.stockUom});
+  const ErpStockBalance({
+    required this.itemCode,
+    required this.warehouse,
+    required this.actualQty,
+    this.reservedQty = 0,
+    this.projectedQty = 0,
+    this.stockUom,
+    this.valuationRate,
+    this.stockValue,
+  });
   final String itemCode;
   final String warehouse;
   final double actualQty;
   final double reservedQty;
   final double projectedQty;
   final String? stockUom;
+  /// ERPNext's current valuation rate for this item/warehouse Bin, when exposed.
+  final double? valuationRate;
+  /// ERPNext's stock value for this Bin, in the owning company's currency.
+  final double? stockValue;
   double get availableQty => actualQty - reservedQty;
 
   factory ErpStockBalance.fromJson(Map<String, dynamic> json) {
@@ -239,13 +252,23 @@ class ErpStockBalance {
       throw const FormatException('بيانات رصيد المخزون الأساسية ناقصة.');
     }
     double numberValue(dynamic value) {
-      if (value is num) return value.toDouble();
-      return double.tryParse(value?.toString() ?? '') ?? 0;
+      final parsed = value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '');
+      return parsed != null && parsed.isFinite ? parsed : 0;
+    }
+    double? optionalNumber(dynamic value) {
+      if (value == null || value.toString().trim().isEmpty) return null;
+      final parsed = value is num ? value.toDouble() : double.tryParse(value.toString());
+      return parsed != null && parsed.isFinite ? parsed : null;
     }
     return ErpStockBalance(
-      itemCode: itemCode, warehouse: warehouse, actualQty: numberValue(actual),
-      reservedQty: numberValue(json['reserved_qty']), projectedQty: numberValue(json['projected_qty']),
+      itemCode: itemCode,
+      warehouse: warehouse,
+      actualQty: numberValue(actual),
+      reservedQty: numberValue(json['reserved_qty']),
+      projectedQty: numberValue(json['projected_qty']),
       stockUom: json['stock_uom'] is String ? json['stock_uom'] as String : null,
+      valuationRate: optionalNumber(json['valuation_rate']),
+      stockValue: optionalNumber(json['stock_value']),
     );
   }
 }
