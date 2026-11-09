@@ -61,5 +61,30 @@ void main() {
         throwsA(isA<FormatException>()),
       );
     });
+
+    test('requires a currency and a selling or buying scope for Price Lists', () async {
+      await expectLater(
+        api.saveMasterDataDocument(
+          doctype: 'Price List',
+          values: const {
+            'price_list_name': 'Test Price List',
+            'currency': '',
+            'selling': false,
+            'buying': false,
+          },
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('requires a UOM name before saving', () async {
+      await expectLater(
+        api.saveMasterDataDocument(
+          doctype: 'UOM',
+          values: const {'uom_name': ''},
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
   });
 }
