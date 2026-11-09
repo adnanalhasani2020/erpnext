@@ -40,6 +40,14 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 - [ ] Submit a separate invoice with stock update disabled; confirm no stock movement is created.
 - [ ] Attempt invalid quantity, rate, missing customer, and missing warehouse cases; confirm ERPNext rejects invalid documents without duplicate invoices.
 
+## Sales dashboard
+
+- [ ] Compare the selected company/date-range invoice count and currency-separated totals with ERPNext Sales Register.
+- [ ] Verify canceled invoices and credit notes are excluded from dashboard sales totals.
+- [ ] Verify customers with invoices in multiple currencies remain separate in the ranking.
+- [ ] Verify users without Sales Invoice read permission receive an error and no fabricated totals.
+- [ ] Confirm large date ranges stop at the documented 10,000-invoice safety limit and prompt users to narrow the period.
+
 ## Sales Team and commission allocation
 
 - [ ] Open the Sales Invoice composer and load active Sales Persons from ERPNext.
