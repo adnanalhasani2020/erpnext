@@ -1051,7 +1051,14 @@ class FrappeApi {
       'Balance Sheet',
       'Cash Flow',
       'General Ledger',
+      'Trial Balance',
+      'Sales Register',
+      'Sales Analytics',
+      'Purchase Register',
+      'Bank Reconciliation Statement',
+      'Payment Ledger',
       'Stock Balance',
+      'Stock Ledger',
     };
     if (!allowedReports.contains(reportName)) {
       throw FormatException('التقرير غير مدعوم في التطبيق: $reportName');
