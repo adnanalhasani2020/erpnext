@@ -821,30 +821,26 @@ class FrappeApi {
       throw Exception(_message(insertData, 'تعذر حفظ سند القبض.'));
     }
     final created = insertData['data'];
-    if (created is! Map<String, dynamic> || created['name'] is! String) {
+    if (created is! Map<String, dynamic> ||
+        created['doctype'] != 'Payment Entry' ||
+        created['name'] is! String ||
+        created['docstatus'] != 0 ||
+        created['payment_type'] != 'Receive' ||
+        created['party_type'] != 'Customer' ||
+        created['party'] != invoice['customer']) {
       throw Exception('استجابة حفظ سند القبض غير متوقعة؛ تحقق من سجل Payment Entry قبل إعادة المحاولة.');
     }
     try {
-      final submitted = await _sendJson('POST', '/api/method/frappe.client.submit', {'doc': created});
-      final submittedData = _decode(submitted.body);
-      if (submitted.statusCode < 200 || submitted.statusCode >= 300) {
-        throw Exception(_message(submittedData, 'تعذر ترحيل سند القبض.'));
-      }
-      final result = submittedData['message'];
-      if (result is! Map<String, dynamic> ||
-          result['doctype'] != 'Payment Entry' ||
-          result['name'] != created['name'] ||
-          result['docstatus'] != 1 ||
-          result['payment_type'] != 'Receive') {
-        throw Exception('لم يؤكد ERPNext ترحيل سند القبض.');
-      }
-      return result;
+      return await _submitMobileDocument(created, 'Payment Entry');
     } catch (error) {
       // A timeout or lost response must not cause a second receipt to be created.
       // Re-read the same Payment Entry before reporting an uncertain outcome.
       try {
         final confirmed = await _fetchPaymentEntryDocument(created['name'].toString());
-        if (confirmed['docstatus'] == 1 && confirmed['payment_type'] == 'Receive') {
+        if (confirmed['docstatus'] == 1 &&
+            confirmed['payment_type'] == 'Receive' &&
+            confirmed['party_type'] == 'Customer' &&
+            confirmed['party'] == invoice['customer']) {
           return confirmed;
         }
       } catch (_) {
