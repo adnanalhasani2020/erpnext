@@ -106,8 +106,8 @@ class FrappeApi {
       final currentSerialText = raw['current_serial_no']?.toString() ?? '';
       final currentSerials = currentSerialText.split(RegExp(r'[\r\n,;]+')).map((v) => v.trim()).where((v) => v.isNotEmpty).toList();
       if (qty is! num || !qty.isFinite || qty < 0) throw const FormatException('كمية الصنف المتتبع غير صحيحة.');
-      if (currentQty == null || currentQty is! num || !currentQty.isFinite || currentQty < 0) {
-        throw const FormatException('يجب إرسال لقطة الكمية الحالية للصنف المتتبع عند تسوية الجرد.');
+      if (currentQty != null && (currentQty is! num || !currentQty.isFinite || currentQty < 0)) {
+        throw const FormatException('الكمية الحالية للصنف المتتبع غير صحيحة.');
       }
       if (currentSerials.isNotEmpty &&
           (currentQty is! num || (currentQty - currentQty.round()).abs() > 0.000001 ||
@@ -2078,6 +2078,13 @@ class FrappeApi {
       final code = row['item_code'];
       final qty = row['qty'];
       final batchNo = row['batch_no']?.toString().trim() ?? '';
+      final usesTracking = row['use_serial_batch_fields'] == 1 ||
+          row['use_serial_batch_fields'] == true || batchNo.isNotEmpty ||
+          (row['serial_no']?.toString().trim().isNotEmpty ?? false);
+      if (usesTracking && (row['current_qty'] is! num ||
+          !(row['current_qty'] as num).isFinite || (row['current_qty'] as num) < 0)) {
+        throw const FormatException('يجب تحميل الكمية الحالية للصنف المتتبع قبل تسوية الجرد.');
+      }
       final uniqueKey = code is String ? code + '|' + batchNo : '';
       if (code is! String || code.trim().isEmpty || !seen.add(uniqueKey) || qty is! num || !qty.isFinite || qty < 0) {
         throw const FormatException('أصناف الجرد يجب أن تكون غير مكررة وكمياتها صفر أو أكثر.');
