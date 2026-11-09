@@ -216,6 +216,7 @@ class FrappeApi {
     required String itemCode,
     required String warehouse,
     bool ignoreReservedStock = false,
+    bool includeExpired = false,
   }) async {
     if (itemCode.trim().isEmpty || warehouse.trim().isEmpty) {
       throw const FormatException('حدد الصنف والمستودع لعرض الدفعات المتاحة.');
@@ -225,6 +226,7 @@ class FrappeApi {
       'item_code': itemCode.trim(),
       'warehouse': warehouse.trim(),
       if (ignoreReservedStock) 'ignore_reserved_stock': '1',
+      if (includeExpired) 'for_stock_levels': '1',
     });
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);

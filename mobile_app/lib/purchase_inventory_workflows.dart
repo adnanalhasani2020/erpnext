@@ -1574,6 +1574,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                             final available = await widget.api.fetchAvailableBatches(
                               itemCode: item.code, warehouse: reconciliationWarehouse,
                               ignoreReservedStock: true,
+                              includeExpired: true,
                             );
                             if (batchNo.isEmpty && available.length == 1) {
                               batchNo = available.first['batch_no'].toString();
