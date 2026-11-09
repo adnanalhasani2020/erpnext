@@ -41,6 +41,13 @@ void main() {
       );
     });
 
+    test('requires a company before loading the chart of accounts', () async {
+      await expectLater(
+        api.fetchAccountingAccounts(company: '  '),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
     test('rejects unsupported doctypes before sending a request', () async {
       await expectLater(
         api.fetchMasterDataRows(doctype: 'Sales Invoice'),
