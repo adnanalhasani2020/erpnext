@@ -192,7 +192,7 @@ class FrappeApi {
     final uri = buildResourcePageUri(
       baseUrl: _baseUrl,
       resource: 'Bin',
-      fields: ['item_code', 'warehouse', 'actual_qty', 'reserved_qty', 'projected_qty', 'stock_uom'],
+      fields: ['item_code', 'warehouse', 'actual_qty', 'reserved_qty', 'projected_qty', 'stock_uom', 'valuation_rate', 'stock_value'],
       filters: [
         if (warehouse != null && warehouse.trim().isNotEmpty) ['warehouse', '=', warehouse.trim()],
         if (search != null && search.trim().isNotEmpty) ['item_code', 'like', '%${search.trim()}%'],
