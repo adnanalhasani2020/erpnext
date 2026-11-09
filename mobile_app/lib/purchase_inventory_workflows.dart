@@ -1544,6 +1544,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                             if (batchNo.isEmpty && available.length == 1) {
                               batchNo = available.first['batch_no'].toString();
                             } else if (batchNo.isEmpty && available.length > 1) {
+                              if (!context.mounted) return;
                               final chosen = await showDialog<String>(
                                 context: context,
                                 builder: (pickerContext) => SimpleDialog(

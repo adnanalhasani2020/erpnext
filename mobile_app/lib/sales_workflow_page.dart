@@ -300,13 +300,17 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
                               quantity: double.tryParse(row['qty']?.toString() ?? '') ?? 0,
                               warehouse: row['warehouse'].toString(),
                             );
-                            if (picked != null && dialogContext.mounted) refresh(() {
-                              fields['serial']!.text = picked['serial_no']?.toString() ?? '';
-                              fields['batch']!.text = picked['batch_no']?.toString() ?? '';
-                            });
+                            if (picked != null && dialogContext.mounted) {
+                              refresh(() {
+                                fields['serial']!.text = picked['serial_no']?.toString() ?? '';
+                                fields['batch']!.text = picked['batch_no']?.toString() ?? '';
+                              });
+                            }
                           } catch (error) {
-                            if (dialogContext.mounted) ScaffoldMessenger.of(dialogContext).showSnackBar(
-                              SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))));
+                            if (dialogContext.mounted) {
+                              ScaffoldMessenger.of(dialogContext).showSnackBar(
+                                SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))));
+                            }
                           }
                         },
                         icon: const Icon(Icons.qr_code_scanner),

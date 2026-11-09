@@ -1,3 +1,4 @@
+// ignore_for_file: prefer_interpolation_to_compose_strings
 import 'package:flutter/material.dart';
 import '../api/frappe_api.dart';
 import 'erp_models.dart';
@@ -53,6 +54,7 @@ Future<Map<String, dynamic>?> showAvailableSerialBatchPicker({
       throw FormatException('المتاح من الأرقام التسلسلية للصنف ' + item.code + ' أقل من الكمية المطلوبة.');
     }
   }
+  if (!context.mounted) return null;
   final selectedSerials = <String>{};
   return showDialog<Map<String, dynamic>>(
     context: context,

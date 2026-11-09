@@ -489,10 +489,12 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
                     context: context, api: widget.api, item: line.item!,
                     quantity: line.qty, warehouse: line.warehouse!.id,
                   );
-                  if (picked != null && mounted) setState(() {
-                    line.serialNumbers.text = picked['serial_no']?.toString() ?? '';
-                    line.batchNumber.text = picked['batch_no']?.toString() ?? '';
-                  });
+                  if (picked != null && mounted) {
+                    setState(() {
+                      line.serialNumbers.text = picked['serial_no']?.toString() ?? '';
+                      line.batchNumber.text = picked['batch_no']?.toString() ?? '';
+                    });
+                  }
                 } catch (error) {
                   if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
                 }
