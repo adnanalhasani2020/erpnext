@@ -870,6 +870,39 @@ void main() {
     }
   });
 
+  test('customer ledger filters to one customer and optionally one company', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      expect(request.method, 'GET');
+      expect(request.uri.pathSegments, containsAll(['api', 'resource', 'GL Entry']));
+      final filters = jsonDecode(request.uri.queryParameters['filters']!) as List;
+      expect(filters, [
+        ['party_type', '=', 'Customer'],
+        ['party', '=', 'CUS-1'],
+        ['is_cancelled', '=', 0],
+        ['company', '=', 'COMP-1'],
+      ]);
+      expect(request.uri.queryParameters['limit_start'], '100');
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'data': [{
+        'name': 'GLE-CUS-1', 'posting_date': '2026-11-09', 'party': 'CUS-1',
+        'voucher_type': 'Sales Invoice', 'voucher_no': 'SINV-1',
+        'debit': 125, 'credit': 0, 'company': 'COMP-1',
+      }]}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      final rows = await api.fetchCustomerLedger(customer: 'CUS-1', company: 'COMP-1', start: 100);
+      expect(rows.single['voucher_no'], 'SINV-1');
+      expect(rows.single['debit'], 125);
+      await expectLater(api.fetchCustomerLedger(customer: ' '), throwsFormatException);
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
   test('supplier payment history requests only submitted supplier payments and paginates', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     var requests = 0;
