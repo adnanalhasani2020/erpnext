@@ -52,6 +52,34 @@ void main() {
       );
     });
 
+    test('rejects non-positive expense amounts before network access', () async {
+      await expectLater(
+        api.createExpenseClaimDraft(
+          employee: 'EMP-001',
+          company: 'Company A',
+          postingDate: '2026-11-09',
+          expenseType: 'Travel',
+          amount: '0',
+          account: 'Travel Expenses - AC',
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('requires an expense type before network access', () async {
+      await expectLater(
+        api.createExpenseClaimDraft(
+          employee: 'EMP-001',
+          company: 'Company A',
+          postingDate: '2026-11-09',
+          expenseType: '',
+          amount: '10',
+          account: 'Travel Expenses - AC',
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
     test('requires leave type for leave attendance before network access', () async {
       await expectLater(
         api.createAttendanceDraft(
