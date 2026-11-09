@@ -69,4 +69,30 @@ void main() {
     );
     api.dispose();
   });
+
+  test('fetches sales pricing rules using the requested page offset', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      expect(request.method, 'GET');
+      expect(request.uri.pathSegments.last, 'Pricing Rule');
+      expect(request.uri.queryParameters['limit_start'], '40');
+      expect(request.uri.queryParameters['limit_page_length'], FrappeApi.pageSize.toString());
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({
+        'data': [
+          {'name': 'PR-0041', 'title': 'Rule 41', 'selling': 1, 'buying': 0},
+        ],
+      }));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      final rows = await api.fetchSellingPricingRules(start: 40);
+      expect(rows, hasLength(1));
+      expect(rows.single['name'], 'PR-0041');
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
 }
