@@ -337,9 +337,14 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
           alignment: AlignmentDirectional.centerStart,
           child: OutlinedButton.icon(
             onPressed: () {
-              setState(() => _showInventoryValuation = !_showInventoryValuation);
-              if (_showInventoryValuation && !_stockLoaded && !_stockLoading) {
-                _loadInventoryValuation();
+              final showInventory = !_showInventoryValuation;
+              setState(() => _showInventoryValuation = showInventory);
+              if (showInventory) {
+                if (!_stockLoaded && !_stockLoading) _loadInventoryValuation();
+              } else {
+                // Apply any company filter selected while viewing inventory to
+                // the aging report instead of showing stale company results.
+                _load();
               }
             },
             icon: Icon(_showInventoryValuation ? Icons.account_balance_outlined : Icons.inventory_2_outlined),

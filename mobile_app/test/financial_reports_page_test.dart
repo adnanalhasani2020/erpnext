@@ -46,6 +46,13 @@ void main() {
       expect(find.text('ITEM-1'), findsOneWidget);
       expect(find.text('ITEM-2'), findsOneWidget);
       expect(requested, containsAll(['Warehouse', 'Bin']));
+
+      await tester.tap(find.text('العودة إلى تقارير الذمم'));
+      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+      await tester.pump();
+      expect(find.text('ذمم العملاء'), findsOneWidget);
+      expect(requested.where((type) => type == 'Sales Invoice').length, greaterThanOrEqualTo(2));
     } finally {
       api.dispose();
       await server.close(force: true);
