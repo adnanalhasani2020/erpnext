@@ -1754,7 +1754,7 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
                 Text('${widget.customer.name} • ${widget.customer.id}'),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  value: _company ?? '',
+                  initialValue: _company ?? '',
                   isExpanded: true,
                   decoration: const InputDecoration(labelText: 'الشركة'),
                   items: [
