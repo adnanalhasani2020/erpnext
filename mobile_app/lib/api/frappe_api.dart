@@ -1717,7 +1717,7 @@ class FrappeApi {
       _submitMobileDocument(doc, 'Stock Reconciliation');
 
   Future<void> deleteDraftDocument({required String doctype, required String name}) async {
-    const allowed = {'Purchase Invoice', 'Purchase Receipt', 'Stock Entry', 'Stock Reconciliation'};
+    const allowed = {'Purchase Invoice', 'Purchase Order', 'Purchase Receipt', 'Stock Entry', 'Stock Reconciliation'};
     if (!allowed.contains(doctype) || name.trim().isEmpty) {
       throw const FormatException('نوع أو رقم المسودة غير صحيح.');
     }
