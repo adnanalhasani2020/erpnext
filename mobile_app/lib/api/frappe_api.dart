@@ -3870,6 +3870,27 @@ class FrappeApi {
       throw const FormatException('حالة الحضور المحددة غير مدعومة.');
     }
     await _fetchHrEmployee(employee, company);
+    final duplicateUri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Attendance',
+      fields: const ['name', 'docstatus'],
+      filters: [
+        ['employee', '=', employee.trim()],
+        ['attendance_date', '=', attendanceDate.trim()],
+      ],
+      orderBy: 'modified desc',
+      pageLength: 10,
+    );
+    final duplicateResponse = await _sendUri('GET', duplicateUri);
+    final duplicateData = _decode(duplicateResponse.body);
+    if (duplicateResponse.statusCode < 200 || duplicateResponse.statusCode >= 300) {
+      throw Exception(_message(duplicateData, 'تعذر التحقق من سجلات الحضور السابقة.'));
+    }
+    final existingAttendance = duplicateData['data'];
+    if (existingAttendance is! List) throw const FormatException('استجابة التحقق من تكرار الحضور غير متوقعة.');
+    if (existingAttendance.whereType<Map<String, dynamic>>().any((row) => row['docstatus'] != 2)) {
+      throw const FormatException('يوجد سجل حضور أو مسودة لهذا الموظف في التاريخ المحدد.');
+    }
     if (status == 'On Leave' && (leaveType?.trim().isEmpty ?? true)) {
       throw const FormatException('حدد نوع الإجازة عند تسجيل حالة في إجازة.');
     }
@@ -3935,12 +3956,114 @@ class FrappeApi {
     return Map<String, dynamic>.from(created);
   }
 
+  Future<List<Map<String, dynamic>>> fetchExpenseClaimTypes() async {
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Expense Claim Type',
+      fields: const ['name', 'default_account', 'disabled'],
+      filters: const [['disabled', '=', 0]],
+      orderBy: 'name asc',
+      pageLength: 100,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل أنواع المصروفات.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw const FormatException('استجابة أنواع المصروفات غير متوقعة.');
+    return rows.whereType<Map<String, dynamic>>()
+      .where((row) => row['disabled'] != 1 && row['disabled'] != true)
+      .map((row) => Map<String, dynamic>.from(row)).toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>> createExpenseClaimDraft({
+    required String employee,
+    required String company,
+    required String postingDate,
+    required String expenseType,
+    required String amount,
+    required String account,
+    String description = '',
+    String costCenter = '',
+  }) async {
+    final date = DateTime.tryParse(postingDate.trim());
+    final value = double.tryParse(amount.trim());
+    if (date == null || date.toIso8601String().substring(0, 10) != postingDate.trim()) {
+      throw const FormatException('تاريخ المطالبة يجب أن يكون بصيغة YYYY-MM-DD.');
+    }
+    if (value == null || !value.isFinite || value <= 0) {
+      throw const FormatException('أدخل مبلغ مصروف أكبر من صفر.');
+    }
+    if (expenseType.trim().isEmpty || account.trim().isEmpty) {
+      throw const FormatException('نوع المصروف والحساب حقول مطلوبة.');
+    }
+    await _fetchHrEmployee(employee, company);
+    final typeResponse = await _send('GET', '/api/resource/Expense%20Claim%20Type/' + Uri.encodeComponent(expenseType.trim()));
+    final typeData = _decode(typeResponse.body);
+    final type = typeData['data'];
+    if (typeResponse.statusCode < 200 || typeResponse.statusCode >= 300 ||
+        type is! Map<String, dynamic> || type['name'] != expenseType.trim() ||
+        type['disabled'] == 1 || type['disabled'] == true) {
+      throw const FormatException('نوع المصروف غير موجود أو معطل في ERPNext.');
+    }
+    final configuredAccount = type['default_account']?.toString().trim() ?? '';
+    final selectedAccount = configuredAccount.isNotEmpty ? configuredAccount : account.trim();
+    final accountResponse = await _send('GET', '/api/resource/Account/' + Uri.encodeComponent(selectedAccount));
+    final accountData = _decode(accountResponse.body);
+    final accountDoc = accountData['data'];
+    if (accountResponse.statusCode < 200 || accountResponse.statusCode >= 300 ||
+        accountDoc is! Map<String, dynamic> || accountDoc['company'] != company.trim() ||
+        accountDoc['is_group'] == 1 || accountDoc['is_group'] == true ||
+        accountDoc['disabled'] == 1 || accountDoc['disabled'] == true) {
+      throw const FormatException('حساب المصروف غير صالح أو لا يتبع الشركة المحددة أو ليس حساب حركة.');
+    }
+    final normalizedCostCenter = costCenter.trim();
+    if (normalizedCostCenter.isNotEmpty) {
+      final costResponse = await _send('GET', '/api/resource/Cost%20Center/' + Uri.encodeComponent(normalizedCostCenter));
+      final costData = _decode(costResponse.body);
+      final costDoc = costData['data'];
+      if (costResponse.statusCode < 200 || costResponse.statusCode >= 300 ||
+          costDoc is! Map<String, dynamic> || costDoc['company'] != company.trim() ||
+          costDoc['is_group'] == 1 || costDoc['is_group'] == true ||
+          costDoc['disabled'] == 1 || costDoc['disabled'] == true) {
+        throw const FormatException('مركز التكلفة غير صالح أو لا يتبع الشركة المحددة.');
+      }
+    }
+    final payload = <String, dynamic>{
+      'doctype': 'Expense Claim',
+      'employee': employee.trim(),
+      'company': company.trim(),
+      'posting_date': postingDate.trim(),
+      'expenses': [{
+        'doctype': 'Expense Claim Detail',
+        'expense_type': expenseType.trim(),
+        'amount': value,
+        'default_account': selectedAccount,
+        'description': description.trim(),
+        if (normalizedCostCenter.isNotEmpty) 'cost_center': normalizedCostCenter,
+      }],
+    };
+    final response = await _sendJson('POST', '/api/resource/Expense%20Claim', payload);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر إنشاء مسودة مطالبة المصروفات.'));
+    }
+    final created = data['data'];
+    if (created is! Map<String, dynamic> || created['doctype'] != 'Expense Claim' ||
+        created['name'] is! String || created['docstatus'] != 0 ||
+        created['employee'] != employee.trim() || created['company'] != company.trim()) {
+      throw const FormatException('لم يؤكد ERPNext إنشاء مطالبة المصروفات المطابقة.');
+    }
+    return Map<String, dynamic>.from(created);
+  }
+
   Future<Map<String, dynamic>> submitHrDraft({
     required String doctype,
     required String name,
     required String company,
   }) async {
-    if (doctype != 'Attendance' && doctype != 'Leave Application') {
+    if (doctype != 'Attendance' && doctype != 'Leave Application' && doctype != 'Expense Claim') {
       throw ArgumentError.value(doctype, 'doctype', 'ترحيل هذا النوع من سجلات الموارد البشرية غير مدعوم.');
     }
     final id = name.trim(), normalizedCompany = company.trim();
