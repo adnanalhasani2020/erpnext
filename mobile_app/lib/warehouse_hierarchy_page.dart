@@ -80,7 +80,7 @@ class _WarehouseHierarchyPageState extends State<WarehouseHierarchyPage> {
           padding: const EdgeInsets.all(12),
           child: Column(children: [
             DropdownButtonFormField<String>(
-              value: _company,
+              initialValue: _company,
               isExpanded: true,
               decoration: const InputDecoration(labelText: 'تصفية حسب الشركة'),
               items: [
