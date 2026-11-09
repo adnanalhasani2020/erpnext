@@ -85,6 +85,17 @@ void main() {
     expect(uri.queryParameters['filters'], '[["disabled","=",0]]');
   });
 
+  test('encodes ERPNext doctypes with spaces exactly once', () {
+    final uri = FrappeApi.buildResourcePageUri(
+      baseUrl: 'https://erp.example.com',
+      resource: 'GL Entry',
+      fields: ['name', 'party'],
+      orderBy: 'posting_date desc',
+    );
+    expect(uri.path, '/api/resource/GL%20Entry');
+    expect(uri.pathSegments.last, 'GL Entry');
+  });
+
   test('builds server-side OR search filters with pagination', () {
     final uri = FrappeApi.buildResourcePageUri(
       baseUrl: 'https://erp.example.com',
