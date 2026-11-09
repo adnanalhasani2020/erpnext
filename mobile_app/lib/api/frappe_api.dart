@@ -1403,6 +1403,74 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().map(ErpPurchaseInvoice.fromJson).toList(growable: false);
   }
 
+  /// Loads bounded, submitted sales invoices for the mobile sales dashboard.
+  /// Currency totals are aggregated by the caller; this method never converts
+  /// or combines amounts from different currencies.
+  Future<List<Map<String, dynamic>>> fetchSalesDashboardInvoices({
+    required String company,
+    required String fromDate,
+    required String toDate,
+  }) async {
+    final normalizedCompany = company.trim();
+    final startDate = DateTime.tryParse(fromDate);
+    final endDate = DateTime.tryParse(toDate);
+    if (normalizedCompany.isEmpty || startDate == null || endDate == null ||
+        startDate.isAfter(endDate)) {
+      throw const FormatException('حدد الشركة وفترة زمنية صحيحة للوحة المبيعات.');
+    }
+    const maxRows = 10000;
+    final rows = <Map<String, dynamic>>[];
+    var start = 0;
+    while (true) {
+      final uri = buildResourcePageUri(
+        baseUrl: _baseUrl,
+        resource: 'Sales Invoice',
+        fields: const [
+          'name', 'customer', 'customer_name', 'posting_date', 'currency',
+          'grand_total', 'outstanding_amount', 'status',
+        ],
+        filters: [
+          ['docstatus', '=', 1],
+          ['is_return', '=', 0],
+          ['company', '=', normalizedCompany],
+          ['posting_date', 'between', [fromDate, toDate]],
+        ],
+        orderBy: 'posting_date desc, name desc',
+        start: start,
+      );
+      final response = await _sendUri('GET', uri);
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر تحميل بيانات لوحة المبيعات. تحقق من صلاحية قراءة Sales Invoice.'));
+      }
+      final page = data['data'];
+      if (page is! List) {
+        throw Exception('استجابة لوحة المبيعات من ERPNext غير متوقعة.');
+      }
+      for (final row in page) {
+        if (row is! Map<String, dynamic> ||
+            row['name'] is! String ||
+            row['customer'] is! String ||
+            row['currency'] is! String) {
+          throw const FormatException('تحتوي بيانات لوحة المبيعات على فاتورة غير مكتملة.');
+        }
+        final total = double.tryParse(row['grand_total']?.toString() ?? '');
+        final outstanding = double.tryParse(row['outstanding_amount']?.toString() ?? '');
+        if (total == null || !total.isFinite ||
+            outstanding == null || !outstanding.isFinite ||
+            outstanding < -0.01 || outstanding > total.abs() + 0.01) {
+          throw const FormatException('تحتوي بيانات لوحة المبيعات على مبالغ غير صالحة.');
+        }
+        rows.add(row);
+      }
+      if (rows.length > maxRows) {
+        throw const FormatException('تجاوزت لوحة المبيعات 10000 فاتورة؛ قلّص الفترة الزمنية.');
+      }
+      if (page.length < pageSize) return rows;
+      start += page.length;
+    }
+  }
+
   /// Loads all submitted, non-return invoices that still have an outstanding
   /// balance. Results are intentionally bounded to avoid unbounded memory use
   /// on very large sites; callers can narrow the report by company.
