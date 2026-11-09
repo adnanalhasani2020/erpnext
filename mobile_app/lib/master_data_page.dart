@@ -121,6 +121,8 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
   bool loading = false, saving = false, stock = true, serial = false, batch = false, expiry = false, disabled = false, group = false, enabled = true, wholeNumber = false, buying = false, selling = true;
   String supplierType = 'Company';
   String? company, error;
+  final Map<String, List<Map<String, dynamic>>> references = {};
+  bool referencesLoading = false;
   bool get editing => widget.name != null;
 
   @override
@@ -138,10 +140,69 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
     for (final k in keys) { fields[k] = TextEditingController(); }
     if (widget.companies.isNotEmpty) company = widget.companies.first.name;
     if (editing) load();
+    _loadReferences();
   }
 
   @override
   void dispose() { for (final c in fields.values) { c.dispose(); } super.dispose(); }
+
+  Future<void> _loadReferences() async {
+    final requiredTypes = switch (widget.type) {
+      'Item' => const ['Item Group', 'UOM'],
+      'Supplier' => const ['Supplier Group'],
+      'Warehouse' => const ['Warehouse'],
+      'Item Group' => const ['Item Group'],
+      'Supplier Group' => const ['Supplier Group'],
+      _ => const <String>[],
+    };
+    if (requiredTypes.isEmpty) return;
+    setState(() => referencesLoading = true);
+    try {
+      final results = await Future.wait(requiredTypes.map(widget.api.fetchMasterDataOptions));
+      if (!mounted) return;
+      for (var i = 0; i < requiredTypes.length; i++) {
+        references[requiredTypes[i]] = results[i];
+      }
+      setState(() {});
+    } catch (e) {
+      if (mounted) setState(() => error = 'تعذر تحميل القوائم المرجعية: ' + e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => referencesLoading = false);
+    }
+  }
+
+  Widget referenceField(String key, String label, String doctype, {bool required = false, bool groupsOnly = false, bool sameCompany = false}) {
+    final current = fields[key]?.text.trim() ?? '';
+    var options = references[doctype] ?? const <Map<String, dynamic>>[];
+    options = options.where((row) {
+      if (widget.type == 'UOM' && (row['enabled'] == 0 || row['enabled'] == false)) return false;
+      if (groupsOnly && row['is_group'] != 1 && row['is_group'] != true) return false;
+      if (sameCompany && row['company'] != company) return false;
+      if (editing && key != 'parent_warehouse' && key != 'item_group' && key != 'supplier_group' &&
+          row['name'] == widget.name) return false;
+      if (key.startsWith('parent_') && row['name'] == widget.name) return false;
+      return true;
+    }).toList(growable: false);
+    final names = options.map((row) => row['name']?.toString() ?? '').where((v) => v.isNotEmpty).toSet().toList();
+    if (current.isNotEmpty && !names.contains(current)) names.insert(0, current);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: DropdownButtonFormField<String>(
+        value: current.isEmpty ? null : current,
+        isExpanded: true,
+        decoration: InputDecoration(labelText: label, suffixIcon: referencesLoading ? const Padding(padding: EdgeInsets.all(12), child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))) : null),
+        items: [
+          if (!required) const DropdownMenuItem<String>(value: '', child: Text('بدون تحديد')),
+          ...names.map((name) => DropdownMenuItem(value: name, child: Text(name, overflow: TextOverflow.ellipsis))),
+        ],
+        onChanged: saving || referencesLoading ? null : (value) {
+          fields[key]?.text = value ?? '';
+          setState(() {});
+        },
+        validator: required ? (value) => value == null || value.trim().isEmpty ? 'هذا الحقل مطلوب' : null : null,
+      ),
+    );
+  }
 
   Future<void> load() async {
     setState(() { loading = true; error = null; });
@@ -206,7 +267,7 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
           if (error != null) Card(child: Padding(padding: const EdgeInsets.all(10), child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)))),
           if (widget.type == 'Item') ...[
             field('item_code', 'رمز الصنف', required: true), field('item_name', 'اسم الصنف', required: true),
-            field('item_group', 'مجموعة الأصناف', required: true), field('stock_uom', 'وحدة القياس', required: true),
+            referenceField('item_group', 'مجموعة الأصناف', 'Item Group', required: true, groupsOnly: true), referenceField('stock_uom', 'وحدة القياس', 'UOM', required: true),
             toggle('صنف مخزني', stock, (v) => setState(() => stock = v)),
             toggle('تتبع بالأرقام التسلسلية', serial, (v) => setState(() { serial = v; if (v) batch = false; })),
             toggle('تتبع بالدفعات', batch, (v) => setState(() { batch = v; if (v) serial = false; })),
@@ -216,7 +277,7 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
             DropdownButtonFormField<String>(value: supplierType, decoration: const InputDecoration(labelText: 'نوع المورد'),
               items: const [DropdownMenuItem(value: 'Company', child: Text('شركة')), DropdownMenuItem(value: 'Individual', child: Text('فرد'))],
               onChanged: saving ? null : (v) { if (v != null) setState(() => supplierType = v); }),
-            const SizedBox(height: 10), field('supplier_group', 'مجموعة الموردين', required: true),
+            const SizedBox(height: 10), referenceField('supplier_group', 'مجموعة الموردين', 'Supplier Group', required: true, groupsOnly: true),
             field('country', 'الدولة'), field('tax_id', 'الرقم الضريبي'),
             field('mobile_no', 'الهاتف', keyboard: TextInputType.phone), field('email_id', 'البريد الإلكتروني', keyboard: TextInputType.emailAddress),
             field('website', 'الموقع الإلكتروني'),
@@ -226,15 +287,15 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
               items: widget.companies.map((c) => DropdownMenuItem(value: c.name, child: Text(c.name))).toList(),
               onChanged: saving || editing ? null : (v) => setState(() => company = v),
               validator: (v) => v == null || v.isEmpty ? 'حدد الشركة' : null),
-            const SizedBox(height: 10), field('parent_warehouse', 'المستودع الأب (اختياري)'),
+            const SizedBox(height: 10), referenceField('parent_warehouse', 'المستودع الأب (اختياري)', 'Warehouse', groupsOnly: true, sameCompany: true),
             toggle('مجموعة مستودعات', group, (v) => setState(() => group = v)),
           ] else if (widget.type == 'Item Group') ...[
             field('item_group_name', 'اسم المجموعة', required: true),
-            field('parent_item_group', 'المجموعة الأب (اختياري)'),
+            referenceField('parent_item_group', 'المجموعة الأب (اختياري)', 'Item Group', groupsOnly: true),
             toggle('مجموعة رئيسية', group, (v) => setState(() => group = v)),
           ] else if (widget.type == 'Supplier Group') ...[
             field('supplier_group_name', 'اسم مجموعة الموردين', required: true),
-            field('parent_supplier_group', 'المجموعة الأب (اختياري)'),
+            referenceField('parent_supplier_group', 'المجموعة الأب (اختياري)', 'Supplier Group', groupsOnly: true),
             toggle('مجموعة رئيسية', group, (v) => setState(() => group = v)),
           ] else if (widget.type == 'UOM') ...[
             field('uom_name', 'اسم وحدة القياس', required: true),
