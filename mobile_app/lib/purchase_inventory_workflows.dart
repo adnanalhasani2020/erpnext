@@ -1460,6 +1460,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
   Future<List<Map<String, dynamic>>?> _stockItemLinesDialog({
     required String title, bool includeRate = false, bool allowZeroQuantity = false, bool requirePositiveRate = false,
     String? trackingWarehouse,
+    String? reconciliationWarehouse,
   }) async {
     if (widget.items.isEmpty) return null;
     final lines = <Map<String, dynamic>>[];
@@ -1470,6 +1471,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         'rate': TextEditingController(text: '0'),
         'serial_no': TextEditingController(),
         'batch_no': TextEditingController(),
+        'current_serial_no': TextEditingController(),
+        'current_qty': null,
       });
     }
     addLine();
@@ -1499,6 +1502,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                       (removed['rate'] as TextEditingController).dispose();
                       (removed['serial_no'] as TextEditingController).dispose();
                       (removed['batch_no'] as TextEditingController).dispose();
+                      (removed['current_serial_no'] as TextEditingController).dispose();
                     }), icon: const Icon(Icons.delete_outline)),
                   ]),
                   DropdownButtonFormField<String>(
@@ -1515,6 +1519,86 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                       decoration: const InputDecoration(labelText: 'الأرقام التسلسلية', helperText: 'رقم لكل وحدة.')),
                   if (item?.hasBatchNo == true)
                     TextField(controller: row['batch_no'] as TextEditingController, decoration: const InputDecoration(labelText: 'رقم الدفعة')),
+                  if (allowZeroQuantity && item != null && (item.hasSerialNo || item.hasBatchNo)) ...[
+                    TextField(controller: row['current_serial_no'] as TextEditingController, readOnly: true,
+                      minLines: 1, maxLines: 4,
+                      decoration: const InputDecoration(labelText: 'الأرقام الحالية في المستودع', helperText: 'تُحمّل من رصيد ERPNext قبل التسوية.')),
+                    Text('الكمية الحالية: ${row['current_qty'] ?? 'لم يتم تحميلها'}'),
+                    Align(alignment: AlignmentDirectional.centerEnd, child: TextButton.icon(
+                      onPressed: () async {
+                        try {
+                          final balanceRows = await widget.api.fetchStockBalances(
+                            warehouse: trackingWarehouseForReconciliation,
+                            search: item.code,
+                          );
+                          final balances = balanceRows.where((entry) =>
+                            entry.itemCode == item.code && entry.warehouse == reconciliationWarehouse).toList();
+                          final actualQty = balances.isEmpty ? 0.0 : balances.first.actualQty;
+                          String batchNo = (row['batch_no'] as TextEditingController).text.trim();
+                          var currentQty = actualQty;
+                          if (item.hasBatchNo) {
+                            final available = await widget.api.fetchAvailableBatches(
+                              itemCode: item.code, warehouse: reconciliationWarehouse,
+                            );
+                            if (batchNo.isEmpty && available.length == 1) {
+                              batchNo = available.first['batch_no'].toString();
+                            } else if (batchNo.isEmpty && available.length > 1) {
+                              final chosen = await showDialog<String>(
+                                context: context,
+                                builder: (pickerContext) => AlertDialog(
+                                  title: const Text('اختر الدفعة الحالية'),
+                                  content: DropdownButtonFormField<String>(
+                                    initialValue: available.first['batch_no'].toString(),
+                                    isExpanded: true,
+                                    items: available.map((entry) => DropdownMenuItem(
+                                      value: entry['batch_no'].toString(),
+                                      child: Text(entry['batch_no'].toString() + ' • ' + (entry['qty'] ?? 0).toString()),
+                                    )).toList(),
+                                    onChanged: (value) => Navigator.pop(pickerContext, value),
+                                  ),
+                                ),
+                              );
+                              if (chosen == null) return;
+                              batchNo = chosen;
+                            }
+                            final batchRows = available.where((entry) => entry['batch_no'] == batchNo).toList();
+                            currentQty = batchRows.isEmpty ? 0.0 :
+                              (double.tryParse(batchRows.first['qty']?.toString() ?? '') ?? 0);
+                            if (batchNo.isEmpty && currentQty > 0) {
+                              notice('اختر الدفعة قبل تحميل رصيدها الحالي.');
+                              return;
+                            }
+                            (row['batch_no'] as TextEditingController).text = batchNo;
+                          }
+                          var currentSerials = <String>[];
+                          if (item.hasSerialNo && currentQty > 0) {
+                            if ((currentQty - currentQty.round()).abs() > 0.000001 || currentQty > 200) {
+                              notice('عدد الأرقام الحالية يتجاوز الحد الآمن أو ليس عدداً صحيحاً؛ استخدم شاشة ERPNext المكتبية.');
+                              return;
+                            }
+                            currentSerials = await widget.api.fetchAvailableSerialNumbers(
+                              itemCode: item.code,
+                              warehouse: reconciliationWarehouse,
+                              quantity: currentQty.round(),
+                              batchNumbers: batchNo.isEmpty ? const [] : [batchNo],
+                            );
+                            if (currentSerials.length != currentQty.round()) {
+                              notice('لم تتطابق الأرقام الحالية مع كمية الصنف؛ لم يتم تحميل لقطة غير مكتملة.');
+                              return;
+                            }
+                          }
+                          refresh(() {
+                            row['current_qty'] = currentQty;
+                            (row['current_serial_no'] as TextEditingController).text = currentSerials.join('\n');
+                          });
+                        } catch (error) {
+                          notice(error.toString().replaceFirst('Exception: ', ''));
+                        }
+                      },
+                      icon: const Icon(Icons.sync),
+                      label: const Text('تحميل الأرقام والكمية الحالية'),
+                    )),
+                  ],
                   if (trackingWarehouse != null && item != null &&
                       (item.hasSerialNo || item.hasBatchNo))
                     Align(alignment: AlignmentDirectional.centerEnd, child: TextButton.icon(
@@ -1560,8 +1644,17 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                     (includeRate && (rate == null || !rate.isFinite || (requirePositiveRate ? rate <= 0 : rate < 0)))) return;
                 final serialText = (row['serial_no'] as TextEditingController).text;
                 final batchText = (row['batch_no'] as TextEditingController).text;
-                if (allowZeroQuantity && qty == 0 && (selectedItem.hasSerialNo || selectedItem.hasBatchNo)) {
-                  notice('تسوية الصنف المتتبع إلى صفر تتطلب تحديد الأرقام الحالية التي ستُزال؛ لم يتم إنشاء تسوية غير مكتملة.');
+                final currentQty = row['current_qty'];
+                final currentSerialText = (row['current_serial_no'] as TextEditingController).text;
+                if (allowZeroQuantity && (selectedItem.hasSerialNo || selectedItem.hasBatchNo) &&
+                    (currentQty is! num || !currentQty.isFinite || currentQty < 0)) {
+                  notice('حمّل الأرقام والكمية الحالية للصنف المتتبع قبل التسوية.');
+                  return;
+                }
+                if (allowZeroQuantity && qty == 0 && (selectedItem.hasSerialNo || selectedItem.hasBatchNo) &&
+                    ((selectedItem.hasSerialNo && currentSerialText.trim().isEmpty && (currentQty as num) > 0) ||
+                     (selectedItem.hasBatchNo && batchText.trim().isEmpty))) {
+                  notice('تعذر تحديد الأرقام أو الدفعة الحالية التي ستُزال من المستودع.');
                   return;
                 }
                 final trackingKey = selectedItem.hasBatchNo
@@ -1572,10 +1665,22 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                   return;
                 }
                 try {
+                  final trackingFields = allowZeroQuantity && qty == 0 &&
+                      (selectedItem.hasSerialNo || selectedItem.hasBatchNo)
+                      ? <String, dynamic>{
+                          'use_serial_batch_fields': 1,
+                          'serial_no': '',
+                          if (selectedItem.hasBatchNo) 'batch_no': batchText.trim(),
+                        }
+                      : buildSerialBatchFields(item: selectedItem, quantity: qty,
+                          serialNumbers: serialText, batchNumber: batchText);
                   result.add({'item_code': row['item'], 'qty': qty,
                     if (includeRate) 'valuation_rate': rate,
-                    ...buildSerialBatchFields(item: selectedItem, quantity: qty,
-                      serialNumbers: serialText, batchNumber: batchText)});
+                    if (allowZeroQuantity && (selectedItem.hasSerialNo || selectedItem.hasBatchNo)) ...{
+                      'current_qty': currentQty,
+                      'current_serial_no': currentSerialText,
+                    },
+                    ...trackingFields});
                 } catch (error) { notice(error.toString().replaceFirst('FormatException: ', '')); return; }
               }
               if (result.isNotEmpty) Navigator.pop(dialogContext, result);
@@ -1589,6 +1694,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         (row['rate'] as TextEditingController).dispose();
         (row['serial_no'] as TextEditingController).dispose();
         (row['batch_no'] as TextEditingController).dispose();
+        (row['current_serial_no'] as TextEditingController).dispose();
       }
     }
   }
@@ -2085,6 +2191,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       title: 'أصناف الجرد والكميات الفعلية',
       includeRate: true,
       allowZeroQuantity: true,
+      reconciliationWarehouse: warehouse,
     );
     if (lines == null || !mounted) return;
     try {

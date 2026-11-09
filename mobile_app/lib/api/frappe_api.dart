@@ -102,7 +102,25 @@ class FrappeApi {
       final useFields = raw['use_serial_batch_fields'] == 1 || raw['use_serial_batch_fields'] == true;
       if (!useFields && serialText.trim().isEmpty && batch.isEmpty) continue;
       final qty = raw['qty'];
-      if (qty is! num || !qty.isFinite || qty <= 0) throw const FormatException('كمية الصنف المتتبع غير صحيحة.');
+      final currentQty = raw['current_qty'];
+      final currentSerialText = raw['current_serial_no']?.toString() ?? '';
+      final currentSerials = currentSerialText.split(RegExp(r'[\r\n,;]+')).map((v) => v.trim()).where((v) => v.isNotEmpty).toList();
+      if (qty is! num || !qty.isFinite || qty < 0) throw const FormatException('كمية الصنف المتتبع غير صحيحة.');
+      if (currentQty != null && (currentQty is! num || !currentQty.isFinite || currentQty < 0)) {
+        throw const FormatException('الكمية الحالية للصنف المتتبع غير صحيحة.');
+      }
+      if (currentSerials.isNotEmpty &&
+          (currentQty is! num || (currentQty - currentQty.round()).abs() > 0.000001 ||
+              currentSerials.length != currentQty.round())) {
+        throw const FormatException('عدد الأرقام التسلسلية الحالية لا يطابق الرصيد الحالي.');
+      }
+      if (qty == 0) {
+        if (currentQty is! num || currentQty <= 0 ||
+            (currentSerials.isEmpty && batch.isEmpty) || serialText.trim().isNotEmpty) {
+          throw const FormatException('تسوية الصنف المتتبع إلى صفر تتطلب لقطة صحيحة للأرقام أو الدفعة الحالية.');
+        }
+        continue;
+      }
       final serials = serialText.split(RegExp(r'[\r\n,;]+')).map((v) => v.trim()).where((v) => v.isNotEmpty).toList();
       if (serials.isNotEmpty) {
         final rounded = qty.round();
