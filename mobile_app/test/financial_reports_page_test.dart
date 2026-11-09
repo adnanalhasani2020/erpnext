@@ -4,9 +4,54 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:erpnext_mobile/api/frappe_api.dart';
+import 'package:erpnext_mobile/models/erp_models.dart';
 import 'package:erpnext_mobile/financial_reports_page.dart';
 
 void main() {
+  testWidgets('inventory valuation groups Bin stock value by company currency', (tester) async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final requested = <String>[];
+    server.listen((request) async {
+      requested.add(request.uri.pathSegments.last);
+      request.response.headers.contentType = ContentType.json;
+      if (request.uri.path.endsWith('/Warehouse')) {
+        request.response.write(jsonEncode({'data': [
+          {'name': 'Main - AC', 'warehouse_name': 'Main', 'company': 'Company A', 'is_group': 0},
+        ]}));
+      } else if (request.uri.path.endsWith('/Bin')) {
+        request.response.write(jsonEncode({'data': [
+          {'item_code': 'ITEM-1', 'warehouse': 'Main - AC', 'actual_qty': 4, 'stock_uom': 'Nos', 'valuation_rate': 10, 'stock_value': 40},
+          {'item_code': 'ITEM-2', 'warehouse': 'Main - AC', 'actual_qty': 3, 'stock_uom': 'Nos', 'valuation_rate': 20, 'stock_value': 60},
+        ]}));
+      } else {
+        request.response.statusCode = HttpStatus.notFound;
+        request.response.write(jsonEncode({'message': 'Not found'}));
+      }
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      await tester.pumpWidget(MaterialApp(
+        home: FinancialReportsPage(
+          api: api,
+          companies: const [ErpCompany(name: 'Company A', defaultCurrency: 'YER')],
+        ),
+      ));
+      await tester.tap(find.text('فتح تقرير قيمة المخزون'));
+      await tester.pump();
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
+      await tester.pump();
+      expect(find.text('Company A'), findsOneWidget);
+      expect(find.textContaining('100.00 YER'), findsOneWidget);
+      expect(find.text('ITEM-1'), findsOneWidget);
+      expect(find.text('ITEM-2'), findsOneWidget);
+      expect(requested, containsAll(['Warehouse', 'Bin']));
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
   testWidgets('financial aging report loads receivables and switches to payables', (tester) async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final requestedTypes = <String>[];
