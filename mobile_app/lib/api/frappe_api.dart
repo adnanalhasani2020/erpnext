@@ -3288,6 +3288,144 @@ class FrappeApi {
     if (document is! Map<String, dynamic>) throw Exception('تفاصيل الفاتورة من ERPNext غير متوقعة.');
     return document;
   }
+  // Allow-listed mobile master-data access; ERPNext remains authoritative.
+  static const Map<String, List<String>> _masterDataFields = {
+    'Item': ['name', 'item_code', 'item_name', 'item_group', 'stock_uom',
+      'is_stock_item', 'has_serial_no', 'has_batch_no', 'has_expiry_date', 'disabled'],
+    'Supplier': ['name', 'supplier_name', 'supplier_type', 'supplier_group',
+      'country', 'tax_id', 'mobile_no', 'email_id', 'website', 'disabled'],
+    'Warehouse': ['name', 'warehouse_name', 'company', 'parent_warehouse',
+      'is_group', 'disabled'],
+  };
+
+  static const Map<String, Set<String>> _masterDataWritableFields = {
+    'Item': {'item_code', 'item_name', 'item_group', 'stock_uom',
+      'is_stock_item', 'has_serial_no', 'has_batch_no', 'has_expiry_date', 'disabled'},
+    'Supplier': {'supplier_name', 'supplier_type', 'supplier_group',
+      'country', 'tax_id', 'mobile_no', 'email_id', 'website', 'disabled'},
+    'Warehouse': {'warehouse_name', 'company', 'parent_warehouse', 'is_group', 'disabled'},
+  };
+
+  Future<List<Map<String, dynamic>>> fetchMasterDataRows({
+    required String doctype,
+    int start = 0,
+    String? search,
+  }) async {
+    final fields = _masterDataFields[doctype];
+    if (fields == null) throw ArgumentError.value(doctype, 'doctype', 'نوع بيانات غير مدعوم.');
+    final query = search?.trim();
+    final searchable = switch (doctype) {
+      'Item' => const ['name', 'item_name', 'item_group'],
+      'Supplier' => const ['name', 'supplier_name', 'supplier_group'],
+      'Warehouse' => const ['name', 'warehouse_name', 'company'],
+      _ => const <String>[],
+    };
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: doctype,
+      fields: fields,
+      filters: const [],
+      orFilters: query == null || query.isEmpty
+          ? null
+          : searchable.map((field) => [field, 'like', '%$query%']).toList(),
+      orderBy: 'modified desc, name asc',
+      start: start,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل بيانات $doctype. تحقق من صلاحية القراءة.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة بيانات $doctype غير متوقعة.');
+    return rows.whereType<Map<String, dynamic>>()
+        .map((row) => Map<String, dynamic>.from(row)).toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>> fetchMasterDataDocument({
+    required String doctype,
+    required String name,
+  }) async {
+    if (!_masterDataFields.containsKey(doctype)) {
+      throw ArgumentError.value(doctype, 'doctype', 'نوع بيانات غير مدعوم.');
+    }
+    final id = name.trim();
+    if (id.isEmpty) throw const FormatException('حدد السجل أولاً.');
+    final uri = Uri.parse('$_baseUrl/api/resource/${Uri.encodeComponent(doctype)}/${Uri.encodeComponent(id)}')
+        .replace(queryParameters: {'fields': jsonEncode(_masterDataFields[doctype])});
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل تفاصيل السجل.'));
+    }
+    final document = data['data'];
+    if (document is! Map<String, dynamic> || document['name'] != id) {
+      throw Exception('لم تتطابق هوية السجل المسترجع مع المطلوب.');
+    }
+    return Map<String, dynamic>.from(document);
+  }
+
+  Future<Map<String, dynamic>> saveMasterDataDocument({
+    required String doctype,
+    String? name,
+    required Map<String, dynamic> values,
+  }) async {
+    final allowed = _masterDataWritableFields[doctype];
+    if (allowed == null) throw ArgumentError.value(doctype, 'doctype', 'نوع بيانات غير مدعوم.');
+    final payload = <String, dynamic>{};
+    for (final entry in values.entries) {
+      if (allowed.contains(entry.key)) {
+        payload[entry.key] = entry.value is String
+            ? (entry.value as String).trim()
+            : entry.value;
+      }
+    }
+    String requiredValue(String key) => payload[key]?.toString().trim() ?? '';
+    switch (doctype) {
+      case 'Item':
+        if (requiredValue('item_code').isEmpty || requiredValue('item_name').isEmpty ||
+            requiredValue('item_group').isEmpty || requiredValue('stock_uom').isEmpty) {
+          throw const FormatException('رمز الصنف واسمه ومجموعته ووحدة القياس حقول مطلوبة.');
+        }
+        if (payload['has_serial_no'] == true && payload['has_batch_no'] == true) {
+          throw const FormatException('لا يمكن تفعيل التتبع بالرقم التسلسلي والدفعة معاً.');
+        }
+        break;
+      case 'Supplier':
+        if (requiredValue('supplier_name').isEmpty ||
+            !{'Company', 'Individual'}.contains(requiredValue('supplier_type')) ||
+            requiredValue('supplier_group').isEmpty) {
+          throw const FormatException('اسم المورد ونوعه ومجموعته حقول مطلوبة.');
+        }
+        break;
+      case 'Warehouse':
+        if (requiredValue('warehouse_name').isEmpty || requiredValue('company').isEmpty) {
+          throw const FormatException('اسم المستودع والشركة حقول مطلوبة.');
+        }
+        break;
+    }
+    final id = name?.trim();
+    if (id != null && id.isNotEmpty) {
+      final current = await fetchMasterDataDocument(doctype: doctype, name: id);
+      if (current['name'] != id) throw const FormatException('تغير السجل؛ أعد تحميله قبل التعديل.');
+    }
+    final path = '/api/resource/${Uri.encodeComponent(doctype)}'
+        '${id == null || id.isEmpty ? '' : '/${Uri.encodeComponent(id)}'}';
+    final response = await _sendJson(id == null || id.isEmpty ? 'POST' : 'PUT', path, payload);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر حفظ السجل. راجع الحقول المطلوبة وصلاحيات ERPNext.'));
+    }
+    final saved = data['data'];
+    if (saved is! Map<String, dynamic> || (saved['name']?.toString().isNotEmpty != true)) {
+      throw Exception('لم يؤكد ERPNext حفظ السجل؛ أعد تحميل القائمة قبل المتابعة.');
+    }
+    if (id != null && id.isNotEmpty && saved['name'] != id) {
+      throw Exception('تغيرت هوية السجل بعد الحفظ؛ أوقف العملية وراجع ERPNext.');
+    }
+    return Map<String, dynamic>.from(saved);
+  }
+
   Future<String> currentUser() async {
     final response = await _send('GET', '/api/method/frappe.auth.get_logged_user');
     final data = _decode(response.body);
