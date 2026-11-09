@@ -1765,6 +1765,31 @@ class FrappeApi {
     }
   }
 
+  void _validateSalesTeamAllocation(dynamic raw) {
+    if (raw == null) return;
+    if (raw is! List) {
+      throw const FormatException('توزيع مندوبي المبيعات يجب أن يكون قائمة صحيحة.');
+    }
+    if (raw.isEmpty) return;
+    final seen = <String>{};
+    var total = 0.0;
+    for (final entry in raw) {
+      if (entry is! Map) {
+        throw const FormatException('يوجد مندوب مبيعات في توزيع الفاتورة ببيانات غير صحيحة.');
+      }
+      final person = entry['sales_person']?.toString().trim() ?? '';
+      final allocation = double.tryParse(entry['allocated_percentage']?.toString() ?? '');
+      if (person.isEmpty || !seen.add(person) || allocation == null ||
+          !allocation.isFinite || allocation <= 0 || allocation > 100) {
+        throw const FormatException('تحقق من أسماء مندوبي المبيعات ونسب توزيعهم وتجنب تكرار المندوب.');
+      }
+      total += allocation;
+    }
+    if ((total - 100).abs() > 0.000001) {
+      throw FormatException('مجموع نسب توزيع مندوبي المبيعات يجب أن يساوي 100%. النسبة الحالية: ${total.toStringAsFixed(2)}%.');
+    }
+  }
+
   Future<Map<String, dynamic>> createSalesInvoice(Map<String, dynamic> invoice) async {
     final customer = invoice['customer'];
     final company = invoice['company'];
@@ -1773,6 +1798,7 @@ class FrappeApi {
       throw const FormatException('حدد الشركة والعميل وأضف صنفاً واحداً على الأقل.');
     }
     invoice['items'] = _cleanSerialBatchRows(rawItems);
+    _validateSalesTeamAllocation(invoice['sales_team']);
     for (final rawItem in rawItems) {
       if (rawItem is! Map<String, dynamic> || rawItem['item_code'] is! String || (rawItem['item_code'] as String).trim().isEmpty) {
         throw const FormatException('يوجد بند فاتورة دون رمز صنف صحيح.');
@@ -2026,6 +2052,7 @@ class FrappeApi {
       throw const FormatException('رقم المسودة والبنود المطلوبة للتعديل غير مكتملة.');
     }
     changes['items'] = _cleanSerialBatchRows(changes['items'] as List);
+    _validateSalesTeamAllocation(changes['sales_team']);
     final customer = changes['customer'];
     final company = changes['company'];
     if (customer is! String || customer.trim().isEmpty ||
@@ -2060,6 +2087,7 @@ class FrappeApi {
     payload['posting_date'] = changes['posting_date'] ?? current['posting_date'];
     payload['update_stock'] = changes['update_stock'] == true || changes['update_stock'] == 1 ? 1 : 0;
     payload['items'] = changes['items'];
+    payload['sales_team'] = changes['sales_team'] ?? const <Map<String, dynamic>>[];
 
     final response = await _sendJson('POST', '/api/method/frappe.client.save', {'doc': payload});
     final data = _decode(response.body);
