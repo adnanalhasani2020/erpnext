@@ -1179,6 +1179,37 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
   String? selectedMovementItem;
   String? selectedMovementWarehouse;
   String? selectedMovementCompany;
+  DateTime? selectedMovementFromDate;
+  DateTime? selectedMovementToDate;
+
+  String _movementDateLabel(DateTime? value) {
+    if (value == null) return 'بدون تحديد';
+    return '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _pickMovementDate({required bool from}) async {
+    final current = from ? selectedMovementFromDate : selectedMovementToDate;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current ?? (from ? selectedMovementToDate : selectedMovementFromDate) ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+      helpText: from ? 'بداية فترة الحركات' : 'نهاية فترة الحركات',
+    );
+    if (picked == null || !mounted) return;
+    final nextFrom = from ? DateTime(picked.year, picked.month, picked.day) : selectedMovementFromDate;
+    final nextTo = from ? selectedMovementToDate : DateTime(picked.year, picked.month, picked.day);
+    if (nextFrom != null && nextTo != null && nextFrom.isAfter(nextTo)) {
+      notice('تاريخ البداية يجب ألا يتجاوز تاريخ النهاية.');
+      return;
+    }
+    setState(() {
+      selectedMovementFromDate = nextFrom;
+      selectedMovementToDate = nextTo;
+    });
+    await load();
+  }
+
   @override void initState() {
     super.initState();
     selectedMovementItem = widget.initialItemCode?.trim().isNotEmpty == true
@@ -1196,7 +1227,13 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     if (loading) { reloadPending = true; return; }
     setState(() { loading = true; error = null; });
     try {
-      final data = await widget.api.fetchStockMovements(itemCode: selectedMovementItem, warehouse: selectedMovementWarehouse, company: selectedMovementCompany);
+      final data = await widget.api.fetchStockMovements(
+        itemCode: selectedMovementItem,
+        warehouse: selectedMovementWarehouse,
+        company: selectedMovementCompany,
+        fromDate: selectedMovementFromDate,
+        toDate: selectedMovementToDate,
+      );
       if (mounted) setState(() { movements = data; offset = data.length; hasMore = data.length == FrappeApi.pageSize; });
     } catch (e) { if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', '')); }
     final loadedDrafts = <Map<String, dynamic>>[];
@@ -1372,7 +1409,9 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       final data = await widget.api.fetchStockMovements(start: offset,
         itemCode: selectedMovementItem,
         warehouse: selectedMovementWarehouse,
-        company: selectedMovementCompany);
+        company: selectedMovementCompany,
+        fromDate: selectedMovementFromDate,
+        toDate: selectedMovementToDate);
       if (mounted) setState(() { movements = [...movements, ...data]; offset += data.length; hasMore = data.length == FrappeApi.pageSize; });
     } catch (e) { if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', '')); }
     finally { if (mounted) setState(() => loadingMore = false); }
@@ -1995,6 +2034,36 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         onTap: () => reviewDraft(draft),
       ))),
       const Divider(height: 28), Text('سجل الحركات', style: Theme.of(context).textTheme.titleMedium),
+      Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          OutlinedButton.icon(
+            onPressed: loading ? null : () => _pickMovementDate(from: true),
+            icon: const Icon(Icons.calendar_today_outlined),
+            label: Text('من: ${_movementDateLabel(selectedMovementFromDate)}'),
+          ),
+          OutlinedButton.icon(
+            onPressed: loading ? null : () => _pickMovementDate(from: false),
+            icon: const Icon(Icons.event_outlined),
+            label: Text('إلى: ${_movementDateLabel(selectedMovementToDate)}'),
+          ),
+          if (selectedMovementFromDate != null || selectedMovementToDate != null)
+            TextButton.icon(
+              onPressed: loading ? null : () {
+                setState(() {
+                  selectedMovementFromDate = null;
+                  selectedMovementToDate = null;
+                });
+                load();
+              },
+              icon: const Icon(Icons.clear),
+              label: const Text('مسح الفترة'),
+            ),
+        ],
+      ),
+      const SizedBox(height: 8),
       DropdownButtonFormField<String>(
                 initialValue: selectedMovementItem,
         isExpanded: true,
