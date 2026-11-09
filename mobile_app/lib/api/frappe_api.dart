@@ -4039,6 +4039,7 @@ class FrappeApi {
       'expenses': [{
         'doctype': 'Expense Claim Detail',
         'expense_type': expenseType.trim(),
+        'expense_date': postingDate.trim(),
         'amount': value,
         'default_account': selectedAccount,
         'description': description.trim(),
