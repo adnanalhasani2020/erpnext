@@ -32,9 +32,11 @@ void main() {
     final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
     try {
       await tester.pumpWidget(MaterialApp(
-        home: FinancialReportsPage(
+        home: Material(
+          child: FinancialReportsPage(
           api: api,
           companies: const [ErpCompany(name: 'Company A', defaultCurrency: 'YER')],
+          ),
         ),
       ));
       await tester.tap(find.text('فتح تقرير قيمة المخزون'));
@@ -110,7 +112,7 @@ void main() {
     final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
     try {
       await tester.pumpWidget(MaterialApp(
-        home: FinancialReportsPage(api: api, companies: const []),
+        home: Material(child: FinancialReportsPage(api: api, companies: const [])),
       ));
       await tester.pump();
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 200)));
