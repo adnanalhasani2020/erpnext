@@ -17,7 +17,7 @@ Map<String, dynamic> buildSalesInvoiceLinePayload({
     for (final field in const [
       'sales_order', 'so_detail', 'delivery_note', 'dn_detail',
       'prevdoc_docname', 'prevdoc_doctype', 'quotation', 'quotation_item',
-      'against_sales_order',
+      'against_sales_order', 'serial_and_batch_bundle', 'rejected_serial_and_batch_bundle',\n      'serial_no', 'batch_no', 'use_serial_batch_fields',
     ]) {
       row.remove(field);
     }

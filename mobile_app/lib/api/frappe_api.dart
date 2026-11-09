@@ -844,6 +844,72 @@ class FrappeApi {
     return saved;
   }
 
+
+  Future<Map<String, dynamic>> updateDeliveryNoteTracking({
+    required String name,
+    required List<Map<String, dynamic>> trackingRows,
+  }) async {
+    final actionKey = 'delivery-note-tracking:$name';
+    if (!_inFlightDocumentActions.add(actionKey)) {
+      throw const FormatException('تحديث أرقام إذن التسليم قيد التنفيذ بالفعل.');
+    }
+    try {
+      if (name.trim().isEmpty || trackingRows.isEmpty) {
+        throw const FormatException('حدد بنوداً متتبعة لإضافة أرقامها.');
+      }
+      final current = await fetchSalesWorkflowDocument('Delivery Note', name);
+      if (current['docstatus'] != 0) {
+        throw const FormatException('لا يمكن تعديل تتبع إذن تسليم مرحّل أو ملغى.');
+      }
+      final sourceItems = current['items'];
+      if (sourceItems is! List) throw const FormatException('بنود إذن التسليم غير متاحة.');
+      final byName = <String, Map<String, dynamic>>{
+        for (final row in sourceItems.whereType<Map<String, dynamic>>())
+          if (row['name'] is String) row['name'].toString(): Map<String, dynamic>.from(row),
+      };
+      final seenRows = <String>{};
+      final seenSerials = <String>{};
+      for (final tracking in trackingRows) {
+        final rowName = tracking['name'];
+        if (rowName is! String || !seenRows.add(rowName) || !byName.containsKey(rowName)) {
+          throw const FormatException('بند إذن التسليم غير صحيح أو مكرر.');
+        }
+        final source = byName[rowName]!;
+        if (tracking['item_code'] != source['item_code']) {
+          throw const FormatException('لا يمكن تغيير الصنف أثناء تخصيص أرقامه التسلسلية أو دفعاته.');
+        }
+        final row = <String, dynamic>{...source, ...tracking}..remove('name');
+        _validateSerialBatchRows([row]);
+        final serials = (row['serial_no']?.toString() ?? '')
+            .split(RegExp(r'[\\r\\n,;]+')).map((v) => v.trim()).where((v) => v.isNotEmpty);
+        for (final serial in serials) {
+          if (!seenSerials.add(serial)) throw FormatException('الرقم التسلسلي مكرر داخل إذن التسليم: ' + serial);
+        }
+        byName[rowName] = {...source, ...tracking};
+      }
+      final payload = Map<String, dynamic>.from(current)
+        ..['items'] = sourceItems.whereType<Map<String, dynamic>>().map((row) {
+          final rowName = row['name']?.toString();
+          return rowName != null && byName.containsKey(rowName)
+              ? byName[rowName]!
+              : Map<String, dynamic>.from(row);
+        }).toList(growable: false);
+      final response = await _sendJson('POST', '/api/method/frappe.client.save', {'doc': payload});
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر حفظ أرقام الدفعات والأرقام التسلسلية لإذن التسليم.'));
+      }
+      final saved = data['message'];
+      if (saved is! Map<String, dynamic> || saved['doctype'] != 'Delivery Note' ||
+          saved['name'] != name || saved['docstatus'] != 0) {
+        throw Exception('لم يؤكد ERPNext حفظ تخصيص أرقام إذن التسليم.');
+      }
+      return saved;
+    } finally {
+      _inFlightDocumentActions.remove(actionKey);
+    }
+  }
+
   Future<Map<String, dynamic>> submitSalesWorkflowDocument(String doctype, String name) async {
     final actionKey = 'submit-sales-doc:$name';
     if (!_inFlightSalesActions.add(actionKey)) {

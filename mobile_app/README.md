@@ -89,3 +89,5 @@ The APK is written to `build/app/outputs/flutter-apk/app-debug.apk`.
 - Serial-tracked quantities must be whole numbers and require one unique serial number per unit. Batch-tracked lines require one batch number per line; split a line when using multiple batches.
 - Returns continue through ERPNext's official return mappers, preserving source allocations where supported.
 - Item/batch ownership, serial status, warehouse availability, and bundle lifecycle remain server-authoritative and require verification on a real ERPNext v15 site.
+
+- Delivery Note drafts now include a tracking-allocation step for serial/batch items before submission; ERPNext validates the selected stock allocation.

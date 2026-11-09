@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
+import 'models/serial_batch_tracking.dart';
 
 Map<String, dynamic> buildSalesWorkflowLinePayload({
   required Map<String, dynamic>? sourceRow,
@@ -189,6 +190,22 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
                     onPressed: () { Navigator.pop(sheetContext); _createOrEdit(draft: doc); },
                     icon: const Icon(Icons.edit_outlined), label: const Text('تعديل المسودة'),
                   ),
+                  if (_doctype == 'Delivery Note' && items.any((row) {
+                    final item = widget.items.where((x) => x.code == row['item_code']).firstOrNull;
+                    return item?.hasSerialNo == true || item?.hasBatchNo == true;
+                  }))
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final saved = await _assignDeliveryNoteTracking(doc);
+                        if (saved == true && sheetContext.mounted) {
+                          Navigator.pop(sheetContext);
+                          _load(reset: true);
+                          widget.onChanged();
+                        }
+                      },
+                      icon: const Icon(Icons.qr_code_2_outlined),
+                      label: const Text('تحديد الدفعات والأرقام التسلسلية'),
+                    ),
                   FilledButton.icon(
                     onPressed: () async {
                       final ok = await _confirm('ترحيل المستند', 'سيتم ترحيل المستند في ERPNext وتطبيق تحققاته. هل تريد المتابعة؟');
@@ -230,6 +247,95 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
         },
       ),
     );
+  }
+
+
+  Future<bool?> _assignDeliveryNoteTracking(Map<String, dynamic> document) async {
+    final rows = (document['items'] as List? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .where((row) {
+          final item = widget.items.where((x) => x.code == row['item_code']).firstOrNull;
+          return item?.hasSerialNo == true || item?.hasBatchNo == true;
+        }).toList(growable: false);
+    if (rows.isEmpty) {
+      _notice('لا توجد بنود تتطلب أرقاماً تسلسلية أو دفعات.');
+      return false;
+    }
+    final controllers = <String, Map<String, TextEditingController>>{};
+    for (final row in rows) {
+      final key = row['name'].toString();
+      controllers[key] = {
+        'serial': TextEditingController(text: row['serial_no']?.toString() ?? ''),
+        'batch': TextEditingController(text: row['batch_no']?.toString() ?? ''),
+      };
+    }
+    try {
+      final tracking = await showDialog<List<Map<String, dynamic>>>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(builder: (context, refresh) => AlertDialog(
+          title: const Text('تخصيص أرقام إذن التسليم'),
+          content: SizedBox(width: 520, child: SingleChildScrollView(child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('أدخل الأرقام الموجودة فعلياً في المستودع. سيتحقق ERPNext من صلاحيتها وتوفرها عند الحفظ والترحيل.'),
+              ...rows.map((row) {
+                final item = widget.items.firstWhere((x) => x.code == row['item_code']);
+                final fields = controllers[row['name'].toString()]!;
+                return Card(child: Padding(padding: const EdgeInsets.all(10), child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(item.name + ' • ' + item.code, style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Text('الكمية: ' + (row['qty'] ?? 0).toString() + ' • المستودع: ' + (row['warehouse'] ?? '—').toString()),
+                    if (item.hasSerialNo)
+                      TextField(controller: fields['serial'], minLines: 2, maxLines: 4,
+                        decoration: const InputDecoration(labelText: 'الأرقام التسلسلية', helperText: 'رقم لكل وحدة. افصل بينها بسطر جديد أو فاصلة.')),
+                    if (item.hasBatchNo)
+                      TextField(controller: fields['batch'], decoration: const InputDecoration(labelText: 'رقم الدفعة')),
+                  ],
+                )));
+              }),
+            ],
+          ))),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+            FilledButton(onPressed: () {
+              final result = <Map<String, dynamic>>[];
+              try {
+                for (final row in rows) {
+                  final item = widget.items.firstWhere((x) => x.code == row['item_code']);
+                  final fields = controllers[row['name'].toString()]!;
+                  final qty = double.tryParse(row['qty']?.toString() ?? '') ?? 0;
+                  result.add({
+                    'name': row['name'],
+                    'item_code': item.code,
+                    ...buildSerialBatchFields(item: item, quantity: qty,
+                      serialNumbers: fields['serial']!.text, batchNumber: fields['batch']!.text),
+                  });
+                }
+              } catch (error) {
+                _notice(error.toString().replaceFirst('FormatException: ', ''));
+                return;
+              }
+              Navigator.pop(dialogContext, result);
+            }, child: const Text('حفظ التخصيص')),
+          ],
+        )),
+      );
+      if (tracking == null || !mounted) return false;
+      await widget.api.updateDeliveryNoteTracking(
+        name: document['name'].toString(), trackingRows: tracking,
+      );
+      _notice('تم حفظ الدفعات والأرقام التسلسلية في إذن التسليم.');
+      return true;
+    } catch (error) {
+      _notice(error.toString().replaceFirst('Exception: ', ''));
+      return false;
+    } finally {
+      for (final fields in controllers.values) {
+        fields['serial']!.dispose();
+        fields['batch']!.dispose();
+      }
+    }
   }
 
   Widget _convertButton(BuildContext sheetContext, String name, String target, String label) {
