@@ -850,7 +850,8 @@ class _MobileHomePageState extends State<MobileHomePage> {
     final filtered = _stockBalances;
     final loadedWarehouses = filtered.map((row) => row.warehouse).toSet().length;
     return ListView(padding: const EdgeInsets.all(18), children: [
-      _pageHeader('أرصدة المخزون', 'الكمية الفعلية والمحجوزة والمتاحة تقديرياً', Icons.inventory_2_outlined),
+      _pageHeader('أرصدة المخزون', 'الكميات وقيمة المخزون ومعدل التقييم حسب المستودع', Icons.inventory_2_outlined),
+      const Text('قيمة المخزون ومعدل التقييم من سجل Bin في ERPNext وبعملة الشركة المالكة للمستودع. لا تجمع القيم بين شركات ذات عملات مختلفة.'),
       const SizedBox(height: 16),
       DropdownButtonFormField<String>(
         initialValue: _selectedWarehouse, isExpanded: true,
@@ -881,7 +882,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         const Card(child: ListTile(title: Text('لا توجد أرصدة مطابقة لرمز الصنف والمستودع المحددين'))),
       ...filtered.map((balance) => Card(child: ListTile(
         title: Text(balance.itemCode),
-        subtitle: Text('${balance.warehouse}\nمحجوز: ${balance.reservedQty} • متوقع: ${balance.projectedQty}'),
+        subtitle: Text('${balance.warehouse}\nمحجوز: ${balance.reservedQty} • متوقع: ${balance.projectedQty}\nقيمة المخزون: ${balance.stockValue?.toStringAsFixed(2) ?? 'غير متاحة'} • معدل التقييم: ${balance.valuationRate?.toStringAsFixed(2) ?? 'غير متاح'}'),
         isThreeLine: true,
         trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
           Text(balance.actualQty.toStringAsFixed(2), style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
