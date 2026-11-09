@@ -95,6 +95,7 @@ class FrappeApi {
 
   void _validateSerialBatchRows(List<dynamic> items) {
     final seenSerials = <String>{};
+    final seenCurrentSerials = <String>{};
     for (final raw in items) {
       if (raw is! Map<String, dynamic>) throw const FormatException('بيانات بند الصنف المتتبع غير صحيحة.');
       final serialText = raw['serial_no']?.toString() ?? '';
@@ -113,6 +114,11 @@ class FrappeApi {
           (currentQty is! num || (currentQty - currentQty.round()).abs() > 0.000001 ||
               currentSerials.length != currentQty.round())) {
         throw const FormatException('عدد الأرقام التسلسلية الحالية لا يطابق الرصيد الحالي.');
+      }
+      for (final serial in currentSerials) {
+        if (!seenCurrentSerials.add(serial)) {
+          throw FormatException('الرقم التسلسلي الحالي مكرر داخل تسوية الجرد: ' + serial);
+        }
       }
       if (qty == 0) {
         if (currentQty is! num || currentQty <= 0 ||
@@ -218,8 +224,7 @@ class FrappeApi {
         .replace(queryParameters: {
       'item_code': itemCode.trim(),
       'warehouse': warehouse.trim(),
-      'ignore_reserved_stock': ignoreReservedStock ? '1' : '0',
-      'consider_negative_batches': '0',
+      if (ignoreReservedStock) 'ignore_reserved_stock': '1',
     });
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);
