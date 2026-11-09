@@ -1362,7 +1362,30 @@ class FrappeApi {
     final insertedData = _decode(inserted.body);
     if (inserted.statusCode < 200 || inserted.statusCode >= 300) throw Exception(_message(insertedData, 'تعذر حفظ سند الصرف.'));
     final created = insertedData['data'];
-    if (created is! Map<String, dynamic> || created['name'] is! String) throw Exception('لم يتم تأكيد حفظ سند الصرف.');
+    if (created is! Map<String, dynamic> ||
+        created['doctype'] != 'Payment Entry' ||
+        created['name'] is! String ||
+        created['docstatus'] != 0 ||
+        created['payment_type'] != 'Pay' ||
+        created['party_type'] != 'Supplier' ||
+        created['party'] != invoice['supplier'] ||
+        created['company'] != invoice['company'] ||
+        (bankAccount != null && bankAccount.trim().isNotEmpty &&
+            created['paid_from'] != bankAccount.trim()) ||
+        created['references'] is! List) {
+      throw Exception('استجابة حفظ سند الصرف لا تطابق المورد أو الشركة أو الحساب أو حالة المسودة؛ تحقق من سجل Payment Entry قبل إعادة المحاولة.');
+    }
+    var createdAllocation = 0.0;
+    for (final row in created['references'] as List) {
+      if (row is Map<String, dynamic> &&
+          row['reference_doctype'] == 'Purchase Invoice' &&
+          row['reference_name'] == invoiceName) {
+        createdAllocation += double.tryParse(row['allocated_amount']?.toString() ?? '') ?? 0;
+      }
+    }
+    if ((createdAllocation - amount).abs() > 0.01) {
+      throw const FormatException('سند الصرف المحفوظ لا يحتوي على توزيع مطابق للفاتورة والمبلغ المطلوب؛ لا تحاول إنشاء دفعة ثانية قبل مراجعة السند.');
+    }
     try {
       return await _submitMobileDocument(created, 'Payment Entry');
     } catch (error) {
