@@ -665,6 +665,162 @@ class FrappeApi {
     return Map<String, dynamic>.from(updated);
   }
 
+  Future<List<Map<String, dynamic>>> fetchSellingPriceLists() async {
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Price List',
+      fields: const ['name', 'selling', 'enabled', 'currency'],
+      filters: const [
+        ['selling', '=', 1],
+        ['enabled', '=', 1],
+      ],
+      orderBy: 'name asc',
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل قوائم أسعار البيع.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة قوائم الأسعار غير صحيحة.');
+    return rows.whereType<Map<String, dynamic>>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList(growable: false);
+  }
+
+  Future<List<Map<String, dynamic>>> fetchItemPrices({
+    required String priceList,
+    String? search,
+    int start = 0,
+  }) async {
+    if (priceList.trim().isEmpty) {
+      throw const FormatException('حدد قائمة الأسعار أولاً.');
+    }
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Item Price',
+      fields: const [
+        'name', 'item_code', 'price_list', 'price_list_rate', 'currency',
+        'uom', 'valid_from', 'valid_upto', 'min_qty', 'selling',
+      ],
+      filters: [
+        ['price_list', '=', priceList.trim()],
+        ['selling', '=', 1],
+      ],
+      orFilters: search == null || search.trim().isEmpty
+          ? null
+          : [
+              ['item_code', 'like', '%' + search.trim() + '%'],
+            ],
+      orderBy: 'item_code asc, valid_from desc, name asc',
+      start: start,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل أسعار الأصناف.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة أسعار الأصناف غير صحيحة.');
+    return rows.whereType<Map<String, dynamic>>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>> saveItemSellingPrice({
+    String? priceId,
+    required String itemCode,
+    required String priceList,
+    required double rate,
+    String? currency,
+    String? uom,
+    String? validFrom,
+    String? validUpto,
+    double minQty = 0,
+  }) async {
+    final item = itemCode.trim();
+    final list = priceList.trim();
+    if (item.isEmpty || list.isEmpty || !rate.isFinite || rate <= 0 ||
+        !minQty.isFinite || minQty < 0) {
+      throw const FormatException('أدخل الصنف وقائمة الأسعار وسعراً وكمية دنيا صحيحة.');
+    }
+    String? validDate(String? raw, String label) {
+      final value = raw?.trim() ?? '';
+      if (value.isEmpty) return null;
+      final parsed = DateTime.tryParse(value);
+      final pattern = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+      if (parsed == null || !pattern.hasMatch(value) ||
+          parsed.toIso8601String().substring(0, 10) != value) {
+        throw FormatException('$label يجب أن يكون بصيغة YYYY-MM-DD.');
+      }
+      return value;
+    }
+    final from = validDate(validFrom, 'تاريخ بداية السعر');
+    final until = validDate(validUpto, 'تاريخ نهاية السعر');
+    if (from != null && until != null && from.compareTo(until) > 0) {
+      throw const FormatException('تاريخ نهاية السعر يجب ألا يسبق تاريخ بدايته.');
+    }
+
+    final payload = <String, dynamic>{
+      'doctype': 'Item Price',
+      'item_code': item,
+      'price_list': list,
+      'selling': 1,
+      'price_list_rate': rate,
+      'min_qty': minQty,
+      if (currency != null && currency.trim().isNotEmpty) 'currency': currency.trim(),
+      if (uom != null && uom.trim().isNotEmpty) 'uom': uom.trim(),
+      if (from != null) 'valid_from': from,
+      if (until != null) 'valid_upto': until,
+    };
+    final id = priceId?.trim() ?? '';
+    final response = id.isEmpty
+        ? await _sendJson('POST', '/api/resource/Item%20Price', payload)
+        : await _updateExistingItemPrice(id, item, list, payload);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر حفظ سعر الصنف.'));
+    }
+    final saved = data['data'];
+    if (saved is! Map<String, dynamic> ||
+        saved['doctype'] != 'Item Price' ||
+        saved['item_code'] != item ||
+        saved['price_list'] != list ||
+        saved['selling'] != 1) {
+      throw Exception('لم يؤكد ERPNext حفظ سعر الصنف؛ أعد تحميل قائمة الأسعار.');
+    }
+    return Map<String, dynamic>.from(saved);
+  }
+
+  Future<_ApiResponse> _updateExistingItemPrice(
+    String id,
+    String itemCode,
+    String priceList,
+    Map<String, dynamic> payload,
+  ) async {
+    final uri = Uri.parse(
+      '$_baseUrl/api/resource/Item%20Price/' + Uri.encodeComponent(id),
+    );
+    final currentResponse = await _sendUri('GET', uri);
+    final currentData = _decode(currentResponse.body);
+    if (currentResponse.statusCode < 200 || currentResponse.statusCode >= 300) {
+      throw Exception(_message(currentData, 'تعذر التحقق من سعر الصنف قبل تعديله.'));
+    }
+    final current = currentData['data'];
+    if (current is! Map<String, dynamic> ||
+        current['name'] != id ||
+        current['item_code'] != itemCode ||
+        current['price_list'] != priceList ||
+        current['selling'] != 1) {
+      throw const FormatException('سجل السعر تغير أو لا يطابق الصنف وقائمة الأسعار المحددين.');
+    }
+    return _sendJson(
+      'PUT',
+      '/api/resource/Item%20Price/' + Uri.encodeComponent(id),
+      Map<String, dynamic>.from(payload)..remove('doctype'),
+    );
+  }
+
   Future<List<ErpSalesInvoice>> fetchSalesInvoices({int start = 0, String? search}) async {
     final uri = Uri.parse('$_baseUrl/api/resource/Sales%20Invoice').replace(queryParameters: {
       'fields': jsonEncode(['name', 'customer', 'customer_name', 'posting_date', 'due_date', 'currency', 'grand_total', 'outstanding_amount', 'status', 'is_return', 'return_against']),
