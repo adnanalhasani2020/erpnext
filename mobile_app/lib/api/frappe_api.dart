@@ -337,6 +337,8 @@ class FrappeApi {
     return document;
   }
 
+  Future<Map<String, dynamic>> fetchPurchaseOrderRecordDocument(String name) => _fetchPurchaseOrderAnyStatus(name);
+
   Future<Map<String, dynamic>> createPurchaseOrder(Map<String, dynamic> document) async {
     _validatePurchaseOrder(document);
     await _validateDocumentWarehouses(document);
