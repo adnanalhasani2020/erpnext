@@ -868,7 +868,6 @@ class FrappeApi {
           if (row['name'] is String) row['name'].toString(): Map<String, dynamic>.from(row),
       };
       final seenRows = <String>{};
-      final seenSerials = <String>{};
       for (final tracking in trackingRows) {
         final rowName = tracking['name'];
         if (rowName is! String || !seenRows.add(rowName) || !byName.containsKey(rowName)) {
@@ -879,14 +878,13 @@ class FrappeApi {
           throw const FormatException('لا يمكن تغيير الصنف أثناء تخصيص أرقامه التسلسلية أو دفعاته.');
         }
         final row = <String, dynamic>{...source, ...tracking}..remove('name');
-        _validateSerialBatchRows([row]);
-        final serials = (row['serial_no']?.toString() ?? '')
-            .split(RegExp(r'[\\r\\n,;]+')).map((v) => v.trim()).where((v) => v.isNotEmpty);
-        for (final serial in serials) {
-          if (!seenSerials.add(serial)) throw FormatException('الرقم التسلسلي مكرر داخل إذن التسليم: ' + serial);
-        }
         byName[rowName] = {...source, ...tracking};
       }
+      final rowsToValidate = trackingRows.map((tracking) {
+        final source = byName[tracking['name']]!;
+        return Map<String, dynamic>.from(source)..remove('name');
+      }).toList(growable: false);
+      _validateSerialBatchRows(rowsToValidate);
       final payload = Map<String, dynamic>.from(current)
         ..['items'] = sourceItems.whereType<Map<String, dynamic>>().map((row) {
           final rowName = row['name']?.toString();
