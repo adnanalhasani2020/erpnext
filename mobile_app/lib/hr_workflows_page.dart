@@ -19,6 +19,7 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
   final _search = TextEditingController();
   bool _loading = false;
   bool _saving = false;
+  int _loadGeneration = 0;
   String? _error;
   List<Map<String, dynamic>> _employees = [];
   List<Map<String, dynamic>> _attendance = [];
@@ -53,18 +54,22 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
   };
 
   Future<void> _load() async {
-    if (!mounted || _loading) return;
+    if (!mounted) return;
+    final loadGeneration = ++_loadGeneration;
+    final doctype = _activeDoctype;
+    final company = _company;
+    final search = _search.text.trim();
     setState(() { _loading = true; _error = null; });
-    final generation = widget.api.sessionGeneration;
+    final sessionGeneration = widget.api.sessionGeneration;
     try {
       final rows = await widget.api.fetchHrRecords(
-        doctype: _activeDoctype,
-        company: _company,
-        search: _search.text.trim(),
+        doctype: doctype,
+        company: company,
+        search: search,
       );
-      if (!mounted || generation != widget.api.sessionGeneration) return;
+      if (!mounted || loadGeneration != _loadGeneration || sessionGeneration != widget.api.sessionGeneration) return;
       setState(() {
-        switch (_activeDoctype) {
+        switch (doctype) {
           case 'Employee': _employees = rows;
           case 'Attendance': _attendance = rows;
           case 'Leave Application': _leaveApplications = rows;
@@ -72,11 +77,11 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
         }
       });
     } catch (error) {
-      if (mounted && generation == widget.api.sessionGeneration) {
+      if (mounted && loadGeneration == _loadGeneration && sessionGeneration == widget.api.sessionGeneration) {
         setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
       }
     } finally {
-      if (mounted && generation == widget.api.sessionGeneration) {
+      if (mounted && loadGeneration == _loadGeneration && sessionGeneration == widget.api.sessionGeneration) {
         setState(() => _loading = false);
       }
     }
@@ -111,7 +116,7 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
                 onChanged: (value) => refresh(() => status = value ?? 'Present'),
               ),
               if (status == 'On Leave')
-                TextFormField(controller: TextEditingController(text: leaveType),
+                TextFormField(initialValue: leaveType,
                   decoration: const InputDecoration(labelText: 'نوع الإجازة'),
                   onChanged: (value) => leaveType = value),
               const SizedBox(height: 8),
