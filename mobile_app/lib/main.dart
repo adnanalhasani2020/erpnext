@@ -12,6 +12,7 @@ import 'sales_dashboard_page.dart';
 import 'payment_reconciliation_page.dart';
 import 'master_data_page.dart';
 import 'chart_of_accounts_page.dart';
+import 'journal_entries_page.dart';
 import 'models/erp_models.dart';
 import 'widgets/count_card.dart';
 import 'widgets/load_more_button.dart';
@@ -979,6 +980,12 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ));
   }
 
+  void _openJournalEntries() {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => JournalEntriesPage(api: _api, companies: _companies),
+    ));
+  }
+
   void _openMasterData() {
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => MasterDataPage(api: _api, companies: _companies),
@@ -1401,6 +1408,11 @@ class _MobileHomePageState extends State<MobileHomePage> {
             onPressed: _companies.isEmpty ? null : _openChartOfAccounts,
             icon: const Icon(Icons.account_tree_outlined),
             label: const Text('دليل الحسابات'),
+          ),
+          OutlinedButton.icon(
+            onPressed: _companies.isEmpty ? null : _openJournalEntries,
+            icon: const Icon(Icons.post_add_outlined),
+            label: const Text('القيود اليومية'),
           ),
           OutlinedButton.icon(
             onPressed: _inventoryLoading || _purchaseLoading ? null : _openMasterData,
