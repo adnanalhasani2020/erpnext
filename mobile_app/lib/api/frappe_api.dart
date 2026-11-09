@@ -3329,7 +3329,7 @@ class FrappeApi {
   // Allow-listed mobile master-data access; ERPNext remains authoritative.
   static const Map<String, List<String>> _masterDataFields = {
     'Item': ['name', 'item_code', 'item_name', 'item_group', 'stock_uom',
-      'is_stock_item', 'has_serial_no', 'has_batch_no', 'has_expiry_date', 'disabled'],
+      'is_stock_item', 'has_serial_no', 'has_batch_no', 'has_expiry_date', 'disabled', 'uoms'],
     'Supplier': ['name', 'supplier_name', 'supplier_type', 'supplier_group',
       'country', 'tax_id', 'mobile_no', 'email_id', 'website', 'disabled'],
     'Warehouse': ['name', 'warehouse_name', 'company', 'parent_warehouse', 'is_group', 'disabled'],
@@ -3341,7 +3341,7 @@ class FrappeApi {
 
   static const Map<String, Set<String>> _masterDataWritableFields = {
     'Item': {'item_code', 'item_name', 'item_group', 'stock_uom',
-      'is_stock_item', 'has_serial_no', 'has_batch_no', 'has_expiry_date', 'disabled'},
+      'is_stock_item', 'has_serial_no', 'has_batch_no', 'has_expiry_date', 'disabled', 'uoms'},
     'Supplier': {'supplier_name', 'supplier_type', 'supplier_group',
       'country', 'tax_id', 'mobile_no', 'email_id', 'website', 'disabled'},
     'Warehouse': {'warehouse_name', 'company', 'parent_warehouse', 'is_group', 'disabled'},
@@ -3453,6 +3453,28 @@ class FrappeApi {
         }
         if (payload['has_serial_no'] == true && payload['has_batch_no'] == true) {
           throw const FormatException('لا يمكن تفعيل التتبع بالرقم التسلسلي والدفعة معاً.');
+        }
+        final rawUoms = payload['uoms'];
+        if (rawUoms != null) {
+          if (rawUoms is! List) throw const FormatException('جدول تحويل وحدات الصنف غير صالح.');
+          final seenUoms = <String>{};
+          for (final raw in rawUoms) {
+            if (raw is! Map) throw const FormatException('يوجد صف غير صالح في تحويل وحدات الصنف.');
+            final uom = raw['uom']?.toString().trim() ?? '';
+            final factorValue = raw['conversion_factor'];
+            final factor = factorValue is num ? factorValue.toDouble() : double.tryParse(factorValue?.toString() ?? '');
+            if (uom.isEmpty || uom == requiredValue('stock_uom') || !seenUoms.add(uom) ||
+                factor == null || !factor.isFinite || factor <= 0) {
+              throw const FormatException('كل وحدة بديلة يجب أن تكون مختلفة عن وحدة المخزون، وغير مكررة، ومعامل تحويلها أكبر من صفر.');
+            }
+          }
+          payload['uoms'] = rawUoms.map((raw) => {
+            'doctype': 'UOM Conversion Detail',
+            'uom': raw['uom'].toString().trim(),
+            'conversion_factor': raw['conversion_factor'] is num
+                ? raw['conversion_factor']
+                : double.parse(raw['conversion_factor'].toString()),
+          }).toList();
         }
         break;
       case 'Supplier':
