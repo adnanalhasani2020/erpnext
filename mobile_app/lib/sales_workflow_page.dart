@@ -284,8 +284,8 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
                 return Card(child: Padding(padding: const EdgeInsets.all(10), child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(item.name + ' • ' + item.code, style: const TextStyle(fontWeight: FontWeight.w600)),
-                    Text('الكمية: ' + (row['qty'] ?? 0).toString() + ' • المستودع: ' + (row['warehouse'] ?? '—').toString()),
+                    Text('${item.name} • ${item.code}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                    Text('الكمية: ${row['qty'] ?? 0} • المستودع: ${row['warehouse'] ?? '—'}'),
                     if (item.hasSerialNo)
                       TextField(controller: fields['serial'], minLines: 2, maxLines: 4,
                         decoration: const InputDecoration(labelText: 'الأرقام التسلسلية', helperText: 'رقم لكل وحدة. افصل بينها بسطر جديد أو فاصلة.')),
