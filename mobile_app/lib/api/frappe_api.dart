@@ -961,6 +961,50 @@ class FrappeApi {
     }
   }
 
+  /// Runs one of ERPNext's standard, permission-checked query reports.
+  /// The server remains responsible for report execution and row-level access.
+  Future<Map<String, dynamic>> runStandardReport({
+    required String reportName,
+    required Map<String, dynamic> filters,
+  }) async {
+    const allowedReports = {
+      'Profit and Loss Statement',
+      'Balance Sheet',
+      'Cash Flow',
+      'General Ledger',
+      'Stock Balance',
+    };
+    if (!allowedReports.contains(reportName)) {
+      throw FormatException('التقرير غير مدعوم في التطبيق: $reportName');
+    }
+    final company = filters['company']?.toString().trim() ?? '';
+    if (company.isEmpty) {
+      throw const FormatException('حدد الشركة قبل تشغيل التقرير المالي.');
+    }
+    final response = await _sendJson(
+      'POST',
+      '/api/method/frappe.desk.query_report.run',
+      {
+        'report_name': reportName,
+        'filters': filters,
+        'ignore_prepared_report': true,
+      },
+    );
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تشغيل تقرير $reportName. تحقق من صلاحيات التقرير.'));
+    }
+    final message = data['message'];
+    if (message is! Map) {
+      throw Exception('استجابة تقرير $reportName من ERPNext غير متوقعة.');
+    }
+    final result = Map<String, dynamic>.from(message);
+    if (result['columns'] is! List || result['result'] is! List) {
+      throw Exception('لم يُرجع ERPNext أعمدة وبيانات صالحة لتقرير $reportName.');
+    }
+    return result;
+  }
+
   static const Set<String> salesWorkflowDoctypes = {'Quotation', 'Sales Order', 'Delivery Note', 'Sales Invoice'};
 
   String _salesWorkflowResource(String doctype) {
