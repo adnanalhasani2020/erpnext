@@ -119,6 +119,9 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
   ErpCustomer? _customer;
   ErpCompany? _company;
   bool _updateStock = true;
+  bool _loadingSalesPersons = false;
+  List<Map<String, dynamic>> _salesPersons = const [];
+  final List<Map<String, dynamic>> _salesTeam = [];
   bool _saving = false;
   String? _error;
   String? _createdInvoiceId;
@@ -127,6 +130,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
   @override
   void initState() {
     super.initState();
+    _loadSalesPersons();
     _availableCustomers = List<ErpCustomer>.of(widget.customers);
     _availableCompanies = List<ErpCompany>.of(widget.companies);
     _availableItems = List<ErpItem>.of(widget.items);
@@ -164,6 +168,19 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
     }
 
     _updateStock = draft['update_stock'] == 1 || draft['update_stock'] == true;
+    final rawSalesTeam = draft['sales_team'];
+    if (rawSalesTeam is List) {
+      for (final raw in rawSalesTeam.whereType<Map>()) {
+        final person = raw['sales_person']?.toString() ?? '';
+        final percentage = double.tryParse(raw['allocated_percentage']?.toString() ?? '') ?? 0;
+        if (person.isNotEmpty && percentage > 0) {
+          _salesTeam.add({
+            'sales_person': person,
+            'allocated_percentage': percentage,
+          });
+        }
+      }
+    }
     final rawItems = draft['items'];
     if (rawItems is List) {
       for (final raw in rawItems.whereType<Map<String, dynamic>>()) {
@@ -219,6 +236,103 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
     super.dispose();
   }
 
+  Future<void> _loadSalesPersons() async {
+    if (_loadingSalesPersons) return;
+    setState(() => _loadingSalesPersons = true);
+    try {
+      final rows = await widget.api.fetchSalesPersons();
+      if (!mounted) return;
+      setState(() {
+        _salesPersons = rows;
+        _salesTeam.removeWhere((entry) => !rows.any(
+          (person) => person['name'] == entry['sales_person'],
+        ));
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) setState(() => _loadingSalesPersons = false);
+    }
+  }
+
+  Future<void> _addSalesPerson() async {
+    if (_saving || _pendingDraft != null || _salesPersons.isEmpty) return;
+    final available = _salesPersons.where((person) =>
+      !_salesTeam.any((entry) => entry['sales_person'] == person['name'])
+    ).toList(growable: false);
+    if (available.isEmpty) {
+      setState(() => _error = 'تمت إضافة جميع مندوبي المبيعات المتاحين.');
+      return;
+    }
+    String? selected = available.first['name']?.toString();
+    final percent = TextEditingController(
+      text: (_salesTeam.isEmpty ? 100 : 0).toString(),
+    );
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, refresh) => AlertDialog(
+          title: const Text('إضافة مندوب إلى الفاتورة'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                initialValue: selected,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'مندوب المبيعات'),
+                items: available.map((person) => DropdownMenuItem(
+                  value: person['name']?.toString(),
+                  child: Text(person['sales_person_name']?.toString() ??
+                      person['name']?.toString() ?? ''),
+                )).toList(),
+                onChanged: (value) => refresh(() => selected = value),
+              ),
+              TextField(
+                controller: percent,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'نسبة التوزيع %',
+                  helperText: 'مجموع نسب مندوبي الفاتورة يجب أن يساوي 100%.',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('إلغاء'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final value = double.tryParse(percent.text.trim());
+                if (selected == null || value == null || !value.isFinite ||
+                    value <= 0 || value > 100) return;
+                Navigator.pop(dialogContext, {
+                  'sales_person': selected,
+                  'allocated_percentage': value,
+                });
+              },
+              child: const Text('إضافة'),
+            ),
+          ],
+        ),
+      ),
+    );
+    percent.dispose();
+    if (result == null || !mounted) return;
+    setState(() {
+      _salesTeam.add(result);
+      _error = null;
+    });
+  }
+
+  void _removeSalesPerson(int index) {
+    if (_saving || _pendingDraft != null) return;
+    setState(() => _salesTeam.removeAt(index));
+  }
+
   String _today() {
     final now = DateTime.now();
     return '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
@@ -258,6 +372,17 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
       setState(() => _error = 'اختر الصنف لكل بند في الفاتورة.');
       return;
     }
+    if (_salesTeam.isNotEmpty) {
+      final totalAllocation = _salesTeam.fold<double>(
+        0,
+        (sum, row) => sum +
+            (double.tryParse(row['allocated_percentage']?.toString() ?? '') ?? 0),
+      );
+      if ((totalAllocation - 100).abs() > 0.000001) {
+        setState(() => _error = 'مجموع نسب توزيع مندوبي المبيعات يجب أن يساوي 100%. النسبة الحالية: ${totalAllocation.toStringAsFixed(2)}%.');
+        return;
+      }
+    }
     if (_lines.any((line) => !line.total.isFinite)) {
       setState(() => _error = 'إجمالي أحد البنود تجاوز النطاق الرقمي المسموح؛ راجع الكمية والسعر.');
       return;
@@ -290,6 +415,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
           'company': _company!.name,
           'posting_date': _postingDate ?? _today(),
           'update_stock': _updateStock ? 1 : 0,
+          if (_salesTeam.isNotEmpty) 'sales_team': _salesTeam.map((row) => Map<String, dynamic>.from(row)).toList(growable: false),
           'items': _lines.map((line) {
             final linePayload = buildSalesInvoiceLinePayload(
               sourceRow: line.sourceRow,
@@ -402,6 +528,54 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
                       title: const Text('تاريخ الفاتورة'),
                       trailing: Text(_postingDate ?? _today()),
                     ),
+                    const Divider(),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text('توزيع مندوبي المبيعات',
+                              style: Theme.of(context).textTheme.titleSmall),
+                        ),
+                        TextButton.icon(
+                          onPressed: _saving || _pendingDraft != null ||
+                                  _loadingSalesPersons
+                              ? null
+                              : _addSalesPerson,
+                          icon: const Icon(Icons.person_add_alt_1),
+                          label: const Text('إضافة مندوب'),
+                        ),
+                      ],
+                    ),
+                    if (_loadingSalesPersons) const LinearProgressIndicator(),
+                    if (_salesTeam.isEmpty)
+                      const Text('اختياري: أضف مندوبي المبيعات وحدد نسبة توزيع كل مندوب.')
+                    else ...[
+                      ...List.generate(_salesTeam.length, (index) {
+                        final row = _salesTeam[index];
+                        final person = _salesPersons.cast<Map<String, dynamic>?>().firstWhere(
+                          (candidate) => candidate?['name'] == row['sales_person'],
+                          orElse: () => null,
+                        );
+                        final label = person?['sales_person_name']?.toString() ??
+                            row['sales_person']?.toString() ?? '';
+                        return ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(label),
+                          subtitle: Text('نسبة التوزيع: ${row['allocated_percentage']}%'),
+                          trailing: IconButton(
+                            tooltip: 'إزالة المندوب',
+                            onPressed: _saving || _pendingDraft != null
+                                ? null
+                                : () => _removeSalesPerson(index),
+                            icon: const Icon(Icons.remove_circle_outline),
+                          ),
+                        );
+                      }),
+                      Text(
+                        'إجمالي التوزيع: ${_salesTeam.fold<double>(0, (sum, row) => sum + (double.tryParse(row['allocated_percentage']?.toString() ?? '') ?? 0)).toStringAsFixed(2)}%',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ],
                   ]),
                 ),
               ),
