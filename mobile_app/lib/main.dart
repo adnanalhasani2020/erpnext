@@ -5,6 +5,7 @@ import 'sales_invoice_composer.dart';
 import 'sales_workflow_page.dart';
 import 'purchase_inventory_workflows.dart';
 import 'invoice_action_policy.dart';
+import 'financial_reports_page.dart';
 import 'models/erp_models.dart';
 import 'widgets/count_card.dart';
 import 'widgets/load_more_button.dart';
@@ -721,6 +722,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
           NavigationDestination(icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2), label: 'الأرصدة'),
           NavigationDestination(icon: Icon(Icons.warehouse_outlined), selectedIcon: Icon(Icons.warehouse), label: 'المستودعات'),
           NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'المعاملات'),
+          NavigationDestination(icon: Icon(Icons.assessment_outlined), selectedIcon: Icon(Icons.assessment), label: 'التقارير'),
         ],
       ),
     );
@@ -733,6 +735,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       case 2: return _buildStockPage();
       case 3: return _buildWarehousesPage();
       case 4: return _buildSalesPage();
+      case 5: return FinancialReportsPage(api: _api, companies: _companies);
       default: return _buildDashboard();
     }
   }
