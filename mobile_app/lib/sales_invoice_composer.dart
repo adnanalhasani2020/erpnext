@@ -11,6 +11,7 @@ Map<String, dynamic> buildSalesInvoiceLinePayload({
   required double rate,
   String? warehouse,
   bool removeWarehouse = false,
+  bool replaceTrackingAllocation = false,
 }) {
   final row = Map<String, dynamic>.from(sourceRow ?? const <String, dynamic>{});
   if (row['item_code'] != null && row['item_code'] != itemCode) {
@@ -24,8 +25,16 @@ Map<String, dynamic> buildSalesInvoiceLinePayload({
     }
   }
   final sourceQuantity = double.tryParse(row['qty']?.toString() ?? '');
-  if (row['serial_and_batch_bundle'] != null &&
-      (sourceQuantity == null || (sourceQuantity - quantity).abs() > 0.000001)) {
+  final sourceWarehouse = row['warehouse']?.toString();
+  final targetWarehouse = warehouse != null && warehouse.isNotEmpty
+      ? warehouse
+      : (removeWarehouse ? null : sourceWarehouse);
+  final hasExistingTracking = row['serial_and_batch_bundle'] != null ||
+      row['serial_no'] != null || row['batch_no'] != null;
+  if (hasExistingTracking &&
+      (replaceTrackingAllocation || sourceQuantity == null ||
+       (sourceQuantity - quantity).abs() > 0.000001 ||
+       sourceWarehouse != targetWarehouse)) {
     for (final field in const [
       'serial_and_batch_bundle', 'rejected_serial_and_batch_bundle',
       'serial_no', 'batch_no', 'use_serial_batch_fields',
@@ -77,6 +86,7 @@ class _SalesInvoiceLineDraft {
   final rate = TextEditingController(text: '0');
   final serialNumbers = TextEditingController();
   final batchNumber = TextEditingController();
+  bool replaceTrackingAllocation = false;
 
   void dispose() {
     quantity.dispose();
@@ -87,7 +97,7 @@ class _SalesInvoiceLineDraft {
 
   double get qty => double.tryParse(quantity.text.trim()) ?? 0;
   bool get needsTrackingSelection {
-    if (sourceRow?['serial_and_batch_bundle'] == null) return true;
+    if (replaceTrackingAllocation || sourceRow?['serial_and_batch_bundle'] == null) return true;
     final sourceQty = double.tryParse(sourceRow?['qty']?.toString() ?? '');
     return sourceRow?['item_code'] != item?.code ||
         sourceQty == null || (sourceQty - qty).abs() > 0.000001 ||
@@ -288,6 +298,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
               rate: line.unitRate,
               warehouse: line.warehouse?.id,
               removeWarehouse: _updateStock && line.item!.isStockItem,
+              replaceTrackingAllocation: line.replaceTrackingAllocation,
             );
             if (!_updateStock) {
               for (final field in const [
@@ -513,15 +524,15 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
           if (_updateStock && (line.item?.hasSerialNo == true || line.item?.hasBatchNo == true)) ...[
             const SizedBox(height: 10),
             if (line.item?.hasSerialNo == true)
-              TextFormField(controller: line.serialNumbers, enabled: !_saving && _pendingDraft == null, minLines: 2, maxLines: 5,
+              TextFormField(controller: line.serialNumbers, enabled: !_saving && _pendingDraft == null && line.needsTrackingSelection, minLines: 2, maxLines: 5,
                 decoration: const InputDecoration(labelText: 'الأرقام التسلسلية', helperText: 'رقم مستقل لكل وحدة، افصل بينها بسطر جديد أو فاصلة.')),
             if (line.item?.hasBatchNo == true)
-              TextFormField(controller: line.batchNumber, enabled: !_saving && _pendingDraft == null,
+              TextFormField(controller: line.batchNumber, enabled: !_saving && _pendingDraft == null && line.needsTrackingSelection,
                 decoration: const InputDecoration(labelText: 'رقم الدفعة', helperText: 'لأكثر من دفعة، قسّم الكمية إلى بنود منفصلة.')),
           ],
           if (_updateStock && line.item?.isStockItem == true &&
               (line.item?.hasSerialNo == true || line.item?.hasBatchNo == true) &&
-              line.warehouse != null && line.needsTrackingSelection)
+              line.warehouse != null)
             Align(alignment: AlignmentDirectional.centerEnd, child: TextButton.icon(
               onPressed: _saving || _pendingDraft != null ? null : () async {
                 try {
@@ -531,6 +542,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
                   );
                   if (picked != null && mounted) {
                     setState(() {
+                      line.replaceTrackingAllocation = true;
                       line.serialNumbers.text = picked['serial_no']?.toString() ?? '';
                       line.batchNumber.text = picked['batch_no']?.toString() ?? '';
                     });
@@ -540,7 +552,9 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
                 }
               },
               icon: const Icon(Icons.qr_code_scanner),
-              label: const Text('اختيار من الأرقام والدفعات المتاحة'),
+              label: Text(line.sourceRow?['serial_and_batch_bundle'] == null
+                  ? 'اختيار من الأرقام والدفعات المتاحة'
+                  : 'تغيير تخصيص الأرقام والدفعات'),
             )),
           const SizedBox(height: 8),
           Align(alignment: AlignmentDirectional.centerEnd, child: Text('الإجمالي: ${line.total.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold))),
