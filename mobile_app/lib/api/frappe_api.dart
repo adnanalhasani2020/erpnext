@@ -586,6 +586,85 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().map(ErpCustomer.fromJson).toList(growable: false);
   }
 
+  Future<Map<String, dynamic>> fetchCustomerDocument(String customerId) async {
+    final id = customerId.trim();
+    if (id.isEmpty) throw const FormatException('حدد العميل أولاً.');
+    final uri = Uri.parse(
+      '$_baseUrl/api/resource/Customer/' + Uri.encodeComponent(id),
+    ).replace(queryParameters: {
+      'fields': jsonEncode([
+        'name', 'customer_name', 'customer_type', 'customer_group',
+        'territory', 'mobile_no', 'email_id', 'website', 'tax_id',
+        'default_currency', 'default_price_list', 'disabled',
+      ]),
+    });
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل ملف العميل.'));
+    }
+    final document = data['data'];
+    if (document is! Map<String, dynamic> || document['name'] != id) {
+      throw Exception('استجابة ملف العميل غير صحيحة.');
+    }
+    return Map<String, dynamic>.from(document);
+  }
+
+  Future<Map<String, dynamic>> updateCustomerProfile({
+    required String customerId,
+    required Map<String, dynamic> values,
+  }) async {
+    final id = customerId.trim();
+    final customerName = values['customer_name']?.toString().trim() ?? '';
+    final customerType = values['customer_type']?.toString().trim() ?? '';
+    final customerGroup = values['customer_group']?.toString().trim() ?? '';
+    final territory = values['territory']?.toString().trim() ?? '';
+    if (id.isEmpty || customerName.isEmpty ||
+        !{'Company', 'Individual'}.contains(customerType) ||
+        customerGroup.isEmpty || territory.isEmpty) {
+      throw const FormatException('اسم العميل ونوعه ومجموعة العميل والمنطقة حقول مطلوبة.');
+    }
+    final allowedFields = <String>{
+      'customer_name', 'customer_type', 'customer_group', 'territory',
+      'mobile_no', 'email_id', 'website', 'tax_id',
+      'default_currency', 'default_price_list',
+    };
+    final payload = <String, dynamic>{};
+    for (final entry in values.entries) {
+      if (allowedFields.contains(entry.key)) {
+        payload[entry.key] = entry.value is String
+            ? (entry.value as String).trim()
+            : entry.value;
+      }
+    }
+    payload['customer_name'] = customerName;
+    payload['customer_type'] = customerType;
+    payload['customer_group'] = customerGroup;
+    payload['territory'] = territory;
+
+    // Re-read the document before updating so a stale or mismatched identity
+    // cannot be used to change a different Customer record.
+    final current = await fetchCustomerDocument(id);
+    if (current['name'] != id) {
+      throw const FormatException('تغير سجل العميل؛ حدّث القائمة ثم أعد المحاولة.');
+    }
+    final response = await _sendJson(
+      'PUT',
+      '/api/resource/Customer/' + Uri.encodeComponent(id),
+      payload,
+    );
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر حفظ تعديلات العميل.'));
+    }
+    final updated = data['data'];
+    if (updated is! Map<String, dynamic> || updated['name'] != id ||
+        updated['customer_name'] != customerName) {
+      throw Exception('لم يؤكد ERPNext حفظ ملف العميل؛ أعد تحميل الملف قبل أي تعديل آخر.');
+    }
+    return Map<String, dynamic>.from(updated);
+  }
+
   Future<List<ErpSalesInvoice>> fetchSalesInvoices({int start = 0, String? search}) async {
     final uri = Uri.parse('$_baseUrl/api/resource/Sales%20Invoice').replace(queryParameters: {
       'fields': jsonEncode(['name', 'customer', 'customer_name', 'posting_date', 'due_date', 'currency', 'grand_total', 'outstanding_amount', 'status', 'is_return', 'return_against']),
