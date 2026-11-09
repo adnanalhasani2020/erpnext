@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
+import 'models/erp_models.dart';
 
 class MasterDataPage extends StatefulWidget {
   const MasterDataPage({super.key, required this.api, required this.companies});
@@ -155,7 +156,7 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
 
   Widget field(String key, String label, {bool required = false, TextInputType? keyboard}) => Padding(
     padding: const EdgeInsets.only(bottom: 10),
-    child: TextFormField(controller: fields[key], keyboardType: keyboard, decoration: InputDecoration(labelText: label),
+    child: TextFormField(controller: fields[key], enabled: !(key == 'item_code' && editing), keyboardType: keyboard, decoration: InputDecoration(labelText: label),
       validator: required ? (v) => v == null || v.trim().isEmpty ? 'هذا الحقل مطلوب' : null : null),
   );
 
