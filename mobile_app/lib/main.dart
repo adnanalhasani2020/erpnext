@@ -10,6 +10,7 @@ import 'sales_pricing_page.dart';
 import 'sales_commission_page.dart';
 import 'sales_dashboard_page.dart';
 import 'payment_reconciliation_page.dart';
+import 'master_data_page.dart';
 import 'models/erp_models.dart';
 import 'widgets/count_card.dart';
 import 'widgets/load_more_button.dart';
@@ -971,6 +972,12 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ));
   }
 
+  void _openMasterData() {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => MasterDataPage(api: _api, companies: _companies),
+    ));
+  }
+
   void _openSalesPricing() {
     showModalBottomSheet<void>(
       context: context,
@@ -1382,6 +1389,11 @@ class _MobileHomePageState extends State<MobileHomePage> {
             onPressed: _salesLoading ? null : _openSalesPricing,
             icon: const Icon(Icons.price_change_outlined),
             label: const Text('أسعار البيع'),
+          ),
+          OutlinedButton.icon(
+            onPressed: _inventoryLoading || _purchaseLoading ? null : _openMasterData,
+            icon: const Icon(Icons.settings_suggest_outlined),
+            label: const Text('إدارة البيانات الأساسية'),
           ),
           OutlinedButton.icon(
             onPressed: _salesLoading ? null : _openSalesCommissions,
