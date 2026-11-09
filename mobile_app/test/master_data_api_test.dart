@@ -97,5 +97,43 @@ void main() {
         throwsA(isA<FormatException>()),
       );
     });
+
+    test('rejects non-positive item UOM conversion factors before network access', () async {
+      await expectLater(
+        api.saveMasterDataDocument(
+          doctype: 'Item',
+          values: const {
+            'item_code': 'TEST-UOM',
+            'item_name': 'Test item',
+            'item_group': 'Products',
+            'stock_uom': 'Nos',
+            'uoms': [
+              {'uom': 'Box', 'conversion_factor': 0},
+            ],
+          },
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('rejects duplicate and base-unit conversion rows before network access', () async {
+      await expectLater(
+        api.saveMasterDataDocument(
+          doctype: 'Item',
+          values: const {
+            'item_code': 'TEST-UOM',
+            'item_name': 'Test item',
+            'item_group': 'Products',
+            'stock_uom': 'Nos',
+            'uoms': [
+              {'uom': 'Nos', 'conversion_factor': 1},
+              {'uom': 'Box', 'conversion_factor': 12},
+              {'uom': 'Box', 'conversion_factor': 24},
+            ],
+          },
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
   });
 }
