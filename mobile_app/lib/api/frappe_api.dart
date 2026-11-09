@@ -3434,7 +3434,7 @@ class FrappeApi {
     }
     final id = name?.trim();
     if (id != null && id.isNotEmpty) {
-      // Item Code is the Item document identity in standard ERPNext; never rename it here.
+      // Preserve autoname/identity fields across all supported master doctypes.
       const identityFields = {'item_code', 'warehouse_name', 'item_group_name', 'uom_name', 'supplier_group_name', 'price_list_name'};
       payload.removeWhere((key, value) => identityFields.contains(key));
       final current = await fetchMasterDataDocument(doctype: doctype, name: id);
