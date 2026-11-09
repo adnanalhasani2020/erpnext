@@ -947,7 +947,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (_) => _CustomerLedgerSheet(api: _api, customer: customer),
+      builder: (_) => _CustomerLedgerSheet(api: _api, customer: customer, companies: _companies),
     );
   }
 
@@ -1668,10 +1668,11 @@ class _MobileHomePageState extends State<MobileHomePage> {
 }
 
 class _CustomerLedgerSheet extends StatefulWidget {
-  const _CustomerLedgerSheet({required this.api, required this.customer});
+  const _CustomerLedgerSheet({required this.api, required this.customer, required this.companies});
 
   final FrappeApi api;
   final ErpCustomer customer;
+  final List<ErpCompany> companies;
 
   @override
   State<_CustomerLedgerSheet> createState() => _CustomerLedgerSheetState();
@@ -1682,6 +1683,7 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
   bool _loading = true;
   bool _loadingMore = false;
   bool _hasMore = false;
+  String? _company;
   String? _error;
 
   @override
@@ -1703,6 +1705,7 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
     try {
       final page = await widget.api.fetchCustomerLedger(
         customer: widget.customer.id,
+        company: _company,
         start: more ? _rows.length : 0,
       );
       if (!mounted) return;
@@ -1749,6 +1752,23 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
               children: [
                 Text('كشف حساب العميل', style: Theme.of(context).textTheme.titleLarge),
                 Text('${widget.customer.name} • ${widget.customer.id}'),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  value: _company ?? '',
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'الشركة'),
+                  items: [
+                    const DropdownMenuItem(value: '', child: Text('جميع الشركات')),
+                    ...widget.companies.map((company) => DropdownMenuItem(
+                      value: company.name,
+                      child: Text(company.name),
+                    )),
+                  ],
+                  onChanged: _loading ? null : (value) {
+                    setState(() => _company = value == null || value.isEmpty ? null : value);
+                    _load();
+                  },
+                ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 16,
