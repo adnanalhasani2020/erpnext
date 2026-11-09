@@ -36,6 +36,7 @@ void main() {
         expect(filters, contains(['payment_type', '=', 'Pay']));
         expect(filters, contains(['party_type', '=', 'Supplier']));
         expect(filters, contains(['docstatus', '=', 0]));
+        expect(request.uri.queryParameters['limit_start'], '25');
         request.response.write(jsonEncode({'data': [{
           'name': 'PAY-DRAFT-1',
           'party': 'SUP-1',
@@ -68,7 +69,7 @@ void main() {
     });
     final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
     try {
-      final drafts = await api.fetchDraftSupplierPayments(search: 'SUP-1');
+      final drafts = await api.fetchDraftSupplierPayments(start: 25, search: 'SUP-1');
       expect(drafts.single['name'], 'PAY-DRAFT-1');
       final loaded = await api.fetchSupplierPaymentDraftDocument('PAY-DRAFT-1');
       expect(loaded['docstatus'], 0);
