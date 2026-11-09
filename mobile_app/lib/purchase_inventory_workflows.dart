@@ -514,6 +514,270 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     }
   }
 
+  Future<void> composePurchaseOrder({Map<String, dynamic>? draft}) =>
+      _runExclusive(() => _composePurchaseOrder(draft: draft));
+
+  Future<void> _composePurchaseOrder({Map<String, dynamic>? draft}) async {
+    if (widget.companies.isEmpty || widget.suppliers.isEmpty || widget.items.isEmpty) {
+      notice('حمّل الشركات والموردين والأصناف أولاً لإنشاء أمر الشراء.');
+      return;
+    }
+    var company = draft?['company']?.toString() ?? widget.companies.first.name;
+    var supplier = draft?['supplier']?.toString() ?? widget.suppliers.first.id;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final scheduleDate = TextEditingController(text: draft?['schedule_date']?.toString() ?? today);
+    final sourceRows = draft?['items'] is List
+        ? (draft!['items'] as List).whereType<Map<String, dynamic>>().toList()
+        : <Map<String, dynamic>>[];
+    final lines = <Map<String, dynamic>>[];
+    void addLine([Map<String, dynamic>? source]) {
+      final code = source?['item_code']?.toString();
+      final validCode = widget.items.any((item) => item.code == code)
+          ? code!
+          : widget.items.first.code;
+      final sourceWarehouse = source?['warehouse']?.toString();
+      lines.add({
+        'item': validCode,
+        'source': source == null ? null : Map<String, dynamic>.from(source),
+        'qty': TextEditingController(text: (source?['qty'] ?? 1).toString()),
+        'rate': TextEditingController(text: (source?['rate'] ?? 0).toString()),
+        'warehouse': widget.warehouses.any((w) => w.id == sourceWarehouse &&
+            (w.company == null || w.company == company)) ? sourceWarehouse : null,
+      });
+    }
+    if (sourceRows.isEmpty) { addLine(); } else { for (final row in sourceRows) { addLine(row); } }
+    try {
+      final values = await showDialog<Map<String, dynamic>>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(builder: (context, refresh) {
+          final companies = widget.companies.map((x) => x.name).toSet().toList();
+          if (!companies.contains(company)) company = companies.first;
+          final suppliers = widget.suppliers.map((x) => x.id).toSet().toList();
+          if (!suppliers.contains(supplier)) supplier = suppliers.first;
+          final warehouses = widget.warehouses.where((w) => w.company == null || w.company == company).toList();
+          return AlertDialog(
+            title: Text(draft == null ? 'أمر شراء جديد' : 'تعديل مسودة أمر الشراء'),
+            content: SizedBox(width: 540, child: SingleChildScrollView(child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                DropdownButtonFormField<String>(
+                  initialValue: company, isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'الشركة'),
+                  items: companies.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+                  onChanged: (v) => refresh(() {
+                    if (v == null) return;
+                    company = v;
+                    for (final line in lines) {
+                      if (!widget.warehouses.any((w) => w.id == line['warehouse'] &&
+                          (w.company == null || w.company == company))) line['warehouse'] = null;
+                    }
+                  }),
+                ),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: supplier, isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'المورد'),
+                  items: widget.suppliers.map((s) => DropdownMenuItem(
+                    value: s.id, child: Text('${s.name} (${s.id})', overflow: TextOverflow.ellipsis),
+                  )).toList(),
+                  onChanged: (v) => refresh(() { if (v != null) supplier = v; }),
+                ),
+                _field(scheduleDate, 'تاريخ التوريد المطلوب (YYYY-MM-DD)'),
+                const Divider(height: 24),
+                Row(children: [
+                  const Expanded(child: Text('بنود أمر الشراء', style: TextStyle(fontWeight: FontWeight.w600))),
+                  TextButton.icon(onPressed: () => refresh(addLine),
+                    icon: const Icon(Icons.add), label: const Text('إضافة صنف')),
+                ]),
+                ...List.generate(lines.length, (index) {
+                  final line = lines[index];
+                  final matches = widget.items.where((item) => item.code == line['item']).toList();
+                  final item = matches.isEmpty ? null : matches.first;
+                  return Card(margin: const EdgeInsets.only(bottom: 10), child: Padding(
+                    padding: const EdgeInsets.all(10), child: Column(children: [
+                      Row(children: [
+                        Expanded(child: Text('الصنف ${index + 1}', style: const TextStyle(fontWeight: FontWeight.w600))),
+                        if (lines.length > 1) IconButton(
+                          tooltip: 'حذف البند',
+                          onPressed: () => refresh(() {
+                            final removed = lines.removeAt(index);
+                            (removed['qty'] as TextEditingController).dispose();
+                            (removed['rate'] as TextEditingController).dispose();
+                          }),
+                          icon: const Icon(Icons.delete_outline),
+                        ),
+                      ]),
+                      DropdownButtonFormField<String>(
+                        initialValue: item?.code, isExpanded: true,
+                        decoration: InputDecoration(labelText: 'الصنف', helperText: item?.name ?? 'اختر صنفاً محمّلاً'),
+                        items: widget.items.map((x) => DropdownMenuItem(
+                          value: x.code, child: Text('${x.name} (${x.code})', overflow: TextOverflow.ellipsis),
+                        )).toList(),
+                        onChanged: (v) => refresh(() {
+                          if (v == null) return;
+                          line['item'] = v;
+                          final source = line['source'];
+                          if (source is Map<String, dynamic>) {
+                            line['source'] = <String, dynamic>{};
+                          }
+                        }),
+                      ),
+                      Row(children: [
+                        Expanded(child: _field(line['qty'] as TextEditingController, 'الكمية المطلوبة', number: true)),
+                        const SizedBox(width: 8),
+                        Expanded(child: _field(line['rate'] as TextEditingController, 'سعر الوحدة', number: true)),
+                      ]),
+                      DropdownButtonFormField<String>(
+                        initialValue: line['warehouse'] as String?, isExpanded: true,
+                        decoration: InputDecoration(labelText: item?.isStockItem == true ? 'مستودع الاستلام المقترح' : 'المستودع (اختياري)'),
+                        items: [
+                          const DropdownMenuItem<String>(value: null, child: Text('حسب إعدادات الصنف')),
+                          ...warehouses.map((w) => DropdownMenuItem(value: w.id,
+                            child: Text('${w.name} (${w.id})', overflow: TextOverflow.ellipsis))),
+                        ],
+                        onChanged: (v) => refresh(() => line['warehouse'] = v),
+                      ),
+                    ]),
+                  ));
+                }),
+              ],
+            ))),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+              FilledButton(onPressed: () {
+                final parsedDate = DateTime.tryParse(scheduleDate.text.trim());
+                if (company.trim().isEmpty || supplier.trim().isEmpty || parsedDate == null || lines.isEmpty) {
+                  notice('حدد الشركة والمورد وتاريخ توريد صحيحاً وأضف بنداً واحداً على الأقل.');
+                  return;
+                }
+                final payloadLines = <Map<String, dynamic>>[];
+                for (final line in lines) {
+                  final code = line['item'] as String;
+                  final item = widget.items.where((x) => x.code == code).firstOrNull;
+                  final qty = double.tryParse((line['qty'] as TextEditingController).text.trim());
+                  final rate = double.tryParse((line['rate'] as TextEditingController).text.trim());
+                  if (item == null || qty == null || !qty.isFinite || qty <= 0 ||
+                      rate == null || !rate.isFinite || rate < 0 ||
+                      !(qty * rate).isFinite ||
+                      (item.isStockItem && (line['warehouse'] == null || line['warehouse'] is! String))) {
+                    notice('تحقق من الصنف والكمية والسعر ومستودع كل صنف مخزني.');
+                    return;
+                  }
+                  final source = line['source'] is Map<String, dynamic>
+                      ? Map<String, dynamic>.from(line['source'] as Map<String, dynamic>)
+                      : <String, dynamic>{};
+                  source['item_code'] = code;
+                  source['qty'] = qty;
+                  source['rate'] = rate;
+                  source['schedule_date'] = scheduleDate.text.trim();
+                  if (line['warehouse'] != null) source['warehouse'] = line['warehouse'];
+                  else source.remove('warehouse');
+                  payloadLines.add(source);
+                }
+                Navigator.pop(dialogContext, {
+                  'company': company, 'supplier': supplier,
+                  'schedule_date': scheduleDate.text.trim(), 'items': payloadLines,
+                });
+              }, child: const Text('حفظ ومتابعة')),
+            ],
+          );
+        }),
+      );
+      if (values == null || !mounted) return;
+      final payload = <String, dynamic>{
+        'doctype': 'Purchase Order',
+        'company': values['company'],
+        'supplier': values['supplier'],
+        'transaction_date': draft?['transaction_date'] ?? today,
+        'schedule_date': values['schedule_date'],
+        'items': values['items'],
+      };
+      final saved = draft == null
+          ? await widget.api.createPurchaseOrder(payload)
+          : await widget.api.updateDraftPurchaseOrder(name: draft['name'].toString(), changes: payload);
+      if (await confirm('ترحيل أمر الشراء؟',
+          'تم حفظ المسودة ${saved['name'] ?? ''}. هل تريد ترحيل أمر الشراء الآن؟')) {
+        try {
+          final submitted = await widget.api.submitPurchaseOrder(saved);
+          notice('تم ترحيل أمر الشراء ${submitted['name'] ?? saved['name']}');
+        } catch (e) {
+          notice('حُفظت المسودة ${saved['name'] ?? ''} لكن تعذر تأكيد ترحيلها. راجعها قبل إعادة المحاولة. ${e.toString().replaceFirst('Exception: ', '')}');
+        }
+      } else {
+        notice('تم حفظ مسودة أمر الشراء ${saved['name'] ?? ''}');
+      }
+      await load();
+      widget.onChanged?.call();
+    } catch (e) {
+      notice(e.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      for (final line in lines) {
+        (line['qty'] as TextEditingController).dispose();
+        (line['rate'] as TextEditingController).dispose();
+      }
+      scheduleDate.dispose();
+    }
+  }
+
+  Future<void> purchaseOrderDetails(String name) async {
+    try {
+      final doc = await widget.api._fetchPurchaseOrderAnyStatus(name);
+      if (!mounted) return;
+      await showModalBottomSheet<void>(
+        context: context, isScrollControlled: true, showDragHandle: true,
+        builder: (sheet) => SafeArea(child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: ListView(shrinkWrap: true, children: [
+            Text('أمر شراء • $name', style: Theme.of(context).textTheme.titleLarge),
+            Text('المورد: ${doc['supplier_name'] ?? doc['supplier'] ?? '—'}'),
+            Text('الشركة: ${doc['company'] ?? '—'}'),
+            Text('الحالة: ${doc['docstatus'] == 0 ? 'مسودة' : doc['docstatus'] == 1 ? 'مرحّل' : 'ملغي'} • ${doc['status'] ?? '—'}'),
+            Text('الإجمالي: ${doc['grand_total'] ?? '—'} ${doc['currency'] ?? ''}'),
+            const Divider(),
+            ...((doc['items'] as List? ?? []).whereType<Map<String, dynamic>>().map((row) => ListTile(
+              title: Text((row['item_name'] ?? row['item_code'] ?? 'صنف').toString()),
+              subtitle: Text('الكمية: ${row['qty'] ?? '—'} • المستلم: ${row['received_qty'] ?? 0} • المستودع: ${row['warehouse'] ?? '—'}'),
+            ))),
+            if (doc['docstatus'] == 0) ...[
+              FilledButton(onPressed: () { Navigator.pop(sheet); composePurchaseOrder(draft: doc); },
+                child: const Text('تعديل المسودة')),
+              FilledButton.tonal(onPressed: () async {
+                if (!await confirm('ترحيل أمر الشراء', 'سيصبح أمر الشراء متاحاً للاستلام. هل تريد المتابعة؟')) return;
+                try {
+                  await widget.api.submitPurchaseOrder(doc);
+                  if (sheet.mounted) Navigator.pop(sheet);
+                  notice('تم ترحيل أمر الشراء $name');
+                  await load();
+                } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
+              }, child: const Text('ترحيل أمر الشراء')),
+              OutlinedButton.icon(onPressed: () async {
+                if (!await confirm('حذف مسودة أمر الشراء', 'سيُحذف المستند غير المرحّل نهائياً. هل تريد المتابعة؟', actionLabel: 'حذف')) return;
+                try {
+                  await widget.api.deleteDraftDocument(doctype: 'Purchase Order', name: name);
+                  if (sheet.mounted) Navigator.pop(sheet);
+                  notice('تم حذف مسودة أمر الشراء $name');
+                  await load();
+                } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
+              }, icon: const Icon(Icons.delete_outline), label: const Text('حذف المسودة')),
+            ],
+            if (doc['docstatus'] == 1)
+              OutlinedButton.icon(onPressed: () async {
+                if (!await confirm('إلغاء أمر الشراء', 'قد يرفض ERPNext الإلغاء إذا كانت هناك مستندات استلام أو فواتير مرتبطة. هل تريد المتابعة؟')) return;
+                try {
+                  await widget.api.cancelPurchaseOrder(name);
+                  if (sheet.mounted) Navigator.pop(sheet);
+                  notice('تم إلغاء أمر الشراء $name');
+                  await load();
+                } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
+              }, icon: const Icon(Icons.cancel_outlined), label: const Text('إلغاء أمر الشراء')),
+          ]),
+        )),
+      );
+    } catch (e) {
+      notice(e.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
   Future<void> details(String name) async {
     try {
       final doc = await widget.api.fetchInvoiceDocument('Purchase Invoice', name);
