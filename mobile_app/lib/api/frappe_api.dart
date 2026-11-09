@@ -1347,6 +1347,182 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().toList(growable: false);
   }
 
+  Future<List<Map<String, dynamic>>> fetchReconciliationAccounts({
+    required String company,
+    required String partyType,
+  }) async {
+    final normalizedCompany = company.trim();
+    if (normalizedCompany.isEmpty ||
+        !{'Customer', 'Supplier'}.contains(partyType)) {
+      throw const FormatException('حدد الشركة ونوع الطرف الصحيحين.');
+    }
+    final accountType = partyType == 'Customer' ? 'Receivable' : 'Payable';
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Account',
+      fields: const ['name', 'account_type', 'account_currency', 'company'],
+      filters: [
+        ['company', '=', normalizedCompany],
+        ['account_type', '=', accountType],
+        ['is_group', '=', 0],
+        ['disabled', '=', 0],
+      ],
+      orderBy: 'name asc',
+      pageLength: 500,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل حسابات الذمم للشركة.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة حسابات الذمم غير متوقعة.');
+    return rows.whereType<Map<String, dynamic>>()
+        .where((row) => row['company'] == normalizedCompany &&
+            row['account_type'] == accountType)
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>> _runPaymentReconciliationMethod({
+    required Map<String, dynamic> document,
+    required String method,
+    Map<String, dynamic>? args,
+  }) async {
+    if (document['doctype'] != 'Payment Reconciliation') {
+      throw const FormatException('مستند تسوية المدفوعات غير صحيح.');
+    }
+    final response = await _sendJson(
+      'POST',
+      '/api/method/run_doc_method',
+      {
+        'docs': jsonEncode(document),
+        'method': method,
+        if (args != null) 'args': args,
+      },
+    );
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تنفيذ خطوة تسوية المدفوعات ($method).'));
+    }
+    final docs = data['docs'];
+    if (docs is! List || docs.isEmpty || docs.first is! Map<String, dynamic>) {
+      throw Exception('لم يُرجع ERPNext مستند تسوية محدثاً بعد تنفيذ $method.');
+    }
+    final updated = Map<String, dynamic>.from(docs.first as Map);
+    if (updated['doctype'] != 'Payment Reconciliation' ||
+        updated['company'] != document['company'] ||
+        updated['party_type'] != document['party_type'] ||
+        updated['party'] != document['party'] ||
+        updated['receivable_payable_account'] != document['receivable_payable_account']) {
+      throw const FormatException('تغيرت هوية مستند التسوية في استجابة ERPNext.');
+    }
+    return updated;
+  }
+
+  Future<Map<String, dynamic>> fetchUnreconciledPaymentEntries({
+    required String company,
+    required String partyType,
+    required String party,
+    required String receivablePayableAccount,
+    String? fromInvoiceDate,
+    String? toInvoiceDate,
+    String? fromPaymentDate,
+    String? toPaymentDate,
+    int invoiceLimit = 50,
+    int paymentLimit = 50,
+  }) async {
+    final cleanCompany = company.trim();
+    final cleanParty = party.trim();
+    final cleanAccount = receivablePayableAccount.trim();
+    if (cleanCompany.isEmpty || cleanParty.isEmpty || cleanAccount.isEmpty ||
+        !{'Customer', 'Supplier'}.contains(partyType) ||
+        invoiceLimit < 0 || invoiceLimit > 500 ||
+        paymentLimit < 0 || paymentLimit > 500) {
+      throw const FormatException('أكمل الشركة والطرف وحساب الذمم، وحدد حدود تحميل بين 0 و500.');
+    }
+    String? validateDate(String? raw, String label) {
+      final value = raw?.trim() ?? '';
+      if (value.isEmpty) return null;
+      final parsed = DateTime.tryParse(value);
+      if (parsed == null || parsed.toIso8601String().substring(0, 10) != value) {
+        throw FormatException('$label غير صحيح.');
+      }
+      return value;
+    }
+    final invoiceFrom = validateDate(fromInvoiceDate, 'بداية تاريخ الفواتير');
+    final invoiceTo = validateDate(toInvoiceDate, 'نهاية تاريخ الفواتير');
+    final paymentFrom = validateDate(fromPaymentDate, 'بداية تاريخ المدفوعات');
+    final paymentTo = validateDate(toPaymentDate, 'نهاية تاريخ المدفوعات');
+    if ((invoiceFrom != null && invoiceTo != null && invoiceFrom.compareTo(invoiceTo) > 0) ||
+        (paymentFrom != null && paymentTo != null && paymentFrom.compareTo(paymentTo) > 0)) {
+      throw const FormatException('تاريخ البداية يجب ألا يتجاوز تاريخ النهاية.');
+    }
+    final document = <String, dynamic>{
+      'doctype': 'Payment Reconciliation',
+      'company': cleanCompany,
+      'party_type': partyType,
+      'party': cleanParty,
+      'receivable_payable_account': cleanAccount,
+      'invoice_limit': invoiceLimit,
+      'payment_limit': paymentLimit,
+      if (invoiceFrom != null) 'from_invoice_date': invoiceFrom,
+      if (invoiceTo != null) 'to_invoice_date': invoiceTo,
+      if (paymentFrom != null) 'from_payment_date': paymentFrom,
+      if (paymentTo != null) 'to_payment_date': paymentTo,
+      'invoices': <Map<String, dynamic>>[],
+      'payments': <Map<String, dynamic>>[],
+      'allocation': <Map<String, dynamic>>[],
+    };
+    final result = await _runPaymentReconciliationMethod(
+      document: document,
+      method: 'get_unreconciled_entries',
+    );
+    if (result['invoices'] is! List || result['payments'] is! List) {
+      throw const FormatException('لم يُرجع ERPNext قوائم الفواتير والمدفوعات غير المسواة.');
+    }
+    return result;
+  }
+
+  Future<Map<String, dynamic>> allocatePaymentReconciliation(
+    Map<String, dynamic> document,
+  ) async {
+    final invoices = document['invoices'];
+    final payments = document['payments'];
+    if (document['doctype'] != 'Payment Reconciliation' ||
+        invoices is! List || invoices.isEmpty ||
+        payments is! List || payments.isEmpty) {
+      throw const FormatException('يجب تحميل فواتير ومدفوعات غير مسواة قبل إنشاء التوزيع.');
+    }
+    final result = await _runPaymentReconciliationMethod(
+      document: document,
+      method: 'allocate_entries',
+      args: {
+        'invoices': invoices,
+        'payments': payments,
+      },
+    );
+    final allocation = result['allocation'];
+    if (allocation is! List || allocation.isEmpty) {
+      throw const FormatException('لم ينتج ERPNext أي تخصيص قابل للتسوية.');
+    }
+    return result;
+  }
+
+  Future<Map<String, dynamic>> reconcilePaymentAllocations(
+    Map<String, dynamic> document,
+  ) async {
+    final allocation = document['allocation'];
+    if (document['doctype'] != 'Payment Reconciliation' ||
+        allocation is! List || allocation.isEmpty) {
+      throw const FormatException('لا توجد تخصيصات مؤكدة لترحيل التسوية.');
+    }
+    return _runPaymentReconciliationMethod(
+      document: document,
+      method: 'reconcile',
+    );
+  }
+
   Future<List<Map<String, dynamic>>> fetchSupplierPayments({int start = 0, String? search}) async {
     final uri = buildResourcePageUri(
       baseUrl: _baseUrl,
