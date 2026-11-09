@@ -36,6 +36,9 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
   bool loadingMorePurchaseOrders = false;
   List<Map<String, dynamic>> supplierPayments = [];
   List<Map<String, dynamic>> draftSupplierPayments = [];
+  int draftPaymentOffset = 0;
+  bool hasMoreDraftPayments = false;
+  bool loadingMoreDraftPayments = false;
   List<Map<String, dynamic>> supplierLedger = [];
   String? selectedLedgerSupplier;
   String? selectedLedgerCompany;
@@ -121,7 +124,11 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     try {
       final result = await widget.api.fetchDraftSupplierPayments(start: 0, search: query);
       if (mounted && requestId == listRequestId) {
-        setState(() => draftSupplierPayments = result);
+        setState(() {
+          draftSupplierPayments = result;
+          draftPaymentOffset = result.length;
+          hasMoreDraftPayments = result.length == FrappeApi.pageSize;
+        });
       }
     } catch (e) {
       if (requestId == listRequestId) {
@@ -200,6 +207,33 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       ledgerLoading = false;
       ledgerLoadingMore = false;
     });
+  }
+
+  Future<void> loadMoreDraftSupplierPayments() async {
+    if (loading || loadingMoreDraftPayments || !hasMoreDraftPayments) return;
+    final requestId = listRequestId;
+    final query = search.text.trim().isEmpty ? null : search.text.trim();
+    final start = draftPaymentOffset;
+    setState(() => loadingMoreDraftPayments = true);
+    try {
+      final result = await widget.api.fetchDraftSupplierPayments(
+        start: start,
+        search: query,
+      );
+      if (mounted && requestId == listRequestId) {
+        setState(() {
+          draftSupplierPayments = [...draftSupplierPayments, ...result];
+          draftPaymentOffset = start + result.length;
+          hasMoreDraftPayments = result.length == FrappeApi.pageSize;
+        });
+      }
+    } catch (e) {
+      if (mounted && requestId == listRequestId) {
+        setState(() => error = 'مسودات دفعات الموردين: ${e.toString().replaceFirst('Exception: ', '')}');
+      }
+    } finally {
+      if (mounted) setState(() => loadingMoreDraftPayments = false);
+    }
   }
 
   Future<void> loadMorePayments() async {
@@ -1179,6 +1213,14 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
           onTap: () => showSupplierPaymentDraftDetails(payment['name'].toString()),
         ),
       )),
+      if (hasMoreDraftPayments || loadingMoreDraftPayments)
+        Center(child: TextButton.icon(
+          onPressed: loadingMoreDraftPayments ? null : loadMoreDraftSupplierPayments,
+          icon: loadingMoreDraftPayments
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.expand_more),
+          label: const Text('تحميل مسودات دفعات إضافية'),
+        )),
       const Divider(height: 32),
       Text('سجل دفعات الموردين (${supplierPayments.length})', style: Theme.of(context).textTheme.titleMedium),
       const Text('يعرض سندات الصرف المرحلة فقط؛ المسودات والقيود الملغاة لا تدخل في السجل.'),
