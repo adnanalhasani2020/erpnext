@@ -1167,7 +1167,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     }
   }
 
-  List<Map<String, dynamic>> reorderAlerts = [];
+  List<ErpStockReorderAlert> reorderAlerts = [];
   bool loadingReorderAlerts = false;
   String? reorderAlertError;
   List<Map<String, dynamic>> movements = [];
@@ -2047,8 +2047,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         Text('تنبيهات إعادة الطلب (${reorderAlerts.length})', style: Theme.of(context).textTheme.titleMedium),
         ...reorderAlerts.map((alert) => Card(child: ListTile(
           leading: const Icon(Icons.warning_amber_outlined),
-          title: Text('${alert['item_code']} • ${alert['warehouse']}'),
-          subtitle: Text('المتاح المتوقع: ${alert['projected_qty']} • حد إعادة الطلب: ${alert['warehouse_reorder_level']} • كمية الطلب المقترحة: ${alert['warehouse_reorder_qty']}'),
+          title: Text('${alert.itemCode} • ${alert.warehouse}'),
+          subtitle: Text('المتاح المتوقع: ${alert.projectedQty} ${alert.stockUom ?? ''} • حد إعادة الطلب: ${alert.reorderLevel} • كمية الطلب المقترحة: ${alert.reorderQty}'),
           isThreeLine: true,
         ))),
       ] else if (!loadingReorderAlerts && reorderAlertError == null)
