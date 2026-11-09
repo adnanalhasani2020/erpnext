@@ -941,6 +941,16 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ]);
   }
 
+  void _showCustomerLedger(ErpCustomer customer) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => _CustomerLedgerSheet(api: _api, customer: customer),
+    );
+  }
+
   void _showInvoiceDetails(String documentType, String invoiceId) {
     showModalBottomSheet<void>(
       context: context, isScrollControlled: true, showDragHandle: true,
@@ -1348,6 +1358,8 @@ class _MobileHomePageState extends State<MobileHomePage> {
         leading: const CircleAvatar(child: Icon(Icons.person_outline)),
         title: Text(customer.name),
         subtitle: Text([customer.id, if (customer.group != null) customer.group!, if (customer.territory != null) customer.territory!].join(' • ')),
+        trailing: const Icon(Icons.receipt_long_outlined),
+        onTap: () => _showCustomerLedger(customer),
       ))),
       if (_customersHasMore || _loadingMoreCustomers) LoadMoreButton(_loadingMoreCustomers, 'تحميل المزيد من العملاء', _loadMoreCustomers),
       const Divider(height: 28),
@@ -1655,3 +1667,150 @@ class _MobileHomePageState extends State<MobileHomePage> {
   }
 }
 
+class _CustomerLedgerSheet extends StatefulWidget {
+  const _CustomerLedgerSheet({required this.api, required this.customer});
+
+  final FrappeApi api;
+  final ErpCustomer customer;
+
+  @override
+  State<_CustomerLedgerSheet> createState() => _CustomerLedgerSheetState();
+}
+
+class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
+  final List<Map<String, dynamic>> _rows = [];
+  bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load({bool more = false}) async {
+    if (_loadingMore || (more && !_hasMore)) return;
+    setState(() {
+      if (more) {
+        _loadingMore = true;
+      } else {
+        _loading = true;
+        _error = null;
+      }
+    });
+    try {
+      final page = await widget.api.fetchCustomerLedger(
+        customer: widget.customer.id,
+        start: more ? _rows.length : 0,
+      );
+      if (!mounted) return;
+      setState(() {
+        if (more) {
+          _rows.addAll(page);
+        } else {
+          _rows
+            ..clear()
+            ..addAll(page);
+        }
+        _hasMore = page.length == FrappeApi.pageSize;
+        _error = null;
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _loadingMore = false;
+        });
+      }
+    }
+  }
+
+  double _amount(Map<String, dynamic> row, String field) =>
+      double.tryParse(row[field]?.toString() ?? '') ?? 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final debit = _rows.fold<double>(0, (sum, row) => sum + _amount(row, 'debit'));
+    final credit = _rows.fold<double>(0, (sum, row) => sum + _amount(row, 'credit'));
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * .82,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('كشف حساب العميل', style: Theme.of(context).textTheme.titleLarge),
+                Text('${widget.customer.name} • ${widget.customer.id}'),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 6,
+                  children: [
+                    Text('مدين: ${debit.toStringAsFixed(2)}'),
+                    Text('دائن: ${credit.toStringAsFixed(2)}'),
+                    Text('الصافي: ${(debit - credit).toStringAsFixed(2)}'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (_loading) const LinearProgressIndicator(),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(children: [
+                Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                TextButton.icon(onPressed: _loading ? null : () => _load(), icon: const Icon(Icons.refresh), label: const Text('إعادة المحاولة')),
+              ]),
+            ),
+          Expanded(
+            child: _rows.isEmpty
+                ? Center(child: Text(_loading ? 'جارٍ تحميل كشف الحساب...' : 'لا توجد حركات حساب ظاهرة.'))
+                : ListView.separated(
+                    itemCount: _rows.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final row = _rows[index];
+                      final debitValue = _amount(row, 'debit');
+                      final creditValue = _amount(row, 'credit');
+                      return ListTile(
+                        dense: true,
+                        title: Text(row['voucher_no']?.toString() ?? row['name']?.toString() ?? 'قيد محاسبي'),
+                        subtitle: Text([
+                          row['posting_date']?.toString() ?? '',
+                          row['voucher_type']?.toString() ?? '',
+                          row['account']?.toString() ?? '',
+                        ].where((value) => value.isNotEmpty).join(' • ')),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            if (debitValue != 0) Text('مدين ${debitValue.toStringAsFixed(2)}'),
+                            if (creditValue != 0) Text('دائن ${creditValue.toStringAsFixed(2)}'),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          if (_hasMore || _loadingMore)
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: OutlinedButton(
+                onPressed: _loadingMore ? null : () => _load(more: true),
+                child: Text(_loadingMore ? 'جارٍ التحميل...' : 'تحميل المزيد'),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
