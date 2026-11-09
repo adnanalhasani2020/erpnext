@@ -220,15 +220,6 @@ class _MasterDataEditorState extends State<_MasterDataEditor> {
             field('country', 'الدولة'), field('tax_id', 'الرقم الضريبي'),
             field('mobile_no', 'الهاتف', keyboard: TextInputType.phone), field('email_id', 'البريد الإلكتروني', keyboard: TextInputType.emailAddress),
             field('website', 'الموقع الإلكتروني'),
-          ] else if (widget.type == 'Supplier') ...[
-            field('supplier_name', 'اسم المورد', required: true),
-            DropdownButtonFormField<String>(value: supplierType, decoration: const InputDecoration(labelText: 'نوع المورد'),
-              items: const [DropdownMenuItem(value: 'Company', child: Text('شركة')), DropdownMenuItem(value: 'Individual', child: Text('فرد'))],
-              onChanged: saving ? null : (v) { if (v != null) setState(() => supplierType = v); }),
-            const SizedBox(height: 10), field('supplier_group', 'مجموعة الموردين', required: true),
-            field('country', 'الدولة'), field('tax_id', 'الرقم الضريبي'),
-            field('mobile_no', 'الهاتف', keyboard: TextInputType.phone), field('email_id', 'البريد الإلكتروني', keyboard: TextInputType.emailAddress),
-            field('website', 'الموقع الإلكتروني'),
           ] else if (widget.type == 'Warehouse') ...[
             field('warehouse_name', 'اسم المستودع', required: true),
             DropdownButtonFormField<String>(value: company, decoration: const InputDecoration(labelText: 'الشركة'),
