@@ -3406,6 +3406,8 @@ class FrappeApi {
     }
     final id = name?.trim();
     if (id != null && id.isNotEmpty) {
+      // Item Code is the Item document identity in standard ERPNext; never rename it here.
+      if (doctype == 'Item') payload.remove('item_code');
       final current = await fetchMasterDataDocument(doctype: doctype, name: id);
       if (current['name'] != id) throw const FormatException('تغير السجل؛ أعد تحميله قبل التعديل.');
     }
