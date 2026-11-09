@@ -434,10 +434,10 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                       const SizedBox(width: 8),
                       Expanded(child: _field(row['rate'] as TextEditingController, 'سعر الوحدة', number: true)),
                     ]),
-                    if (updateStock.value && item?.hasSerialNo == true)
+                    if (item?.hasSerialNo == true)
                       TextField(controller: row['serial_no'] as TextEditingController, minLines: 2, maxLines: 4,
                         decoration: const InputDecoration(labelText: 'الأرقام التسلسلية', helperText: 'رقم لكل وحدة، افصل بينها بسطر جديد أو فاصلة.')),
-                    if (updateStock.value && item?.hasBatchNo == true)
+                    if (item?.hasBatchNo == true)
                       TextField(controller: row['batch_no'] as TextEditingController, decoration: const InputDecoration(labelText: 'رقم الدفعة')),
                     DropdownButtonFormField<String>(
                 initialValue: row['warehouse'] as String?, isExpanded: true,
@@ -487,7 +487,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                   itemRow['qty'] = qty;
                   itemRow['rate'] = rate;
                   try {
-                    if (updateStock.value) itemRow.addAll(buildSerialBatchFields(
+                    if (updateStock.value && itemRow['serial_and_batch_bundle'] == null) itemRow.addAll(buildSerialBatchFields(
                       item: selectedItem, quantity: qty,
                       serialNumbers: (row['serial_no'] as TextEditingController).text,
                       batchNumber: (row['batch_no'] as TextEditingController).text,
@@ -1491,6 +1491,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                       final removed = lines.removeAt(index);
                       (removed['qty'] as TextEditingController).dispose();
                       (removed['rate'] as TextEditingController).dispose();
+                      (removed['serial_no'] as TextEditingController).dispose();
+                      (removed['batch_no'] as TextEditingController).dispose();
                     }), icon: const Icon(Icons.delete_outline)),
                   ]),
                   DropdownButtonFormField<String>(
@@ -1530,6 +1532,10 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                   return;
                 }
                 final selectedItem = matchingItems.first;
+                if (allowZeroQuantity && (selectedItem.hasSerialNo || selectedItem.hasBatchNo)) {
+                  notice('تسوية الجرد للأصناف ذات الأرقام التسلسلية أو الدفعات تحتاج إلى محرر Bundle مخصص؛ لم يتم ترحيلها من هذه الشاشة.');
+                  return;
+                }
                 if (qty == null || !qty.isFinite ||
                     (allowZeroQuantity ? qty < 0 : qty <= 0) ||
                     (includeRate && (rate == null || !rate.isFinite || (requirePositiveRate ? rate <= 0 : rate < 0)))) return;
@@ -1718,6 +1724,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                           final removed = rows.removeAt(index);
                           (removed['qty'] as TextEditingController).dispose();
                           (removed['rate'] as TextEditingController).dispose();
+                          (removed['serial_no'] as TextEditingController).dispose();
+                          (removed['batch_no'] as TextEditingController).dispose();
                         }),
                         icon: const Icon(Icons.delete_outline),
                       ),

@@ -116,7 +116,7 @@ class FrappeApi {
   }
   List<Map<String, dynamic>> _cleanSerialBatchRows(List<dynamic> items) {
     _validateSerialBatchRows(items);
-    return items.whereType<Map<String, dynamic>>().map((row) => Map<String, dynamic>.from(row)..remove('use_serial_batch_fields')).toList(growable: false);
+    return items.whereType<Map<String, dynamic>>().map((row) => Map<String, dynamic>.from(row)).toList(growable: false);
   }
 
   Future<List<ErpCompany>> fetchCompanies() async {
@@ -491,8 +491,6 @@ class FrappeApi {
         document['supplier'] is! String || (document['supplier'] as String).trim().isEmpty || items is! List || items.isEmpty) {
       throw const FormatException('حدد الشركة والمورد وأضف صنفاً واحداً على الأقل لأمر الشراء.');
     }
-    doc['items'] = _cleanSerialBatchRows(items);
-    document['items'] = _cleanSerialBatchRows(items);
     for (final row in items) {
       if (row is! Map<String, dynamic> || row['item_code'] is! String || (row['item_code'] as String).trim().isEmpty ||
           row['qty'] is! num || !(row['qty'] as num).isFinite || (row['qty'] as num) <= 0 ||
@@ -1394,6 +1392,7 @@ class FrappeApi {
         (doc['company'] as String).trim().isEmpty || items is! List || items.isEmpty) {
       throw const FormatException('حدد الشركة والمورد وأضف صنفاً واحداً على الأقل.');
     }
+    doc['items'] = _cleanSerialBatchRows(items);
     for (final row in items) {
       if (row is! Map<String, dynamic> || row['item_code'] is! String ||
           (row['item_code'] as String).trim().isEmpty || row['qty'] is! num ||
@@ -1850,6 +1849,7 @@ class FrappeApi {
         items is! List || items.isEmpty) {
       throw const FormatException('حدد الشركة والمورد وأضف صنفاً لاستلام البضائع.');
     }
+    document['items'] = _cleanSerialBatchRows(items);
     for (final row in items) {
       if (row is! Map<String, dynamic> || row['item_code'] is! String ||
           (row['item_code'] as String).trim().isEmpty || row['qty'] is! num ||

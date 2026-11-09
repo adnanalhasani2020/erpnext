@@ -270,7 +270,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
               rate: line.unitRate,
               warehouse: line.warehouse?.id,
               removeWarehouse: _updateStock && line.item!.isStockItem,
-            )..addAll(_updateStock ? buildSerialBatchFields(item: line.item!, quantity: line.qty,
+            )..addAll(_updateStock && line.sourceRow?['serial_and_batch_bundle'] == null ? buildSerialBatchFields(item: line.item!, quantity: line.qty,
               serialNumbers: line.serialNumbers.text, batchNumber: line.batchNumber.text) : const {});
           }).toList(growable: false),
         };
