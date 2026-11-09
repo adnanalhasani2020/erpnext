@@ -48,6 +48,10 @@ void main() {
       );
     });
 
+    test('rejects unsupported reference option doctypes before sending a request', () async {
+      await expectLater(api.fetchMasterDataOptions('Sales Invoice'), throwsA(isA<ArgumentError>()));
+    });
+
     test('rejects unsupported doctypes before sending a request', () async {
       await expectLater(
         api.fetchMasterDataRows(doctype: 'Sales Invoice'),
