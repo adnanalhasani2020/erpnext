@@ -1,0 +1,111 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:erpnext_mobile/api/frappe_api.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
+  test('payment reconciliation loads entries, previews FIFO allocation, then confirms reconcile', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final calls = <String>[];
+    server.listen((request) async {
+      expect(request.method, 'POST');
+      expect(request.uri.path, '/api/method/run_doc_method');
+      final body = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+      final method = body['method'] as String;
+      calls.add(method);
+      final document = jsonDecode(body['docs'] as String) as Map<String, dynamic>;
+      expect(document['doctype'], 'Payment Reconciliation');
+      expect(document['company'], 'COMP-1');
+      expect(document['party_type'], 'Customer');
+      expect(document['party'], 'CUS-1');
+      if (method == 'get_unreconciled_entries') {
+        expect(document['receivable_payable_account'], 'Debtors - COMP-1');
+        document['invoices'] = [{
+          'invoice_type': 'Sales Invoice',
+          'invoice_number': 'SINV-1',
+          'outstanding_amount': 100,
+          'currency': 'YER',
+        }];
+        document['payments'] = [{
+          'reference_type': 'Payment Entry',
+          'reference_name': 'PAY-1',
+          'amount': 75,
+          'currency': 'YER',
+        }];
+      } else if (method == 'allocate_entries') {
+        final args = body['args'] as Map<String, dynamic>;
+        expect(args['invoices'], isA<List>());
+        expect(args['payments'], isA<List>());
+        document['allocation'] = [{
+          'reference_type': 'Payment Entry',
+          'reference_name': 'PAY-1',
+          'invoice_type': 'Sales Invoice',
+          'invoice_number': 'SINV-1',
+          'allocated_amount': 75,
+          'currency': 'YER',
+        }];
+      } else if (method == 'reconcile') {
+        expect(document['allocation'], isA<List>());
+      } else {
+        fail('Unexpected Payment Reconciliation method: $method');
+      }
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({
+        'docs': [document],
+        if (method == 'reconcile') 'message': 'Successfully Reconciled',
+      }));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      final loaded = await api.fetchUnreconciledPaymentEntries(
+        company: 'COMP-1',
+        partyType: 'Customer',
+        party: 'CUS-1',
+        receivablePayableAccount: 'Debtors - COMP-1',
+      );
+      expect((loaded['invoices'] as List).length, 1);
+      expect((loaded['payments'] as List).length, 1);
+      final allocated = await api.allocatePaymentReconciliation(loaded);
+      expect((allocated['allocation'] as List).length, 1);
+      final reconciled = await api.reconcilePaymentAllocations(allocated);
+      expect(reconciled['doctype'], 'Payment Reconciliation');
+      expect(calls, [
+        'get_unreconciled_entries',
+        'allocate_entries',
+        'reconcile',
+      ]);
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
+  test('payment reconciliation rejects invalid inputs before network access', () async {
+    final api = FrappeApi();
+    await expectLater(
+      api.fetchUnreconciledPaymentEntries(
+        company: 'COMP-1',
+        partyType: 'Customer',
+        party: ' ',
+        receivablePayableAccount: 'Debtors - COMP-1',
+      ),
+      throwsFormatException,
+    );
+    await expectLater(
+      api.fetchUnreconciledPaymentEntries(
+        company: 'COMP-1',
+        partyType: 'Customer',
+        party: 'CUS-1',
+        receivablePayableAccount: 'Debtors - COMP-1',
+        fromInvoiceDate: '2026-12-31',
+        toInvoiceDate: '2026-01-01',
+      ),
+      throwsFormatException,
+    );
+    api.dispose();
+  });
+}
