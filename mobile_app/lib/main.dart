@@ -1756,7 +1756,7 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
                   children: [
                     Text('مدين: ${debit.toStringAsFixed(2)}'),
                     Text('دائن: ${credit.toStringAsFixed(2)}'),
-                    Text('الصافي: ${(debit - credit).toStringAsFixed(2)}'),
+                    Text('صافي الحركات المحمّلة: ${(debit - credit).toStringAsFixed(2)}'),
                   ],
                 ),
               ],
@@ -1788,6 +1788,8 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
                           row['posting_date']?.toString() ?? '',
                           row['voucher_type']?.toString() ?? '',
                           row['account']?.toString() ?? '',
+                          row['company']?.toString() ?? '',
+                          row['remarks']?.toString() ?? '',
                         ].where((value) => value.isNotEmpty).join(' • ')),
                         trailing: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
