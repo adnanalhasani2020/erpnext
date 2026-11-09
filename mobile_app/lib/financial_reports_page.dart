@@ -30,6 +30,7 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
   List<dynamic> _standardRows = const [];
   DateTime _reportFrom = DateTime(DateTime.now().year, 1, 1);
   DateTime _reportTo = DateTime.now();
+  String _reportAccount = '';
   bool _loading = false;
   bool _stockLoading = false;
   bool _stockLoaded = false;
@@ -161,6 +162,27 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
           'period_start_date': _reportDate(_reportFrom),
           'period_end_date': _reportDate(_reportTo),
           'periodicity': 'Monthly',
+          'include_default_book_entries': 1,
+        });
+      } else if (_standardReportName == 'Bank Reconciliation Statement') {
+        if (_reportAccount.trim().isEmpty) {
+          throw const FormatException('أدخل حساب البنك أو الصندوق لتشغيل كشف التسوية.');
+        }
+        filters.addAll({
+          'account': _reportAccount.trim(),
+          'report_date': _reportDate(_reportTo),
+          'include_pos_transactions': 0,
+        });
+      } else if (_standardReportName == 'Sales Analytics') {
+        filters.addAll({
+          'tree_type': 'Customer',
+          'doc_type': 'Sales Invoice',
+          'value_quantity': 'Value',
+          'range': 'Monthly',
+          'curves': 'all',
+          'entity': <String>[],
+          'from_date': _reportDate(_reportFrom),
+          'to_date': _reportDate(_reportTo),
         });
       } else {
         filters.addAll({
@@ -239,25 +261,44 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
           },
         ),
         const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _standardLoading ? null : () => _pickReportDate(from: true),
-                icon: const Icon(Icons.calendar_today),
-                label: Text('من: ' + _reportDate(_reportFrom)),
+        if (_standardReportName == 'Bank Reconciliation Statement')
+          OutlinedButton.icon(
+            onPressed: _standardLoading ? null : () => _pickReportDate(from: false),
+            icon: const Icon(Icons.event),
+            label: Text('تاريخ كشف البنك: ' + _reportDate(_reportTo)),
+          )
+        else
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _standardLoading ? null : () => _pickReportDate(from: true),
+                  icon: const Icon(Icons.calendar_today),
+                  label: Text('من: ' + _reportDate(_reportFrom)),
+                ),
               ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _standardLoading ? null : () => _pickReportDate(from: false),
-                icon: const Icon(Icons.event),
-                label: Text('إلى: ' + _reportDate(_reportTo)),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _standardLoading ? null : () => _pickReportDate(from: false),
+                  icon: const Icon(Icons.event),
+                  label: Text('إلى: ' + _reportDate(_reportTo)),
+                ),
               ),
+            ],
+          ),
+        if (_standardReportName == 'Bank Reconciliation Statement')
+          Padding(
+            padding: const EdgeInsets.only(top: 10),
+            child: TextFormField(
+              initialValue: _reportAccount,
+              decoration: const InputDecoration(
+                labelText: 'حساب البنك/الصندوق في ERPNext',
+                hintText: 'مثال: 1010 - Bank - AC',
+              ),
+              onChanged: (value) => _reportAccount = value,
             ),
-          ],
-        ),
+          ),
         const SizedBox(height: 10),
         FilledButton.icon(
           onPressed: _standardLoading ? null : _loadStandardReport,
