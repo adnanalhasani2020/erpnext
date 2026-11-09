@@ -102,7 +102,7 @@ class FrappeApi {
       final uri = buildResourcePageUri(
         baseUrl: _baseUrl,
         resource: 'Company',
-        fields: const ['name', 'abbr'],
+        fields: const ['name', 'abbr', 'default_currency'],
         orderBy: 'name asc',
         start: start,
         pageLength: companyPageSize,
