@@ -178,9 +178,9 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
     try {
       final result = await widget.api.reconcilePaymentAllocations(document);
       if (!mounted) return;
-      setState(() => _document = result);
+      setState(() => _document = null);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('أكد ERPNext تنفيذ التسوية. حدّث السجلات لمراجعة المتبقي.')),
+        const SnackBar(content: Text('أكد ERPNext تنفيذ التسوية. أعد جلب السجلات لمراجعة المتبقي.')),
       );
     } catch (error) {
       if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
@@ -262,6 +262,10 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
             const SizedBox(height: 10),
             TextField(
               controller: _partyController,
+              enabled: !_busy,
+              onChanged: (_) {
+                if (_document != null) setState(() => _document = null);
+              },
               decoration: InputDecoration(
                 labelText: _partyType == 'Customer' ? 'رمز العميل' : 'رمز المورد',
                 hintText: _partyType == 'Customer' ? 'مثال: CUST-0001' : 'مثال: SUPP-0001',
@@ -293,18 +297,34 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
               children: [
                 TextField(
                   controller: _invoiceFromController,
+                  enabled: !_busy,
+                  onChanged: (_) {
+                    if (_document != null) setState(() => _document = null);
+                  },
                   decoration: const InputDecoration(labelText: 'من تاريخ الفاتورة (YYYY-MM-DD)'),
                 ),
                 TextField(
                   controller: _invoiceToController,
+                  enabled: !_busy,
+                  onChanged: (_) {
+                    if (_document != null) setState(() => _document = null);
+                  },
                   decoration: const InputDecoration(labelText: 'إلى تاريخ الفاتورة (YYYY-MM-DD)'),
                 ),
                 TextField(
                   controller: _paymentFromController,
+                  enabled: !_busy,
+                  onChanged: (_) {
+                    if (_document != null) setState(() => _document = null);
+                  },
                   decoration: const InputDecoration(labelText: 'من تاريخ الدفعة (YYYY-MM-DD)'),
                 ),
                 TextField(
                   controller: _paymentToController,
+                  enabled: !_busy,
+                  onChanged: (_) {
+                    if (_document != null) setState(() => _document = null);
+                  },
                   decoration: const InputDecoration(labelText: 'إلى تاريخ الدفعة (YYYY-MM-DD)'),
                 ),
               ],
