@@ -40,6 +40,14 @@ This checklist is for a disposable ERPNext test site. Do not validate financial 
 - [ ] Submit a separate invoice with stock update disabled; confirm no stock movement is created.
 - [ ] Attempt invalid quantity, rate, missing customer, and missing warehouse cases; confirm ERPNext rejects invalid documents without duplicate invoices.
 
+## Item and quantity-based promotions
+
+- [ ] Create an Item Code Pricing Rule with a minimum quantity and verify ERPNext saves the child item row.
+- [ ] Confirm the promotion is applied by ERPNext only when the invoice contains the selected item at or above the minimum quantity.
+- [ ] Edit the item code, minimum quantity, discount value and validity dates; verify the saved rule in ERPNext Desk.
+- [ ] Change an item-specific rule to transaction-wide scope and confirm old item conditions are cleared.
+- [ ] Verify invalid, zero and negative minimum quantities are rejected before any API write.
+
 ## Sales dashboard
 
 - [ ] Compare the selected company/date-range invoice count and currency-separated totals with ERPNext Sales Register.
