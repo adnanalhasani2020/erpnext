@@ -2041,7 +2041,7 @@ class _CustomerProfileEditorSheetState
                     ),
                   _field(_name, 'اسم العميل', required: true),
                   DropdownButtonFormField<String>(
-                    value: _type,
+                    initialValue: _type,
                     decoration: const InputDecoration(labelText: 'نوع العميل'),
                     items: const [
                       DropdownMenuItem(value: 'Company', child: Text('شركة')),
