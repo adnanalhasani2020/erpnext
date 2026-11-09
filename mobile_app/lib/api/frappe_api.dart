@@ -215,6 +215,113 @@ class FrappeApi {
     return rows.whereType<Map<String, dynamic>>().map(ErpStockBalance.fromJson).toList(growable: false);
   }
 
+  /// Finds Item warehouse reorder rules whose projected quantity is at or
+  /// below the configured threshold. Group-based rules are omitted because
+  /// they require aggregating projected stock across a warehouse tree.
+  Future<List<Map<String, dynamic>>> fetchStockReorderAlerts() async {
+    const maxRules = 10000;
+    final rules = <Map<String, dynamic>>[];
+    var start = 0;
+    while (true) {
+      final uri = buildResourcePageUri(
+        baseUrl: _baseUrl,
+        resource: 'Item Reorder',
+        fields: const [
+          'name', 'parent', 'parenttype', 'parentfield', 'warehouse_group',
+          'warehouse', 'warehouse_reorder_level', 'warehouse_reorder_qty',
+        ],
+        filters: const [
+          ['parenttype', '=', 'Item'],
+          ['parentfield', '=', 'reorder_levels'],
+        ],
+        orderBy: 'parent asc, warehouse asc',
+        start: start,
+      );
+      final response = await _sendUri('GET', uri);
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر تحميل حدود إعادة الطلب. تحقق من صلاحية قراءة Item Reorder.'));
+      }
+      final page = data['data'];
+      if (page is! List) throw Exception('استجابة حدود إعادة الطلب غير متوقعة.');
+      rules.addAll(page.whereType<Map<String, dynamic>>());
+      if (rules.length > maxRules) {
+        throw const FormatException('عدد قواعد إعادة الطلب تجاوز 10000؛ راجع نطاق البيانات أو صلاحيات المستخدم.');
+      }
+      if (page.length < pageSize) break;
+      start += page.length;
+    }
+    final supportedRules = rules.where((rule) {
+      final group = rule['warehouse_group'];
+      return rule['parent'] is String &&
+          (rule['parent'] as String).isNotEmpty &&
+          rule['warehouse'] is String &&
+          (rule['warehouse'] as String).isNotEmpty &&
+          (group == null || group.toString().trim().isEmpty);
+    }).toList(growable: false);
+    if (supportedRules.isEmpty) return const [];
+
+    final itemCodes = supportedRules.map((rule) => rule['parent'] as String).toSet().toList();
+    final warehouses = supportedRules.map((rule) => rule['warehouse'] as String).toSet().toList();
+    final bins = <Map<String, dynamic>>[];
+    var binStart = 0;
+    while (true) {
+      final uri = buildResourcePageUri(
+        baseUrl: _baseUrl,
+        resource: 'Bin',
+        fields: const ['item_code', 'warehouse', 'actual_qty', 'projected_qty', 'stock_uom', 'company'],
+        filters: [
+          ['item_code', 'in', itemCodes],
+          ['warehouse', 'in', warehouses],
+        ],
+        orderBy: 'item_code asc, warehouse asc',
+        start: binStart,
+      );
+      final response = await _sendUri('GET', uri);
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر تحميل أرصدة الأصناف لفحص إعادة الطلب.'));
+      }
+      final page = data['data'];
+      if (page is! List) throw Exception('استجابة أرصدة إعادة الطلب غير متوقعة.');
+      bins.addAll(page.whereType<Map<String, dynamic>>());
+      if (page.length < pageSize) break;
+      binStart += page.length;
+    }
+    final binByKey = <String, Map<String, dynamic>>{
+      for (final bin in bins)
+        if (bin['item_code'] is String && bin['warehouse'] is String)
+          '${bin['item_code']}::${bin['warehouse']}': bin,
+    };
+    double number(dynamic value) {
+      if (value is num) return value.toDouble();
+      return double.tryParse(value?.toString() ?? '') ?? 0;
+    }
+    final alerts = <Map<String, dynamic>>[];
+    for (final rule in supportedRules) {
+      final itemCode = rule['parent'] as String;
+      final warehouse = rule['warehouse'] as String;
+      final bin = binByKey['$itemCode::$warehouse'];
+      final projected = number(bin?['projected_qty']);
+      final level = number(rule['warehouse_reorder_level']);
+      if (projected <= level) {
+        alerts.add({
+          ...rule,
+          'item_code': itemCode,
+          'actual_qty': number(bin?['actual_qty']),
+          'projected_qty': projected,
+          'stock_uom': bin?['stock_uom'],
+          'company': bin?['company'],
+          'warehouse_reorder_level': level,
+          'warehouse_reorder_qty': number(rule['warehouse_reorder_qty']),
+          'is_below_reorder_level': true,
+        });
+      }
+    }
+    alerts.sort((a, b) => number(a['projected_qty']).compareTo(number(b['projected_qty'])));
+    return alerts;
+  }
+
   Future<List<ErpCustomer>> fetchCustomers({int start = 0, String? search}) async {
     final uri = Uri.parse('$_baseUrl/api/resource/Customer').replace(queryParameters: {
       'fields': jsonEncode(['name', 'customer_name', 'customer_type', 'customer_group', 'territory']),
