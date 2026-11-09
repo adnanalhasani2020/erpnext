@@ -19,11 +19,18 @@ class FinancialReportsPage extends StatefulWidget {
 
 class _FinancialReportsPageState extends State<FinancialReportsPage> {
   bool _receivables = true;
+  bool _showInventoryValuation = false;
   bool _loading = false;
+  bool _stockLoading = false;
+  bool _stockLoaded = false;
   String? _company;
   String? _error;
+  String? _stockError;
   List<Map<String, dynamic>> _rows = const [];
+  List<ErpStockBalance> _stockBalances = const [];
+  List<ErpWarehouse> _warehouses = const [];
   int _requestGeneration = 0;
+  int _stockRequestGeneration = 0;
 
   @override
   void initState() {
@@ -34,6 +41,7 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
   @override
   void dispose() {
     _requestGeneration++;
+    _stockRequestGeneration++;
     super.dispose();
   }
 
@@ -61,6 +69,129 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
         setState(() => _loading = false);
       }
     }
+  }
+
+  Future<void> _loadInventoryValuation() async {
+    final generation = ++_stockRequestGeneration;
+    setState(() {
+      _stockLoading = true;
+      _stockError = null;
+    });
+    try {
+      final warehouses = <ErpWarehouse>[];
+      var warehouseOffset = 0;
+      while (true) {
+        final page = await widget.api.fetchWarehouses(start: warehouseOffset);
+        warehouses.addAll(page);
+        if (warehouses.length > 10000) {
+          throw const FormatException('تجاوز عدد المستودعات الحد الآمن لتقرير قيمة المخزون.');
+        }
+        if (page.length < FrappeApi.pageSize) break;
+        warehouseOffset += page.length;
+      }
+
+      final balances = <ErpStockBalance>[];
+      var balanceOffset = 0;
+      while (true) {
+        final page = await widget.api.fetchStockBalances(start: balanceOffset);
+        balances.addAll(page);
+        if (balances.length > 10000) {
+          throw const FormatException('تجاوز عدد أرصدة المخزون الحد الآمن للتقرير؛ استخدم شاشة المخزون لتصفية النتائج.');
+        }
+        if (page.length < FrappeApi.pageSize) break;
+        balanceOffset += page.length;
+      }
+      if (!mounted || generation != _stockRequestGeneration) return;
+      setState(() {
+        _warehouses = warehouses;
+        _stockBalances = balances;
+        _stockLoaded = true;
+      });
+    } catch (error) {
+      if (!mounted || generation != _stockRequestGeneration) return;
+      setState(() {
+        _stockBalances = const [];
+        _stockError = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted && generation == _stockRequestGeneration) {
+        setState(() => _stockLoading = false);
+      }
+    }
+  }
+
+  Widget _buildInventoryValuation() {
+    final warehouseById = {for (final warehouse in _warehouses) warehouse.id: warehouse};
+    final companyByName = {for (final company in widget.companies) company.name: company};
+    final filtered = _stockBalances.where((balance) {
+      if (_company == null || _company!.isEmpty) return true;
+      return warehouseById[balance.warehouse]?.company == _company;
+    }).toList(growable: false);
+    final grouped = <String, List<ErpStockBalance>>{};
+    for (final balance in filtered) {
+      final warehouse = warehouseById[balance.warehouse];
+      final companyName = warehouse?.company;
+      final key = companyName ?? 'شركة غير محددة • ${balance.warehouse}';
+      grouped.putIfAbsent(key, () => []).add(balance);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('قيمة المخزون الحالية', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 6),
+        const Text('لقطة حالية من Bin في ERPNext. تُعرض القيم لكل شركة بعملتها الافتراضية، ولا تُجمع العملات المختلفة.'),
+        const SizedBox(height: 10),
+        if (_stockLoading) const LinearProgressIndicator(),
+        if (_stockError != null)
+          Card(child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Text(_stockError!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+          )),
+        if (!_stockLoading && _stockError == null && filtered.isEmpty)
+          const Card(child: ListTile(
+            leading: Icon(Icons.inventory_2_outlined),
+            title: Text('لا توجد أرصدة مخزون ضمن نطاق التقرير'),
+          )),
+        ...grouped.entries.map((entry) {
+          final company = companyByName[entry.key];
+          final currency = company?.defaultCurrency ?? '';
+          final knownValues = entry.value.where((row) => row.stockValue != null).fold<double>(
+            0, (sum, row) => sum + row.stockValue!,
+          );
+          final missingValues = entry.value.where((row) => row.stockValue == null).length;
+          return Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(entry.key, style: Theme.of(context).textTheme.titleMedium),
+                  Text('عدد أرصدة الأصناف: ${entry.value.length}'),
+                  Text('القيمة المعروفة: ${knownValues.toStringAsFixed(2)} ${currency.isEmpty ? 'عملة غير محددة' : currency}',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+                  if (missingValues > 0)
+                    Text('تنبيه: قيمة التقييم غير متاحة لـ $missingValues رصيد؛ الإجمالي جزئي.',
+                      style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  const Divider(),
+                  ...entry.value.take(60).map((row) => ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(row.itemCode),
+                    subtitle: Text('${row.warehouse} • الكمية: ${row.actualQty.toStringAsFixed(2)} ${row.stockUom ?? ''} • معدل التقييم: ${row.valuationRate?.toStringAsFixed(2) ?? '—'}'),
+                    trailing: Text(row.stockValue?.toStringAsFixed(2) ?? '—'),
+                  )),
+                  if (entry.value.length > 60)
+                    Text('يُعرض أول 60 رصيداً من أصل ${entry.value.length}. راجع شاشة المخزون للتصفية التفصيلية.'),
+                ],
+              ),
+            ),
+          );
+        }),
+        if (_stockLoaded && filtered.isNotEmpty)
+          Text('الأرصدة المعروضة: ${filtered.length} • عدد الشركات/المجموعات: ${grouped.length}'),
+      ],
+    );
   }
 
   double _amount(Map<String, dynamic> row) {
@@ -183,32 +314,53 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('تقارير الذمم', style: Theme.of(context).textTheme.titleLarge),
-                  Text('أعمار الفواتير المستحقة للعملاء والموردين',
+                  Text(_showInventoryValuation ? 'تقارير المخزون' : 'تقارير الذمم',
+                      style: Theme.of(context).textTheme.titleLarge),
+                  Text(_showInventoryValuation
+                      ? 'قيمة المخزون الحالية حسب الشركة والمستودع'
+                      : 'أعمار الفواتير المستحقة للعملاء والموردين',
                       style: Theme.of(context).textTheme.bodySmall),
                 ],
               ),
             ),
             IconButton(
               tooltip: 'تحديث التقرير',
-              onPressed: _loading ? null : _load,
+              onPressed: _showInventoryValuation
+                  ? (_stockLoading ? null : _loadInventoryValuation)
+                  : (_loading ? null : _load),
               icon: const Icon(Icons.refresh),
             ),
           ],
         ),
-        const SizedBox(height: 14),
-        SegmentedButton<bool>(
-          segments: const [
-            ButtonSegment(value: true, label: Text('ذمم العملاء'), icon: Icon(Icons.call_received)),
-            ButtonSegment(value: false, label: Text('ذمم الموردين'), icon: Icon(Icons.call_made)),
-          ],
-          selected: {_receivables},
-          onSelectionChanged: _loading ? null : (selection) {
-            setState(() => _receivables = selection.first);
-            _load();
-          },
+        const SizedBox(height: 10),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: OutlinedButton.icon(
+            onPressed: () {
+              setState(() => _showInventoryValuation = !_showInventoryValuation);
+              if (_showInventoryValuation && !_stockLoaded && !_stockLoading) {
+                _loadInventoryValuation();
+              }
+            },
+            icon: Icon(_showInventoryValuation ? Icons.account_balance_outlined : Icons.inventory_2_outlined),
+            label: Text(_showInventoryValuation ? 'العودة إلى تقارير الذمم' : 'فتح تقرير قيمة المخزون'),
+          ),
         ),
         const SizedBox(height: 12),
+        if (!_showInventoryValuation) ...[
+          SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: true, label: Text('ذمم العملاء'), icon: Icon(Icons.call_received)),
+              ButtonSegment(value: false, label: Text('ذمم الموردين'), icon: Icon(Icons.call_made)),
+            ],
+            selected: {_receivables},
+            onSelectionChanged: _loading ? null : (selection) {
+              setState(() => _receivables = selection.first);
+              _load();
+            },
+          ),
+          const SizedBox(height: 12),
+        ],
         DropdownButtonFormField<String>(
           initialValue: _company ?? '',
           isExpanded: true,
@@ -220,40 +372,45 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
               child: Text(company.name),
             )),
           ],
-          onChanged: _loading ? null : (value) {
+          onChanged: (_loading || _stockLoading) ? null : (value) {
             setState(() => _company = value == null || value.isEmpty ? null : value);
-            _load();
+            if (!_showInventoryValuation) _load();
           },
         ),
         const SizedBox(height: 12),
-        if (_loading) const LinearProgressIndicator(),
-        if (_error != null)
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+        if (_showInventoryValuation)
+          _buildInventoryValuation()
+        else ...[
+          if (_loading) const LinearProgressIndicator(),
+          if (_error != null)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              ),
             ),
-          ),
-        if (!_loading && _error == null && _rows.isEmpty)
-          const Card(child: ListTile(
-            leading: Icon(Icons.check_circle_outline),
-            title: Text('لا توجد فواتير مستحقة ضمن نطاق التقرير'),
-          )),
-        if (_rows.isNotEmpty) ...[
-          Text('عدد الفواتير: ${_rows.length}',
-              style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 6),
-          const Text('تُجمع المبالغ حسب العملة ولا تُخلط العملات المختلفة. الأعمار محسوبة من تاريخ الاستحقاق؛ وإذا لم يتوفر يُستخدم تاريخ الترحيل.'),
-          const SizedBox(height: 8),
-          ...currencies.map((currency) => _summaryForCurrency(currency, grouped[currency]!)),
+          if (!_loading && _error == null && _rows.isEmpty)
+            const Card(child: ListTile(
+              leading: Icon(Icons.check_circle_outline),
+              title: Text('لا توجد فواتير مستحقة ضمن نطاق التقرير'),
+            )),
+          if (_rows.isNotEmpty) ...[
+            Text('عدد الفواتير: ${_rows.length}',
+                style: Theme.of(context).textTheme.titleMedium),
+            const SizedBox(height: 6),
+            const Text('تُجمع المبالغ حسب العملة ولا تُخلط العملات المختلفة. الأعمار محسوبة من تاريخ الاستحقاق؛ وإذا لم يتوفر يُستخدم تاريخ الترحيل.'),
+            const SizedBox(height: 8),
+            ...currencies.map((currency) => _summaryForCurrency(currency, grouped[currency]!)),
+            const SizedBox(height: 12),
+            Text('تفاصيل الفواتير', style: Theme.of(context).textTheme.titleMedium),
+            ..._rows.map(_invoiceTile),
+          ],
           const SizedBox(height: 12),
-          Text('تفاصيل الفواتير', style: Theme.of(context).textTheme.titleMedium),
-          ..._rows.map(_invoiceTile),
+          const Text('التقرير يعرض الفواتير المرحلة ذات الرصيد المتبقي فقط، ويستبعد المرتجعات. الحد الأعلى 10000 فاتورة في الطلب الواحد؛ استخدم فلتر الشركة إذا تجاوزت البيانات هذا الحد.',
+              style: TextStyle(fontSize: 12)),
         ],
-        const SizedBox(height: 12),
-        const Text('التقرير يعرض الفواتير المرحلة ذات الرصيد المتبقي فقط، ويستبعد المرتجعات. الحد الأعلى 10000 فاتورة في الطلب الواحد؛ استخدم فلتر الشركة إذا تجاوزت البيانات هذا الحد.',
-            style: TextStyle(fontSize: 12)),
       ],
     );
   }
+
 }
