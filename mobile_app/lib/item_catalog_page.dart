@@ -189,8 +189,13 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
     appBar: AppBar(title: const Text('دليل الأصناف'), actions: [
       IconButton(tooltip:'مسح باركود', onPressed:_loading?null:_scan, icon:const Icon(Icons.qr_code_scanner)),
       IconButton(tooltip:'تصدير Excel', onPressed:_loading?null:_export, icon:const Icon(Icons.file_download_outlined)),
-      PopupMenuButton<String>(onSelected:(v){ if(v=='import') _import(); if(v=='other') Navigator.push(context,MaterialPageRoute<void>(
-        builder:(_)=>MasterDataPage(api:widget.api,companies:widget.companies,initialType:'Item Group'))); },
+      PopupMenuButton<String>(onSelected:(v){
+        if(v=='import') { _import(); }
+        if(v=='other') {
+          Navigator.push(context,MaterialPageRoute<void>(
+            builder:(_)=>MasterDataPage(api:widget.api,companies:widget.companies,initialType:'Item Group')));
+        }
+      },
         itemBuilder:(_)=>const [
           PopupMenuItem(value:'import',child:Text('استيراد Excel')),
           PopupMenuItem(value:'other',child:Text('بيانات أساسية أخرى')),
