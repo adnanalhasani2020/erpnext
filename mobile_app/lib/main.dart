@@ -881,40 +881,192 @@ class _MobileHomePageState extends State<MobileHomePage> {
   }
 
   void _showItemDetails(ErpItem item) {
-    final balances = _stockBalances.where((row) => row.itemCode == item.code).toList(growable: false);
+    final balances = _stockBalances
+        .where((row) => row.itemCode == item.code)
+        .toList(growable: false);
+    final detailsFuture = Future.wait<dynamic>([
+      _api.fetchItemDocument(item.code),
+      _api.fetchItemPriceEntries(itemCode: item.code),
+    ]);
+
     showModalBottomSheet<void>(
-      context: context, showDragHandle: true, isScrollControlled: true,
-      builder: (context) => SafeArea(child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text(item.name, style: Theme.of(context).textTheme.titleLarge),
-          const SizedBox(height: 8),
-          Text('رمز الصنف: ${item.code}'),
-          Text('المجموعة: ${item.group ?? '—'}'),
-          Text('وحدة القياس: ${item.stockUom ?? '—'}'),
-          Text(item.isStockItem ? 'صنف مخزني' : 'صنف غير مخزني'),
-          const Divider(height: 24),
-          Text('الأرصدة حسب المستودع', style: Theme.of(context).textTheme.titleMedium),
-          if (balances.isEmpty) const Text('لا توجد أرصدة ظاهرة لهذا الصنف.'),
-          ...balances.map((balance) => ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(balance.warehouse),
-            subtitle: Text('محجوز: ${balance.reservedQty} • متوقع: ${balance.projectedQty}'),
-            trailing: Text('${balance.actualQty} ${balance.stockUom ?? ''}'),
-          )),
-          if (item.isStockItem) ...[
-            const SizedBox(height: 12),
-            FilledButton.icon(
-              onPressed: () {
-                Navigator.of(context).pop();
-                _openStockWorkflow(initialItemCode: item.code);
-              },
-              icon: const Icon(Icons.history),
-              label: const Text('عرض حركات هذا الصنف'),
-            ),
-          ],
-        ]),
-      )),
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (sheetContext) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: .86,
+        minChildSize: .55,
+        maxChildSize: .96,
+        builder: (context, scrollController) => FutureBuilder<List<dynamic>>(
+          future: detailsFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            if (snapshot.hasError || !snapshot.hasData) {
+              final message = snapshot.error?.toString().replaceFirst('Exception: ', '') ??
+                  'لم تصل تفاصيل الصنف من ERPNext.';
+              return ListView(
+                controller: scrollController,
+                padding: const EdgeInsets.all(20),
+                children: [
+                  Text(item.name, style: Theme.of(context).textTheme.titleLarge),
+                  Text('رمز الصنف: ${item.code}'),
+                  const SizedBox(height: 12),
+                  Text(message, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      _showItemDetails(item);
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('إعادة تحميل التفاصيل'),
+                  ),
+                ],
+              );
+            }
+
+            final document = snapshot.data![0] as Map<String, dynamic>;
+            final prices = snapshot.data![1] as List<Map<String, dynamic>>;
+            String field(String key, {String fallback = '—'}) {
+              final raw = document[key];
+              if (raw == null || raw.toString().trim().isEmpty) return fallback;
+              return raw.toString();
+            }
+            bool enabled(dynamic value) => value == 1 || value == true;
+            String priceKind(Map<String, dynamic> row) {
+              if (enabled(row['selling'])) return 'بيع';
+              if (enabled(row['buying'])) return 'شراء';
+              return 'غير محدد';
+            }
+            final imagePath = field('image', fallback: '');
+            final barcodeRows = document['barcodes'] is List
+                ? (document['barcodes'] as List).whereType<Map>().toList()
+                : const <Map>[];
+            final uomRows = document['uoms'] is List
+                ? (document['uoms'] as List).whereType<Map>().toList()
+                : const <Map>[];
+
+            Widget detail(String label, String value) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(width: 118, child: Text(label, style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600))),
+                  Expanded(child: Text(value)),
+                ],
+              ),
+            );
+
+            return ListView(
+              controller: scrollController,
+              padding: const EdgeInsets.fromLTRB(18, 8, 18, 28),
+              children: [
+                Text(field('item_name', fallback: item.name),
+                    style: Theme.of(context).textTheme.titleLarge),
+                Text('رمز الصنف: ${item.code}'),
+                if (imagePath.isNotEmpty && imagePath != '—') ...[
+                  const SizedBox(height: 12),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      _api.resolveFileUrl(imagePath),
+                      height: 170,
+                      fit: BoxFit.contain,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    ),
+                  ),
+                ],
+                const Divider(height: 24),
+                Text('البيانات الأساسية', style: Theme.of(context).textTheme.titleMedium),
+                detail('المجموعة', field('item_group')),
+                detail('العلامة التجارية', field('brand')),
+                detail('الشركة المصنعة', field('manufacturer')),
+                detail('الوصف', field('description')),
+                detail('نوع الصنف', enabled(document['is_stock_item']) ? 'مخزني' : 'غير مخزني'),
+                detail('وحدة المخزون', field('stock_uom')),
+                detail('الحالة', enabled(document['disabled']) ? 'معطل' : 'نشط'),
+                detail('طريقة التقييم', field('valuation_method')),
+                detail('المورد الافتراضي', field('default_supplier')),
+                const Divider(height: 24),
+                Text('التتبع والمخزون', style: Theme.of(context).textTheme.titleMedium),
+                detail('أرقام تسلسلية', enabled(document['has_serial_no']) ? 'مفعّل' : 'غير مفعّل'),
+                detail('الدفعات', enabled(document['has_batch_no']) ? 'مفعّل' : 'غير مفعّل'),
+                detail('تاريخ الصلاحية', enabled(document['has_expiry_date']) ? 'مفعّل' : 'غير مفعّل'),
+                detail('حد إعادة الطلب', field('safety_stock')),
+                const Divider(height: 24),
+                Text('الباركود', style: Theme.of(context).textTheme.titleMedium),
+                if (barcodeRows.isEmpty)
+                  const Text('لا توجد باركودات مسجلة في سجل الصنف.')
+                else
+                  ...barcodeRows.map((row) => ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.qr_code_2),
+                    title: Text(row['barcode']?.toString() ?? '—'),
+                    subtitle: Text(row['barcode_type']?.toString() ?? ''),
+                  )),
+                const Divider(height: 24),
+                Text('وحدات القياس والتحويل', style: Theme.of(context).textTheme.titleMedium),
+                if (uomRows.isEmpty)
+                  const Text('لا توجد وحدات بديلة مسجلة.')
+                else
+                  ...uomRows.map((row) => ListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(row['uom']?.toString() ?? '—'),
+                    trailing: Text('معامل التحويل: ${row['conversion_factor'] ?? '—'}'),
+                  )),
+                const Divider(height: 24),
+                Text('أسعار البيع والشراء', style: Theme.of(context).textTheme.titleMedium),
+                if (prices.isEmpty)
+                  const Text('لا توجد سجلات أسعار ظاهرة لهذا الصنف أو لا تسمح صلاحيات المستخدم بقراءتها.')
+                else
+                  ...prices.map((row) => Card(
+                    child: ListTile(
+                      dense: true,
+                      title: Text('${row['price_list'] ?? 'قائمة غير محددة'} • ${priceKind(row)}'),
+                      subtitle: Text([
+                        if (row['uom'] != null && row['uom'].toString().isNotEmpty) 'الوحدة: ${row['uom']}',
+                        if (row['min_qty'] != null) 'الحد الأدنى: ${row['min_qty']}',
+                        if (row['valid_from'] != null) 'من: ${row['valid_from']}',
+                        if (row['valid_upto'] != null) 'إلى: ${row['valid_upto']}',
+                      ].join(' • ')),
+                      trailing: Text('${row['price_list_rate'] ?? '—'} ${row['currency'] ?? ''}',
+                        textAlign: TextAlign.end,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
+                    ),
+                  )),
+                const Divider(height: 24),
+                Text('الأرصدة حسب المستودع', style: Theme.of(context).textTheme.titleMedium),
+                if (balances.isEmpty)
+                  const Text('لا توجد أرصدة ظاهرة لهذا الصنف ضمن النتائج المحمّلة.')
+                else
+                  ...balances.map((balance) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(balance.warehouse),
+                    subtitle: Text('محجوز: ${balance.reservedQty} • متوقع: ${balance.projectedQty}'),
+                    trailing: Text('${balance.actualQty} ${balance.stockUom ?? ''}'),
+                  )),
+                if (item.isStockItem) ...[
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: () {
+                      Navigator.of(sheetContext).pop();
+                      _openStockWorkflow(initialItemCode: item.code);
+                    },
+                    icon: const Icon(Icons.history),
+                    label: const Text('عرض حركات هذا الصنف'),
+                  ),
+                ],
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 
