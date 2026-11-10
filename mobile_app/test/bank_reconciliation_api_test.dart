@@ -45,6 +45,19 @@ void main() {
       );
     });
 
+    test('rejects invalid bank voucher date filters before network access', () async {
+      await expectLater(
+        api.fetchLinkedBankVouchers(
+          transactionName: 'BT-001',
+          bankAccount: 'BANK-001',
+          company: 'Company A',
+          fromDate: '2026-11-30',
+          toDate: '2026-11-01',
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
     test('requires vouchers before reconciling a bank transaction', () async {
       await expectLater(
         api.reconcileBankTransaction(
