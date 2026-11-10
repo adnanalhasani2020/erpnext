@@ -6029,6 +6029,47 @@ class _ApiResponse {
     return null;
   }
 
+  Future<core.Map<String, dynamic>> fetchPartyLedgerTotals({
+    required String partyType, required String party,
+    String? company, String? fromDate, String? toDate,
+  }) async {
+    final cleanParty = party.trim();
+    final from = _validateLedgerDate(fromDate, 'تاريخ البداية');
+    final to = _validateLedgerDate(toDate, 'تاريخ النهاية');
+    if (cleanParty.isEmpty || !{'Customer', 'Supplier'}.contains(partyType) ||
+        (from != null && to != null && from.compareTo(to) > 0)) {
+      throw const FormatException('بيانات إجماليات كشف الحساب غير صحيحة.');
+    }
+    final filters = <List<dynamic>>[
+      ['party_type', '=', partyType], ['party', '=', cleanParty],
+      ['is_cancelled', '=', 0],
+      if (company?.trim().isNotEmpty == true) ['company', '=', company!.trim()],
+      if (from != null) ['posting_date', '>=', from],
+      if (to != null) ['posting_date', '<=', to],
+    ];
+    final uri = Uri.parse('$_baseUrl/api/method/frappe.client.get_list').replace(
+      queryParameters: {
+        'doctype': 'GL Entry',
+        'fields': jsonEncode(['sum(debit) as debit', 'sum(credit) as credit']),
+        'filters': jsonEncode(filters), 'limit_page_length': '1',
+      },
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر حساب إجماليات كشف الحساب.'));
+    }
+    final rows = data['message'];
+    if (rows is! List || rows.isEmpty || rows.first is! core.Map<String, dynamic>) {
+      return {'debit': 0.0, 'credit': 0.0, 'balance': 0.0};
+    }
+    final row = rows.first as core.Map<String, dynamic>;
+    final debit = double.tryParse(row['debit']?.toString() ?? '') ?? 0.0;
+    final credit = double.tryParse(row['credit']?.toString() ?? '') ?? 0.0;
+    if (!debit.isFinite || !credit.isFinite) throw const FormatException('إجماليات دفتر الأستاذ غير صالحة.');
+    return {'debit': debit, 'credit': credit, 'balance': debit - credit};
+  }
+
   Future<core.Map<String, dynamic>> fetchBankReconciliationBalances({
     required String bankAccount,
     required String company,
