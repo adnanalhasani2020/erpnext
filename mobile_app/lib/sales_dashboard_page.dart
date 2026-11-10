@@ -1,3 +1,5 @@
+import 'dart:core';
+import 'dart:core' as core;
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
@@ -21,7 +23,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
   String? _company;
   DateTime _from = DateTime(DateTime.now().year, DateTime.now().month, 1);
   DateTime _to = DateTime.now();
-  List<Map<String, dynamic>> _invoices = const [];
+  List<core.Map<String, dynamic>> _invoices = const [];
   bool _loading = false;
   String? _error;
   int _requestGeneration = 0;
@@ -97,8 +99,8 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
     await _load();
   }
 
-  Map<String, Map<String, dynamic>> get _currencyTotals {
-    final result = <String, Map<String, dynamic>>{};
+  core.Map<String, core.Map<String, dynamic>> get _currencyTotals {
+    final result = <String, core.Map<String, dynamic>>{};
     for (final invoice in _invoices) {
       final currency = invoice['currency']?.toString() ?? '';
       final total = result.putIfAbsent(currency, () => {
@@ -113,8 +115,8 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
     return result;
   }
 
-  Map<String, List<MapEntry<String, double>>> get _topCustomersByCurrency {
-    final grouped = <String, Map<String, double>>{};
+  core.Map<String, List<MapEntry<String, double>>> get _topCustomersByCurrency {
+    final grouped = <String, core.Map<String, double>>{};
     for (final invoice in _invoices) {
       final customer = invoice['customer_name']?.toString().trim().isNotEmpty == true
           ? invoice['customer_name'].toString()

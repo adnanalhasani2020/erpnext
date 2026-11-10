@@ -6,6 +6,7 @@ class ServerSearchField extends StatelessWidget {
     required this.label,
     required this.onSearch,
     this.loading = false,
+    this.buttonLabel = 'بحث في الخادم',
     super.key,
   });
 
@@ -13,6 +14,7 @@ class ServerSearchField extends StatelessWidget {
   final String label;
   final ValueChanged<String> onSearch;
   final bool loading;
+  final String buttonLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -49,7 +51,7 @@ class ServerSearchField extends StatelessWidget {
             icon: loading
                 ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
                 : const Icon(Icons.search),
-            label: Text(loading ? 'جارٍ البحث...' : 'بحث في الخادم'),
+            label: Text(loading ? 'جارٍ البحث...' : buttonLabel),
           ),
         ),
       ],

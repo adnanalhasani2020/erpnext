@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:erpnext_mobile/api/frappe_api.dart';
@@ -56,6 +58,54 @@ void main() {
       await expectLater(
         api.fetchMasterDataRows(doctype: 'Sales Invoice'),
         throwsA(isA<ArgumentError>()),
+      );
+    });
+
+    test('requires a valid Customer type, group and territory', () async {
+      await expectLater(
+        api.saveMasterDataDocument(
+          doctype: 'Customer',
+          values: const {
+            'customer_name': 'Test Customer',
+            'customer_type': 'Unknown',
+            'customer_group': '',
+            'territory': '',
+          },
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('requires a valid Customer Group name', () async {
+      await expectLater(
+        api.saveMasterDataDocument(
+          doctype: 'Customer Group',
+          values: const {'customer_group_name': ''},
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('requires a valid Territory name', () async {
+      await expectLater(
+        api.saveMasterDataDocument(
+          doctype: 'Territory',
+          values: const {'territory_name': ''},
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('requires a valid Sales Person name and commission rate', () async {
+      await expectLater(
+        api.saveMasterDataDocument(
+          doctype: 'Sales Person',
+          values: const {
+            'sales_person_name': 'Test Sales Person',
+            'commission_rate': 101,
+          },
+        ),
+        throwsA(isA<FormatException>()),
       );
     });
 
@@ -136,4 +186,27 @@ void main() {
       );
     });
   });
+
+    test('paginates warehouse master data with server-side search beyond the first page', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      server.listen((request) async {
+        expect(request.method, 'GET');
+        expect(request.uri.pathSegments.last, 'Warehouse');
+        expect(request.uri.queryParameters['limit_start'], '100');
+        expect(request.uri.queryParameters['limit_page_length'], '100');
+        expect(request.uri.queryParameters['or_filters'], contains('Main'));
+        request.response.headers.contentType = ContentType.json;
+        request.response.write('{"data":[{"name":"Main - AC","warehouse_name":"Main","company":"Company A"}]}');
+        await request.response.close();
+      });
+      api.configure('http://127.0.0.1:${server.port}');
+      try {
+        final rows = await api.fetchMasterDataRows(doctype: 'Warehouse', start: 100, search: 'Main');
+        expect(rows, hasLength(1));
+        expect(rows.single['name'], 'Main - AC');
+      } finally {
+        await server.close(force: true);
+      }
+    });
+
 }

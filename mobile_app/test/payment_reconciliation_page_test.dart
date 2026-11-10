@@ -1,3 +1,5 @@
+import 'dart:core';
+import 'dart:core' as core;
 import 'dart:convert';
 import 'dart:io';
 
@@ -28,9 +30,9 @@ void main() {
         }));
       } else if (request.method == 'POST' &&
           request.uri.pathSegments.join('/') == 'api/method/run_doc_method') {
-        final body = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+        final body = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
         final method = body['method'] as String;
-        final document = jsonDecode(body['docs'] as String) as Map<String, dynamic>;
+        final document = jsonDecode(body['docs'] as String) as core.Map<String, dynamic>;
         if (method == 'get_unreconciled_entries') {
           document['invoices'] = [{
             'invoice_type': 'Sales Invoice',

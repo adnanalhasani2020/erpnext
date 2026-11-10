@@ -57,10 +57,12 @@ void main() {
     try {
       final alerts = await api.fetchStockReorderAlerts();
       expect(alerts, hasLength(2));
-      // Missing Bin rows have zero quantities and sort ahead of low positive stock.
+      // The most urgent warehouse (lowest projected quantity) is listed first.
       expect(alerts.map((x) => x.itemCode), ['ITEM-ZERO', 'ITEM-LOW']);
+      // The missing Bin row is treated as zero stock and ranks first.
       expect(alerts.first.actualQty, 0);
       expect(alerts.first.projectedQty, 0);
+      expect(alerts.first.reorderLevel, 2);
       expect(alerts.last.actualQty, 3);
       expect(alerts.last.projectedQty, 7);
       expect(alerts.last.reorderLevel, 10);

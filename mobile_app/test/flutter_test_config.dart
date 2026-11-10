@@ -3,13 +3,12 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
-/// Flutter's widget test binding installs a blocking HttpClient override.
-/// Initialize it before installing the suite-level override so API tests can
-/// communicate only with their local HttpServer fixtures.
+/// Restore real HTTP clients for loopback HttpServer fixtures in API tests.
+/// Flutter's test binding otherwise replaces HttpClient with a 400-only client.
+class _LoopbackHttpOverrides extends HttpOverrides {}
+
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
   TestWidgetsFlutterBinding.ensureInitialized();
-  await HttpOverrides.runZoned(
-    testMain,
-    createHttpClient: (_) => HttpClient(),
-  );
+  HttpOverrides.global = _LoopbackHttpOverrides();
+  await testMain();
 }

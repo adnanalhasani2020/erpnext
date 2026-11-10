@@ -1,8 +1,12 @@
+import 'dart:core';
+import 'dart:core' as core;
 // ignore_for_file: prefer_interpolation_to_compose_strings
 
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
+import 'sales_margin_analysis_page.dart';
+import 'promotional_schemes_page.dart';
 
 class SalesPricingPage extends StatefulWidget {
   const SalesPricingPage({super.key, required this.api});
@@ -15,8 +19,8 @@ class SalesPricingPage extends StatefulWidget {
 
 class _SalesPricingPageState extends State<SalesPricingPage> {
   final _searchController = TextEditingController();
-  List<Map<String, dynamic>> _priceLists = const [];
-  List<Map<String, dynamic>> _prices = const [];
+  List<core.Map<String, dynamic>> _priceLists = const [];
+  List<core.Map<String, dynamic>> _prices = const [];
   String? _selectedPriceList;
   bool _loadingLists = true;
   bool _loading = false;
@@ -25,7 +29,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
   bool _showDiscounts = false;
   bool _loadingDiscounts = false;
   bool _discountHasMore = false;
-  List<Map<String, dynamic>> _discountRules = const [];
+  List<core.Map<String, dynamic>> _discountRules = const [];
   String? _error;
   int _offset = 0;
   int _discountOffset = 0;
@@ -115,7 +119,8 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
       );
       if (!mounted) return;
       setState(() {
-        final combined = more ? [..._discountRules, ...page] : page;
+        final normalizedPage = page.whereType<core.Map<String, dynamic>>().toList(growable: false);
+        final combined = more ? [..._discountRules, ...normalizedPage] : normalizedPage;
         final seen = <String>{};
         _discountRules = combined.where((row) {
           final id = row['name']?.toString() ?? '';
@@ -133,13 +138,13 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
     }
   }
 
-  Future<Map<String, dynamic>?> _showDiscountEditor({
-    Map<String, dynamic>? existing,
+  Future<core.Map<String, dynamic>?> _showDiscountEditor({
+    core.Map<String, dynamic>? existing,
   }) async {
     final formKey = GlobalKey<FormState>();
     final title = TextEditingController(text: existing?['title']?.toString() ?? '');
     final value = TextEditingController(
-      text: (existing?['discount_percentage'] ?? existing?['discount_amount'] ?? '').toString(),
+      text: (existing?['discount_percentage'] ?? existing?['discount_amount'] ?? existing?['rate'] ?? existing?['margin_rate_or_amount'] ?? '').toString(),
     );
     final currency = TextEditingController(
       text: existing?['currency']?.toString() ??
@@ -153,30 +158,50 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
     final target = TextEditingController(
       text: existing?['customer']?.toString() ??
           existing?['customer_group']?.toString() ??
-          existing?['territory']?.toString() ?? '',
+          existing?['territory']?.toString() ??
+          existing?['sales_partner']?.toString() ??
+          existing?['campaign']?.toString() ?? '',
     );
     final existingItems = existing?['items'];
-    final existingItem = existingItems is List && existingItems.isNotEmpty &&
-            existingItems.first is Map
-        ? existingItems.first as Map
-        : null;
+    final existingGroups = existing?['item_groups'];
+    final existingBrands = existing?['brands'];
+    final existingItem = existingItems is List && existingItems.isNotEmpty && existingItems.first is core.Map
+        ? existingItems.first as core.Map
+        : existingGroups is List && existingGroups.isNotEmpty && existingGroups.first is core.Map
+            ? existingGroups.first as core.Map
+            : existingBrands is List && existingBrands.isNotEmpty && existingBrands.first is core.Map
+                ? existingBrands.first as core.Map : null;
     final itemCode = TextEditingController(
-      text: existingItem?['item_code']?.toString() ?? '',
+      text: existingItem?['item_code']?.toString() ?? existingItem?['item_group']?.toString() ?? existingItem?['brand']?.toString() ?? '',
     );
-    final minQty = TextEditingController(
-      text: existingItem?['min_qty']?.toString() ?? '',
-    );
-    var applyOn = existing?['apply_on']?.toString() == 'Item Code'
-        ? 'Item Code'
+    final freeItem = TextEditingController(text: existing?['free_item']?.toString() ?? '');
+    final freeQty = TextEditingController(text: existing?['free_qty']?.toString() ?? '1');
+    var priceOrProductDiscount = existing?['price_or_product_discount']?.toString() == 'Product' ? 'Product' : 'Price';
+    var sameItem = existing?['same_item'] == 1 || existing?['same_item'] == true;
+    var dontEnforceFreeItemQty = existing?['dont_enforce_free_item_qty'] == 1 || existing?['dont_enforce_free_item_qty'] == true;
+    var marginType = existing?['margin_type']?.toString() == 'Amount' ? 'Amount' : 'Percentage';
+    final minQty = TextEditingController(text: existing?['min_qty']?.toString() ?? '');
+    final minAmount = TextEditingController(text: existing?['min_amt']?.toString() ?? '');
+    final maxAmount = TextEditingController(text: existing?['max_amt']?.toString() ?? '');
+    final maxQty = TextEditingController(text: existing?['max_qty']?.toString() ?? '');
+    final warehouse = TextEditingController(text: existing?['warehouse']?.toString() ?? '');
+    final priority = TextEditingController(text: existing?['priority']?.toString() ?? '0');
+    var applyMultipleRules = existing?['apply_multiple_pricing_rules'] == 1 || existing?['apply_multiple_pricing_rules'] == true;
+    var cumulative = existing?['is_cumulative'] == 1 || existing?['is_cumulative'] == true;
+    var mixedConditions = existing?['mixed_conditions'] == 1 || existing?['mixed_conditions'] == true;
+    var applyOn = const {'Item Code', 'Item Group', 'Brand'}.contains(existing?['apply_on']?.toString())
+        ? existing!['apply_on'].toString()
         : 'Transaction';
-    var discountType = existing?['rate_or_discount']?.toString() == 'Discount Amount'
-        ? 'Discount Amount'
-        : 'Discount Percentage';
+    var discountType = existing?['margin_type']?.toString().isNotEmpty == true
+        ? 'Margin'
+        : const {'Rate', 'Discount Amount'}.contains(existing?['rate_or_discount']?.toString())
+            ? existing!['rate_or_discount'].toString()
+            : 'Discount Percentage';
     var applyDiscountOn = existing?['apply_discount_on']?.toString() == 'Net Total'
         ? 'Net Total'
         : 'Grand Total';
     var applicableFor = existing?['applicable_for']?.toString() ?? '';
-    final result = await showDialog<Map<String, dynamic>>(
+    final result = await showDialog<core.Map<String, dynamic>>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, setDialogState) => AlertDialog(
@@ -195,24 +220,37 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                       validator: (v) => v == null || v.trim().isEmpty ? 'الاسم مطلوب' : null,
                     ),
                     DropdownButtonFormField<String>(
+                      initialValue: priceOrProductDiscount,
+                      decoration: const InputDecoration(labelText: 'نوع العرض'),
+                      items: const [
+                        DropdownMenuItem(value: 'Price', child: Text('تعديل السعر أو الخصم')),
+                        DropdownMenuItem(value: 'Product', child: Text('منتج مجاني (اشترِ واحصل على)')),
+                      ],
+                      onChanged: (v) { if (v != null) setDialogState(() => priceOrProductDiscount = v); },
+                    ),
+                    DropdownButtonFormField<String>(
                       initialValue: applyOn,
                       decoration: const InputDecoration(labelText: 'نوع العرض'),
                       items: const [
                         DropdownMenuItem(value: 'Transaction', child: Text('خصم على إجمالي المعاملة')),
-                        DropdownMenuItem(value: 'Item Code', child: Text('خصم على صنف محدد')),
+                        DropdownMenuItem(value: 'Item Code', child: Text('صنف محدد')),
+                        DropdownMenuItem(value: 'Item Group', child: Text('مجموعة أصناف')),
+                        DropdownMenuItem(value: 'Brand', child: Text('علامة تجارية')),
                       ],
                       onChanged: (v) {
-                        if (v != null) setDialogState(() => applyOn = v);
+                        if (v != null) {
+                          setDialogState(() {
+                            applyOn = v;
+                            if (v == 'Transaction') { itemCode.clear(); minQty.clear(); }
+                          });
+                        }
                       },
                     ),
-                    if (applyOn == 'Item Code') ...[
+                    if (applyOn != 'Transaction') ...[
                       TextFormField(
                         controller: itemCode,
-                        decoration: const InputDecoration(labelText: 'رمز الصنف'),
-                        validator: (v) => applyOn == 'Item Code' &&
-                                (v == null || v.trim().isEmpty)
-                            ? 'رمز الصنف مطلوب'
-                            : null,
+                        decoration: InputDecoration(labelText: applyOn == 'Item Code' ? 'رمز الصنف' : applyOn == 'Item Group' ? 'اسم مجموعة الأصناف' : 'اسم العلامة التجارية'),
+                        validator: (v) => applyOn != 'Transaction' && (v == null || v.trim().isEmpty) ? 'هذا الحقل مطلوب' : null,
                       ),
                       TextFormField(
                         controller: minQty,
@@ -230,22 +268,24 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                         },
                       ),
                     ],
-                    DropdownButtonFormField<String>(
+                    if (priceOrProductDiscount == 'Price') DropdownButtonFormField<String>(
                       initialValue: discountType,
                       decoration: const InputDecoration(labelText: 'نوع الخصم'),
                       items: const [
+                        DropdownMenuItem(value: 'Rate', child: Text('تحديد سعر بيع ثابت')),
                         DropdownMenuItem(value: 'Discount Percentage', child: Text('نسبة مئوية')),
                         DropdownMenuItem(value: 'Discount Amount', child: Text('مبلغ ثابت')),
+                        DropdownMenuItem(value: 'Margin', child: Text('هامش ربح على السعر الأساسي')),
                       ],
                       onChanged: (v) {
                         if (v != null) setDialogState(() => discountType = v);
                       },
                     ),
-                    TextFormField(
+                    if (priceOrProductDiscount == 'Price') TextFormField(
                       controller: value,
                       keyboardType: const TextInputType.numberWithOptions(decimal: true),
                       decoration: InputDecoration(
-                        labelText: discountType == 'Discount Percentage' ? 'نسبة الخصم %' : 'قيمة الخصم',
+                        labelText: discountType == 'Discount Percentage' ? 'نسبة الخصم %' : discountType == 'Rate' ? 'سعر البيع الجديد' : discountType == 'Margin' ? 'قيمة الهامش' : 'قيمة الخصم',
                       ),
                       validator: (v) {
                         final n = double.tryParse(v?.trim() ?? '');
@@ -256,6 +296,83 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                         return null;
                       },
                     ),
+                    if (applyOn != 'Transaction') TextFormField(
+                      controller: maxQty,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'الحد الأعلى للكمية (اختياري، صفر بلا حد)'),
+                      validator: (v) { final n = double.tryParse(v?.trim() ?? ''); return v == null || v.trim().isEmpty || (n != null && n.isFinite && n >= 0) ? null : 'أدخل كمية صحيحة'; },
+                    ),
+                    TextFormField(
+                      controller: minAmount,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'الحد الأدنى لقيمة الفاتورة (اختياري)'),
+                      validator: (v) { final n = double.tryParse(v?.trim() ?? ''); return v == null || v.trim().isEmpty || (n != null && n.isFinite && n >= 0) ? null : 'أدخل مبلغاً صحيحاً'; },
+                    ),
+                    TextFormField(
+                      controller: maxAmount,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'الحد الأعلى لقيمة الفاتورة (اختياري)'),
+                      validator: (v) { final n = double.tryParse(v?.trim() ?? ''); return v == null || v.trim().isEmpty || (n != null && n.isFinite && n >= 0) ? null : 'أدخل مبلغاً صحيحاً'; },
+                    ),
+                    TextFormField(
+                      controller: priority,
+                      keyboardType: TextInputType.number,
+                      decoration: const InputDecoration(labelText: 'أولوية القاعدة (0 أو أكبر)'),
+                      validator: (v) { final n = int.tryParse(v?.trim() ?? ''); return n != null && n >= 0 && n <= 20 ? null : 'الأولوية يجب أن تكون بين 0 و20'; },
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('السماح بتطبيقها مع قواعد خصم أخرى'),
+                      value: applyMultipleRules,
+                      onChanged: (v) => setDialogState(() => applyMultipleRules = v),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('احتساب الكميات المختلطة للأصناف المشمولة'),
+                      value: mixedConditions,
+                      onChanged: (v) => setDialogState(() => mixedConditions = v),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('قاعدة تراكمية'),
+                      value: cumulative,
+                      onChanged: (v) => setDialogState(() => cumulative = v),
+                    ),
+                    if (priceOrProductDiscount == 'Price' && discountType == 'Margin')
+                      DropdownButtonFormField<String>(
+                        initialValue: marginType,
+                        decoration: const InputDecoration(labelText: 'طريقة حساب الهامش'),
+                        items: const [
+                          DropdownMenuItem(value: 'Percentage', child: Text('نسبة مئوية')),
+                          DropdownMenuItem(value: 'Amount', child: Text('مبلغ ثابت')),
+                        ],
+                        onChanged: (v) { if (v != null) setDialogState(() => marginType = v); },
+                      ),
+                    if (priceOrProductDiscount == 'Product') ...[
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('نفس الصنف المشترى هو المجاني'),
+                        value: sameItem,
+                        onChanged: (v) => setDialogState(() => sameItem = v),
+                      ),
+                      if (!sameItem) TextFormField(
+                        controller: freeItem,
+                        decoration: const InputDecoration(labelText: 'رمز الصنف المجاني'),
+                        validator: (v) => priceOrProductDiscount == 'Product' && !sameItem && (v == null || v.trim().isEmpty) ? 'حدد الصنف المجاني' : null,
+                      ),
+                      TextFormField(
+                        controller: freeQty,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: 'كمية الصنف المجاني'),
+                        validator: (v) { if (priceOrProductDiscount != 'Product') return null; final n = double.tryParse(v?.trim() ?? ''); return n == null || !n.isFinite || n <= 0 ? 'أدخل كمية أكبر من صفر' : null; },
+                      ),
+                      SwitchListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: const Text('السماح بتعديل أو حذف الكمية المجانية'),
+                        value: dontEnforceFreeItemQty,
+                        onChanged: (v) => setDialogState(() => dontEnforceFreeItemQty = v),
+                      ),
+                    ],
                     TextFormField(
                       controller: currency,
                       decoration: const InputDecoration(labelText: 'العملة'),
@@ -280,9 +397,16 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                         DropdownMenuItem(value: 'Customer', child: Text('عميل محدد')),
                         DropdownMenuItem(value: 'Customer Group', child: Text('مجموعة عملاء')),
                         DropdownMenuItem(value: 'Territory', child: Text('منطقة')),
+                        DropdownMenuItem(value: 'Sales Partner', child: Text('شريك مبيعات')),
+                        DropdownMenuItem(value: 'Campaign', child: Text('حملة تسويقية')),
                       ],
                       onChanged: (v) {
-                        if (v != null) setDialogState(() => applicableFor = v);
+                        if (v != null) {
+                          setDialogState(() {
+                            applicableFor = v;
+                            if (v.isEmpty) target.clear();
+                          });
+                        }
                       },
                     ),
                     if (applicableFor.isNotEmpty)
@@ -299,6 +423,10 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                     TextFormField(
                       controller: until,
                       decoration: const InputDecoration(labelText: 'ساري حتى (YYYY-MM-DD) - اختياري'),
+                    ),
+                    TextFormField(
+                      controller: warehouse,
+                      decoration: const InputDecoration(labelText: 'المستودع المقيد للعرض (اختياري)'),
                     ),
                     TextFormField(
                       controller: company,
@@ -319,13 +447,27 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                 if (!(formKey.currentState?.validate() ?? false)) return;
                 Navigator.of(dialogContext).pop({
                   'title': title.text.trim(),
+                  'price_or_product_discount': priceOrProductDiscount,
                   'discount_type': discountType,
-                  'discount_value': double.parse(value.text.trim()),
+                  'discount_value': value.text.trim().isEmpty ? 0.0 : double.parse(value.text.trim()),
+                  'margin_type': marginType,
+                  'free_item': freeItem.text.trim(),
+                  'free_qty': freeQty.text.trim().isEmpty ? 1.0 : double.parse(freeQty.text.trim()),
+                  'same_item': sameItem,
+                  'dont_enforce_free_item_qty': dontEnforceFreeItemQty,
                   'currency': currency.text.trim(),
                   'apply_discount_on': applyDiscountOn,
                   'apply_on': applyOn,
                   'item_code': itemCode.text.trim(),
-                  'min_qty': applyOn == 'Item Code' ? double.parse(minQty.text.trim()) : 0.0,
+                  'min_qty': applyOn != 'Transaction' ? double.parse(minQty.text.trim()) : 0.0,
+                  'min_amount': minAmount.text.trim().isEmpty ? 0.0 : double.parse(minAmount.text.trim()),
+                  'max_amount': maxAmount.text.trim().isEmpty ? 0.0 : double.parse(maxAmount.text.trim()),
+                  'max_qty': maxQty.text.trim().isEmpty ? 0.0 : double.parse(maxQty.text.trim()),
+                  'warehouse': warehouse.text.trim(),
+                  'priority': int.parse(priority.text.trim()),
+                  'apply_multiple_rules': applyMultipleRules,
+                  'cumulative': cumulative,
+                  'mixed_conditions': mixedConditions,
                   'applicable_for': applicableFor,
                   'applicable_value': target.text.trim(),
                   'valid_from': from.text.trim(),
@@ -347,11 +489,18 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
     company.dispose();
     target.dispose();
     itemCode.dispose();
+    freeItem.dispose();
+    freeQty.dispose();
     minQty.dispose();
+    minAmount.dispose();
+    maxAmount.dispose();
+    maxQty.dispose();
+    warehouse.dispose();
+    priority.dispose();
     return result;
   }
 
-  Future<void> _editDiscount({Map<String, dynamic>? existing}) async {
+  Future<void> _editDiscount({core.Map<String, dynamic>? existing}) async {
     if (_saving || _selectedPriceList == null) return;
     final values = await _showDiscountEditor(existing: existing);
     if (values == null || !mounted) return;
@@ -365,11 +514,13 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
         title: values['title'] as String,
         priceList: existing?['for_price_list']?.toString() ?? _selectedPriceList!,
         currency: values['currency'] as String,
+        priceOrProductDiscount: values['price_or_product_discount'] as String,
         discountType: values['discount_type'] as String,
         discountValue: values['discount_value'] as double,
         validFrom: values['valid_from'] as String,
         validUpto: values['valid_upto'] as String,
         company: values['company'] as String,
+        warehouse: values['warehouse'] as String,
         applicableFor: (values['applicable_for'] as String).isEmpty
             ? null
             : values['applicable_for'] as String,
@@ -378,6 +529,18 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
         applyOn: values['apply_on'] as String,
         itemCode: values['item_code'] as String,
         minQty: values['min_qty'] as double,
+        minAmount: values['min_amount'] as double,
+        maxAmount: values['max_amount'] as double,
+        maxQty: values['max_qty'] as double,
+        priority: values['priority'] as int,
+        applyMultipleRules: values['apply_multiple_rules'] as bool,
+        cumulative: values['cumulative'] as bool,
+        mixedConditions: values['mixed_conditions'] as bool,
+        marginType: values['margin_type'] as String,
+        freeItem: values['free_item'] as String,
+        freeQty: values['free_qty'] as double,
+        sameItem: values['same_item'] as bool,
+        dontEnforceFreeItemQty: values['dont_enforce_free_item_qty'] as bool,
       );
       if (!mounted) return;
       await _loadDiscounts();
@@ -395,7 +558,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
     }
   }
 
-  Future<void> _disableDiscount(Map<String, dynamic> rule) async {
+  Future<void> _disableDiscount(core.Map<String, dynamic> rule) async {
     final id = rule['name']?.toString() ?? '';
     if (id.isEmpty || _saving) return;
     final confirmed = await showDialog<bool>(
@@ -450,13 +613,13 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
               row['for_price_list']?.toString() ?? '',
               if (row['apply_on'] == 'Item Code' && row['items'] is List &&
                   (row['items'] as List).isNotEmpty)
-                'صنف: ' + (((row['items'] as List).first is Map)
-                    ? ((row['items'] as List).first as Map)['item_code']?.toString() ?? ''
+                'صنف: ' + (((row['items'] as List).first is core.Map)
+                    ? ((row['items'] as List).first as core.Map)['item_code']?.toString() ?? ''
                     : ''),
               if (row['apply_on'] == 'Item Code' && row['items'] is List &&
                   (row['items'] as List).isNotEmpty &&
-                  (row['items'] as List).first is Map)
-                'الكمية الدنيا: ' + (((row['items'] as List).first as Map)['min_qty']?.toString() ?? ''),
+                  (row['items'] as List).first is core.Map)
+                'الكمية الدنيا: ' + (((row['items'] as List).first as core.Map)['min_qty']?.toString() ?? ''),
               if (scope.isNotEmpty) scope + ': ' + (scopeValue?.toString() ?? ''),
               if (row['valid_from'] != null) 'من ' + row['valid_from'].toString(),
               if (row['valid_upto'] != null) 'إلى ' + row['valid_upto'].toString(),
@@ -480,8 +643,8 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
     );
   }
 
-  Future<Map<String, dynamic>?> _showEditor(
-      {Map<String, dynamic>? existing}) async {
+  Future<core.Map<String, dynamic>?> _showEditor(
+      {core.Map<String, dynamic>? existing}) async {
     final formKey = GlobalKey<FormState>();
     final item = TextEditingController(
         text: existing?['item_code']?.toString() ?? '');
@@ -497,7 +660,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
         TextEditingController(text: existing?['valid_upto']?.toString() ?? '');
     final minQty = TextEditingController(
         text: existing?['min_qty']?.toString() ?? '0');
-    final result = await showDialog<Map<String, dynamic>>(
+    final result = await showDialog<core.Map<String, dynamic>>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text(existing == null ? 'إضافة سعر بيع' : 'تعديل سعر البيع'),
@@ -597,7 +760,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
     return result;
   }
 
-  Future<void> _editPrice({Map<String, dynamic>? existing}) async {
+  Future<void> _editPrice({core.Map<String, dynamic>? existing}) async {
     if (_saving || _selectedPriceList == null) return;
     final values = await _showEditor(existing: existing);
     if (values == null || !mounted) return;
@@ -633,7 +796,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
     }
   }
 
-  Map<String, dynamic>? get _selectedList {
+  core.Map<String, dynamic>? get _selectedList {
     for (final row in _priceLists) {
       if (row['name'] == _selectedPriceList) return row;
     }
@@ -679,6 +842,30 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                 if (next && _discountRules.isEmpty) _loadDiscounts();
               },
             ),
+            if (_selectedPriceList != null) Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: OutlinedButton.icon(
+                onPressed: _loading || _saving ? null : () {
+                  Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => SalesMarginAnalysisPage(api: widget.api, priceList: _selectedPriceList!),
+                  ));
+                },
+                icon: const Icon(Icons.query_stats),
+                label: const Text('تحليل أثر الخصومات على هامش الربح'),
+              ),
+            ),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: OutlinedButton.icon(
+                onPressed: _loading || _saving ? null : () {
+                  Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => PromotionalSchemesPage(api: widget.api),
+                  ));
+                },
+                icon: const Icon(Icons.campaign_outlined),
+                label: const Text('إدارة المخططات الترويجية متعددة الشرائح'),
+              ),
+            ),
             const SizedBox(height: 12),
             if (_loadingLists)
               const LinearProgressIndicator()
@@ -714,10 +901,11 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
             if (!_showDiscounts) const SizedBox(height: 10),
             if (!_showDiscounts) TextField(
               controller: _searchController,
+              enabled: !_loading && !_saving,
               decoration: InputDecoration(
                 labelText: 'بحث برمز الصنف',
                 suffixIcon: IconButton(
-                  onPressed: _loading ? null : () => _loadPrices(),
+                  onPressed: _loading || _saving ? null : () => _loadPrices(),
                   icon: const Icon(Icons.search),
                 ),
               ),

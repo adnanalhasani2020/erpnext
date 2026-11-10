@@ -11,6 +11,17 @@ void main() {
     expect(() => buildSerialBatchFields(item: item, quantity: 2, serialNumbers: 'SN-001\nSN-001', batchNumber: ''), throwsFormatException);
     expect(() => buildSerialBatchFields(item: item, quantity: 1.5, serialNumbers: 'SN-001\nSN-002', batchNumber: ''), throwsFormatException);
   });
+  test('serial item payload supports batches larger than the former 200-unit cap', () {
+    const item = ErpItem(code: 'SER-LARGE', name: 'Large serial item', isStockItem: true, hasSerialNo: true);
+    final serials = List.generate(201, (index) => 'SN-${index + 1}');
+    final payload = buildSerialBatchFields(
+      item: item,
+      quantity: 201,
+      serialNumbers: serials.join('\\n'),
+      batchNumber: '',
+    );
+    expect((payload['serial_no'] as String).split('\\n'), hasLength(201));
+  });
   test('batch items require one batch identifier per line', () {
     const item = ErpItem(code: 'BAT-1', name: 'Batch item', isStockItem: true, hasBatchNo: true);
     final payload = buildSerialBatchFields(item: item, quantity: 12, serialNumbers: '', batchNumber: 'LOT-2026-01');

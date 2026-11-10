@@ -179,13 +179,13 @@ void main() {
     expect(find.text('فاتورة مبيعات جديدة'), findsOneWidget);
     expect(find.text('الشركة'), findsOneWidget);
     expect(find.text('العميل'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('حفظ كمسودة'), 300, scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(find.text('حفظ كمسودة'), 300, scrollable: find.byType(Scrollable).last);
     await tester.pumpAndSettle();
     expect(find.text('حفظ كمسودة'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('حفظ وترحيل الفاتورة'), 300, scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(find.text('حفظ وترحيل الفاتورة'), 300, scrollable: find.byType(Scrollable).last);
     await tester.pumpAndSettle();
     expect(find.text('حفظ وترحيل الفاتورة'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('تحديث المخزون عند الترحيل'), 300, scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(find.text('تحديث المخزون عند الترحيل'), 300, scrollable: find.byType(Scrollable).last);
     await tester.pumpAndSettle();
     expect(find.text('تحديث المخزون عند الترحيل'), findsOneWidget);
 
@@ -219,13 +219,13 @@ void main() {
     ));
 
     expect(find.text('تعديل مسودة فاتورة'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('حفظ تعديلات المسودة'), 300, scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(find.text('حفظ تعديلات المسودة'), 300, scrollable: find.byType(Scrollable).last);
     await tester.pumpAndSettle();
     expect(find.text('حفظ تعديلات المسودة'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('رقم المسودة: SINV-DRAFT-1'), 250, scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(find.text('رقم المسودة: SINV-DRAFT-1'), 250, scrollable: find.byType(Scrollable).last);
     await tester.pumpAndSettle();
     expect(find.text('رقم المسودة: SINV-DRAFT-1'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('الإجمالي: 30.00'), 250, scrollable: find.byType(Scrollable).first);
+    await tester.scrollUntilVisible(find.text('الإجمالي: 30.00'), 250, scrollable: find.byType(Scrollable).last);
     await tester.pumpAndSettle();
     expect(find.text('الإجمالي: 30.00'), findsOneWidget);
     api.dispose();

@@ -1,3 +1,5 @@
+import 'dart:core';
+import 'dart:core' as core;
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
@@ -27,8 +29,8 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
   String? _company;
   String _partyType = 'Customer';
   String? _account;
-  List<Map<String, dynamic>> _accounts = const [];
-  Map<String, dynamic>? _document;
+  List<core.Map<String, dynamic>> _accounts = const [];
+  core.Map<String, dynamic>? _document;
   bool _loadingAccounts = false;
   bool _loadingEntries = false;
   bool _allocating = false;
@@ -58,6 +60,81 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
 
   double _number(dynamic value) =>
       value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '') ?? 0;
+
+  String _dateString(DateTime value) =>
+      '${value.year.toString().padLeft(4, '0')}-'
+      '${value.month.toString().padLeft(2, '0')}-'
+      '${value.day.toString().padLeft(2, '0')}';
+
+  Future<void> _pickDate(TextEditingController controller) async {
+    final initial = DateTime.tryParse(controller.text.trim()) ?? DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      controller.text = _dateString(picked);
+      _document = null;
+      _error = null;
+    });
+  }
+
+  Widget _dateField(TextEditingController controller, String label) => TextField(
+    controller: controller,
+    readOnly: true,
+    enabled: !_busy,
+    onTap: _busy ? null : () => _pickDate(controller),
+    decoration: InputDecoration(
+      labelText: label,
+      hintText: 'YYYY-MM-DD',
+      suffixIcon: controller.text.isEmpty
+          ? const Icon(Icons.calendar_today_outlined)
+          : IconButton(
+              tooltip: 'مسح التاريخ',
+              onPressed: _busy ? null : () => setState(() {
+                controller.clear();
+                _document = null;
+              }),
+              icon: const Icon(Icons.clear),
+            ),
+    ),
+  );
+
+  String? _validateDateFilters() {
+    DateTime? parse(TextEditingController controller) {
+      final raw = controller.text.trim();
+      if (raw.isEmpty) return null;
+      final value = DateTime.tryParse(raw);
+      if (value == null || value.toIso8601String().substring(0, 10) != raw) {
+        return null;
+      }
+      return value;
+    }
+    final controllers = [
+      _invoiceFromController, _invoiceToController,
+      _paymentFromController, _paymentToController,
+    ];
+    for (final controller in controllers) {
+      final raw = controller.text.trim();
+      if (raw.isNotEmpty && parse(controller) == null) {
+        return 'اختر تاريخاً صحيحاً بصيغة YYYY-MM-DD.';
+      }
+    }
+    final invoiceFrom = parse(_invoiceFromController);
+    final invoiceTo = parse(_invoiceToController);
+    if (invoiceFrom != null && invoiceTo != null && invoiceFrom.isAfter(invoiceTo)) {
+      return 'بداية فترة الفواتير يجب ألا تتجاوز نهايتها.';
+    }
+    final paymentFrom = parse(_paymentFromController);
+    final paymentTo = parse(_paymentToController);
+    if (paymentFrom != null && paymentTo != null && paymentFrom.isAfter(paymentTo)) {
+      return 'بداية فترة المدفوعات يجب ألا تتجاوز نهايتها.';
+    }
+    return null;
+  }
 
   Future<void> _loadAccounts() async {
     final company = _company;
@@ -96,6 +173,11 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
     final account = _account;
     if (company == null || party.isEmpty || account == null || account.isEmpty) {
       setState(() => _error = 'حدد الشركة والحساب وأدخل رمز العميل أو المورد.');
+      return;
+    }
+    final dateError = _validateDateFilters();
+    if (dateError != null) {
+      setState(() => _error = dateError);
       return;
     }
     setState(() {
@@ -147,7 +229,7 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
     if (document == null || allocations is! List || allocations.isEmpty || _busy) return;
     final total = allocations.fold<double>(
       0,
-      (sum, row) => sum + (row is Map ? _number(row['allocated_amount']) : 0),
+      (sum, row) => sum + (row is core.Map ? _number(row['allocated_amount']) : 0),
     );
     final confirmed = await showDialog<bool>(
       context: context,
@@ -212,14 +294,14 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
   Widget build(BuildContext context) {
     final document = _document;
     final invoices = document?['invoices'] is List
-        ? (document!['invoices'] as List).whereType<Map<String, dynamic>>().toList()
-        : <Map<String, dynamic>>[];
+        ? (document!['invoices'] as List).whereType<core.Map<String, dynamic>>().toList()
+        : <core.Map<String, dynamic>>[];
     final payments = document?['payments'] is List
-        ? (document!['payments'] as List).whereType<Map<String, dynamic>>().toList()
-        : <Map<String, dynamic>>[];
+        ? (document!['payments'] as List).whereType<core.Map<String, dynamic>>().toList()
+        : <core.Map<String, dynamic>>[];
     final allocations = document?['allocation'] is List
-        ? (document!['allocation'] as List).whereType<Map<String, dynamic>>().toList()
-        : <Map<String, dynamic>>[];
+        ? (document!['allocation'] as List).whereType<core.Map<String, dynamic>>().toList()
+        : <core.Map<String, dynamic>>[];
 
     return Scaffold(
       appBar: AppBar(title: const Text('تسوية المدفوعات')),
@@ -295,38 +377,10 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
             ExpansionTile(
               title: const Text('فلاتر التاريخ'),
               children: [
-                TextField(
-                  controller: _invoiceFromController,
-                  enabled: !_busy,
-                  onChanged: (_) {
-                    if (_document != null) setState(() => _document = null);
-                  },
-                  decoration: const InputDecoration(labelText: 'من تاريخ الفاتورة (YYYY-MM-DD)'),
-                ),
-                TextField(
-                  controller: _invoiceToController,
-                  enabled: !_busy,
-                  onChanged: (_) {
-                    if (_document != null) setState(() => _document = null);
-                  },
-                  decoration: const InputDecoration(labelText: 'إلى تاريخ الفاتورة (YYYY-MM-DD)'),
-                ),
-                TextField(
-                  controller: _paymentFromController,
-                  enabled: !_busy,
-                  onChanged: (_) {
-                    if (_document != null) setState(() => _document = null);
-                  },
-                  decoration: const InputDecoration(labelText: 'من تاريخ الدفعة (YYYY-MM-DD)'),
-                ),
-                TextField(
-                  controller: _paymentToController,
-                  enabled: !_busy,
-                  onChanged: (_) {
-                    if (_document != null) setState(() => _document = null);
-                  },
-                  decoration: const InputDecoration(labelText: 'إلى تاريخ الدفعة (YYYY-MM-DD)'),
-                ),
+                _dateField(_invoiceFromController, 'من تاريخ الفاتورة'),
+                _dateField(_invoiceToController, 'إلى تاريخ الفاتورة'),
+                _dateField(_paymentFromController, 'من تاريخ الدفعة'),
+                _dateField(_paymentToController, 'إلى تاريخ الدفعة'),
               ],
             ),
             const SizedBox(height: 12),

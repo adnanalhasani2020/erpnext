@@ -1,3 +1,5 @@
+import 'dart:core';
+import 'dart:core' as core;
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
@@ -13,7 +15,7 @@ class SalesCommissionPage extends StatefulWidget {
 
 class _SalesCommissionPageState extends State<SalesCommissionPage> {
   final _searchController = TextEditingController();
-  List<Map<String, dynamic>> _people = const [];
+  List<core.Map<String, dynamic>> _people = const [];
   bool _loading = false;
   bool _saving = false;
   bool _hasMore = false;
@@ -60,7 +62,7 @@ class _SalesCommissionPageState extends State<SalesCommissionPage> {
     }
   }
 
-  Future<void> _editCommission(Map<String, dynamic> person) async {
+  Future<void> _editCommission(core.Map<String, dynamic> person) async {
     if (_saving) return;
     final id = person['name']?.toString() ?? '';
     final name = person['sales_person_name']?.toString() ?? id;
@@ -170,10 +172,11 @@ class _SalesCommissionPageState extends State<SalesCommissionPage> {
             const SizedBox(height: 10),
             TextField(
               controller: _searchController,
+              enabled: !_loading && !_saving,
               decoration: InputDecoration(
                 labelText: 'بحث باسم المندوب',
                 suffixIcon: IconButton(
-                  onPressed: _loading ? null : () => _load(),
+                  onPressed: _loading || _saving ? null : () => _load(),
                   icon: const Icon(Icons.search),
                 ),
               ),

@@ -1,13 +1,22 @@
 // ignore_for_file: prefer_interpolation_to_compose_strings, prefer_const_constructors
+import 'dart:core';
+import 'dart:core' as core;
 import 'dart:convert';
 import 'dart:io';
 
 import '../models/erp_models.dart';
 
+class _DirectHttpOverrides extends HttpOverrides {}
+
 class FrappeApi {
   static const int pageSize = 100;
+  static final _directHttpOverrides = _DirectHttpOverrides();
 
-  final HttpClient _client = HttpClient()..connectionTimeout = const Duration(seconds: 20);
+  FrappeApi({HttpClient? httpClient})
+      : _client = (httpClient ?? _directHttpOverrides.createHttpClient(null))
+          ..connectionTimeout = const Duration(seconds: 20);
+
+  final HttpClient _client;
   static Uri buildResourcePageUri({
     required String baseUrl,
     required String resource,
@@ -49,15 +58,23 @@ class FrappeApi {
     );
   }
 
-  final Map<String, String> _cookies = {};
+  final core.Map<String, String> _cookies = {};
   final Set<String> _inFlightSalesActions = <String>{};
   final Set<String> _inFlightPaymentActions = <String>{};
   final Set<String> _inFlightPurchaseActions = <String>{};
   final Set<String> _inFlightDocumentActions = <String>{};
   String _baseUrl = '';
   int _sessionGeneration = 0;
+  bool _guestMode = false;
 
   int get sessionGeneration => _sessionGeneration;
+  bool get isGuestMode => _guestMode;
+
+  void enableGuestMode() {
+    _sessionGeneration++;
+    _cookies.clear();
+    _guestMode = true;
+  }
 
   void configure(String value) {
     final normalized = value.trim().replaceFirst(RegExp(r'/+$'), '');
@@ -77,6 +94,7 @@ class FrappeApi {
   }
 
   Future<String> login(String username, String password) async {
+    _guestMode = false;
     _sessionGeneration++;
     _cookies.clear();
     final generation = _sessionGeneration;
@@ -109,7 +127,7 @@ class FrappeApi {
     final seenSerials = <String>{};
     final seenCurrentSerials = <String>{};
     for (final raw in items) {
-      if (raw is! Map<String, dynamic>) throw const FormatException('بيانات بند الصنف المتتبع غير صحيحة.');
+      if (raw is! core.Map<String, dynamic>) throw const FormatException('بيانات بند الصنف المتتبع غير صحيحة.');
       final serialText = raw['serial_no']?.toString() ?? '';
       final batch = raw['batch_no']?.toString().trim() ?? '';
       final useFields = raw['use_serial_batch_fields'] == 1 || raw['use_serial_batch_fields'] == true;
@@ -150,9 +168,9 @@ class FrappeApi {
       if (serials.isEmpty && batch.isEmpty) throw const FormatException('أدخل رقماً تسلسلياً أو رقم دفعة للصنف المتتبع.');
     }
   }
-  List<Map<String, dynamic>> _cleanSerialBatchRows(List<dynamic> items) {
+  List<core.Map<String, dynamic>> _cleanSerialBatchRows(List<dynamic> items) {
     _validateSerialBatchRows(items);
-    return items.whereType<Map<String, dynamic>>().map((row) => Map<String, dynamic>.from(row)
+    return items.whereType<core.Map<String, dynamic>>().map((row) => core.Map<String, dynamic>.from(row)
       ..remove('expiry_date')
       ..remove('manufacturing_date')).toList(growable: false);
   }
@@ -183,7 +201,7 @@ class FrappeApi {
       }
 
       final page = rows
-          .whereType<Map<String, dynamic>>()
+          .whereType<core.Map<String, dynamic>>()
           .map(ErpCompany.fromJson)
           .toList(growable: false);
       companies.addAll(page);
@@ -204,7 +222,7 @@ class FrappeApi {
     final uri = buildResourcePageUri(
       baseUrl: _baseUrl,
       resource: 'Item',
-      fields: ['item_code', 'item_name', 'item_group', 'stock_uom', 'is_stock_item', 'has_serial_no', 'has_batch_no', 'has_expiry_date'],
+      fields: ['item_code', 'item_name', 'item_group', 'stock_uom', 'is_stock_item', 'brand', 'has_serial_no', 'has_batch_no', 'has_expiry_date'],
       filters: [['disabled', '=', 0]],
       orFilters: search == null || search.trim().isEmpty
           ? null
@@ -222,7 +240,7 @@ class FrappeApi {
     }
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة الأصناف من ERPNext غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>().map(ErpItem.fromJson).toList(growable: false);
+    return rows.whereType<core.Map<String, dynamic>>().map(ErpItem.fromJson).toList(growable: false);
   }
 
 
@@ -231,7 +249,7 @@ class FrappeApi {
     final seen = <String>{};
     final seenExpiry = <String, String>{};
     for (final raw in items) {
-      if (raw is! Map<String, dynamic>) continue;
+      if (raw is! core.Map<String, dynamic>) continue;
       final batchNo = raw['batch_no']?.toString().trim() ?? '';
       if (batchNo.isEmpty) continue;
       final itemCode = raw['item_code']?.toString().trim() ?? '';
@@ -257,7 +275,7 @@ class FrappeApi {
       }
       seenExpiry[key] = expiryDate;
 
-      Future<Map<String, dynamic>?> readBatch() async {
+      Future<core.Map<String, dynamic>?> readBatch() async {
         final uri = Uri.parse(
           '$_baseUrl/api/resource/Batch/' + Uri.encodeComponent(batchNo),
         );
@@ -271,13 +289,13 @@ class FrappeApi {
           ));
         }
         final batch = data['data'];
-        if (batch is! Map<String, dynamic>) {
+        if (batch is! core.Map<String, dynamic>) {
           throw Exception('استجابة سجل الدفعة غير صحيحة: $batchNo');
         }
         return batch;
       }
 
-      void validateExisting(Map<String, dynamic> batch) {
+      void validateExisting(core.Map<String, dynamic> batch) {
         if (batch['item'] != itemCode) {
           throw FormatException('رقم الدفعة $batchNo مسجل لصنف آخر.');
         }
@@ -312,13 +330,13 @@ class FrappeApi {
       final itemResponse = await _sendUri('GET', itemUri);
       final itemData = _decode(itemResponse.body);
       if (itemResponse.statusCode < 200 || itemResponse.statusCode >= 300 ||
-          itemData['data'] is! Map<String, dynamic>) {
+          itemData['data'] is! core.Map<String, dynamic>) {
         throw Exception(_message(
           itemData,
           'تعذر قراءة إعدادات الصنف قبل إنشاء الدفعة.',
         ));
       }
-      final item = itemData['data'] as Map<String, dynamic>;
+      final item = itemData['data'] as core.Map<String, dynamic>;
       if (item['has_batch_no'] != 1 && item['has_batch_no'] != true) {
         throw FormatException('الصنف $itemCode غير مفعّل لتتبع الدفعات.');
       }
@@ -345,7 +363,7 @@ class FrappeApi {
       if (createdResponse.statusCode >= 200 &&
           createdResponse.statusCode < 300) {
         final created = createdData['data'];
-        if (created is! Map<String, dynamic> ||
+        if (created is! core.Map<String, dynamic> ||
             created['name'] != batchNo ||
             created['item'] != itemCode) {
           throw Exception('لم يؤكد ERPNext إنشاء الدفعة $batchNo.');
@@ -366,7 +384,7 @@ class FrappeApi {
     }
   }
 
-  Future<List<Map<String, dynamic>>> fetchAvailableBatches({
+  Future<List<core.Map<String, dynamic>>> fetchAvailableBatches({
     required String itemCode,
     required String warehouse,
     bool ignoreReservedStock = false,
@@ -389,7 +407,7 @@ class FrappeApi {
     }
     final message = data['message'];
     if (message is! List) throw Exception('استجابة الدفعات المتاحة من ERPNext غير متوقعة.');
-    return message.whereType<Map<String, dynamic>>().map((row) => Map<String, dynamic>.from(row))
+    return message.whereType<core.Map<String, dynamic>>().map((row) => core.Map<String, dynamic>.from(row))
         .where((row) => row['batch_no'] is String &&
             (double.tryParse(row['qty']?.toString() ?? '') ?? 0) > 0)
         .toList(growable: false);
@@ -401,24 +419,43 @@ class FrappeApi {
     required int quantity,
     List<String> batchNumbers = const [],
   }) async {
-    if (itemCode.trim().isEmpty || warehouse.trim().isEmpty || quantity < 1 || quantity > 200) {
-      throw const FormatException('بيانات طلب الأرقام التسلسلية غير صحيحة؛ الكمية القصوى للبحث 200 وحدة.');
+    final code = itemCode.trim(), location = warehouse.trim();
+    if (code.isEmpty || location.isEmpty || quantity < 1 || quantity > 5000) {
+      throw const FormatException('بيانات طلب الأرقام التسلسلية غير صحيحة؛ الحد الأعلى للطلب 5000 رقم.');
     }
-    final response = await _sendJson('POST',
-        '/api/method/erpnext.stock.doctype.serial_no.serial_no.auto_fetch_serial_number', {
-      'item_code': itemCode.trim(),
-      'warehouse': warehouse.trim(),
-      'qty': quantity,
-      if (batchNumbers.isNotEmpty) 'batch_nos': jsonEncode(batchNumbers),
-    });
-    final data = _decode(response.body);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(data, 'تعذر جلب الأرقام التسلسلية المتاحة من ERPNext.'));
+    final selected = <String>[];
+    final seen = <String>{};
+    while (selected.length < quantity) {
+      final remaining = quantity - selected.length;
+      final chunkSize = remaining > 200 ? 200 : remaining;
+      final response = await _sendJson(
+        'POST',
+        '/api/method/erpnext.stock.doctype.serial_no.serial_no.auto_fetch_serial_number',
+        {
+          'item_code': code,
+          'warehouse': location,
+          'qty': chunkSize,
+          if (batchNumbers.isNotEmpty) 'batch_nos': jsonEncode(batchNumbers),
+          if (selected.isNotEmpty) 'exclude_sr_nos': jsonEncode(selected),
+        },
+      );
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر جلب الأرقام التسلسلية المتاحة من ERPNext.'));
+      }
+      final message = data['message'];
+      if (message is! List) {
+        throw const FormatException('استجابة الأرقام التسلسلية من ERPNext غير متوقعة.');
+      }
+      final page = message.whereType<String>()
+          .map((value) => value.trim())
+          .where((value) => value.isNotEmpty && seen.add(value))
+          .toList(growable: false);
+      if (page.isEmpty) break;
+      selected.addAll(page);
+      if (page.length < chunkSize) break;
     }
-    final message = data['message'];
-    if (message is! List) throw Exception('استجابة الأرقام التسلسلية من ERPNext غير متوقعة.');
-    return message.whereType<String>().map((value) => value.trim()).where((value) => value.isNotEmpty)
-        .toSet().toList(growable: false);
+    return selected;
   }
 
   Future<List<ErpWarehouse>> fetchWarehouses({int start = 0, String? search}) async {
@@ -445,7 +482,7 @@ class FrappeApi {
     }
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة المستودعات من ERPNext غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>().map(ErpWarehouse.fromJson).toList(growable: false);
+    return rows.whereType<core.Map<String, dynamic>>().map(ErpWarehouse.fromJson).toList(growable: false);
   }
 
 
@@ -473,7 +510,7 @@ class FrappeApi {
     }
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة أرصدة المخزون من ERPNext غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>().map(ErpStockBalance.fromJson).toList(growable: false);
+    return rows.whereType<core.Map<String, dynamic>>().map(ErpStockBalance.fromJson).toList(growable: false);
   }
 
   /// Finds Item warehouse reorder rules whose projected quantity is at or
@@ -481,7 +518,7 @@ class FrappeApi {
   /// they require aggregating projected stock across a warehouse tree.
   Future<List<ErpStockReorderAlert>> fetchStockReorderAlerts() async {
     const maxRules = 10000;
-    final rules = <Map<String, dynamic>>[];
+    final rules = <core.Map<String, dynamic>>[];
     var start = 0;
     while (true) {
       final uri = buildResourcePageUri(
@@ -505,7 +542,7 @@ class FrappeApi {
       }
       final page = data['data'];
       if (page is! List) throw Exception('استجابة حدود إعادة الطلب غير متوقعة.');
-      rules.addAll(page.whereType<Map<String, dynamic>>());
+      rules.addAll(page.whereType<core.Map<String, dynamic>>());
       if (rules.length > maxRules) {
         throw const FormatException('عدد قواعد إعادة الطلب تجاوز 10000؛ راجع نطاق البيانات أو صلاحيات المستخدم.');
       }
@@ -524,7 +561,7 @@ class FrappeApi {
 
     final itemCodes = supportedRules.map((rule) => rule['parent'] as String).toSet().toList();
     final warehouses = supportedRules.map((rule) => rule['warehouse'] as String).toSet().toList();
-    final bins = <Map<String, dynamic>>[];
+    final bins = <core.Map<String, dynamic>>[];
     var binStart = 0;
     while (true) {
       final uri = buildResourcePageUri(
@@ -545,11 +582,11 @@ class FrappeApi {
       }
       final page = data['data'];
       if (page is! List) throw Exception('استجابة أرصدة إعادة الطلب غير متوقعة.');
-      bins.addAll(page.whereType<Map<String, dynamic>>());
+      bins.addAll(page.whereType<core.Map<String, dynamic>>());
       if (page.length < pageSize) break;
       binStart += page.length;
     }
-    final binByKey = <String, Map<String, dynamic>>{
+    final binByKey = <String, core.Map<String, dynamic>>{
       for (final bin in bins)
         if (bin['item_code'] is String && bin['warehouse'] is String)
           '${bin['item_code']}::${bin['warehouse']}': bin,
@@ -595,10 +632,10 @@ class FrappeApi {
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر جلب العملاء. تحقق من صلاحية قراءة Customer.'));
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة العملاء من ERPNext غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>().map(ErpCustomer.fromJson).toList(growable: false);
+    return rows.whereType<core.Map<String, dynamic>>().map(ErpCustomer.fromJson).toList(growable: false);
   }
 
-  Future<Map<String, dynamic>> fetchCustomerDocument(String customerId) async {
+  Future<core.Map<String, dynamic>> fetchCustomerDocument(String customerId) async {
     final id = customerId.trim();
     if (id.isEmpty) throw const FormatException('حدد العميل أولاً.');
     final uri = Uri.parse(
@@ -616,15 +653,15 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر تحميل ملف العميل.'));
     }
     final document = data['data'];
-    if (document is! Map<String, dynamic> || document['name'] != id) {
+    if (document is! core.Map<String, dynamic> || document['name'] != id) {
       throw Exception('استجابة ملف العميل غير صحيحة.');
     }
-    return Map<String, dynamic>.from(document);
+    return core.Map<String, dynamic>.from(document);
   }
 
-  Future<Map<String, dynamic>> updateCustomerProfile({
+  Future<core.Map<String, dynamic>> updateCustomerProfile({
     required String customerId,
-    required Map<String, dynamic> values,
+    required core.Map<String, dynamic> values,
   }) async {
     final id = customerId.trim();
     final customerName = values['customer_name']?.toString().trim() ?? '';
@@ -670,14 +707,14 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر حفظ تعديلات العميل.'));
     }
     final updated = data['data'];
-    if (updated is! Map<String, dynamic> || updated['name'] != id ||
+    if (updated is! core.Map<String, dynamic> || updated['name'] != id ||
         updated['customer_name'] != customerName) {
       throw Exception('لم يؤكد ERPNext حفظ ملف العميل؛ أعد تحميل الملف قبل أي تعديل آخر.');
     }
-    return Map<String, dynamic>.from(updated);
+    return core.Map<String, dynamic>.from(updated);
   }
 
-  Future<List<Map<String, dynamic>>> fetchSellingPriceLists() async {
+  Future<List<core.Map<String, dynamic>>> fetchSellingPriceLists() async {
     final uri = buildResourcePageUri(
       baseUrl: _baseUrl,
       resource: 'Price List',
@@ -695,12 +732,12 @@ class FrappeApi {
     }
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة قوائم الأسعار غير صحيحة.');
-    return rows.whereType<Map<String, dynamic>>()
-        .map((row) => Map<String, dynamic>.from(row))
+    return rows.whereType<core.Map<String, dynamic>>()
+        .map((row) => core.Map<String, dynamic>.from(row))
         .toList(growable: false);
   }
 
-  Future<List<Map<String, dynamic>>> fetchItemPrices({
+  Future<List<core.Map<String, dynamic>>> fetchItemPrices({
     required String priceList,
     String? search,
     int start = 0,
@@ -734,12 +771,12 @@ class FrappeApi {
     }
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة أسعار الأصناف غير صحيحة.');
-    return rows.whereType<Map<String, dynamic>>()
-        .map((row) => Map<String, dynamic>.from(row))
+    return rows.whereType<core.Map<String, dynamic>>()
+        .map((row) => core.Map<String, dynamic>.from(row))
         .toList(growable: false);
   }
 
-  Future<Map<String, dynamic>> saveItemSellingPrice({
+  Future<core.Map<String, dynamic>> saveItemSellingPrice({
     String? priceId,
     required String itemCode,
     required String priceList,
@@ -794,17 +831,262 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر حفظ سعر الصنف.'));
     }
     final saved = data['data'];
-    if (saved is! Map<String, dynamic> ||
+    if (saved is! core.Map<String, dynamic> ||
         saved['doctype'] != 'Item Price' ||
         saved['item_code'] != item ||
         saved['price_list'] != list ||
         saved['selling'] != 1) {
       throw Exception('لم يؤكد ERPNext حفظ سعر الصنف؛ أعد تحميل قائمة الأسعار.');
     }
-    return Map<String, dynamic>.from(saved);
+    return core.Map<String, dynamic>.from(saved);
   }
 
-  Future<List<Map<String, dynamic>>> fetchSellingPricingRules({
+  Future<List<core.Map<String, dynamic>>> fetchSellingPromotionalSchemes({
+    int start = 0,
+    String? company,
+    bool activeOnly = false,
+  }) async {
+    final filters = <List<dynamic>>[
+      ['selling', '=', 1],
+      ['buying', '=', 0],
+      if (company != null && company.trim().isNotEmpty) ['company', '=', company.trim()],
+      if (activeOnly) ['disable', '=', 0],
+    ];
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Promotional Scheme',
+      fields: const ['name', 'apply_on', 'disable', 'selling', 'buying', 'company', 'currency', 'valid_from', 'valid_upto'],
+      filters: filters,
+      orderBy: 'modified desc, name asc',
+      start: start,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل المخططات الترويجية.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة المخططات الترويجية غير صحيحة.');
+    return rows.whereType<core.Map<String, dynamic>>()
+        .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+  }
+
+  Future<core.Map<String, dynamic>> fetchSellingPromotionalSchemeDocument(String schemeId) async {
+    final id = schemeId.trim();
+    if (id.isEmpty) throw const FormatException('حدد المخطط الترويجي أولاً.');
+    final response = await _send('GET', '/api/resource/Promotional%20Scheme/' + Uri.encodeComponent(id));
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل تفاصيل المخطط الترويجي.'));
+    }
+    final doc = data['data'];
+    if (doc is! core.Map<String, dynamic> || doc['doctype'] != 'Promotional Scheme' ||
+        doc['name'] != id || doc['selling'] != 1 || doc['buying'] == 1) {
+      throw const FormatException('المخطط المطلوب ليس مخطط بيع صالحاً.');
+    }
+    return core.Map<String, dynamic>.from(doc);
+  }
+
+  Future<core.Map<String, dynamic>> saveSellingPromotionalScheme({
+    String? schemeId,
+    required String name,
+    required String company,
+    required String currency,
+    required String applyOn,
+    String? target,
+    required String validFrom,
+    String? validUpto,
+    required List<core.Map<String, dynamic>> priceSlabs,
+    required List<core.Map<String, dynamic>> productSlabs,
+    bool mixedConditions = false,
+    bool cumulative = false,
+  }) async {
+    final id = name.trim();
+    final companyName = company.trim();
+    final currencyCode = currency.trim();
+    final targetValue = target?.trim() ?? '';
+    if (id.isEmpty || companyName.isEmpty || currencyCode.isEmpty ||
+        !{'Transaction', 'Item Code', 'Item Group', 'Brand'}.contains(applyOn) ||
+        (applyOn != 'Transaction' && targetValue.isEmpty) ||
+        (applyOn == 'Transaction' && targetValue.isNotEmpty) ||
+        (priceSlabs.isEmpty && productSlabs.isEmpty)) {
+      throw const FormatException('اسم المخطط والشركة والعملة ونطاق التطبيق وشريحة واحدة على الأقل حقول مطلوبة.');
+    }
+    String date(String raw, String label) {
+      final parsed = DateTime.tryParse(raw);
+      if (parsed == null || raw.length != 10 ||
+          parsed.toIso8601String().substring(0, 10) != raw) {
+        throw FormatException('$label يجب أن يكون بصيغة YYYY-MM-DD.');
+      }
+      return raw;
+    }
+    final from = date(validFrom.trim(), 'تاريخ البداية');
+    final untilRaw = validUpto?.trim() ?? '';
+    final until = untilRaw.isEmpty ? null : date(untilRaw, 'تاريخ النهاية');
+    if (until != null && until.compareTo(from) < 0) {
+      throw const FormatException('تاريخ نهاية المخطط يجب ألا يسبق تاريخ بدايته.');
+    }
+    final priceRows = <core.Map<String, dynamic>>[];
+    for (final raw in priceSlabs) {
+      final minQty = _asDouble(raw['min_qty']);
+      final maxQty = _asDouble(raw['max_qty']);
+      final minAmount = _asDouble(raw['min_amount']);
+      final maxAmount = _asDouble(raw['max_amount']);
+      final type = raw['rate_or_discount']?.toString() ?? '';
+      final value = _asDouble(raw['value']);
+      final list = raw['for_price_list']?.toString().trim() ?? '';
+      final priority = int.tryParse(raw['priority']?.toString() ?? '') ?? 1;
+      if (!{'Rate', 'Discount Percentage', 'Discount Amount'}.contains(type) ||
+          !minQty.isFinite || minQty < 0 || !maxQty.isFinite || maxQty < 0 ||
+          (maxQty > 0 && minQty > maxQty) ||
+          !minAmount.isFinite || minAmount < 0 || !maxAmount.isFinite || maxAmount < 0 ||
+          (maxAmount > 0 && minAmount > maxAmount) ||
+          !value.isFinite || value <= 0 || (type == 'Discount Percentage' && value > 100) ||
+          list.isEmpty || priority < 1 || priority > 20) {
+        throw const FormatException('يوجد صف خصم سعري غير صحيح في المخطط.');
+      }
+      priceRows.add({
+        'doctype': 'Promotional Scheme Price Discount',
+        'min_qty': minQty,
+        'max_qty': maxQty,
+        'min_amount': minAmount,
+        'max_amount': maxAmount,
+        'rate_or_discount': type,
+        if (type == 'Rate') 'rate': value,
+        if (type == 'Discount Percentage') 'discount_percentage': value,
+        if (type == 'Discount Amount') 'discount_amount': value,
+        'for_price_list': list,
+        if ((raw['warehouse']?.toString().trim() ?? '').isNotEmpty) 'warehouse': raw['warehouse'].toString().trim(),
+        'priority': priority.toString(),
+        'apply_multiple_pricing_rules': raw['apply_multiple_pricing_rules'] == true ? 1 : 0,
+        'rule_description': (raw['rule_description']?.toString() ?? '').trim().isEmpty
+            ? 'شريحة ترويجية'
+            : raw['rule_description'].toString().trim(),
+      });
+    }
+    final productRows = <core.Map<String, dynamic>>[];
+    for (final raw in productSlabs) {
+      final minQty = _asDouble(raw['min_qty']);
+      final maxQty = _asDouble(raw['max_qty']);
+      final minAmount = _asDouble(raw['min_amount']);
+      final maxAmount = _asDouble(raw['max_amount']);
+      final freeQty = _asDouble(raw['free_qty']);
+      final sameItem = raw['same_item'] == true;
+      final freeItem = raw['free_item']?.toString().trim() ?? '';
+      final priority = int.tryParse(raw['priority']?.toString() ?? '') ?? 1;
+      if (!minQty.isFinite || minQty < 0 || !maxQty.isFinite || maxQty < 0 ||
+          (maxQty > 0 && minQty > maxQty) ||
+          !minAmount.isFinite || minAmount < 0 || !maxAmount.isFinite || maxAmount < 0 ||
+          (maxAmount > 0 && minAmount > maxAmount) ||
+          !freeQty.isFinite || freeQty <= 0 || (!sameItem && freeItem.isEmpty) ||
+          priority < 1 || priority > 20) {
+        throw const FormatException('يوجد صف منتج مجاني غير صحيح في المخطط.');
+      }
+      productRows.add({
+        'doctype': 'Promotional Scheme Product Discount',
+        'min_qty': minQty,
+        'max_qty': maxQty,
+        'min_amount': minAmount,
+        'max_amount': maxAmount,
+        'same_item': sameItem ? 1 : 0,
+        if (!sameItem) 'free_item': freeItem,
+        'free_qty': freeQty,
+        if ((raw['warehouse']?.toString().trim() ?? '').isNotEmpty) 'warehouse': raw['warehouse'].toString().trim(),
+        'priority': priority.toString(),
+        'apply_multiple_pricing_rules': raw['apply_multiple_pricing_rules'] == true ? 1 : 0,
+        'rule_description': (raw['rule_description']?.toString() ?? '').trim().isEmpty
+            ? 'شريحة منتج مجاني'
+            : raw['rule_description'].toString().trim(),
+      });
+    }
+    final payload = <String, dynamic>{
+      'doctype': 'Promotional Scheme',
+      'name': id,
+      'apply_on': applyOn,
+      'selling': 1,
+      'buying': 0,
+      'company': companyName,
+      'currency': currencyCode,
+      'valid_from': from,
+      if (until != null) 'valid_upto': until,
+      'items': applyOn == 'Item Code' ? [{'item_code': targetValue}] : <core.Map<String, dynamic>>[],
+      'item_groups': applyOn == 'Item Group' ? [{'item_group': targetValue}] : <core.Map<String, dynamic>>[],
+      'brands': applyOn == 'Brand' ? [{'brand': targetValue}] : <core.Map<String, dynamic>>[],
+      'mixed_conditions': mixedConditions ? 1 : 0,
+      'is_cumulative': cumulative ? 1 : 0,
+      'price_discount_slabs': priceRows,
+      'product_discount_slabs': productRows,
+    };
+    final existingId = schemeId?.trim() ?? '';
+    late final _ApiResponse response;
+    if (existingId.isEmpty) {
+      response = await _sendJson('POST', '/api/resource/Promotional%20Scheme', payload);
+    } else {
+      final currentUri = Uri.parse('$_baseUrl/api/resource/Promotional%20Scheme/' + Uri.encodeComponent(existingId));
+      final currentResponse = await _sendUri('GET', currentUri);
+      final currentData = _decode(currentResponse.body);
+      final current = currentData['data'];
+      if (currentResponse.statusCode < 200 || currentResponse.statusCode >= 300 ||
+          current is! core.Map<String, dynamic> || current['name'] != existingId ||
+          current['selling'] != 1 || current['buying'] == 1) {
+        throw const FormatException('المخطط الترويجي تغير أو لا ينتمي إلى مخططات البيع.');
+      }
+      final update = core.Map<String, dynamic>.from(payload)..remove('doctype')..remove('name');
+      response = await _sendJson('PUT', '/api/resource/Promotional%20Scheme/' + Uri.encodeComponent(existingId), update);
+    }
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر حفظ المخطط الترويجي.'));
+    }
+    final saved = data['data'];
+    if (saved is! core.Map<String, dynamic> || saved['doctype'] != 'Promotional Scheme' ||
+        saved['selling'] != 1 || saved['company'] != companyName) {
+      throw Exception('لم يؤكد ERPNext حفظ المخطط الترويجي؛ أعد تحميل القائمة.');
+    }
+    return core.Map<String, dynamic>.from(saved);
+  }
+
+  double _asDouble(dynamic value) {
+    final parsed = value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '');
+    return parsed != null && parsed.isFinite ? parsed : double.nan;
+  }
+
+  Future<void> setSellingPromotionalSchemeDisabled(String schemeId, {required bool disabled}) async {
+    final id = schemeId.trim();
+    if (id.isEmpty) throw const FormatException('حدد المخطط الترويجي أولاً.');
+    final uri = Uri.parse('$_baseUrl/api/resource/Promotional%20Scheme/' + Uri.encodeComponent(id));
+    final currentResponse = await _sendUri('GET', uri);
+    final currentData = _decode(currentResponse.body);
+    final current = currentData['data'];
+    if (currentResponse.statusCode < 200 || currentResponse.statusCode >= 300 ||
+        current is! core.Map<String, dynamic> || current['name'] != id ||
+        current['selling'] != 1 || current['buying'] == 1) {
+      throw const FormatException('تعذر التحقق من المخطط الترويجي قبل تغيير حالته.');
+    }
+    final response = await _sendJson(
+      'PUT',
+      '/api/resource/Promotional%20Scheme/' + Uri.encodeComponent(id),
+      {'disable': disabled ? 1 : 0},
+    );
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, disabled ? 'تعذر إيقاف المخطط الترويجي.' : 'تعذر تفعيل المخطط الترويجي.'));
+    }
+    final updated = data['data'];
+    if (updated is! core.Map<String, dynamic> || updated['name'] != id ||
+        updated['disable'] != (disabled ? 1 : 0)) {
+      throw Exception('لم يؤكد ERPNext تغيير حالة المخطط الترويجي.');
+    }
+  }
+
+  Future<void> disableSellingPromotionalScheme(String schemeId) =>
+      setSellingPromotionalSchemeDisabled(schemeId, disabled: true);
+
+  Future<void> enableSellingPromotionalScheme(String schemeId) =>
+      setSellingPromotionalSchemeDisabled(schemeId, disabled: false);
+
+
+  Future<List<core.Map<String, dynamic>>> fetchSellingPricingRules({
     int start = 0,
   }) async {
     final uri = buildResourcePageUri(
@@ -815,8 +1097,8 @@ class FrappeApi {
         'selling', 'buying', 'disable', 'rate_or_discount',
         'discount_percentage', 'discount_amount', 'for_price_list',
         'currency', 'valid_from', 'valid_upto', 'company',
-        'apply_discount_on', 'applicable_for', 'customer', 'items',
-        'customer_group', 'territory',
+        'apply_discount_on', 'applicable_for', 'customer', 'items', 'item_groups', 'brands', 'min_qty', 'max_qty', 'min_amt', 'max_amt', 'priority', 'has_priority', 'apply_multiple_pricing_rules', 'is_cumulative', 'mixed_conditions', 'rate', 'margin_type', 'margin_rate_or_amount', 'free_item', 'free_qty', 'same_item', 'dont_enforce_free_item_qty',
+        'customer_group', 'territory', 'sales_partner', 'campaign', 'warehouse',
       ],
       filters: const [
         ['selling', '=', 1],
@@ -832,43 +1114,68 @@ class FrappeApi {
     }
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة قواعد الخصم غير صحيحة.');
-    return rows.whereType<Map<String, dynamic>>()
-        .map((row) => Map<String, dynamic>.from(row))
+    return rows.whereType<core.Map<String, dynamic>>()
+        .map((row) => core.Map<String, dynamic>.from(row))
         .toList(growable: false);
   }
 
-  Future<Map<String, dynamic>> saveSellingPricingRule({
+  Future<core.Map<String, dynamic>> saveSellingPricingRule({
     String? ruleId,
     required String title,
     required String priceList,
     required String currency,
-    required String discountType,
+    String priceOrProductDiscount = 'Price',
+    String discountType = 'Discount Percentage',
     required double discountValue,
     required String validFrom,
     String? validUpto,
     String? company,
+    String? warehouse,
     String? applicableFor,
     String? applicableValue,
     String applyDiscountOn = 'Grand Total',
     String applyOn = 'Transaction',
     String? itemCode,
     double minQty = 0,
+    double maxQty = 0,
+    double minAmount = 0,
+    double maxAmount = 0,
+    int priority = 0,
+    bool applyMultipleRules = false,
+    bool cumulative = false,
+    bool mixedConditions = false,
+    String marginType = 'Percentage',
+    String? freeItem,
+    double freeQty = 1,
+    bool sameItem = false,
+    bool dontEnforceFreeItemQty = false,
   }) async {
     final cleanTitle = title.trim();
     final cleanList = priceList.trim();
     final cleanCurrency = currency.trim();
-    if (cleanTitle.isEmpty || cleanList.isEmpty || cleanCurrency.isEmpty ||
-        !discountValue.isFinite || discountValue <= 0 ||
-        !{'Discount Percentage', 'Discount Amount'}.contains(discountType) ||
-        (discountType == 'Discount Percentage' && discountValue > 100) ||
+    final target = itemCode?.trim() ?? '';
+    final freeItemCode = freeItem?.trim() ?? '';
+    final isProduct = priceOrProductDiscount == 'Product';
+    final validOutcome = priceOrProductDiscount == 'Price'
+        ? {'Rate', 'Discount Percentage', 'Discount Amount', 'Margin'}.contains(discountType)
+        : isProduct;
+    if (cleanTitle.isEmpty || cleanCurrency.isEmpty ||
+        !{'Price', 'Product'}.contains(priceOrProductDiscount) || !validOutcome ||
         !{'Grand Total', 'Net Total'}.contains(applyDiscountOn) ||
-        !{'Transaction', 'Item Code'}.contains(applyOn) ||
-        !minQty.isFinite || minQty < 0 ||
-        (applyOn == 'Item Code' &&
-            ((itemCode ?? '').trim().isEmpty || minQty <= 0)) ||
-        (applyOn == 'Transaction' &&
-            ((itemCode ?? '').trim().isNotEmpty || minQty > 0))) {
-      throw const FormatException('بيانات قاعدة الخصم غير صحيحة.');
+        !{'Transaction', 'Item Code', 'Item Group', 'Brand'}.contains(applyOn) ||
+        !minQty.isFinite || minQty < 0 || !maxQty.isFinite || maxQty < 0 ||
+        (maxQty > 0 && minQty > maxQty) ||
+        !minAmount.isFinite || minAmount < 0 || !maxAmount.isFinite || maxAmount < 0 ||
+        (maxAmount > 0 && minAmount > maxAmount) || priority < 0 || priority > 20 ||
+        !freeQty.isFinite || freeQty <= 0 ||
+        (applyOn != 'Transaction' && (target.isEmpty || minQty <= 0)) ||
+        (applyOn == 'Transaction' && target.isNotEmpty) ||
+        (isProduct && !sameItem && freeItemCode.isEmpty) ||
+        (!isProduct && (!discountValue.isFinite || discountValue <= 0 ||
+          (discountType == 'Discount Percentage' && discountValue > 100) ||
+          (discountType == 'Margin' && !{'Percentage', 'Amount'}.contains(marginType))) ) ||
+        (cumulative && minAmount <= 0)) {
+      throw const FormatException('بيانات قاعدة التسعير أو شروط الكمية والقيمة غير صحيحة.');
     }
     String validateDate(String raw, String label) {
       final parsed = DateTime.tryParse(raw);
@@ -879,49 +1186,74 @@ class FrappeApi {
       }
       return raw;
     }
-    final from = validateDate(validFrom.trim(), 'تاريخ بداية الخصم');
+    final from = validateDate(validFrom.trim(), 'تاريخ البداية');
     final untilRaw = validUpto?.trim() ?? '';
-    final until = untilRaw.isEmpty ? null : validateDate(untilRaw, 'تاريخ نهاية الخصم');
+    final until = untilRaw.isEmpty ? null : validateDate(untilRaw, 'تاريخ النهاية');
     if (until != null && from.compareTo(until) > 0) {
-      throw const FormatException('تاريخ نهاية الخصم يجب ألا يسبق تاريخ بدايته.');
+      throw const FormatException('تاريخ نهاية القاعدة يجب ألا يسبق تاريخ بدايتها.');
     }
     const applicableFields = {
       'Customer': 'customer',
       'Customer Group': 'customer_group',
       'Territory': 'territory',
+      'Sales Partner': 'sales_partner',
+      'Campaign': 'campaign',
     };
     final applicableField = applicableFields[applicableFor];
-    final target = applicableValue?.trim() ?? '';
-    if (applicableFor != null &&
-        (applicableField == null || target.isEmpty)) {
-      throw const FormatException('حدد قيمة صالحة لنطاق تطبيق الخصم.');
+    final partyValue = applicableValue?.trim() ?? '';
+    if (applicableFor != null && (applicableField == null || partyValue.isEmpty)) {
+      throw const FormatException('حدد قيمة صالحة لنطاق تطبيق القاعدة.');
     }
-    if (applicableFor == null && target.isNotEmpty) {
-      throw const FormatException('حدد نوع نطاق الخصم قبل إدخال قيمته.');
+    if (applicableFor == null && partyValue.isNotEmpty) {
+      throw const FormatException('حدد نوع نطاق القاعدة قبل إدخال قيمته.');
     }
 
+    final itemRows = applyOn == 'Item Code' ? [{'item_code': target}] : <core.Map<String, dynamic>>[];
+    final groupRows = applyOn == 'Item Group' ? [{'item_group': target}] : <core.Map<String, dynamic>>[];
+    final brandRows = applyOn == 'Brand' ? [{'brand': target}] : <core.Map<String, dynamic>>[];
     final payload = <String, dynamic>{
       'doctype': 'Pricing Rule',
       'title': cleanTitle,
       'apply_on': applyOn,
-      'price_or_product_discount': 'Price',
+      'price_or_product_discount': priceOrProductDiscount,
       'selling': 1,
       'buying': 0,
-      'rate_or_discount': discountType,
-      if (discountType == 'Discount Percentage')
-        'discount_percentage': discountValue,
-      if (discountType == 'Discount Amount') 'discount_amount': discountValue,
       'apply_discount_on': applyDiscountOn,
-      'for_price_list': cleanList,
-      'items': applyOn == 'Item Code'
-          ? [{'item_code': itemCode!.trim(), 'min_qty': minQty}]
-          : <Map<String, dynamic>>[],
+      if (cleanList.isNotEmpty) 'for_price_list': cleanList,
+      'items': itemRows,
+      'item_groups': groupRows,
+      'brands': brandRows,
+      'min_qty': minQty,
+      'max_qty': maxQty,
+      'min_amt': minAmount,
+      'max_amt': maxAmount,
+      'priority': priority == 0 ? '' : priority.toString(),
+      'has_priority': priority > 0 ? 1 : 0,
+      'apply_multiple_pricing_rules': applyMultipleRules ? 1 : 0,
+      'is_cumulative': cumulative ? 1 : 0,
+      'mixed_conditions': mixedConditions ? 1 : 0,
       'currency': cleanCurrency,
       'valid_from': from,
       if (until != null) 'valid_upto': until,
       if (company != null && company.trim().isNotEmpty) 'company': company.trim(),
+      if (warehouse != null && warehouse.trim().isNotEmpty) 'warehouse': warehouse.trim(),
       if (applicableFor != null) 'applicable_for': applicableFor,
-      if (applicableField != null) applicableField: target,
+      if (applicableField != null) applicableField: partyValue,
+      if (isProduct) ...{
+        'free_item': sameItem ? null : freeItemCode,
+        'free_qty': freeQty,
+        'same_item': sameItem ? 1 : 0,
+        'dont_enforce_free_item_qty': dontEnforceFreeItemQty ? 1 : 0,
+      } else ...{
+        if (discountType != 'Margin') 'rate_or_discount': discountType,
+        if (discountType == 'Rate') 'rate': discountValue,
+        if (discountType == 'Discount Percentage') 'discount_percentage': discountValue,
+        if (discountType == 'Discount Amount') 'discount_amount': discountValue,
+        if (discountType == 'Margin') ...{
+          'margin_type': marginType,
+          'margin_rate_or_amount': discountValue,
+        },
+      },
     };
 
     final id = ruleId?.trim() ?? '';
@@ -929,37 +1261,30 @@ class FrappeApi {
     if (id.isEmpty) {
       response = await _sendJson('POST', '/api/resource/Pricing%20Rule', payload);
     } else {
-      final uri = Uri.parse(
-        '$_baseUrl/api/resource/Pricing%20Rule/' + Uri.encodeComponent(id),
-      );
+      final uri = Uri.parse('$_baseUrl/api/resource/Pricing%20Rule/' + Uri.encodeComponent(id));
       final currentResponse = await _sendUri('GET', uri);
       final currentData = _decode(currentResponse.body);
       final current = currentData['data'];
       if (currentResponse.statusCode < 200 || currentResponse.statusCode >= 300 ||
-          current is! Map<String, dynamic> || current['name'] != id ||
-          !{'Transaction', 'Item Code'}.contains(current['apply_on']) ||
+          current is! core.Map<String, dynamic> || current['name'] != id ||
+          !{'Transaction', 'Item Code', 'Item Group', 'Brand'}.contains(current['apply_on']) ||
           current['selling'] != 1 || current['buying'] == 1) {
-        throw const FormatException('قاعدة الخصم تغيرت أو لا تنتمي إلى قواعد خصومات البيع المدعومة.');
+        throw const FormatException('قاعدة التسعير تغيرت أو لا تنتمي إلى قواعد البيع المدعومة.');
       }
-      response = await _sendJson(
-        'PUT',
-        '/api/resource/Pricing%20Rule/' + Uri.encodeComponent(id),
-        Map<String, dynamic>.from(payload)..remove('doctype'),
-      );
+      final updatePayload = core.Map<String, dynamic>.from(payload)..remove('doctype');
+      response = await _sendJson('PUT', '/api/resource/Pricing%20Rule/' + Uri.encodeComponent(id), updatePayload);
     }
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(data, 'تعذر حفظ قاعدة خصم البيع.'));
+      throw Exception(_message(data, 'تعذر حفظ قاعدة التسعير في ERPNext.'));
     }
     final saved = data['data'];
-    if (saved is! Map<String, dynamic> ||
-        saved['doctype'] != 'Pricing Rule' ||
-        saved['apply_on'] != applyOn ||
-        saved['selling'] != 1 ||
-        saved['title'] != cleanTitle) {
-      throw Exception('لم يؤكد ERPNext حفظ قاعدة الخصم؛ أعد تحميل القائمة.');
+    if (saved is! core.Map<String, dynamic> || saved['doctype'] != 'Pricing Rule' ||
+        saved['apply_on'] != applyOn || saved['selling'] != 1 ||
+        saved['title'] != cleanTitle || saved['price_or_product_discount'] != priceOrProductDiscount) {
+      throw Exception('لم يؤكد ERPNext حفظ قاعدة التسعير؛ أعد تحميل القائمة.');
     }
-    return Map<String, dynamic>.from(saved);
+    return core.Map<String, dynamic>.from(saved);
   }
 
   Future<void> disableSellingPricingRule(String ruleId) async {
@@ -972,8 +1297,8 @@ class FrappeApi {
     final currentData = _decode(currentResponse.body);
     final current = currentData['data'];
     if (currentResponse.statusCode < 200 || currentResponse.statusCode >= 300 ||
-        current is! Map<String, dynamic> || current['name'] != id ||
-        !{'Transaction', 'Item Code'}.contains(current['apply_on']) ||
+        current is! core.Map<String, dynamic> || current['name'] != id ||
+        !{'Transaction', 'Item Code', 'Item Group', 'Brand'}.contains(current['apply_on']) ||
         current['selling'] != 1 || current['buying'] == 1) {
       throw const FormatException('تعذر التحقق من قاعدة الخصم قبل إيقافها.');
     }
@@ -987,7 +1312,7 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر إيقاف قاعدة الخصم.'));
     }
     final updated = data['data'];
-    if (updated is! Map<String, dynamic> ||
+    if (updated is! core.Map<String, dynamic> ||
         updated['name'] != id ||
         updated['disable'] != 1) {
       throw Exception('لم يؤكد ERPNext إيقاف قاعدة الخصم.');
@@ -998,7 +1323,7 @@ class FrappeApi {
     String id,
     String itemCode,
     String priceList,
-    Map<String, dynamic> payload,
+    core.Map<String, dynamic> payload,
   ) async {
     final uri = Uri.parse(
       '$_baseUrl/api/resource/Item%20Price/' + Uri.encodeComponent(id),
@@ -1009,7 +1334,7 @@ class FrappeApi {
       throw Exception(_message(currentData, 'تعذر التحقق من سعر الصنف قبل تعديله.'));
     }
     final current = currentData['data'];
-    if (current is! Map<String, dynamic> ||
+    if (current is! core.Map<String, dynamic> ||
         current['name'] != id ||
         current['item_code'] != itemCode ||
         current['price_list'] != priceList ||
@@ -1019,7 +1344,7 @@ class FrappeApi {
     return _sendJson(
       'PUT',
       '/api/resource/Item%20Price/' + Uri.encodeComponent(id),
-      Map<String, dynamic>.from(payload)..remove('doctype'),
+      core.Map<String, dynamic>.from(payload)..remove('doctype'),
     );
   }
 
@@ -1035,9 +1360,9 @@ class FrappeApi {
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر جلب فواتير المبيعات. تحقق من صلاحية قراءة Sales Invoice.'));
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة فواتير المبيعات من ERPNext غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>().map(ErpSalesInvoice.fromJson).toList(growable: false);
+    return rows.whereType<core.Map<String, dynamic>>().map(ErpSalesInvoice.fromJson).toList(growable: false);
   }
-  Future<List<Map<String, dynamic>>> fetchSalesPersons({
+  Future<List<core.Map<String, dynamic>>> fetchSalesPersons({
     int start = 0,
     String? search,
   }) async {
@@ -1046,7 +1371,7 @@ class FrappeApi {
       resource: 'Sales Person',
       fields: const [
         'name', 'sales_person_name', 'parent_sales_person',
-        'commission_rate', 'is_group', 'enabled', 'employee', 'department',
+        'commission_rate', 'is_group', 'enabled', 'employee',
       ],
       filters: const [
         ['is_group', '=', 0],
@@ -1068,12 +1393,12 @@ class FrappeApi {
     }
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة مندوبي المبيعات غير صحيحة.');
-    return rows.whereType<Map<String, dynamic>>()
-        .map((row) => Map<String, dynamic>.from(row))
+    return rows.whereType<core.Map<String, dynamic>>()
+        .map((row) => core.Map<String, dynamic>.from(row))
         .toList(growable: false);
   }
 
-  Future<Map<String, dynamic>> updateSalesPersonCommission({
+  Future<core.Map<String, dynamic>> updateSalesPersonCommission({
     required String salesPersonId,
     required double commissionRate,
   }) async {
@@ -1089,7 +1414,7 @@ class FrappeApi {
     final currentData = _decode(currentResponse.body);
     final current = currentData['data'];
     if (currentResponse.statusCode < 200 || currentResponse.statusCode >= 300 ||
-        current is! Map<String, dynamic> || current['name'] != id ||
+        current is! core.Map<String, dynamic> || current['name'] != id ||
         current['is_group'] == 1 || current['is_group'] == true ||
         current['enabled'] == 0 || current['enabled'] == false) {
       throw const FormatException('مندوب المبيعات تغير أو غير مفعل ولا يمكن تعديل عمولته.');
@@ -1104,12 +1429,12 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر تحديث نسبة عمولة مندوب المبيعات.'));
     }
     final updated = data['data'];
-    final savedRate = updated is Map ? double.tryParse(updated['commission_rate']?.toString() ?? '') : null;
-    if (updated is! Map<String, dynamic> || updated['name'] != id ||
+    final savedRate = updated is core.Map ? double.tryParse(updated['commission_rate']?.toString() ?? '') : null;
+    if (updated is! core.Map<String, dynamic> || updated['name'] != id ||
         savedRate == null || (savedRate - commissionRate).abs() > 0.000001) {
       throw Exception('لم يؤكد ERPNext حفظ نسبة العمولة؛ أعد تحميل سجل المندوب.');
     }
-    return Map<String, dynamic>.from(updated);
+    return core.Map<String, dynamic>.from(updated);
   }
 
   Future<List<ErpSupplier>> fetchSuppliers({int start = 0, String? search}) async {
@@ -1125,10 +1450,10 @@ class FrappeApi {
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر جلب الموردين. تحقق من صلاحية قراءة Supplier.'));
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة الموردين من ERPNext غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>().map(ErpSupplier.fromJson).toList(growable: false);
+    return rows.whereType<core.Map<String, dynamic>>().map(ErpSupplier.fromJson).toList(growable: false);
   }
 
-  Future<List<Map<String, dynamic>>> fetchPurchaseOrders({int start = 0, String? search}) async {
+  Future<List<core.Map<String, dynamic>>> fetchPurchaseOrders({int start = 0, String? search}) async {
     final uri = buildResourcePageUri(
       baseUrl: _baseUrl,
       resource: 'Purchase Order',
@@ -1149,10 +1474,10 @@ class FrappeApi {
     }
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة أوامر الشراء غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>().toList(growable: false);
+    return rows.whereType<core.Map<String, dynamic>>().toList(growable: false);
   }
 
-  Future<Map<String, dynamic>> fetchPurchaseOrderDocument(String name) async {
+  Future<core.Map<String, dynamic>> fetchPurchaseOrderDocument(String name) async {
     if (name.trim().isEmpty) throw const FormatException('رقم أمر الشراء غير موجود.');
     final response = await _send('GET',
         '/api/resource/Purchase%20Order/' + Uri.encodeComponent(name));
@@ -1161,7 +1486,7 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر تحميل تفاصيل أمر الشراء.'));
     }
     final document = data['data'];
-    if (document is! Map<String, dynamic> ||
+    if (document is! core.Map<String, dynamic> ||
         document['doctype'] != 'Purchase Order' ||
         document['docstatus'] != 1) {
       throw const FormatException('أمر الشراء غير مرحّل أو أن بياناته غير مكتملة.');
@@ -1169,7 +1494,7 @@ class FrappeApi {
     return document;
   }
 
-  Future<List<Map<String, dynamic>>> fetchPurchaseOrderRecords({int start = 0, String? search}) async {
+  Future<List<core.Map<String, dynamic>>> fetchPurchaseOrderRecords({int start = 0, String? search}) async {
     final uri = buildResourcePageUri(
       baseUrl: _baseUrl, resource: 'Purchase Order',
       fields: const ['name', 'supplier', 'supplier_name', 'company', 'transaction_date', 'status', 'docstatus', 'per_received', 'per_billed', 'grand_total', 'currency'],
@@ -1187,10 +1512,10 @@ class FrappeApi {
     }
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة سجل أوامر الشراء غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>().toList(growable: false);
+    return rows.whereType<core.Map<String, dynamic>>().toList(growable: false);
   }
 
-  Future<Map<String, dynamic>> _fetchPurchaseOrderAnyStatus(String name) async {
+  Future<core.Map<String, dynamic>> _fetchPurchaseOrderAnyStatus(String name) async {
     if (name.trim().isEmpty) throw const FormatException('رقم أمر الشراء غير موجود.');
     final response = await _send('GET', '/api/resource/Purchase%20Order/' + Uri.encodeComponent(name.trim()));
     final data = _decode(response.body);
@@ -1198,35 +1523,35 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر تحميل تفاصيل أمر الشراء.'));
     }
     final document = data['data'];
-    if (document is! Map<String, dynamic> || document['doctype'] != 'Purchase Order' || document['name'] != name.trim()) {
+    if (document is! core.Map<String, dynamic> || document['doctype'] != 'Purchase Order' || document['name'] != name.trim()) {
       throw const FormatException('لم يؤكد ERPNext هوية أمر الشراء المطلوب.');
     }
     return document;
   }
 
-  Future<Map<String, dynamic>> fetchPurchaseOrderRecordDocument(String name) => _fetchPurchaseOrderAnyStatus(name);
+  Future<core.Map<String, dynamic>> fetchPurchaseOrderRecordDocument(String name) => _fetchPurchaseOrderAnyStatus(name);
 
-  Future<Map<String, dynamic>> createPurchaseOrder(Map<String, dynamic> document) async {
+  Future<core.Map<String, dynamic>> createPurchaseOrder(core.Map<String, dynamic> document) async {
     _validatePurchaseOrder(document);
     await _validateDocumentWarehouses(document);
     final response = await _sendJson('POST', '/api/resource/Purchase%20Order', document);
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر إنشاء أمر الشراء.'));
     final created = data['data'];
-    if (created is! Map<String, dynamic> || created['doctype'] != 'Purchase Order' || created['name'] is! String || created['docstatus'] != 0) {
+    if (created is! core.Map<String, dynamic> || created['doctype'] != 'Purchase Order' || created['name'] is! String || created['docstatus'] != 0) {
       throw Exception('لم يؤكد ERPNext إنشاء مسودة أمر الشراء.');
     }
     return created;
   }
 
-  void _validatePurchaseOrder(Map<String, dynamic> document) {
+  void _validatePurchaseOrder(core.Map<String, dynamic> document) {
     final items = document['items'];
     if (document['doctype'] != 'Purchase Order' || document['company'] is! String || (document['company'] as String).trim().isEmpty ||
         document['supplier'] is! String || (document['supplier'] as String).trim().isEmpty || items is! List || items.isEmpty) {
       throw const FormatException('حدد الشركة والمورد وأضف صنفاً واحداً على الأقل لأمر الشراء.');
     }
     for (final row in items) {
-      if (row is! Map<String, dynamic> || row['item_code'] is! String || (row['item_code'] as String).trim().isEmpty ||
+      if (row is! core.Map<String, dynamic> || row['item_code'] is! String || (row['item_code'] as String).trim().isEmpty ||
           row['qty'] is! num || !(row['qty'] as num).isFinite || (row['qty'] as num) <= 0 ||
           row['rate'] is! num || !(row['rate'] as num).isFinite || (row['rate'] as num) < 0 ||
           !((row['qty'] as num) * (row['rate'] as num)).isFinite) {
@@ -1235,12 +1560,12 @@ class FrappeApi {
     }
   }
 
-  Future<Map<String, dynamic>> updateDraftPurchaseOrder({required String name, required Map<String, dynamic> changes}) async {
+  Future<core.Map<String, dynamic>> updateDraftPurchaseOrder({required String name, required core.Map<String, dynamic> changes}) async {
     _validatePurchaseOrder(changes);
     await _validateDocumentWarehouses(changes);
     final current = await _fetchPurchaseOrderAnyStatus(name);
     if (current['docstatus'] != 0) throw const FormatException('يمكن تعديل أوامر الشراء غير المرحلة فقط.');
-    final payload = Map<String, dynamic>.from(current)
+    final payload = core.Map<String, dynamic>.from(current)
       ..['company'] = changes['company']
       ..['supplier'] = changes['supplier']
       ..['transaction_date'] = changes['transaction_date'] ?? current['transaction_date']
@@ -1250,15 +1575,15 @@ class FrappeApi {
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تعديل مسودة أمر الشراء.'));
     final saved = data['message'];
-    if (saved is! Map<String, dynamic> || saved['doctype'] != 'Purchase Order' || saved['name'] != name || saved['docstatus'] != 0) {
+    if (saved is! core.Map<String, dynamic> || saved['doctype'] != 'Purchase Order' || saved['name'] != name || saved['docstatus'] != 0) {
       throw Exception('لم يؤكد ERPNext حفظ مسودة أمر الشراء.');
     }
     return saved;
   }
 
-  Future<Map<String, dynamic>> submitPurchaseOrder(Map<String, dynamic> document) => _submitMobileDocument(document, 'Purchase Order');
+  Future<core.Map<String, dynamic>> submitPurchaseOrder(core.Map<String, dynamic> document) => _submitMobileDocument(document, 'Purchase Order');
 
-  Future<Map<String, dynamic>> cancelPurchaseOrder(String name) async {
+  Future<core.Map<String, dynamic>> cancelPurchaseOrder(String name) async {
     final key = 'cancel-purchase-order:$name';
     if (!_inFlightPurchaseActions.add(key)) throw const FormatException('إلغاء أمر الشراء قيد التنفيذ بالفعل.');
     try {
@@ -1268,7 +1593,7 @@ class FrappeApi {
       final data = _decode(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر إلغاء أمر الشراء. قد توجد مستندات استلام أو فواتير مرتبطة.'));
       final cancelled = data['message'];
-      if (cancelled is! Map<String, dynamic> || cancelled['doctype'] != 'Purchase Order' || cancelled['name'] != name || cancelled['docstatus'] != 2) {
+      if (cancelled is! core.Map<String, dynamic> || cancelled['doctype'] != 'Purchase Order' || cancelled['name'] != name || cancelled['docstatus'] != 2) {
         throw Exception('لم يؤكد ERPNext إلغاء أمر الشراء.');
       }
       return cancelled;
@@ -1277,77 +1602,115 @@ class FrappeApi {
     }
   }
 
-  Future<List<Map<String, dynamic>>> fetchSupplierLedger({
+  Future<List<core.Map<String, dynamic>>> fetchSupplierLedger({
     required String supplier, int start = 0, String? company,
-  }) async {
-    if (supplier.trim().isEmpty) {
-      throw const FormatException('حدد المورد لعرض كشف حسابه.');
-    }
-    final filters = <List<dynamic>>[
-      ['party_type', '=', 'Supplier'],
-      ['party', '=', supplier.trim()],
-      ['is_cancelled', '=', 0],
-    ];
-    if (company != null && company.trim().isNotEmpty) {
-      filters.add(['company', '=', company.trim()]);
-    }
-    final uri = buildResourcePageUri(
-      baseUrl: _baseUrl,
-      resource: 'GL Entry',
-      fields: const [
-        'name', 'posting_date', 'account', 'against', 'debit', 'credit',
-        'voucher_type', 'voucher_no', 'remarks', 'company', 'party',
-      ],
-      filters: filters,
-      orderBy: 'posting_date desc, creation desc, name desc',
-      start: start,
-    );
-    final response = await _sendUri('GET', uri);
-    final data = _decode(response.body);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(data, 'تعذر تحميل كشف حساب المورد. تحقق من صلاحية قراءة GL Entry.'));
-    }
-    final rows = data['data'];
-    if (rows is! List) throw Exception('استجابة كشف حساب المورد غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>().toList(growable: false);
-  }
+    String? fromDate, String? toDate,
+  }) => _fetchPartyLedger(
+    partyType: 'Supplier', party: supplier, start: start, company: company,
+    fromDate: fromDate, toDate: toDate,
+  );
 
-  Future<List<Map<String, dynamic>>> fetchCustomerLedger({
+  Future<List<core.Map<String, dynamic>>> fetchCustomerLedger({
     required String customer, int start = 0, String? company,
+    String? fromDate, String? toDate,
+  }) => _fetchPartyLedger(
+    partyType: 'Customer', party: customer, start: start, company: company,
+    fromDate: fromDate, toDate: toDate,
+  );
+
+  String? _validateLedgerDate(String? raw, String label) {
+    final value = raw?.trim() ?? '';
+    if (value.isEmpty) return null;
+    final parsed = DateTime.tryParse(value);
+    if (parsed == null || parsed.toIso8601String().substring(0, 10) != value) {
+      throw FormatException('$label غير صحيح. استخدم YYYY-MM-DD.');
+    }
+    return value;
+  }
+
+  Future<List<core.Map<String, dynamic>>> _fetchPartyLedger({
+    required String partyType, required String party, int start = 0,
+    String? company, String? fromDate, String? toDate,
   }) async {
-    if (customer.trim().isEmpty) {
-      throw const FormatException('حدد العميل لعرض كشف حسابه.');
+    final cleanParty = party.trim();
+    final cleanCompany = company?.trim() ?? '';
+    final from = _validateLedgerDate(fromDate, 'تاريخ البداية');
+    final to = _validateLedgerDate(toDate, 'تاريخ النهاية');
+    if (cleanParty.isEmpty || start < 0 ||
+        !{'Customer', 'Supplier'}.contains(partyType) ||
+        (from != null && to != null && from.compareTo(to) > 0)) {
+      throw const FormatException('حدد الطرف ونطاق تاريخ صحيحاً.');
     }
     final filters = <List<dynamic>>[
-      ['party_type', '=', 'Customer'],
-      ['party', '=', customer.trim()],
+      ['party_type', '=', partyType], ['party', '=', cleanParty],
       ['is_cancelled', '=', 0],
+      if (cleanCompany.isNotEmpty) ['company', '=', cleanCompany],
+      if (from != null) ['posting_date', '>=', from],
+      if (to != null) ['posting_date', '<=', to],
     ];
-    if (company != null && company.trim().isNotEmpty) {
-      filters.add(['company', '=', company.trim()]);
-    }
     final uri = buildResourcePageUri(
-      baseUrl: _baseUrl,
-      resource: 'GL Entry',
+      baseUrl: _baseUrl, resource: 'GL Entry',
       fields: const [
         'name', 'posting_date', 'account', 'against', 'debit', 'credit',
         'voucher_type', 'voucher_no', 'remarks', 'company', 'party',
+        'account_currency',
       ],
-      filters: filters,
-      orderBy: 'posting_date desc, creation desc, name desc',
-      start: start,
+      filters: filters, orderBy: 'posting_date asc, creation asc, name asc',
+      start: start, pageLength: 100,
     );
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(data, 'تعذر تحميل كشف حساب العميل. تحقق من صلاحية قراءة GL Entry.'));
+      throw Exception(_message(data, 'تعذر تحميل كشف حساب الطرف من GL Entry.'));
     }
     final rows = data['data'];
-    if (rows is! List) throw Exception('استجابة كشف حساب العميل غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>().toList(growable: false);
+    if (rows is! List) throw const FormatException('استجابة كشف الحساب غير متوقعة.');
+    return rows.whereType<core.Map<String, dynamic>>()
+        .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
   }
 
-  Future<List<Map<String, dynamic>>> fetchReconciliationAccounts({
+  Future<core.Map<String, dynamic>> fetchPartyLedgerOpeningBalance({
+    required String partyType, required String party, required String beforeDate,
+    String? company,
+  }) async {
+    final cleanParty = party.trim();
+    final before = _validateLedgerDate(beforeDate, 'تاريخ بداية الكشف');
+    if (cleanParty.isEmpty || before == null ||
+        !{'Customer', 'Supplier'}.contains(partyType)) {
+      throw const FormatException('بيانات رصيد افتتاح كشف الحساب غير صحيحة.');
+    }
+    final filters = <List<dynamic>>[
+      ['party_type', '=', partyType], ['party', '=', cleanParty],
+      ['is_cancelled', '=', 0], ['posting_date', '<', before],
+      if (company?.trim().isNotEmpty == true) ['company', '=', company!.trim()],
+    ];
+    final uri = Uri.parse('$_baseUrl/api/method/frappe.client.get_list').replace(
+      queryParameters: {
+        'doctype': 'GL Entry',
+        'fields': jsonEncode(['sum(debit) as debit', 'sum(credit) as credit']),
+        'filters': jsonEncode(filters),
+        'limit_page_length': '1',
+      },
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر حساب الرصيد الافتتاحي من دفتر الأستاذ.'));
+    }
+    final rows = data['message'];
+    if (rows is! List || rows.isEmpty || rows.first is! core.Map<String, dynamic>) {
+      return {'debit': 0.0, 'credit': 0.0, 'balance': 0.0};
+    }
+    final row = rows.first as core.Map<String, dynamic>;
+    final debit = double.tryParse(row['debit']?.toString() ?? '') ?? 0.0;
+    final credit = double.tryParse(row['credit']?.toString() ?? '') ?? 0.0;
+    if (!debit.isFinite || !credit.isFinite) {
+      throw const FormatException('أعاد ERPNext إجماليات غير صالحة للرصيد الافتتاحي.');
+    }
+    return {'debit': debit, 'credit': credit, 'balance': debit - credit};
+  }
+
+  Future<List<core.Map<String, dynamic>>> fetchReconciliationAccounts({
     required String company,
     required String partyType,
   }) async {
@@ -1377,17 +1740,434 @@ class FrappeApi {
     }
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة حسابات الذمم غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>()
+    return rows.whereType<core.Map<String, dynamic>>()
         .where((row) => row['company'] == normalizedCompany &&
             row['account_type'] == accountType)
-        .map((row) => Map<String, dynamic>.from(row))
+        .map((row) => core.Map<String, dynamic>.from(row))
         .toList(growable: false);
   }
 
-  Future<Map<String, dynamic>> _runPaymentReconciliationMethod({
-    required Map<String, dynamic> document,
+  Future<List<core.Map<String, dynamic>>> fetchBankAccounts({
+    required String company,
+  }) async {
+    final normalizedCompany = company.trim();
+    if (normalizedCompany.isEmpty) throw const FormatException('حدد الشركة لعرض الحسابات البنكية.');
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Bank Account',
+      fields: const [
+        'name', 'account', 'account_name', 'company', 'is_default',
+        'is_company_account', 'disabled', 'account_type', 'bank',
+      ],
+      filters: [
+        ['company', '=', normalizedCompany],
+        ['is_company_account', '=', 1],
+        ['disabled', '=', 0],
+      ],
+      orderBy: 'is_default desc, account_name asc',
+      pageLength: 500,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل الحسابات البنكية للشركة.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw const FormatException('استجابة الحسابات البنكية غير متوقعة.');
+    return rows.whereType<core.Map<String, dynamic>>()
+        .where((row) => row['company'] == normalizedCompany &&
+            (row['is_company_account'] == 1 || row['is_company_account'] == true) &&
+            (row['disabled'] != 1 && row['disabled'] != true) &&
+            (row['name']?.toString().isNotEmpty ?? false) &&
+            (row['account']?.toString().isNotEmpty ?? false))
+        .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+  }
+
+  Future<core.Map<String, dynamic>> createBankStatementImportPreview({
+    required String bankAccount,
+    required String company,
+    required String fileName,
+    required List<int> fileBytes,
+  }) async {
+    final account = bankAccount.trim();
+    final cleanCompany = company.trim();
+    final lowerName = fileName.toLowerCase();
+    final supported = lowerName.endsWith('.csv') ||
+        lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls') ||
+        lowerName.endsWith('.txt');
+    if (account.isEmpty || cleanCompany.isEmpty || fileBytes.isEmpty ||
+        !supported || fileBytes.length > 15 * 1024 * 1024) {
+      throw const FormatException('اختر ملف CSV أو Excel أو MT940 صالحاً، بحجم لا يتجاوز 15 ميجابايت.');
+    }
+    final accountResponse = await _send('GET',
+      '/api/resource/Bank%20Account/' + Uri.encodeComponent(account));
+    final accountData = _decode(accountResponse.body);
+    if (accountResponse.statusCode < 200 || accountResponse.statusCode >= 300) {
+      throw Exception(_message(accountData, 'تعذر التحقق من الحساب البنكي.'));
+    }
+    final bankAccountDoc = accountData['data'];
+    if (bankAccountDoc is! core.Map<String, dynamic> ||
+        bankAccountDoc['name'] != account || bankAccountDoc['company'] != cleanCompany ||
+        (bankAccountDoc['bank']?.toString().trim().isNotEmpty ?? false) == false) {
+      throw const FormatException('الحساب البنكي لا يتبع الشركة أو لا يرتبط ببنك مهيأ.');
+    }
+    final createdResponse = await _sendJson('POST', '/api/resource/Bank%20Statement%20Import', {
+      'doctype': 'Bank Statement Import',
+      'company': cleanCompany,
+      'bank_account': account,
+      'bank': bankAccountDoc['bank'],
+      'reference_doctype': 'Bank Transaction',
+      'import_type': 'Insert New Records',
+      'submit_after_import': 1,
+      'mute_emails': 1,
+      'use_csv_sniffer': 1,
+      'import_mt940_fromat': lowerName.endsWith('.txt') ? 1 : 0,
+    });
+    final createdData = _decode(createdResponse.body);
+    if (createdResponse.statusCode < 200 || createdResponse.statusCode >= 300) {
+      throw Exception(_message(createdData, 'تعذر إنشاء مستند استيراد كشف البنك. تحقق من صلاحية Bank Statement Import.'));
+    }
+    final created = createdData['data'];
+    if (created is! core.Map<String, dynamic> ||
+        created['doctype'] != 'Bank Statement Import' ||
+        (created['name']?.toString().isEmpty ?? true) ||
+        created['company'] != cleanCompany || created['bank_account'] != account) {
+      throw const FormatException('لم يؤكد ERPNext إنشاء مستند استيراد كشف البنك.');
+    }
+    final importId = created['name'].toString();
+    final boundary = '----ERPNextMobile' + DateTime.now().microsecondsSinceEpoch.toString();
+    final request = await _client.postUrl(Uri.parse('$_baseUrl/api/method/upload_file'));
+    request.followRedirects = false;
+    request.headers.set(HttpHeaders.contentTypeHeader, 'multipart/form-data; boundary=$boundary');
+    if (_cookies.isNotEmpty) {
+      request.headers.set(HttpHeaders.cookieHeader,
+        _cookies.entries.map((entry) => entry.key + '=' + entry.value).join('; '));
+      final csrf = _cookies['csrf_token'];
+      if (csrf != null && csrf.isNotEmpty) request.headers.set('X-Frappe-CSRF-Token', csrf);
+    }
+    void field(String name, String value) {
+      request.add(utf8.encode('--$boundary\r\nContent-Disposition: form-data; name="$name"\r\n\r\n$value\r\n'));
+    }
+    field('is_private', '1');
+    field('doctype', 'Bank Statement Import');
+    field('docname', importId);
+    field('fieldname', 'import_file');
+    request.add(utf8.encode('--$boundary\r\nContent-Disposition: form-data; name="file"; filename="$fileName"\r\nContent-Type: application/octet-stream\r\n\r\n'));
+    request.add(fileBytes);
+    request.add(utf8.encode('\r\n--$boundary--\r\n'));
+    final uploadResponse = await request.close().timeout(const Duration(seconds: 90));
+    final uploadBody = await utf8.decoder.bind(uploadResponse).join().timeout(const Duration(seconds: 90));
+    final uploadData = _decode(uploadBody);
+    _captureCookies(uploadResponse);
+    if (uploadResponse.statusCode < 200 || uploadResponse.statusCode >= 300) {
+      throw Exception(_message(uploadData, 'فشل رفع ملف كشف البنك إلى ERPNext.'));
+    }
+    final uploaded = uploadData['message'];
+    final fileUrl = uploaded is core.Map<String, dynamic> ? uploaded['file_url']?.toString() : null;
+    if (fileUrl == null || fileUrl.isEmpty) {
+      throw const FormatException('رفع الملف لم يُرجع رابط ملف صالحاً.');
+    }
+    final attachResponse = await _sendJson('PUT',
+      '/api/resource/Bank%20Statement%20Import/' + Uri.encodeComponent(importId),
+      {'import_file': fileUrl});
+    final attachData = _decode(attachResponse.body);
+    if (attachResponse.statusCode < 200 || attachResponse.statusCode >= 300) {
+      throw Exception(_message(attachData, 'تم رفع الملف لكن تعذر ربطه بمستند الاستيراد.'));
+    }
+    var effectiveFileUrl = fileUrl;
+    if (lowerName.endsWith('.txt')) {
+      final conversionResponse = await _sendJson('POST',
+        '/api/method/erpnext.accounts.doctype.bank_statement_import.bank_statement_import.convert_mt940_to_csv',
+        {'data_import': importId, 'mt940_file_path': fileUrl});
+      final conversionData = _decode(conversionResponse.body);
+      final converted = conversionData['message'];
+      if (conversionResponse.statusCode < 200 || conversionResponse.statusCode >= 300 ||
+          converted is! String || converted.isEmpty) {
+        throw Exception(_message(conversionData, 'تعذر تحويل ملف MT940 إلى CSV داخل ERPNext.'));
+      }
+      effectiveFileUrl = converted;
+    }
+    final previewResponse = await _sendJson('POST',
+      '/api/method/erpnext.accounts.doctype.bank_statement_import.bank_statement_import.get_preview_from_template',
+      {'data_import': importId, 'import_file': effectiveFileUrl});
+    final previewData = _decode(previewResponse.body);
+    if (previewResponse.statusCode < 200 || previewResponse.statusCode >= 300) {
+      throw Exception(_message(previewData, 'رفع الملف ناجح، لكن ERPNext لم يتمكن من قراءة المعاينة. راجع إعداد مطابقة أعمدة البنك.'));
+    }
+    final preview = previewData['message'];
+    if (preview is! core.Map<String, dynamic>) {
+      throw const FormatException('لم يُرجع ERPNext معاينة صالحة لملف كشف البنك.');
+    }
+    final columns = preview['columns'];
+    final columnNames = columns is List
+        ? columns.map((column) => column is core.Map
+            ? (column['content'] ?? column['header_title'] ?? column['fieldname'])?.toString().toLowerCase().trim() ?? ''
+            : '').toList()
+        : <String>[];
+    if (!columnNames.contains('bank account') && !columnNames.contains('bank_account')) {
+      throw const FormatException('الملف لا يحتوي عمود Bank Account؛ لم يبدأ الاستيراد.');
+    }
+    return {
+      'name': importId,
+      'file_url': effectiveFileUrl,
+      'preview': preview,
+      'warnings': preview['warnings'] is List ? preview['warnings'] : const [],
+      'columns': columnNames,
+    };
+  }
+
+  Future<core.Map<String, dynamic>> fetchBankReconciliationBalances({
+    required String bankAccount,
+    required String company,
+    required String date,
+  }) async {
+    final account = bankAccount.trim(), normalizedCompany = company.trim();
+    final parsed = DateTime.tryParse(date.trim());
+    if (account.isEmpty || normalizedCompany.isEmpty || parsed == null ||
+        parsed.toIso8601String().substring(0, 10) != date.trim()) {
+      throw const FormatException('حدد الحساب البنكي والشركة وتاريخ كشف صحيحاً.');
+    }
+    final accountResponse = await _send(
+      'GET', '/api/resource/Bank%20Account/' + Uri.encodeComponent(account),
+    );
+    final accountData = _decode(accountResponse.body);
+    if (accountResponse.statusCode < 200 || accountResponse.statusCode >= 300) {
+      throw Exception(_message(accountData, 'تعذر التحقق من الحساب البنكي.'));
+    }
+    final bank = accountData['data'];
+    if (bank is! core.Map<String, dynamic> || bank['name'] != account ||
+        bank['company'] != normalizedCompany) {
+      throw const FormatException('الحساب البنكي لا يتبع الشركة المحددة.');
+    }
+    final uri = Uri.parse('$_baseUrl/api/method/erpnext.accounts.doctype.bank_reconciliation_tool.bank_reconciliation_tool.get_account_balance')
+        .replace(queryParameters: {
+      'bank_account': account,
+      'company': normalizedCompany,
+      'till_date': date.trim(),
+    });
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل رصيد الحساب البنكي من ERPNext.'));
+    }
+    final balance = double.tryParse(data['message']?.toString() ?? '');
+    if (balance == null || !balance.isFinite) {
+      throw const FormatException('لم يرجع ERPNext رصيداً بنكياً صالحاً.');
+    }
+    return {
+      'bank_account': account,
+      'company': normalizedCompany,
+      'date': date.trim(),
+      'system_balance': balance,
+    };
+  }
+
+
+  Future<List<core.Map<String, dynamic>>> fetchBankTransactions({
+    required String bankAccount,
+    required String company,
+    String? fromDate,
+    String? toDate,
+    int start = 0,
+  }) async {
+    final account = bankAccount.trim(), normalizedCompany = company.trim();
+    if (account.isEmpty || normalizedCompany.isEmpty || start < 0) {
+      throw const FormatException('حدد الشركة والحساب البنكي وبداية صفحة صحيحة.');
+    }
+    String? dateValue(String? raw, String label) {
+      final value = raw?.trim() ?? '';
+      if (value.isEmpty) return null;
+      final parsed = DateTime.tryParse(value);
+      if (parsed == null || parsed.toIso8601String().substring(0, 10) != value) {
+        throw FormatException('$label غير صحيح. استخدم YYYY-MM-DD.');
+      }
+      return value;
+    }
+    final from = dateValue(fromDate, 'تاريخ البداية');
+    final to = dateValue(toDate, 'تاريخ النهاية');
+    if (from != null && to != null && from.compareTo(to) > 0) {
+      throw const FormatException('تاريخ البداية يجب ألا يتجاوز تاريخ النهاية.');
+    }
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Bank Transaction',
+      fields: const [
+        'name', 'date', 'deposit', 'withdrawal', 'currency', 'description',
+        'transaction_type', 'bank_account', 'company', 'allocated_amount',
+        'unallocated_amount', 'reference_number', 'party_type', 'party',
+        'status', 'docstatus',
+      ],
+      filters: [
+        ['bank_account', '=', account],
+        ['company', '=', normalizedCompany],
+        ['docstatus', '=', 1],
+        ['unallocated_amount', '>', 0],
+        if (from != null) ['date', '>=', from],
+        if (to != null) ['date', '<=', to],
+      ],
+      orderBy: 'date asc, name asc',
+      start: start,
+      pageLength: 100,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل حركات الحساب البنكي.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw const FormatException('استجابة حركات الحساب البنكي غير متوقعة.');
+    return rows.whereType<core.Map<String, dynamic>>()
+        .where((row) => row['bank_account'] == account &&
+            row['company'] == normalizedCompany && row['docstatus'] == 1)
+        .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+  }
+
+  Future<List<core.Map<String, dynamic>>> fetchLinkedBankVouchers({
+    required String transactionName,
+    required String bankAccount,
+    required String company,
+    String? fromDate,
+    String? toDate,
+  }) async {
+    final id = transactionName.trim(), account = bankAccount.trim();
+    final normalizedCompany = company.trim();
+    if (id.isEmpty || account.isEmpty || normalizedCompany.isEmpty) {
+      throw const FormatException('بيانات حركة البنك والشركة غير مكتملة.');
+    }
+    String? normalizeDate(String? raw, String label) {
+      final value = raw?.trim() ?? '';
+      if (value.isEmpty) return null;
+      final parsed = DateTime.tryParse(value);
+      if (parsed == null || parsed.toIso8601String().substring(0, 10) != value) {
+        throw FormatException('$label غير صحيح. استخدم YYYY-MM-DD.');
+      }
+      return value;
+    }
+    final from = normalizeDate(fromDate, 'تاريخ البداية');
+    final to = normalizeDate(toDate, 'تاريخ النهاية');
+    if (from != null && to != null && from.compareTo(to) > 0) {
+      throw const FormatException('تاريخ البداية يجب ألا يتجاوز تاريخ النهاية.');
+    }
+    final transactionResponse = await _send(
+      'GET', '/api/resource/Bank%20Transaction/' + Uri.encodeComponent(id),
+    );
+    final transactionData = _decode(transactionResponse.body);
+    if (transactionResponse.statusCode < 200 || transactionResponse.statusCode >= 300) {
+      throw Exception(_message(transactionData, 'تعذر إعادة قراءة حركة البنك قبل المطابقة.'));
+    }
+    final transaction = transactionData['data'];
+    if (transaction is! core.Map<String, dynamic> ||
+        transaction['name'] != id || transaction['bank_account'] != account ||
+        transaction['company'] != normalizedCompany || transaction['docstatus'] != 1) {
+      throw const FormatException('حركة البنك لا تتبع الحساب أو الشركة المحددة أو أنها غير مرحّلة.');
+    }
+    final uri = Uri.parse('$_baseUrl/api/method/erpnext.accounts.doctype.bank_reconciliation_tool.bank_reconciliation_tool.get_linked_payments')
+        .replace(queryParameters: {
+      'bank_transaction_name': id,
+      'document_types': jsonEncode(['payment_entry', 'journal_entry', 'sales_invoice', 'purchase_invoice']),
+      if (from != null) 'from_date': from,
+      if (to != null) 'to_date': to,
+    });
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر جلب المستندات المرشحة لمطابقة حركة البنك.'));
+    }
+    final rows = data['message'];
+    if (rows is! List) throw const FormatException('استجابة المستندات المرشحة غير متوقعة.');
+    const allowed = {'Payment Entry', 'Journal Entry', 'Sales Invoice', 'Purchase Invoice'};
+    return rows.whereType<core.Map<String, dynamic>>()
+        .where((row) => allowed.contains(row['doctype']) &&
+            (row['name']?.toString().trim().isNotEmpty ?? false))
+        .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+  }
+
+  Future<core.Map<String, dynamic>> reconcileBankTransaction({
+    required String transactionName,
+    required String bankAccount,
+    required String company,
+    required List<core.Map<String, dynamic>> vouchers,
+    String? fromDate,
+    String? toDate,
+  }) async {
+    final id = transactionName.trim(), account = bankAccount.trim();
+    final normalizedCompany = company.trim();
+    if (id.isEmpty || account.isEmpty || normalizedCompany.isEmpty || vouchers.isEmpty) {
+      throw const FormatException('حدد حركة البنك ومستنداً واحداً على الأقل للمطابقة.');
+    }
+    final freshTransactionResponse = await _send(
+      'GET', '/api/resource/Bank%20Transaction/' + Uri.encodeComponent(id),
+    );
+    final freshData = _decode(freshTransactionResponse.body);
+    if (freshTransactionResponse.statusCode < 200 || freshTransactionResponse.statusCode >= 300) {
+      throw Exception(_message(freshData, 'تعذر التحقق من حركة البنك قبل التسوية.'));
+    }
+    final transaction = freshData['data'];
+    if (transaction is! core.Map<String, dynamic> ||
+        transaction['name'] != id || transaction['bank_account'] != account ||
+        transaction['company'] != normalizedCompany || transaction['docstatus'] != 1) {
+      throw const FormatException('تم رفض التسوية لأن حركة البنك لا تتبع الشركة والحساب المحددين.');
+    }
+    final unallocated = double.tryParse(transaction['unallocated_amount']?.toString() ?? '') ?? 0;
+    final freshCandidates = await fetchLinkedBankVouchers(
+      transactionName: id,
+      bankAccount: account,
+      company: normalizedCompany,
+      fromDate: fromDate,
+      toDate: toDate,
+    );
+    final candidateByKey = <String, core.Map<String, dynamic>>{
+      for (final row in freshCandidates)
+        '${row['doctype']}|${row['name']}': row,
+    };
+    final selected = <core.Map<String, dynamic>>[];
+    final seen = <String>{};
+    var total = 0.0;
+    const allowed = {
+      'Payment Entry',
+      'Journal Entry',
+      'Sales Invoice',
+      'Purchase Invoice',
+    };
+    for (final row in vouchers) {
+      final doctype = row['payment_doctype']?.toString() ?? '';
+      final name = row['payment_name']?.toString().trim() ?? '';
+      final amount = double.tryParse(row['amount']?.toString() ?? '') ?? 0;
+      final key = '$doctype|$name';
+      final candidate = candidateByKey[key];
+      final candidateAmount = double.tryParse(candidate?['paid_amount']?.toString() ?? '') ?? 0;
+      if (!allowed.contains(doctype) || name.isEmpty || !seen.add(key) ||
+          !amount.isFinite || amount <= 0 || candidate == null ||
+          amount > candidateAmount + 0.000001) {
+        throw const FormatException('توجد بيانات مستند أو مبلغ غير صالح أو لم يعد مرشحاً للمطابقة في ERPNext.');
+      }
+      total += amount;
+      selected.add({'payment_doctype': doctype, 'payment_name': name, 'amount': amount});
+    }
+    if (total > unallocated + 0.000001) {
+      throw const FormatException('إجمالي المطابقة يتجاوز المبلغ غير المخصص في حركة البنك.');
+    }
+    final response = await _sendJson(
+      'POST',
+      '/api/method/erpnext.accounts.doctype.bank_reconciliation_tool.bank_reconciliation_tool.reconcile_vouchers',
+      {'bank_transaction_name': id, 'vouchers': jsonEncode(selected)},
+    );
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'رفض ERPNext مطابقة حركة البنك.'));
+    }
+    final updated = data['message'];
+    if (updated is! core.Map<String, dynamic> || updated['name'] != id ||
+        updated['bank_account'] != account || updated['company'] != normalizedCompany) {
+      throw const FormatException('لم يؤكد ERPNext تحديث حركة البنك الصحيحة.');
+    }
+    return core.Map<String, dynamic>.from(updated);
+  }
+
+  Future<core.Map<String, dynamic>> _runPaymentReconciliationMethod({
+    required core.Map<String, dynamic> document,
     required String method,
-    Map<String, dynamic>? args,
+    core.Map<String, dynamic>? args,
   }) async {
     if (document['doctype'] != 'Payment Reconciliation') {
       throw const FormatException('مستند تسوية المدفوعات غير صحيح.');
@@ -1406,10 +2186,10 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر تنفيذ خطوة تسوية المدفوعات ($method).'));
     }
     final docs = data['docs'];
-    if (docs is! List || docs.isEmpty || docs.first is! Map<String, dynamic>) {
+    if (docs is! List || docs.isEmpty || docs.first is! core.Map<String, dynamic>) {
       throw Exception('لم يُرجع ERPNext مستند تسوية محدثاً بعد تنفيذ $method.');
     }
-    final updated = Map<String, dynamic>.from(docs.first as Map);
+    final updated = core.Map<String, dynamic>.from(docs.first as core.Map);
     if (updated['doctype'] != 'Payment Reconciliation' ||
         updated['company'] != document['company'] ||
         updated['party_type'] != document['party_type'] ||
@@ -1420,7 +2200,7 @@ class FrappeApi {
     return updated;
   }
 
-  Future<Map<String, dynamic>> fetchUnreconciledPaymentEntries({
+  Future<core.Map<String, dynamic>> fetchUnreconciledPaymentEntries({
     required String company,
     required String partyType,
     required String party,
@@ -1470,9 +2250,9 @@ class FrappeApi {
       if (invoiceTo != null) 'to_invoice_date': invoiceTo,
       if (paymentFrom != null) 'from_payment_date': paymentFrom,
       if (paymentTo != null) 'to_payment_date': paymentTo,
-      'invoices': <Map<String, dynamic>>[],
-      'payments': <Map<String, dynamic>>[],
-      'allocation': <Map<String, dynamic>>[],
+      'invoices': <core.Map<String, dynamic>>[],
+      'payments': <core.Map<String, dynamic>>[],
+      'allocation': <core.Map<String, dynamic>>[],
     };
     final result = await _runPaymentReconciliationMethod(
       document: document,
@@ -1484,8 +2264,8 @@ class FrappeApi {
     return result;
   }
 
-  Future<Map<String, dynamic>> allocatePaymentReconciliation(
-    Map<String, dynamic> document,
+  Future<core.Map<String, dynamic>> allocatePaymentReconciliation(
+    core.Map<String, dynamic> document,
   ) async {
     final invoices = document['invoices'];
     final payments = document['payments'];
@@ -1509,8 +2289,8 @@ class FrappeApi {
     return result;
   }
 
-  Future<Map<String, dynamic>> reconcilePaymentAllocations(
-    Map<String, dynamic> document,
+  Future<core.Map<String, dynamic>> reconcilePaymentAllocations(
+    core.Map<String, dynamic> document,
   ) async {
     final allocation = document['allocation'];
     if (document['doctype'] != 'Payment Reconciliation' ||
@@ -1523,7 +2303,7 @@ class FrappeApi {
     );
   }
 
-  Future<List<Map<String, dynamic>>> fetchSupplierPayments({int start = 0, String? search}) async {
+  Future<List<core.Map<String, dynamic>>> fetchSupplierPayments({int start = 0, String? search}) async {
     final uri = buildResourcePageUri(
       baseUrl: _baseUrl,
       resource: 'Payment Entry',
@@ -1551,10 +2331,10 @@ class FrappeApi {
     }
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة سجل دفعات الموردين غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>().toList(growable: false);
+    return rows.whereType<core.Map<String, dynamic>>().toList(growable: false);
   }
 
-  Future<List<Map<String, dynamic>>> fetchDraftSupplierPayments({
+  Future<List<core.Map<String, dynamic>>> fetchDraftSupplierPayments({
     int start = 0,
     String? search,
   }) async {
@@ -1586,21 +2366,21 @@ class FrappeApi {
     }
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة مسودات دفعات الموردين غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>()
+    return rows.whereType<core.Map<String, dynamic>>()
         .where((row) => row['docstatus'] == 0 &&
             row['payment_type'] == 'Pay' && row['party_type'] == 'Supplier')
         .toList(growable: false);
   }
 
-  Future<Map<String, dynamic>> fetchSupplierPaymentDraftDocument(String name) =>
+  Future<core.Map<String, dynamic>> fetchSupplierPaymentDraftDocument(String name) =>
       _fetchPaymentEntryDraft(
         name,
         paymentType: 'Pay',
         partyType: 'Supplier',
       );
 
-  Future<Map<String, dynamic>> submitSupplierPaymentDraft(
-    Map<String, dynamic> draft,
+  Future<core.Map<String, dynamic>> submitSupplierPaymentDraft(
+    core.Map<String, dynamic> draft,
   ) async {
     if (draft['doctype'] != 'Payment Entry' ||
         draft['payment_type'] != 'Pay' ||
@@ -1610,7 +2390,7 @@ class FrappeApi {
     return _submitMobileDocument(draft, 'Payment Entry');
   }
 
-  Future<Map<String, dynamic>> fetchSupplierPaymentDocument(String name) async {
+  Future<core.Map<String, dynamic>> fetchSupplierPaymentDocument(String name) async {
     if (name.trim().isEmpty) throw const FormatException('رقم سند صرف المورد غير موجود.');
     final response = await _send(
       'GET',
@@ -1621,7 +2401,7 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر تحميل تفاصيل سند صرف المورد.'));
     }
     final document = data['data'];
-    if (document is! Map<String, dynamic> ||
+    if (document is! core.Map<String, dynamic> ||
         document['doctype'] != 'Payment Entry' ||
         document['payment_type'] != 'Pay' ||
         document['party_type'] != 'Supplier' ||
@@ -1644,13 +2424,13 @@ class FrappeApi {
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر جلب فواتير المشتريات. تحقق من صلاحية قراءة Purchase Invoice.'));
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة فواتير المشتريات من ERPNext غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>().map(ErpPurchaseInvoice.fromJson).toList(growable: false);
+    return rows.whereType<core.Map<String, dynamic>>().map(ErpPurchaseInvoice.fromJson).toList(growable: false);
   }
 
   /// Loads bounded, submitted sales invoices for the mobile sales dashboard.
   /// Currency totals are aggregated by the caller; this method never converts
   /// or combines amounts from different currencies.
-  Future<List<Map<String, dynamic>>> fetchSalesDashboardInvoices({
+  Future<List<core.Map<String, dynamic>>> fetchSalesDashboardInvoices({
     required String company,
     required String fromDate,
     required String toDate,
@@ -1663,7 +2443,7 @@ class FrappeApi {
       throw const FormatException('حدد الشركة وفترة زمنية صحيحة للوحة المبيعات.');
     }
     const maxRows = 10000;
-    final rows = <Map<String, dynamic>>[];
+    final rows = <core.Map<String, dynamic>>[];
     var start = 0;
     while (true) {
       final uri = buildResourcePageUri(
@@ -1692,7 +2472,7 @@ class FrappeApi {
         throw Exception('استجابة لوحة المبيعات من ERPNext غير متوقعة.');
       }
       for (final row in page) {
-        if (row is! Map<String, dynamic> ||
+        if (row is! core.Map<String, dynamic> ||
             row['name'] is! String ||
             row['customer'] is! String ||
             row['currency'] is! String) {
@@ -1718,7 +2498,7 @@ class FrappeApi {
   /// Loads all submitted, non-return invoices that still have an outstanding
   /// balance. Results are intentionally bounded to avoid unbounded memory use
   /// on very large sites; callers can narrow the report by company.
-  Future<List<Map<String, dynamic>>> fetchOutstandingInvoices({
+  Future<List<core.Map<String, dynamic>>> fetchOutstandingInvoices({
     required bool receivable,
     String? company,
   }) async {
@@ -1733,7 +2513,7 @@ class FrappeApi {
       if (company != null && company.trim().isNotEmpty)
         ['company', '=', company.trim()],
     ];
-    final rows = <Map<String, dynamic>>[];
+    final rows = <core.Map<String, dynamic>>[];
     var start = 0;
     while (true) {
       final uri = buildResourcePageUri(
@@ -1761,7 +2541,7 @@ class FrappeApi {
       if (page is! List) {
         throw Exception('استجابة تقرير الفواتير المستحقة غير متوقعة.');
       }
-      final validRows = page.whereType<Map<String, dynamic>>().toList();
+      final validRows = page.whereType<core.Map<String, dynamic>>().toList();
       rows.addAll(validRows);
       if (rows.length > maxRows) {
         throw const FormatException(
@@ -1775,9 +2555,9 @@ class FrappeApi {
 
   /// Runs one of ERPNext's standard, permission-checked query reports.
   /// The server remains responsible for report execution and row-level access.
-  Future<Map<String, dynamic>> runStandardReport({
+  Future<core.Map<String, dynamic>> runStandardReport({
     required String reportName,
-    required Map<String, dynamic> filters,
+    required core.Map<String, dynamic> filters,
   }) async {
     const allowedReports = {
       'Profit and Loss Statement',
@@ -1816,14 +2596,300 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر تشغيل تقرير $reportName. تحقق من صلاحيات التقرير.'));
     }
     final message = data['message'];
-    if (message is! Map) {
+    if (message is! core.Map) {
       throw Exception('استجابة تقرير $reportName من ERPNext غير متوقعة.');
     }
-    final result = Map<String, dynamic>.from(message);
+    final result = core.Map<String, dynamic>.from(message);
     if (result['columns'] is! List || result['result'] is! List) {
       throw Exception('لم يُرجع ERPNext أعمدة وبيانات صالحة لتقرير $reportName.');
     }
     return result;
+  }
+
+
+  // Update only explicitly supported Employee profile fields after re-reading
+  // the record and confirming company ownership. ERPNext permissions remain authoritative.
+  Future<core.Map<String, dynamic>> createEmployee({
+    required String company,
+    required String employeeName,
+    required String dateOfBirth,
+    required String dateOfJoining,
+    required String gender,
+    String department = '',
+    String designation = '',
+    String cellNumber = '',
+    String email = '',
+  }) async {
+    final normalizedCompany = company.trim();
+    final displayName = employeeName.trim();
+    final birthText = dateOfBirth.trim();
+    final joiningText = dateOfJoining.trim();
+    final birth = DateTime.tryParse(birthText);
+    final joining = DateTime.tryParse(joiningText);
+    if (normalizedCompany.isEmpty || displayName.isEmpty ||
+        birth == null || joining == null ||
+        birth.toIso8601String().substring(0, 10) != birthText ||
+        joining.toIso8601String().substring(0, 10) != joiningText ||
+        !joining.isAfter(birth)) {
+      throw const FormatException('الشركة والاسم وتاريخا الميلاد والتعيين الصحيحة مطلوبة، ويجب أن يكون التعيين بعد الميلاد.');
+    }
+    if (!const {'Male', 'Female', 'Other'}.contains(gender)) {
+      throw const FormatException('حدد الجنس من الخيارات المدعومة.');
+    }
+    final normalizedEmail = email.trim();
+    if (normalizedEmail.isNotEmpty) {
+      final parts = normalizedEmail.split('@');
+      if (parts.length != 2 || parts.first.isEmpty ||
+          !parts.last.contains('.') || parts.last.startsWith('.') ||
+          parts.last.endsWith('.')) {
+        throw const FormatException('عنوان البريد الإلكتروني غير صحيح.');
+      }
+    }
+    final nameParts = displayName.split(' ').where((part) => part.trim().isNotEmpty).toList(growable: false);
+    if (nameParts.isEmpty) throw const FormatException('اسم الموظف مطلوب.');
+    final payload = <String, dynamic>{
+      'doctype': 'Employee',
+      'first_name': nameParts.first,
+      if (nameParts.length > 1) 'last_name': nameParts.skip(1).join(' '),
+      'company': normalizedCompany,
+      'date_of_birth': birthText,
+      'date_of_joining': joiningText,
+      'gender': gender,
+      'status': 'Active',
+      if (department.trim().isNotEmpty) 'department': department.trim(),
+      if (designation.trim().isNotEmpty) 'designation': designation.trim(),
+      if (cellNumber.trim().isNotEmpty) 'cell_number': cellNumber.trim(),
+      if (normalizedEmail.isNotEmpty) 'prefered_email': normalizedEmail,
+    };
+    final response = await _sendJson('POST', '/api/resource/Employee', payload);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر إنشاء الموظف. تحقق من الحقول الإلزامية وصلاحية Employee في ERPNext.'));
+    }
+    final created = data['data'];
+    if (created is! core.Map<String, dynamic> ||
+        created['doctype'] != 'Employee' ||
+        created['name'] is! String || created['name'].toString().isEmpty ||
+        created['company'] != normalizedCompany ||
+        created['employee_name'] != displayName ||
+        created['docstatus'] != 0) {
+      throw const FormatException('لم يؤكد ERPNext إنشاء سجل الموظف المطابق.');
+    }
+    return core.Map<String, dynamic>.from(created);
+  }
+
+  Future<core.Map<String, dynamic>> updateEmployeeProfile({
+    required String employee,
+    required String company,
+    required String employeeName,
+    String department = '',
+    String designation = '',
+    String cellNumber = '',
+    String email = '',
+    String status = 'Active',
+  }) async {
+    final id = employee.trim(), normalizedCompany = company.trim();
+    final displayName = employeeName.trim();
+    if (id.isEmpty || normalizedCompany.isEmpty || displayName.isEmpty) {
+      throw const FormatException('رقم الموظف والشركة والاسم حقول مطلوبة.');
+    }
+    final normalizedEmail = email.trim();
+    if (normalizedEmail.isNotEmpty &&
+        !RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(normalizedEmail)) {
+      throw const FormatException('عنوان البريد الإلكتروني غير صحيح.');
+    }
+    if (!const {'Active', 'Inactive', 'Left', 'Suspended'}.contains(status)) {
+      throw const FormatException('حالة الموظف المحددة غير مدعومة.');
+    }
+    final current = await _fetchHrEmployee(id, normalizedCompany);
+    final payload = <String, dynamic>{
+      ...current,
+      'employee_name': displayName,
+      'department': department.trim().isEmpty ? null : department.trim(),
+      'designation': designation.trim().isEmpty ? null : designation.trim(),
+      'cell_number': cellNumber.trim(),
+      'prefered_email': normalizedEmail,
+      'status': status,
+    };
+    final response = await _sendJson('POST', '/api/method/frappe.client.save', {'doc': payload});
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحديث بيانات الموظف. تحقق من صلاحية Employee.'));
+    }
+    final saved = data['message'];
+    if (saved is! core.Map<String, dynamic> || saved['doctype'] != 'Employee' ||
+        saved['name'] != id || saved['company'] != normalizedCompany ||
+        saved['employee_name'] != displayName || saved['status'] != status) {
+      throw const FormatException('لم يؤكد ERPNext حفظ بيانات الموظف المطابقة.');
+    }
+    return core.Map<String, dynamic>.from(saved);
+  }
+
+  Future<core.Map<String, dynamic>> updateAttendanceDraft({
+    required String name,
+    required String company,
+    required String attendanceDate,
+    required String status,
+    String leaveType = '',
+  }) async {
+    final id = name.trim(), normalizedCompany = company.trim();
+    final date = DateTime.tryParse(attendanceDate.trim());
+    if (id.isEmpty || normalizedCompany.isEmpty || date == null ||
+        date.toIso8601String().substring(0, 10) != attendanceDate.trim()) {
+      throw const FormatException('رقم سجل الحضور والشركة والتاريخ الصحيح مطلوبة.');
+    }
+    if (!const {'Present', 'Absent', 'On Leave', 'Half Day', 'Work From Home'}.contains(status)) {
+      throw const FormatException('حالة الحضور المحددة غير مدعومة.');
+    }
+    final response = await _send('GET', '/api/resource/Attendance/' + Uri.encodeComponent(id));
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر إعادة قراءة سجل الحضور.'));
+    }
+    final current = data['data'];
+    if (current is! core.Map<String, dynamic> || current['doctype'] != 'Attendance' ||
+        current['name'] != id || current['company'] != normalizedCompany ||
+        current['docstatus'] != 0 || current['employee'] is! String) {
+      throw const FormatException('يمكن تصحيح مسودات الحضور التابعة للشركة المحددة فقط.');
+    }
+    await _fetchHrEmployee(current['employee'].toString(), normalizedCompany);
+    if (status == 'On Leave' && leaveType.trim().isEmpty) {
+      throw const FormatException('حدد نوع الإجازة عند تسجيل حالة في إجازة.');
+    }
+    final duplicateUri = buildResourcePageUri(
+      baseUrl: _baseUrl, resource: 'Attendance',
+      fields: const ['name', 'docstatus'],
+      filters: [
+        ['employee', '=', current['employee']],
+        ['attendance_date', '=', attendanceDate.trim()],
+      ],
+      orderBy: 'attendance_date asc',
+      pageLength: 20,
+    );
+    final duplicateResponse = await _sendUri('GET', duplicateUri);
+    final duplicateData = _decode(duplicateResponse.body);
+    if (duplicateResponse.statusCode < 200 || duplicateResponse.statusCode >= 300) {
+      throw Exception(_message(duplicateData, 'تعذر التحقق من تكرار الحضور.'));
+    }
+    final duplicates = duplicateData['data'];
+    if (duplicates is! List || duplicates.whereType<core.Map<String, dynamic>>()
+        .any((row) => row['name'] != id && row['docstatus'] != 2)) {
+      throw const FormatException('يوجد سجل حضور آخر للموظف في التاريخ المحدد.');
+    }
+    final payload = <String, dynamic>{
+      ...current,
+      'attendance_date': attendanceDate.trim(),
+      'status': status,
+      'leave_type': status == 'On Leave' ? leaveType.trim() : null,
+    };
+    final savedResponse = await _sendJson('POST', '/api/method/frappe.client.save', {'doc': payload});
+    final savedData = _decode(savedResponse.body);
+    if (savedResponse.statusCode < 200 || savedResponse.statusCode >= 300) {
+      throw Exception(_message(savedData, 'تعذر حفظ تصحيح الحضور.'));
+    }
+    final saved = savedData['message'];
+    if (saved is! core.Map<String, dynamic> || saved['doctype'] != 'Attendance' ||
+        saved['name'] != id || saved['company'] != normalizedCompany ||
+        saved['docstatus'] != 0 || saved['attendance_date'] != attendanceDate.trim()) {
+      throw const FormatException('لم يؤكد ERPNext حفظ مسودة الحضور المصححة.');
+    }
+    return core.Map<String, dynamic>.from(saved);
+  }
+
+  Future<List<core.Map<String, dynamic>>> fetchLeaveTypes() async {
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl, resource: 'Leave Type',
+      fields: const ['name', 'is_lwp', 'allow_negative', 'max_days_allowed', 'is_carry_forward'],
+      orderBy: 'name asc', pageLength: 200,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل أنواع الإجازات. تحقق من صلاحية Leave Type.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw const FormatException('استجابة أنواع الإجازات غير متوقعة.');
+    return rows.whereType<core.Map<String, dynamic>>()
+      .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+  }
+
+  Future<core.Map<String, dynamic>> createLeaveType({
+    required String name,
+    bool isLeaveWithoutPay = false,
+    bool allowNegative = false,
+    double? maxDaysAllowed,
+  }) async {
+    final normalized = name.trim();
+    if (normalized.isEmpty) throw const FormatException('اسم نوع الإجازة مطلوب.');
+    if (maxDaysAllowed != null &&
+        (!maxDaysAllowed.isFinite || maxDaysAllowed <= 0)) {
+      throw const FormatException('الحد الأقصى للإجازة يجب أن يكون أكبر من صفر.');
+    }
+    final payload = <String, dynamic>{
+      'doctype': 'Leave Type',
+      'leave_type_name': normalized,
+      'is_lwp': isLeaveWithoutPay ? 1 : 0,
+      'allow_negative': allowNegative ? 1 : 0,
+      if (maxDaysAllowed != null) 'max_days_allowed': maxDaysAllowed,
+    };
+    final response = await _sendJson('POST', '/api/resource/Leave%20Type', payload);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر إنشاء نوع الإجازة. تحقق من صلاحية إدارة Leave Type.'));
+    }
+    final created = data['data'];
+    if (created is! core.Map<String, dynamic> || created['doctype'] != 'Leave Type' ||
+        created['name'] is! String || created['name'].toString().isEmpty) {
+      throw const FormatException('لم يؤكد ERPNext إنشاء نوع الإجازة.');
+    }
+    return core.Map<String, dynamic>.from(created);
+  }
+
+  Future<core.Map<String, dynamic>> updateLeaveType({
+    required String name,
+    required bool isLeaveWithoutPay,
+    required bool allowNegative,
+    double? maxDaysAllowed,
+  }) async {
+    final id = name.trim();
+    if (id.isEmpty) throw const FormatException('اسم نوع الإجازة مطلوب.');
+    if (maxDaysAllowed != null &&
+        (!maxDaysAllowed.isFinite || maxDaysAllowed <= 0)) {
+      throw const FormatException('الحد الأقصى للإجازة يجب أن يكون أكبر من صفر.');
+    }
+    final currentResponse = await _send(
+      'GET', '/api/resource/Leave%20Type/' + Uri.encodeComponent(id),
+    );
+    final currentData = _decode(currentResponse.body);
+    if (currentResponse.statusCode < 200 || currentResponse.statusCode >= 300) {
+      throw Exception(_message(currentData, 'تعذر إعادة قراءة نوع الإجازة قبل التعديل.'));
+    }
+    final current = currentData['data'];
+    if (current is! core.Map<String, dynamic> ||
+        current['doctype'] != 'Leave Type' || current['name'] != id) {
+      throw const FormatException('هوية نوع الإجازة المسترجع غير مطابقة.');
+    }
+    final payload = <String, dynamic>{
+      ...current,
+      'is_lwp': isLeaveWithoutPay ? 1 : 0,
+      'allow_negative': allowNegative ? 1 : 0,
+      'max_days_allowed': maxDaysAllowed,
+    };
+    final response = await _sendJson(
+      'POST', '/api/method/frappe.client.save', {'doc': payload},
+    );
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحديث نوع الإجازة. قد توجد قيود أو صلاحيات تمنع التعديل.'));
+    }
+    final saved = data['message'];
+    if (saved is! core.Map<String, dynamic> ||
+        saved['doctype'] != 'Leave Type' || saved['name'] != id ||
+        saved['is_lwp'] != (isLeaveWithoutPay ? 1 : 0) ||
+        saved['allow_negative'] != (allowNegative ? 1 : 0)) {
+      throw const FormatException('لم يؤكد ERPNext حفظ إعدادات نوع الإجازة.');
+    }
+    return core.Map<String, dynamic>.from(saved);
   }
 
   static const Set<String> salesWorkflowDoctypes = {'Quotation', 'Sales Order', 'Delivery Note', 'Sales Invoice'};
@@ -1835,7 +2901,7 @@ class FrappeApi {
     return Uri.encodeComponent(doctype);
   }
 
-  Future<List<Map<String, dynamic>>> fetchSalesWorkflowDocuments(
+  Future<List<core.Map<String, dynamic>>> fetchSalesWorkflowDocuments(
     String doctype, {int start = 0, String? search}
   ) async {
     _salesWorkflowResource(doctype);
@@ -1856,10 +2922,10 @@ class FrappeApi {
     }
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة $doctype من ERPNext غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>().toList(growable: false);
+    return rows.whereType<core.Map<String, dynamic>>().toList(growable: false);
   }
 
-  Future<Map<String, dynamic>> fetchSalesWorkflowDocument(String doctype, String name) async {
+  Future<core.Map<String, dynamic>> fetchSalesWorkflowDocument(String doctype, String name) async {
     final resource = _salesWorkflowResource(doctype);
     if (name.trim().isEmpty) throw const FormatException('رقم مستند المبيعات غير موجود.');
     final response = await _send('GET', '/api/resource/$resource/${Uri.encodeComponent(name.trim())}');
@@ -1868,13 +2934,13 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر تحميل تفاصيل $doctype.'));
     }
     final document = data['data'];
-    if (document is! Map<String, dynamic> || document['doctype'] != doctype || document['name'] != name.trim()) {
+    if (document is! core.Map<String, dynamic> || document['doctype'] != doctype || document['name'] != name.trim()) {
       throw FormatException('لم يؤكد ERPNext هوية مستند $doctype المطلوب.');
     }
     return document;
   }
 
-  void _validateSalesWorkflowDraft(String doctype, Map<String, dynamic> doc) {
+  void _validateSalesWorkflowDraft(String doctype, core.Map<String, dynamic> doc) {
     _salesWorkflowResource(doctype);
     if (doctype != 'Quotation' && doctype != 'Sales Order') {
       throw const FormatException('يُنشأ إذن التسليم والفاتورة من مستندات المبيعات الأصلية لضمان صحة الربط والكميات.');
@@ -1888,7 +2954,7 @@ class FrappeApi {
       throw const FormatException('حدد الشركة والعميل وأضف بنداً واحداً على الأقل.');
     }
     for (final raw in items) {
-      if (raw is! Map<String, dynamic> || raw['item_code'] is! String || (raw['item_code'] as String).trim().isEmpty) {
+      if (raw is! core.Map<String, dynamic> || raw['item_code'] is! String || (raw['item_code'] as String).trim().isEmpty) {
         throw const FormatException('يوجد بند دون رمز صنف صحيح.');
       }
       final qty = raw['qty'], rate = raw['rate'];
@@ -1898,25 +2964,25 @@ class FrappeApi {
     }
   }
 
-  Future<Map<String, dynamic>> createSalesWorkflowDraft(String doctype, Map<String, dynamic> document) async {
+  Future<core.Map<String, dynamic>> createSalesWorkflowDraft(String doctype, core.Map<String, dynamic> document) async {
     _validateSalesWorkflowDraft(doctype, document);
     await _validateDocumentWarehouses(document);
     final response = await _sendJson('POST', '/api/resource/${_salesWorkflowResource(doctype)}', document);
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر حفظ مسودة $doctype.'));
     final created = data['data'];
-    if (created is! Map<String, dynamic> || created['doctype'] != doctype || created['name'] is! String || created['docstatus'] != 0) {
+    if (created is! core.Map<String, dynamic> || created['doctype'] != doctype || created['name'] is! String || created['docstatus'] != 0) {
       throw Exception('استجابة حفظ $doctype غير مؤكدة؛ تحقق من المستند قبل إعادة المحاولة.');
     }
     return created;
   }
 
-  Future<Map<String, dynamic>> updateSalesWorkflowDraft(String doctype, String name, Map<String, dynamic> changes) async {
+  Future<core.Map<String, dynamic>> updateSalesWorkflowDraft(String doctype, String name, core.Map<String, dynamic> changes) async {
     _validateSalesWorkflowDraft(doctype, changes);
     await _validateDocumentWarehouses(changes);
     final current = await fetchSalesWorkflowDocument(doctype, name);
     if (current['docstatus'] != 0) throw const FormatException('لا يمكن تعديل مستند مبيعات مرحّل أو ملغى.');
-    final payload = Map<String, dynamic>.from(current)
+    final payload = core.Map<String, dynamic>.from(current)
       ..['customer'] = changes['customer'] ..['company'] = changes['company'] ..['items'] = changes['items'];
     for (final field in ['transaction_date', 'valid_till', 'delivery_date', 'order_type']) {
       if (changes.containsKey(field)) payload[field] = changes[field];
@@ -1925,16 +2991,16 @@ class FrappeApi {
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تحديث مسودة $doctype.'));
     final saved = data['message'];
-    if (saved is! Map<String, dynamic> || saved['doctype'] != doctype || saved['name'] != name || saved['docstatus'] != 0) {
+    if (saved is! core.Map<String, dynamic> || saved['doctype'] != doctype || saved['name'] != name || saved['docstatus'] != 0) {
       throw Exception('لم يؤكد ERPNext حفظ مسودة $doctype.');
     }
     return saved;
   }
 
 
-  Future<Map<String, dynamic>> updateDeliveryNoteTracking({
+  Future<core.Map<String, dynamic>> updateDeliveryNoteTracking({
     required String name,
-    required List<Map<String, dynamic>> trackingRows,
+    required List<core.Map<String, dynamic>> trackingRows,
   }) async {
     final actionKey = 'delivery-note-tracking:$name';
     if (!_inFlightDocumentActions.add(actionKey)) {
@@ -1950,9 +3016,9 @@ class FrappeApi {
       }
       final sourceItems = current['items'];
       if (sourceItems is! List) throw const FormatException('بنود إذن التسليم غير متاحة.');
-      final byName = <String, Map<String, dynamic>>{
-        for (final row in sourceItems.whereType<Map<String, dynamic>>())
-          if (row['name'] is String) row['name'].toString(): Map<String, dynamic>.from(row),
+      final byName = <String, core.Map<String, dynamic>>{
+        for (final row in sourceItems.whereType<core.Map<String, dynamic>>())
+          if (row['name'] is String) row['name'].toString(): core.Map<String, dynamic>.from(row),
       };
       final seenRows = <String>{};
       for (final tracking in trackingRows) {
@@ -1971,15 +3037,15 @@ class FrappeApi {
       }
       final rowsToValidate = trackingRows.map((tracking) {
         final source = byName[tracking['name']]!;
-        return Map<String, dynamic>.from(source)..remove('name');
+        return core.Map<String, dynamic>.from(source)..remove('name');
       }).toList(growable: false);
       _validateSerialBatchRows(rowsToValidate);
-      final payload = Map<String, dynamic>.from(current)
-        ..['items'] = sourceItems.whereType<Map<String, dynamic>>().map((row) {
+      final payload = core.Map<String, dynamic>.from(current)
+        ..['items'] = sourceItems.whereType<core.Map<String, dynamic>>().map((row) {
           final rowName = row['name']?.toString();
           return rowName != null && byName.containsKey(rowName)
               ? byName[rowName]!
-              : Map<String, dynamic>.from(row);
+              : core.Map<String, dynamic>.from(row);
         }).toList(growable: false);
       final response = await _sendJson('POST', '/api/method/frappe.client.save', {'doc': payload});
       final data = _decode(response.body);
@@ -1987,7 +3053,7 @@ class FrappeApi {
         throw Exception(_message(data, 'تعذر حفظ أرقام الدفعات والأرقام التسلسلية لإذن التسليم.'));
       }
       final saved = data['message'];
-      if (saved is! Map<String, dynamic> || saved['doctype'] != 'Delivery Note' ||
+      if (saved is! core.Map<String, dynamic> || saved['doctype'] != 'Delivery Note' ||
           saved['name'] != name || saved['docstatus'] != 0) {
         throw Exception('لم يؤكد ERPNext حفظ تخصيص أرقام إذن التسليم.');
       }
@@ -1997,7 +3063,7 @@ class FrappeApi {
     }
   }
 
-  Future<Map<String, dynamic>> submitSalesWorkflowDocument(String doctype, String name) async {
+  Future<core.Map<String, dynamic>> submitSalesWorkflowDocument(String doctype, String name) async {
     final actionKey = 'submit-sales-doc:$name';
     if (!_inFlightSalesActions.add(actionKey)) {
       throw const FormatException('ترحيل مستند المبيعات قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
@@ -2010,7 +3076,7 @@ class FrappeApi {
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر ترحيل $doctype.'));
     final submitted = data['message'];
-    if (submitted is! Map<String, dynamic> || submitted['doctype'] != doctype || submitted['name'] != name || submitted['docstatus'] != 1) {
+    if (submitted is! core.Map<String, dynamic> || submitted['doctype'] != doctype || submitted['name'] != name || submitted['docstatus'] != 1) {
       throw Exception('لم يؤكد ERPNext ترحيل $doctype؛ تحقق من حالة المستند قبل إعادة المحاولة.');
     }
     return submitted;
@@ -2019,7 +3085,7 @@ class FrappeApi {
     }
   }
 
-  Future<Map<String, dynamic>> cancelSalesWorkflowDocument(String doctype, String name) async {
+  Future<core.Map<String, dynamic>> cancelSalesWorkflowDocument(String doctype, String name) async {
     final actionKey = 'cancel-sales-doc:$name';
     if (!_inFlightSalesActions.add(actionKey)) {
       throw const FormatException('إلغاء مستند المبيعات قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
@@ -2032,7 +3098,7 @@ class FrappeApi {
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر إلغاء $doctype.'));
     final cancelled = data['message'];
-    if (cancelled is! Map<String, dynamic> || cancelled['doctype'] != doctype || cancelled['name'] != name || cancelled['docstatus'] != 2) {
+    if (cancelled is! core.Map<String, dynamic> || cancelled['doctype'] != doctype || cancelled['name'] != name || cancelled['docstatus'] != 2) {
       throw Exception('لم يؤكد ERPNext إلغاء $doctype.');
     }
     return cancelled;
@@ -2041,7 +3107,7 @@ class FrappeApi {
     }
   }
 
-  Future<Map<String, dynamic>> makeSalesWorkflowDocument({
+  Future<core.Map<String, dynamic>> makeSalesWorkflowDocument({
     required String sourceDoctype, required String sourceName, required String targetDoctype,
   }) async {
     final actionKey = 'map-sales:$sourceDoctype:$sourceName:$targetDoctype';
@@ -2067,7 +3133,7 @@ class FrappeApi {
     final mappedData = _decode(mapped.body);
     if (mapped.statusCode < 200 || mapped.statusCode >= 300) throw Exception(_message(mappedData, 'تعذر تجهيز $targetDoctype من $sourceDoctype.'));
     final raw = mappedData['message'];
-    if (raw is! Map<String, dynamic> || raw['doctype'] != targetDoctype ||
+    if (raw is! core.Map<String, dynamic> || raw['doctype'] != targetDoctype ||
         raw['company'] is! String || (raw['company'] as String).trim().isEmpty ||
         raw['customer'] is! String || (raw['customer'] as String).trim().isEmpty ||
         raw['items'] is! List || (raw['items'] as List).isEmpty) {
@@ -2076,11 +3142,11 @@ class FrappeApi {
     // Mapped rows inherit warehouses from their source document. Validate
     // those references against the live company/warehouse records before insert.
     await _validateDocumentWarehouses(raw);
-    final inserted = await _sendJson('POST', '/api/resource/${_salesWorkflowResource(targetDoctype)}', Map<String, dynamic>.from(raw));
+    final inserted = await _sendJson('POST', '/api/resource/${_salesWorkflowResource(targetDoctype)}', core.Map<String, dynamic>.from(raw));
     final insertedData = _decode(inserted.body);
     if (inserted.statusCode < 200 || inserted.statusCode >= 300) throw Exception(_message(insertedData, 'تعذر حفظ مسودة $targetDoctype.'));
     final created = insertedData['data'];
-    if (created is! Map<String, dynamic> || created['doctype'] != targetDoctype || created['name'] is! String || created['docstatus'] != 0) {
+    if (created is! core.Map<String, dynamic> || created['doctype'] != targetDoctype || created['name'] is! String || created['docstatus'] != 0) {
       throw Exception('لم يؤكد ERPNext إنشاء مسودة $targetDoctype؛ تحقق من المستندات قبل إعادة المحاولة.');
     }
     return created;
@@ -2098,7 +3164,7 @@ class FrappeApi {
     final seen = <String>{};
     var total = 0.0;
     for (final entry in raw) {
-      if (entry is! Map) {
+      if (entry is! core.Map) {
         throw const FormatException('يوجد مندوب مبيعات في توزيع الفاتورة ببيانات غير صحيحة.');
       }
       final person = entry['sales_person']?.toString().trim() ?? '';
@@ -2114,7 +3180,7 @@ class FrappeApi {
     }
   }
 
-  Future<Map<String, dynamic>> createSalesInvoice(Map<String, dynamic> invoice) async {
+  Future<core.Map<String, dynamic>> createSalesInvoice(core.Map<String, dynamic> invoice) async {
     final customer = invoice['customer'];
     final company = invoice['company'];
     final rawItems = invoice['items'];
@@ -2124,7 +3190,7 @@ class FrappeApi {
     invoice['items'] = _cleanSerialBatchRows(rawItems);
     _validateSalesTeamAllocation(invoice['sales_team']);
     for (final rawItem in rawItems) {
-      if (rawItem is! Map<String, dynamic> || rawItem['item_code'] is! String || (rawItem['item_code'] as String).trim().isEmpty) {
+      if (rawItem is! core.Map<String, dynamic> || rawItem['item_code'] is! String || (rawItem['item_code'] as String).trim().isEmpty) {
         throw const FormatException('يوجد بند فاتورة دون رمز صنف صحيح.');
       }
       final qty = rawItem['qty'];
@@ -2140,7 +3206,7 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر حفظ فاتورة المبيعات (${response.statusCode}).'));
     }
     final document = data['data'];
-    if (document is! Map<String, dynamic> ||
+    if (document is! core.Map<String, dynamic> ||
         document['doctype'] != 'Sales Invoice' ||
         document['name'] is! String ||
         document['name'].toString().isEmpty ||
@@ -2150,7 +3216,7 @@ class FrappeApi {
     return document;
   }
 
-  Future<Map<String, dynamic>> submitSalesInvoice(Map<String, dynamic> document) async {
+  Future<core.Map<String, dynamic>> submitSalesInvoice(core.Map<String, dynamic> document) async {
     final actionKey = 'submit-invoice:${document['name']}';
     if (!_inFlightSalesActions.add(actionKey)) {
       throw const FormatException('ترحيل هذه الفاتورة قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
@@ -2172,7 +3238,7 @@ class FrappeApi {
       throw Exception(_message(data, 'تم حفظ المسودة، لكن تعذر ترحيل الفاتورة (${response.statusCode}).'));
     }
     final submitted = data['message'];
-    if (submitted is! Map<String, dynamic> ||
+    if (submitted is! core.Map<String, dynamic> ||
         submitted['doctype'] != 'Sales Invoice' ||
         submitted['name'] != name ||
         submitted['docstatus'] != 1) {
@@ -2219,7 +3285,7 @@ class FrappeApi {
       }
       accounts.addAll(
         rows
-            .whereType<Map<String, dynamic>>()
+            .whereType<core.Map<String, dynamic>>()
             .map(ErpPaymentAccount.fromJson),
       );
       if (rows.length < accountPageSize) {
@@ -2234,7 +3300,7 @@ class FrappeApi {
     }
   }
 
-  Future<Map<String, dynamic>> _fetchPaymentEntryDocument(String name) async {
+  Future<core.Map<String, dynamic>> _fetchPaymentEntryDocument(String name) async {
     if (name.trim().isEmpty) throw const FormatException('رقم سند القبض غير موجود.');
     final response = await _send(
       'GET',
@@ -2245,7 +3311,7 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر التحقق من حالة سند القبض.'));
     }
     final document = data['data'];
-    if (document is! Map<String, dynamic> ||
+    if (document is! core.Map<String, dynamic> ||
         document['doctype'] != 'Payment Entry' ||
         document['name'] != name.trim()) {
       throw const FormatException('بيانات سند القبض غير مؤكدة.');
@@ -2253,7 +3319,7 @@ class FrappeApi {
     return document;
   }
 
-  Future<Map<String, dynamic>> receiveSalesInvoicePayment({
+  Future<core.Map<String, dynamic>> receiveSalesInvoicePayment({
     required String invoiceName,
     required double amount,
     String? bankAccount,
@@ -2289,7 +3355,7 @@ class FrappeApi {
       throw Exception(_message(setupData, 'تعذر تجهيز سند القبض. تحقق من الحسابات الافتراضية وصلاحيات Payment Entry.'));
     }
     final rawDocument = setupData['message'];
-    if (rawDocument is! Map<String, dynamic> ||
+    if (rawDocument is! core.Map<String, dynamic> ||
         rawDocument['doctype'] != 'Payment Entry' ||
         rawDocument['payment_type'] != 'Receive' ||
         rawDocument['party_type'] != 'Customer' ||
@@ -2310,7 +3376,7 @@ class FrappeApi {
     // overwriting every row with the full payment amount.
     var allocatedTotal = 0.0;
     for (final row in references) {
-      if (row is! Map<String, dynamic> ||
+      if (row is! core.Map<String, dynamic> ||
           row['reference_doctype'] != 'Sales Invoice' ||
           row['reference_name'] != invoiceName) {
         continue;
@@ -2327,7 +3393,7 @@ class FrappeApi {
         'وزّع ERPNext مبلغ الدفعة على شروط السداد بقيمة ${allocatedTotal.toStringAsFixed(2)} بدلاً من ${amount.toStringAsFixed(2)}؛ لم يتم إنشاء سند القبض.',
       );
     }
-    final paymentDraft = Map<String, dynamic>.from(rawDocument);
+    final paymentDraft = core.Map<String, dynamic>.from(rawDocument);
 
     final insert = await _sendJson('POST', '/api/resource/Payment%20Entry', paymentDraft);
     final insertData = _decode(insert.body);
@@ -2335,7 +3401,7 @@ class FrappeApi {
       throw Exception(_message(insertData, 'تعذر حفظ سند القبض.'));
     }
     final created = insertData['data'];
-    if (created is! Map<String, dynamic> ||
+    if (created is! core.Map<String, dynamic> ||
         created['doctype'] != 'Payment Entry' ||
         created['name'] is! String ||
         created['docstatus'] != 0 ||
@@ -2367,9 +3433,9 @@ class FrappeApi {
     }
   }
 
-  Future<Map<String, dynamic>> updateDraftSalesInvoice({
+  Future<core.Map<String, dynamic>> updateDraftSalesInvoice({
     required String invoiceName,
-    required Map<String, dynamic> changes,
+    required core.Map<String, dynamic> changes,
   }) async {
     final normalizedName = invoiceName.trim();
     if (normalizedName.isEmpty || changes['doctype'] != 'Sales Invoice' || changes['items'] is! List || (changes['items'] as List).isEmpty) {
@@ -2384,7 +3450,7 @@ class FrappeApi {
       throw const FormatException('حدد الشركة والعميل قبل حفظ التعديلات.');
     }
     for (final rawItem in changes['items'] as List) {
-      if (rawItem is! Map<String, dynamic> ||
+      if (rawItem is! core.Map<String, dynamic> ||
           rawItem['item_code'] is! String ||
           (rawItem['item_code'] as String).trim().isEmpty) {
         throw const FormatException('يوجد بند فاتورة دون رمز صنف صحيح.');
@@ -2405,13 +3471,13 @@ class FrappeApi {
     if (current['is_return'] == 1 || current['is_return'] == true) {
       throw const FormatException('مسودة المرتجع لا تُعدّل من محرر الفاتورة العادية؛ راجعها في ERPNext لتجنب إفساد الكميات السالبة وروابط الفاتورة الأصلية.');
     }
-    final payload = Map<String, dynamic>.from(current);
+    final payload = core.Map<String, dynamic>.from(current);
     payload['customer'] = customer;
     payload['company'] = company;
     payload['posting_date'] = changes['posting_date'] ?? current['posting_date'];
     payload['update_stock'] = changes['update_stock'] == true || changes['update_stock'] == 1 ? 1 : 0;
     payload['items'] = changes['items'];
-    payload['sales_team'] = changes['sales_team'] ?? const <Map<String, dynamic>>[];
+    payload['sales_team'] = changes['sales_team'] ?? const <core.Map<String, dynamic>>[];
 
     final response = await _sendJson('POST', '/api/method/frappe.client.save', {'doc': payload});
     final data = _decode(response.body);
@@ -2419,13 +3485,13 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر حفظ تعديلات مسودة فاتورة المبيعات.'));
     }
     final saved = data['message'];
-    if (saved is! Map<String, dynamic> || saved['name'] != normalizedName || saved['docstatus'] != 0) {
+    if (saved is! core.Map<String, dynamic> || saved['name'] != normalizedName || saved['docstatus'] != 0) {
       throw Exception('استجابة تحديث المسودة غير مؤكدة؛ افتح الفاتورة وتحقق من حالتها قبل إعادة المحاولة.');
     }
     return saved;
   }
 
-  Future<Map<String, dynamic>> createSalesReturn(String invoiceName) async {
+  Future<core.Map<String, dynamic>> createSalesReturn(String invoiceName) async {
     final actionKey = 'return:$invoiceName';
     if (!_inFlightSalesActions.add(actionKey)) {
       throw const FormatException('إنشاء مرتجع هذه الفاتورة قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
@@ -2455,8 +3521,8 @@ class FrappeApi {
     }
     final pendingRows = pendingData['data'];
     if (pendingRows is List && pendingRows.isNotEmpty) {
-      final pendingName = pendingRows.first is Map<String, dynamic>
-          ? (pendingRows.first as Map<String, dynamic>)['name']?.toString()
+      final pendingName = pendingRows.first is core.Map<String, dynamic>
+          ? (pendingRows.first as core.Map<String, dynamic>)['name']?.toString()
           : null;
       throw FormatException(
         'يوجد مرتجع غير مرحّل لهذه الفاتورة ${pendingName ?? ''}. افتح المسودة الحالية وراجعها أو رحّلها قبل إنشاء مرتجع آخر.',
@@ -2480,10 +3546,10 @@ class FrappeApi {
       throw Exception(_message(mappedData, 'تعذر تجهيز مرتجع المبيعات من ERPNext.'));
     }
     final rawReturn = mappedData['message'];
-    if (rawReturn is! Map<String, dynamic>) {
+    if (rawReturn is! core.Map<String, dynamic>) {
       throw Exception('استجابة تجهيز المرتجع غير متوقعة.');
     }
-    final returnDraft = Map<String, dynamic>.from(rawReturn);
+    final returnDraft = core.Map<String, dynamic>.from(rawReturn);
     if (returnDraft['doctype'] != 'Sales Invoice' ||
         (returnDraft['is_return'] != 1 && returnDraft['is_return'] != true) ||
         returnDraft['return_against'] != normalizedName) {
@@ -2500,7 +3566,7 @@ class FrappeApi {
       throw Exception(_message(insertedData, 'تعذر حفظ مسودة مرتجع المبيعات.'));
     }
     final created = insertedData['data'];
-    if (created is! Map<String, dynamic> ||
+    if (created is! core.Map<String, dynamic> ||
         created['doctype'] != 'Sales Invoice' ||
         created['name'] is! String ||
         created['docstatus'] != 0 ||
@@ -2514,7 +3580,7 @@ class FrappeApi {
     }
   }
 
-  Future<Map<String, dynamic>> cancelSalesInvoice(Map<String, dynamic> document) async {
+  Future<core.Map<String, dynamic>> cancelSalesInvoice(core.Map<String, dynamic> document) async {
     final actionKey = 'cancel-invoice:${document['name']}';
     if (!_inFlightSalesActions.add(actionKey)) {
       throw const FormatException('إلغاء هذه الفاتورة قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
@@ -2537,7 +3603,7 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر إلغاء فاتورة المبيعات (${response.statusCode}).'));
     }
     final cancelled = data['message'];
-    if (cancelled is! Map<String, dynamic> ||
+    if (cancelled is! core.Map<String, dynamic> ||
         cancelled['doctype'] != 'Sales Invoice' ||
         cancelled['name'] != name ||
         cancelled['docstatus'] != 2) {
@@ -2550,7 +3616,7 @@ class FrappeApi {
   }
 
 
-  Future<Map<String, dynamic>> createPurchaseInvoice(Map<String, dynamic> invoice) async {
+  Future<core.Map<String, dynamic>> createPurchaseInvoice(core.Map<String, dynamic> invoice) async {
     if (invoice['update_stock'] == 1 || invoice['update_stock'] == true) {
       final items = invoice['items'];
       if (items is List) await _ensureIncomingBatchNumbers(items);
@@ -2561,7 +3627,7 @@ class FrappeApi {
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر حفظ فاتورة المشتريات.'));
     final doc = data['data'];
-    if (doc is! Map<String, dynamic> ||
+    if (doc is! core.Map<String, dynamic> ||
         doc['doctype'] != 'Purchase Invoice' ||
         doc['name'] is! String ||
         doc['docstatus'] != 0) {
@@ -2570,7 +3636,7 @@ class FrappeApi {
     return doc;
   }
 
-  void _validatePurchase(Map<String, dynamic> doc) {
+  void _validatePurchase(core.Map<String, dynamic> doc) {
     final items = doc['items'];
     if (doc['doctype'] != 'Purchase Invoice' || doc['supplier'] is! String ||
         (doc['supplier'] as String).trim().isEmpty || doc['company'] is! String ||
@@ -2579,7 +3645,7 @@ class FrappeApi {
     }
     doc['items'] = _cleanSerialBatchRows(items);
     for (final row in items) {
-      if (row is! Map<String, dynamic> || row['item_code'] is! String ||
+      if (row is! core.Map<String, dynamic> || row['item_code'] is! String ||
           (row['item_code'] as String).trim().isEmpty || row['qty'] is! num ||
           !(row['qty'] as num).isFinite || (row['qty'] as num) <= 0 ||
           row['rate'] is! num || !(row['rate'] as num).isFinite || (row['rate'] as num) < 0 ||
@@ -2589,8 +3655,8 @@ class FrappeApi {
     }
   }
 
-  Future<Map<String, dynamic>> updateDraftPurchaseInvoice({
-    required String invoiceName, required Map<String, dynamic> changes,
+  Future<core.Map<String, dynamic>> updateDraftPurchaseInvoice({
+    required String invoiceName, required core.Map<String, dynamic> changes,
   }) async {
     if (changes['update_stock'] == 1 || changes['update_stock'] == true) {
       final items = changes['items'];
@@ -2601,7 +3667,7 @@ class FrappeApi {
     if (invoiceName.trim().isEmpty) throw const FormatException('رقم المسودة غير موجود.');
     final current = await fetchInvoiceDocument('Purchase Invoice', invoiceName);
     if (current['docstatus'] != 0) throw const FormatException('يمكن تعديل المسودات غير المرحلة فقط.');
-    final payload = Map<String, dynamic>.from(current)
+    final payload = core.Map<String, dynamic>.from(current)
       ..['supplier'] = changes['supplier']
       ..['company'] = changes['company']
       ..['posting_date'] = changes['posting_date'] ?? current['posting_date']
@@ -2611,14 +3677,14 @@ class FrappeApi {
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تعديل مسودة المشتريات.'));
     final saved = data['message'];
-    if (saved is! Map<String, dynamic> || saved['name'] != invoiceName || saved['docstatus'] != 0) throw Exception('لم يتم تأكيد حفظ المسودة.');
+    if (saved is! core.Map<String, dynamic> || saved['name'] != invoiceName || saved['docstatus'] != 0) throw Exception('لم يتم تأكيد حفظ المسودة.');
     return saved;
   }
 
-  Future<Map<String, dynamic>> submitPurchaseInvoice(Map<String, dynamic> doc) =>
+  Future<core.Map<String, dynamic>> submitPurchaseInvoice(core.Map<String, dynamic> doc) =>
       _submitMobileDocument(doc, 'Purchase Invoice');
 
-  Future<Map<String, double>> fetchPurchaseReturnableQuantities(String invoiceName) async {
+  Future<core.Map<String, double>> fetchPurchaseReturnableQuantities(String invoiceName) async {
     if (invoiceName.trim().isEmpty) throw const FormatException('رقم فاتورة المشتريات غير موجود.');
     final source = await fetchInvoiceDocument('Purchase Invoice', invoiceName);
     if (source['docstatus'] != 1 || source['is_return'] == 1 || source['is_return'] == true) {
@@ -2632,13 +3698,13 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر حساب الكميات المتبقية للمرتجع.'));
     }
     final raw = data['message'];
-    if (raw is! Map<String, dynamic> || raw['doctype'] != 'Purchase Invoice' ||
+    if (raw is! core.Map<String, dynamic> || raw['doctype'] != 'Purchase Invoice' ||
         (raw['is_return'] != 1 && raw['is_return'] != true) ||
         raw['return_against'] != invoiceName || raw['items'] is! List) {
       throw Exception('لم يؤكد ERPNext بيانات الكميات القابلة للإرجاع.');
     }
     final result = <String, double>{};
-    for (final row in (raw['items'] as List).whereType<Map<String, dynamic>>()) {
+    for (final row in (raw['items'] as List).whereType<core.Map<String, dynamic>>()) {
       final sourceItem = row['purchase_invoice_item']?.toString();
       final qty = double.tryParse(row['qty']?.toString() ?? '');
       if (sourceItem == null || sourceItem.isEmpty || qty == null || !qty.isFinite || qty == 0) continue;
@@ -2650,7 +3716,7 @@ class FrappeApi {
     return result;
   }
 
-  Future<Map<String, dynamic>> createPurchaseReturn(String invoiceName, {Map<String, double?>? quantitiesBySourceItem}) async {
+  Future<core.Map<String, dynamic>> createPurchaseReturn(String invoiceName, {core.Map<String, double?>? quantitiesBySourceItem}) async {
     final actionKey = 'purchase-return:$invoiceName';
     if (!_inFlightPurchaseActions.add(actionKey)) {
       throw const FormatException('إنشاء مرتجع المشتريات قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
@@ -2677,14 +3743,14 @@ class FrappeApi {
     final mappedData = _decode(mapped.body);
     if (mapped.statusCode < 200 || mapped.statusCode >= 300) throw Exception(_message(mappedData, 'تعذر تجهيز مرتجع المشتريات.'));
     final raw = mappedData['message'];
-    if (raw is! Map<String, dynamic> || raw['doctype'] != 'Purchase Invoice' ||
+    if (raw is! core.Map<String, dynamic> || raw['doctype'] != 'Purchase Invoice' ||
         (raw['is_return'] != 1 && raw['is_return'] != true) || raw['return_against'] != invoiceName ||
         raw['items'] is! List || (raw['items'] as List).isEmpty) {
       throw Exception('لم يؤكد ERPNext بيانات مرتجع المشتريات.');
     }
-    final mappedItems = (raw['items'] as List).whereType<Map<String, dynamic>>().toList();
+    final mappedItems = (raw['items'] as List).whereType<core.Map<String, dynamic>>().toList();
     if (quantitiesBySourceItem != null) {
-      final selectedItems = <Map<String, dynamic>>[];
+      final selectedItems = <core.Map<String, dynamic>>[];
       final matchedSourceRows = <String>{};
       for (var index = 0; index < mappedItems.length; index++) {
         final sourceItemName = mappedItems[index]['purchase_invoice_item']?.toString();
@@ -2702,7 +3768,7 @@ class FrappeApi {
         if (mappedQty == 0 || requested > mappedQty.abs() + 0.000001) {
           throw FormatException('كمية المرتجع للصنف ${mappedItems[index]['item_code'] ?? index + 1} تتجاوز الكمية المتبقية المسموح بها في ERPNext.');
         }
-        final line = Map<String, dynamic>.from(mappedItems[index]);
+        final line = core.Map<String, dynamic>.from(mappedItems[index]);
         line['qty'] = mappedQty.isNegative ? -requested : requested;
         selectedItems.add(line);
       }
@@ -2718,11 +3784,11 @@ class FrappeApi {
       }
       raw['items'] = selectedItems;
     }
-    final inserted = await _sendJson('POST', '/api/resource/Purchase%20Invoice', Map<String, dynamic>.from(raw));
+    final inserted = await _sendJson('POST', '/api/resource/Purchase%20Invoice', core.Map<String, dynamic>.from(raw));
     final data = _decode(inserted.body);
     if (inserted.statusCode < 200 || inserted.statusCode >= 300) throw Exception(_message(data, 'تعذر حفظ مسودة المرتجع.'));
     final created = data['data'];
-    if (created is! Map<String, dynamic> ||
+    if (created is! core.Map<String, dynamic> ||
         created['doctype'] != 'Purchase Invoice' ||
         created['name'] is! String ||
         created['docstatus'] != 0 ||
@@ -2736,7 +3802,7 @@ class FrappeApi {
     }
   }
 
-  Future<Map<String, dynamic>> payPurchaseInvoice({
+  Future<core.Map<String, dynamic>> payPurchaseInvoice({
     required String invoiceName, required double amount, String? bankAccount,
   }) async {
     final actionKey = 'purchase-payment:$invoiceName';
@@ -2758,7 +3824,7 @@ class FrappeApi {
     final setupData = _decode(setup.body);
     if (setup.statusCode < 200 || setup.statusCode >= 300) throw Exception(_message(setupData, 'تعذر تجهيز سند صرف المورد.'));
     final raw = setupData['message'];
-    if (raw is! Map<String, dynamic> || raw['payment_type'] != 'Pay' ||
+    if (raw is! core.Map<String, dynamic> || raw['payment_type'] != 'Pay' ||
         raw['party_type'] != 'Supplier' || raw['party'] != invoice['supplier']) {
       throw Exception('بيانات سند الصرف لا تطابق المورد المطلوب.');
     }
@@ -2770,17 +3836,17 @@ class FrappeApi {
     if (refs is! List || refs.isEmpty) throw Exception('لم يربط ERPNext سند الصرف بالفاتورة.');
     var allocated = 0.0;
     for (final row in refs) {
-      if (row is Map<String, dynamic> && row['reference_doctype'] == 'Purchase Invoice' &&
+      if (row is core.Map<String, dynamic> && row['reference_doctype'] == 'Purchase Invoice' &&
           row['reference_name'] == invoiceName) {
         allocated += double.tryParse(row['allocated_amount']?.toString() ?? '') ?? 0;
       }
     }
     if ((allocated - amount).abs() > 0.01) throw const FormatException('توزيع الدفعة من ERPNext لا يطابق المبلغ المطلوب.');
-    final inserted = await _sendJson('POST', '/api/resource/Payment%20Entry', Map<String, dynamic>.from(raw));
+    final inserted = await _sendJson('POST', '/api/resource/Payment%20Entry', core.Map<String, dynamic>.from(raw));
     final insertedData = _decode(inserted.body);
     if (inserted.statusCode < 200 || inserted.statusCode >= 300) throw Exception(_message(insertedData, 'تعذر حفظ سند الصرف.'));
     final created = insertedData['data'];
-    if (created is! Map<String, dynamic> ||
+    if (created is! core.Map<String, dynamic> ||
         created['doctype'] != 'Payment Entry' ||
         created['name'] is! String ||
         created['docstatus'] != 0 ||
@@ -2795,7 +3861,7 @@ class FrappeApi {
     }
     var createdAllocation = 0.0;
     for (final row in created['references'] as List) {
-      if (row is Map<String, dynamic> &&
+      if (row is core.Map<String, dynamic> &&
           row['reference_doctype'] == 'Purchase Invoice' &&
           row['reference_name'] == invoiceName) {
         createdAllocation += double.tryParse(row['allocated_amount']?.toString() ?? '') ?? 0;
@@ -2825,7 +3891,7 @@ class FrappeApi {
     }
   }
 
-  Future<Map<String, dynamic>> _fetchPaymentEntryDraft(String name, {required String paymentType, required String partyType}) async {
+  Future<core.Map<String, dynamic>> _fetchPaymentEntryDraft(String name, {required String paymentType, required String partyType}) async {
     if (name.trim().isEmpty) throw const FormatException('رقم سند الدفع غير موجود.');
     final response = await _send('GET',
       '/api/resource/Payment%20Entry/' + Uri.encodeComponent(name.trim()),
@@ -2835,7 +3901,7 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر تحميل مسودة سند الدفع.'));
     }
     final document = data['data'];
-    if (document is! Map<String, dynamic> ||
+    if (document is! core.Map<String, dynamic> ||
         document['doctype'] != 'Payment Entry' ||
         document['name'] != name.trim() || document['docstatus'] != 0 ||
         document['payment_type'] != paymentType ||
@@ -2846,7 +3912,7 @@ class FrappeApi {
     return document;
   }
 
-  Future<Map<String, dynamic>> _submitMobileDocument(Map<String, dynamic> doc, String doctype) async {
+  Future<core.Map<String, dynamic>> _submitMobileDocument(core.Map<String, dynamic> doc, String doctype) async {
     final name = doc['name']?.toString() ?? '';
     final actionKey = '$doctype:$name';
     if (!_inFlightDocumentActions.add(actionKey)) {
@@ -2876,7 +3942,7 @@ class FrappeApi {
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر ترحيل المستند.'));
     final submitted = data['message'];
-    if (submitted is! Map<String, dynamic> ||
+    if (submitted is! core.Map<String, dynamic> ||
         submitted['doctype'] != doctype ||
         submitted['name'] != doc['name'] ||
         submitted['docstatus'] != 1) {
@@ -2888,7 +3954,7 @@ class FrappeApi {
     }
   }
 
-  Future<Map<String, dynamic>> cancelPurchaseInvoice(String name) async {
+  Future<core.Map<String, dynamic>> cancelPurchaseInvoice(String name) async {
     final actionKey = 'cancel-purchase:$name';
     if (!_inFlightPurchaseActions.add(actionKey)) {
       throw const FormatException('إلغاء فاتورة المشتريات قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
@@ -2908,7 +3974,7 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر إلغاء فاتورة المشتريات. قد توجد دفعات أو مرتجعات أو مستندات مرتبطة.'));
     }
     final canceled = data['message'];
-    if (canceled is! Map<String, dynamic> ||
+    if (canceled is! core.Map<String, dynamic> ||
         canceled['doctype'] != 'Purchase Invoice' ||
         canceled['name'] != name ||
         canceled['docstatus'] != 2) {
@@ -2934,7 +4000,7 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر التحقق من المستودع ' + normalizedWarehouse + '.'));
     }
     final warehouse = data['data'];
-    if (warehouse is! Map<String, dynamic> ||
+    if (warehouse is! core.Map<String, dynamic> ||
         warehouse['doctype'] != 'Warehouse' ||
         warehouse['name'] != normalizedWarehouse ||
         warehouse['company'] != normalizedCompany ||
@@ -2944,12 +4010,12 @@ class FrappeApi {
     }
   }
 
-  Future<void> _validateDocumentWarehouses(Map<String, dynamic> document) async {
+  Future<void> _validateDocumentWarehouses(core.Map<String, dynamic> document) async {
     final company = document['company'];
     final items = document['items'];
     if (company is! String || company.trim().isEmpty || items is! List) return;
     final warehouses = <String>{};
-    for (final row in items.whereType<Map<String, dynamic>>()) {
+    for (final row in items.whereType<core.Map<String, dynamic>>()) {
       final warehouse = row['warehouse'];
       if (warehouse is String && warehouse.trim().isNotEmpty) {
         warehouses.add(warehouse.trim());
@@ -2960,8 +4026,8 @@ class FrappeApi {
     }
   }
 
-  Future<Map<String, dynamic>> createStockEntry({
-    required String company, required String purpose, required List<Map<String, dynamic>> items,
+  Future<core.Map<String, dynamic>> createStockEntry({
+    required String company, required String purpose, required List<core.Map<String, dynamic>> items,
     String? fromWarehouse, String? toWarehouse, String? remarks,
   }) async {
     const validPurposes = {'Material Receipt', 'Material Issue', 'Material Transfer'};
@@ -3004,7 +4070,7 @@ class FrappeApi {
       if (toWarehouse != null) 'to_warehouse': toWarehouse,
       if (remarks != null && remarks.trim().isNotEmpty) 'remarks': remarks.trim(),
       'items': cleanItems.map((row) {
-        final item = Map<String, dynamic>.from(row);
+        final item = core.Map<String, dynamic>.from(row);
         final valuationRate = item.remove('valuation_rate');
         if (valuationRate != null && purpose == 'Material Receipt') {
           item['basic_rate'] = valuationRate;
@@ -3022,7 +4088,7 @@ class FrappeApi {
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر إنشاء حركة المخزون.'));
     final created = data['data'];
-    if (created is! Map<String, dynamic> ||
+    if (created is! core.Map<String, dynamic> ||
         created['doctype'] != 'Stock Entry' ||
         created['name'] is! String ||
         created['docstatus'] != 0) {
@@ -3031,7 +4097,7 @@ class FrappeApi {
     return created;
   }
 
-  Future<Map<String, dynamic>> createPurchaseReceipt(Map<String, dynamic> document) async {
+  Future<core.Map<String, dynamic>> createPurchaseReceipt(core.Map<String, dynamic> document) async {
     final items = document['items'];
     if (document['doctype'] != 'Purchase Receipt' ||
         document['company'] is! String || (document['company'] as String).trim().isEmpty ||
@@ -3042,7 +4108,7 @@ class FrappeApi {
     await _ensureIncomingBatchNumbers(items);
     document['items'] = _cleanSerialBatchRows(items);
     for (final row in items) {
-      if (row is! Map<String, dynamic> || row['item_code'] is! String ||
+      if (row is! core.Map<String, dynamic> || row['item_code'] is! String ||
           (row['item_code'] as String).trim().isEmpty || row['qty'] is! num ||
           !(row['qty'] as num).isFinite || (row['qty'] as num) <= 0 ||
           row['rate'] is! num || !(row['rate'] as num).isFinite || (row['rate'] as num) < 0 ||
@@ -3054,10 +4120,10 @@ class FrappeApi {
     // Revalidate purchase-order references against the latest server document
     // immediately before creating the receipt; UI-side quantities may be stale.
     final orderNames = <String>{};
-    final sourceRowsByOrder = <String, Map<String, Map<String, dynamic>>>{};
+    final sourceRowsByOrder = <String, core.Map<String, core.Map<String, dynamic>>>{};
     for (final row in items) {
-      final orderName = row is Map<String, dynamic> ? row['purchase_order'] : null;
-      final orderItemName = row is Map<String, dynamic> ? row['purchase_order_item'] : null;
+      final orderName = row is core.Map<String, dynamic> ? row['purchase_order'] : null;
+      final orderItemName = row is core.Map<String, dynamic> ? row['purchase_order_item'] : null;
       if ((orderName == null) != (orderItemName == null)) {
         throw const FormatException('مرجع أمر الشراء وبند الأمر يجب أن يظهرا معاً في بند الاستلام.');
       }
@@ -3069,7 +4135,7 @@ class FrappeApi {
       final normalizedOrder = orderName.trim();
       final normalizedOrderItem = orderItemName.trim();
       orderNames.add(normalizedOrder);
-      final byItem = sourceRowsByOrder.putIfAbsent(normalizedOrder, () => <String, Map<String, dynamic>>{});
+      final byItem = sourceRowsByOrder.putIfAbsent(normalizedOrder, () => <String, core.Map<String, dynamic>>{});
       if (byItem.containsKey(normalizedOrderItem)) {
         throw const FormatException('لا تكرر بند أمر الشراء في سند الاستلام؛ اجمع الكمية في سطر واحد.');
       }
@@ -3082,8 +4148,8 @@ class FrappeApi {
       }
       final sourceItems = order['items'];
       if (sourceItems is! List) throw FormatException('تعذر قراءة بنود أمر الشراء ' + orderName + '.');
-      final sourceByName = <String, Map<String, dynamic>>{
-        for (final source in sourceItems.whereType<Map<String, dynamic>>())
+      final sourceByName = <String, core.Map<String, dynamic>>{
+        for (final source in sourceItems.whereType<core.Map<String, dynamic>>())
           if (source['name'] is String) source['name'].toString(): source,
       };
       for (final entry in sourceRowsByOrder[orderName]!.entries) {
@@ -3101,7 +4167,7 @@ class FrappeApi {
         }
       }
     }
-    final receiptWarehouses = items.map((row) => (row as Map<String, dynamic>)['warehouse'].toString()).toSet();
+    final receiptWarehouses = items.map((row) => (row as core.Map<String, dynamic>)['warehouse'].toString()).toSet();
     for (final warehouse in receiptWarehouses) {
       await _validateWarehouseForCompany(warehouse, document['company'] as String);
     }
@@ -3109,7 +4175,7 @@ class FrappeApi {
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر إنشاء سند استلام المشتريات.'));
     final created = data['data'];
-    if (created is! Map<String, dynamic> ||
+    if (created is! core.Map<String, dynamic> ||
         created['doctype'] != 'Purchase Receipt' ||
         created['name'] is! String ||
         created['docstatus'] != 0) {
@@ -3118,13 +4184,13 @@ class FrappeApi {
     return created;
   }
 
-  Future<Map<String, dynamic>> submitPurchaseReceipt(Map<String, dynamic> doc) =>
+  Future<core.Map<String, dynamic>> submitPurchaseReceipt(core.Map<String, dynamic> doc) =>
       _submitMobileDocument(doc, 'Purchase Receipt');
 
-  Future<Map<String, dynamic>> submitStockEntry(Map<String, dynamic> doc) => _submitMobileDocument(doc, 'Stock Entry');
+  Future<core.Map<String, dynamic>> submitStockEntry(core.Map<String, dynamic> doc) => _submitMobileDocument(doc, 'Stock Entry');
 
-  Future<Map<String, dynamic>> createStockReconciliation({
-    required String company, required String warehouse, required List<Map<String, dynamic>> items, String? remarks,
+  Future<core.Map<String, dynamic>> createStockReconciliation({
+    required String company, required String warehouse, required List<core.Map<String, dynamic>> items, String? remarks,
   }) async {
     if (company.trim().isEmpty || warehouse.trim().isEmpty || items.isEmpty) throw const FormatException('حدد الشركة والمستودع وأصناف الجرد.');
     _validateSerialBatchRows(items);
@@ -3163,7 +4229,7 @@ class FrappeApi {
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر إنشاء تسوية المخزون.'));
     final created = data['data'];
-    if (created is! Map<String, dynamic> ||
+    if (created is! core.Map<String, dynamic> ||
         created['doctype'] != 'Stock Reconciliation' ||
         created['name'] is! String ||
         created['docstatus'] != 0) {
@@ -3172,7 +4238,7 @@ class FrappeApi {
     return created;
   }
 
-  Future<Map<String, dynamic>> submitStockReconciliation(Map<String, dynamic> doc) =>
+  Future<core.Map<String, dynamic>> submitStockReconciliation(core.Map<String, dynamic> doc) =>
       _submitMobileDocument(doc, 'Stock Reconciliation');
 
   Future<void> deleteDraftDocument({required String doctype, required String name}) async {
@@ -3187,7 +4253,7 @@ class FrappeApi {
       throw Exception(_message(currentData, 'تعذر التحقق من المسودة قبل حذفها.'));
     }
     final document = currentData['data'];
-    if (document is! Map<String, dynamic> ||
+    if (document is! core.Map<String, dynamic> ||
         document['doctype'] != doctype ||
         document['name'] != name ||
         document['docstatus'] != 0) {
@@ -3207,7 +4273,7 @@ class FrappeApi {
     }
   }
 
-  Future<List<Map<String, dynamic>>> fetchDraftStockDocuments(String doctype, {int start = 0}) async {
+  Future<List<core.Map<String, dynamic>>> fetchDraftStockDocuments(String doctype, {int start = 0}) async {
     const allowed = {'Stock Entry', 'Purchase Receipt', 'Stock Reconciliation'};
     if (!allowed.contains(doctype)) throw ArgumentError.value(doctype, 'doctype', 'نوع مستند المخزون غير مدعوم.');
     final uri = buildResourcePageUri(
@@ -3223,21 +4289,21 @@ class FrappeApi {
     }
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة مسودات ' + doctype + ' غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>().map((row) => <String, dynamic>{...row, 'doctype': doctype}).toList(growable: false);
+    return rows.whereType<core.Map<String, dynamic>>().map((row) => <String, dynamic>{...row, 'doctype': doctype}).toList(growable: false);
   }
 
-  Future<Map<String, dynamic>> fetchStockDocument(String doctype, String name) async {
+  Future<core.Map<String, dynamic>> fetchStockDocument(String doctype, String name) async {
     const allowed = {'Stock Entry', 'Purchase Receipt', 'Stock Reconciliation'};
     if (!allowed.contains(doctype) || name.trim().isEmpty) throw ArgumentError('نوع أو رقم مستند المخزون غير صحيح.');
     final response = await _send('GET', '/api/resource/' + Uri.encodeComponent(doctype) + '/' + Uri.encodeComponent(name));
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تحميل مستند المخزون.'));
     final doc = data['data'];
-    if (doc is! Map<String, dynamic>) throw Exception('تفاصيل مستند المخزون غير متوقعة.');
+    if (doc is! core.Map<String, dynamic>) throw Exception('تفاصيل مستند المخزون غير متوقعة.');
     return doc;
   }
 
-  Future<List<Map<String, dynamic>>> fetchStockMovements({
+  Future<List<core.Map<String, dynamic>>> fetchStockMovements({
     int start = 0,
     String? itemCode,
     String? warehouse,
@@ -3271,10 +4337,10 @@ class FrappeApi {
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تحميل سجل حركات المخزون.'));
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة سجل الحركات غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>().toList(growable: false);
+    return rows.whereType<core.Map<String, dynamic>>().toList(growable: false);
   }
 
-  Future<Map<String, dynamic>> fetchInvoiceDocument(String documentType, String name) async {
+  Future<core.Map<String, dynamic>> fetchInvoiceDocument(String documentType, String name) async {
     if (documentType != 'Sales Invoice' && documentType != 'Purchase Invoice') {
       throw ArgumentError.value(documentType, 'documentType', 'نوع المستند غير مدعوم.');
     }
@@ -3285,10 +4351,10 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر تحميل تفاصيل الفاتورة. تحقق من صلاحية قراءة المستند.'));
     }
     final document = data['data'];
-    if (document is! Map<String, dynamic>) throw Exception('تفاصيل الفاتورة من ERPNext غير متوقعة.');
+    if (document is! core.Map<String, dynamic>) throw Exception('تفاصيل الفاتورة من ERPNext غير متوقعة.');
     return document;
   }
-  Future<List<Map<String, dynamic>>> fetchAccountingAccounts({
+  Future<List<core.Map<String, dynamic>>> fetchAccountingAccounts({
     required String company,
     int start = 0,
     String? search,
@@ -3321,17 +4387,22 @@ class FrappeApi {
     }
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة دليل الحسابات غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>()
+    return rows.whereType<core.Map<String, dynamic>>()
         .where((row) => row['company'] == normalizedCompany)
-        .map((row) => Map<String, dynamic>.from(row)).toList(growable: false);
+        .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
   }
 
   // Allow-listed mobile master-data access; ERPNext remains authoritative.
-  static const Map<String, List<String>> _masterDataFields = {
+  static const core.Map<String, List<String>> _masterDataFields = {
     'Item': ['name', 'item_code', 'item_name', 'item_group', 'stock_uom',
       'is_stock_item', 'has_serial_no', 'has_batch_no', 'has_expiry_date', 'disabled', 'uoms'],
     'Supplier': ['name', 'supplier_name', 'supplier_type', 'supplier_group',
       'country', 'tax_id', 'mobile_no', 'email_id', 'website', 'disabled'],
+    'Customer': ['name', 'customer_name', 'customer_type', 'customer_group', 'territory',
+      'tax_id', 'mobile_no', 'email_id', 'website', 'default_currency', 'default_price_list', 'disabled'],
+    'Customer Group': ['name', 'customer_group_name', 'parent_customer_group', 'is_group', 'disabled'],
+    'Territory': ['name', 'territory_name', 'parent_territory', 'is_group', 'disabled'],
+    'Sales Person': ['name', 'sales_person_name', 'parent_sales_person', 'commission_rate', 'is_group', 'enabled', 'employee'],
     'Warehouse': ['name', 'warehouse_name', 'company', 'parent_warehouse', 'is_group', 'disabled'],
     'Item Group': ['name', 'item_group_name', 'parent_item_group', 'is_group', 'disabled'],
     'UOM': ['name', 'uom_name', 'must_be_whole_number', 'enabled'],
@@ -3339,11 +4410,16 @@ class FrappeApi {
     'Price List': ['name', 'price_list_name', 'currency', 'buying', 'selling', 'enabled'],
   };
 
-  static const Map<String, Set<String>> _masterDataWritableFields = {
+  static const core.Map<String, Set<String>> _masterDataWritableFields = {
     'Item': {'item_code', 'item_name', 'item_group', 'stock_uom',
       'is_stock_item', 'has_serial_no', 'has_batch_no', 'has_expiry_date', 'disabled', 'uoms'},
     'Supplier': {'supplier_name', 'supplier_type', 'supplier_group',
       'country', 'tax_id', 'mobile_no', 'email_id', 'website', 'disabled'},
+    'Customer': {'customer_name', 'customer_type', 'customer_group', 'territory',
+      'tax_id', 'mobile_no', 'email_id', 'website', 'default_currency', 'default_price_list', 'disabled'},
+    'Customer Group': {'customer_group_name', 'parent_customer_group', 'is_group', 'disabled'},
+    'Territory': {'territory_name', 'parent_territory', 'is_group', 'disabled'},
+    'Sales Person': {'sales_person_name', 'parent_sales_person', 'commission_rate', 'is_group', 'enabled', 'employee'},
     'Warehouse': {'warehouse_name', 'company', 'parent_warehouse', 'is_group', 'disabled'},
     'Item Group': {'item_group_name', 'parent_item_group', 'is_group', 'disabled'},
     'UOM': {'uom_name', 'must_be_whole_number', 'enabled'},
@@ -3352,10 +4428,10 @@ class FrappeApi {
   };
 
 
-  Future<List<Map<String, dynamic>>> fetchMasterDataOptions(String doctype) async {
+  Future<List<core.Map<String, dynamic>>> fetchMasterDataOptions(String doctype) async {
     if (!_masterDataFields.containsKey(doctype)) throw ArgumentError.value(doctype, 'doctype', 'نوع بيانات غير مدعوم.');
     const maxRows = 2000;
-    final result = <Map<String, dynamic>>[];
+    final result = <core.Map<String, dynamic>>[];
     var start = 0;
     while (true) {
       final page = await fetchMasterDataRows(doctype: doctype, start: start);
@@ -3366,7 +4442,7 @@ class FrappeApi {
     }
   }
 
-  Future<List<Map<String, dynamic>>> fetchMasterDataRows({
+  Future<List<core.Map<String, dynamic>>> fetchMasterDataRows({
     required String doctype,
     int start = 0,
     String? search,
@@ -3377,6 +4453,10 @@ class FrappeApi {
     final searchable = switch (doctype) {
       'Item' => const ['name', 'item_name', 'item_group'],
       'Supplier' => const ['name', 'supplier_name', 'supplier_group'],
+      'Customer' => const ['name', 'customer_name', 'customer_group', 'territory'],
+      'Customer Group' => const ['name', 'customer_group_name', 'parent_customer_group'],
+      'Territory' => const ['name', 'territory_name', 'parent_territory'],
+      'Sales Person' => const ['name', 'sales_person_name', 'parent_sales_person', 'employee'],
       'Warehouse' => const ['name', 'warehouse_name', 'company'],
       'Item Group' => const ['name', 'item_group_name', 'parent_item_group'],
       'UOM' => const ['name', 'uom_name'],
@@ -3402,11 +4482,11 @@ class FrappeApi {
     }
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة بيانات $doctype غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>()
-        .map((row) => Map<String, dynamic>.from(row)).toList(growable: false);
+    return rows.whereType<core.Map<String, dynamic>>()
+        .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
   }
 
-  Future<Map<String, dynamic>> fetchMasterDataDocument({
+  Future<core.Map<String, dynamic>> fetchMasterDataDocument({
     required String doctype,
     required String name,
   }) async {
@@ -3423,16 +4503,16 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر تحميل تفاصيل السجل.'));
     }
     final document = data['data'];
-    if (document is! Map<String, dynamic> || document['name'] != id) {
+    if (document is! core.Map<String, dynamic> || document['name'] != id) {
       throw Exception('لم تتطابق هوية السجل المسترجع مع المطلوب.');
     }
-    return Map<String, dynamic>.from(document);
+    return core.Map<String, dynamic>.from(document);
   }
 
-  Future<Map<String, dynamic>> saveMasterDataDocument({
+  Future<core.Map<String, dynamic>> saveMasterDataDocument({
     required String doctype,
     String? name,
-    required Map<String, dynamic> values,
+    required core.Map<String, dynamic> values,
   }) async {
     final allowed = _masterDataWritableFields[doctype];
     if (allowed == null) throw ArgumentError.value(doctype, 'doctype', 'نوع بيانات غير مدعوم.');
@@ -3459,7 +4539,7 @@ class FrappeApi {
           if (rawUoms is! List) throw const FormatException('جدول تحويل وحدات الصنف غير صالح.');
           final seenUoms = <String>{};
           for (final raw in rawUoms) {
-            if (raw is! Map) throw const FormatException('يوجد صف غير صالح في تحويل وحدات الصنف.');
+            if (raw is! core.Map) throw const FormatException('يوجد صف غير صالح في تحويل وحدات الصنف.');
             final uom = raw['uom']?.toString().trim() ?? '';
             final factorValue = raw['conversion_factor'];
             final factor = factorValue is num ? factorValue.toDouble() : double.tryParse(factorValue?.toString() ?? '');
@@ -3482,6 +4562,33 @@ class FrappeApi {
             !{'Company', 'Individual'}.contains(requiredValue('supplier_type')) ||
             requiredValue('supplier_group').isEmpty) {
           throw const FormatException('اسم المورد ونوعه ومجموعته حقول مطلوبة.');
+        }
+        break;
+      case 'Customer':
+        if (requiredValue('customer_name').isEmpty ||
+            !{'Company', 'Individual'}.contains(requiredValue('customer_type')) ||
+            requiredValue('customer_group').isEmpty ||
+            requiredValue('territory').isEmpty) {
+          throw const FormatException('اسم العميل ونوعه ومجموعته ومنطقته حقول مطلوبة.');
+        }
+        break;
+      case 'Customer Group':
+        if (requiredValue('customer_group_name').isEmpty) {
+          throw const FormatException('اسم مجموعة العملاء مطلوب.');
+        }
+        break;
+      case 'Territory':
+        if (requiredValue('territory_name').isEmpty) {
+          throw const FormatException('اسم المنطقة مطلوب.');
+        }
+        break;
+      case 'Sales Person':
+        final commissionText = requiredValue('commission_rate');
+        final commissionRate = commissionText.isEmpty ? 0.0 : double.tryParse(commissionText);
+        if (requiredValue('sales_person_name').isEmpty ||
+            commissionRate == null || !commissionRate.isFinite ||
+            commissionRate < 0 || commissionRate > 100) {
+          throw const FormatException('اسم مندوب المبيعات ونسبة العمولة يجب أن تكون بين 0 و100.');
         }
         break;
       case 'Warehouse':
@@ -3510,7 +4617,7 @@ class FrappeApi {
     final id = name?.trim();
     if (id != null && id.isNotEmpty) {
       // Preserve autoname/identity fields across all supported master doctypes.
-      const identityFields = {'item_code', 'warehouse_name', 'item_group_name', 'uom_name', 'supplier_group_name', 'price_list_name'};
+      const identityFields = {'item_code', 'warehouse_name', 'item_group_name', 'uom_name', 'supplier_group_name', 'customer_group_name', 'territory_name', 'sales_person_name', 'price_list_name'};
       payload.removeWhere((key, value) => identityFields.contains(key));
       final current = await fetchMasterDataDocument(doctype: doctype, name: id);
       if (current['name'] != id) throw const FormatException('تغير السجل؛ أعد تحميله قبل التعديل.');
@@ -3523,13 +4630,13 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر حفظ السجل. راجع الحقول المطلوبة وصلاحيات ERPNext.'));
     }
     final saved = data['data'];
-    if (saved is! Map<String, dynamic> || (saved['name']?.toString().isNotEmpty != true)) {
+    if (saved is! core.Map<String, dynamic> || (saved['name']?.toString().isNotEmpty != true)) {
       throw Exception('لم يؤكد ERPNext حفظ السجل؛ أعد تحميل القائمة قبل المتابعة.');
     }
     if (id != null && id.isNotEmpty && saved['name'] != id) {
       throw Exception('تغيرت هوية السجل بعد الحفظ؛ أوقف العملية وراجع ERPNext.');
     }
-    return Map<String, dynamic>.from(saved);
+    return core.Map<String, dynamic>.from(saved);
   }
 
   Future<String> currentUser() async {
@@ -3546,6 +4653,7 @@ class FrappeApi {
   }
 
   Future<void> logout() async {
+    _guestMode = false;
     _sessionGeneration++;
     if (_cookies.isNotEmpty) {
       try {
@@ -3559,6 +4667,11 @@ class FrappeApi {
       _sendUri(method, Uri.parse('$_baseUrl$path'));
 
   Future<_ApiResponse> _sendUri(String method, Uri uri) async {
+    if (_guestMode) {
+      return _ApiResponse(403, jsonEncode({
+        'message': 'أنت في وضع الضيف المحلي دون خادم. سجّل الدخول إلى ERPNext للوصول إلى بيانات الشركة.'
+      }));
+    }
     final generation = _sessionGeneration;
     final request = await _client.openUrl(method, uri);
     // Session cookies must never be forwarded automatically to a redirect target.
@@ -3584,7 +4697,10 @@ class FrappeApi {
     return _ApiResponse(response.statusCode, body);
   }
 
-  Future<_ApiResponse> _sendJson(String method, String path, Map<String, dynamic> payload) async {
+  Future<_ApiResponse> _sendJson(String method, String path, core.Map<String, dynamic> payload) async {
+    if (_guestMode) {
+      return _ApiResponse(403, jsonEncode({'message': 'وضع الضيف للقراءة فقط؛ سجّل الدخول لتنفيذ هذه العملية.'}));
+    }
     final generation = _sessionGeneration;
     final request = await _client.openUrl(method, Uri.parse('$_baseUrl$path'));
     request.followRedirects = false;
@@ -3642,51 +4758,51 @@ class FrappeApi {
     }
   }
 
-  Map<String, dynamic> _decode(String body) {
+  core.Map<String, dynamic> _decode(String body) {
     try {
       final value = jsonDecode(body);
-      return value is Map<String, dynamic> ? value : {};
+      return value is core.Map<String, dynamic> ? value : {};
     } catch (_) {
       return {};
     }
   }
 
-  String _message(Map<String, dynamic> data, String fallback) {
+  String _message(core.Map<String, dynamic> data, String fallback) {
     final message = data['message'];
     return message is String && message.isNotEmpty ? message : fallback;
   }
 
 
-  Future<List<Map<String, dynamic>>> fetchJournalEntryDrafts({required String company, int start = 0, String? search}) async {
+  Future<List<core.Map<String, dynamic>>> fetchJournalEntryDrafts({required String company, int start = 0, String? search}) async {
     final normalized = company.trim();
     if (normalized.isEmpty) throw const FormatException('حدد الشركة أولاً.');
     final query = search?.trim() ?? '';
     final uri = buildResourcePageUri(baseUrl: _baseUrl, resource: 'Journal Entry',
       fields: const ['name', 'posting_date', 'company', 'total_debit', 'total_credit', 'user_remark', 'docstatus'],
-      filters: [['company', '=', normalized], ['docstatus', '=', 0]],
+      filters: [['company', '=', normalized], ['docstatus', 'in', [0, 1]],],
       orFilters: query.isEmpty ? null : [['name', 'like', '%$query%'], ['user_remark', 'like', '%$query%']],
       orderBy: 'modified desc, name desc', start: start, pageLength: 50);
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);
-    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تحميل مسودات القيود اليومية.'));
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تحميل سجل القيود اليومية.'));
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة القيود اليومية غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>().where((row) => row['company'] == normalized && row['docstatus'] == 0)
-      .map((row) => Map<String, dynamic>.from(row)).toList(growable: false);
+    return rows.whereType<core.Map<String, dynamic>>().where((row) => row['company'] == normalized && (row['docstatus'] == 0 || row['docstatus'] == 1))
+      .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
   }
 
-  Future<Map<String, dynamic>> fetchJournalEntryDocument(String name) async {
+  Future<core.Map<String, dynamic>> fetchJournalEntryDocument(String name) async {
     final id = name.trim();
     if (id.isEmpty) throw const FormatException('رقم القيد غير موجود.');
     final response = await _send('GET', '/api/resource/Journal%20Entry/' + Uri.encodeComponent(id));
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تحميل القيد اليومي.'));
     final doc = data['data'];
-    if (doc is! Map<String, dynamic> || doc['name'] != id || doc['doctype'] != 'Journal Entry') throw const FormatException('هوية القيد المسترجع غير مطابقة.');
-    return Map<String, dynamic>.from(doc);
+    if (doc is! core.Map<String, dynamic> || doc['name'] != id || doc['doctype'] != 'Journal Entry') throw const FormatException('هوية القيد المسترجع غير مطابقة.');
+    return core.Map<String, dynamic>.from(doc);
   }
 
-  Future<Map<String, dynamic>> saveJournalEntryDraft({String? name, required String company, required String postingDate, required String remark, required List<Map<String, dynamic>> accounts}) async {
+  Future<core.Map<String, dynamic>> saveJournalEntryDraft({String? name, required String company, required String postingDate, required String remark, required List<core.Map<String, dynamic>> accounts}) async {
     final normalizedCompany = company.trim();
     final date = DateTime.tryParse(postingDate.trim());
     if (normalizedCompany.isEmpty || date == null || date.toIso8601String().substring(0, 10) != postingDate.trim()) throw const FormatException('الشركة وتاريخ القيد بصيغة YYYY-MM-DD حقول مطلوبة.');
@@ -3694,11 +4810,12 @@ class FrappeApi {
     final companyResponse = await _send('GET', '/api/resource/Company/' + Uri.encodeComponent(normalizedCompany));
     final companyData = _decode(companyResponse.body);
     final companyDoc = companyData['data'];
-    if (companyResponse.statusCode < 200 || companyResponse.statusCode >= 300 || companyDoc is! Map<String, dynamic>) throw Exception(_message(companyData, 'تعذر التحقق من الشركة.'));
+    if (companyResponse.statusCode < 200 || companyResponse.statusCode >= 300 || companyDoc is! core.Map<String, dynamic>) throw Exception(_message(companyData, 'تعذر التحقق من الشركة.'));
     final currency = companyDoc['default_currency']?.toString() ?? '';
     if (currency.isEmpty) throw const FormatException('عملة الشركة غير محددة في ERPNext.');
-    final clean = <Map<String, dynamic>>[];
+    final clean = <core.Map<String, dynamic>>[];
     var debitTotal = 0.0, creditTotal = 0.0;
+    var hasForeignCurrency = false;
     final seen = <String>{};
     for (final row in accounts) {
       final account = row['account']?.toString().trim() ?? '';
@@ -3709,8 +4826,21 @@ class FrappeApi {
       final accountResponse = await _send('GET', '/api/resource/Account/' + Uri.encodeComponent(account));
       final accountData = _decode(accountResponse.body);
       final accountDoc = accountData['data'];
-      if (accountResponse.statusCode < 200 || accountResponse.statusCode >= 300 || accountDoc is! Map<String, dynamic> || accountDoc['company'] != normalizedCompany || accountDoc['is_group'] == 1 || accountDoc['is_group'] == true || accountDoc['disabled'] == 1 || accountDoc['disabled'] == true) throw FormatException('الحساب ' + account + ' غير صالح أو لا يتبع الشركة المحددة أو ليس حساب حركة.');
-      if ((accountDoc['account_currency']?.toString().isNotEmpty ?? false) && accountDoc['account_currency'] != currency) throw FormatException('الحساب ' + account + ' بعملة مختلفة. هذه الشاشة تدعم حالياً حسابات عملة الشركة فقط (' + currency + ').');
+      if (accountResponse.statusCode < 200 || accountResponse.statusCode >= 300 || accountDoc is! core.Map<String, dynamic> || accountDoc['company'] != normalizedCompany || accountDoc['is_group'] == 1 || accountDoc['is_group'] == true || accountDoc['disabled'] == 1 || accountDoc['disabled'] == true) throw FormatException('الحساب ' + account + ' غير صالح أو لا يتبع الشركة المحددة أو ليس حساب حركة.');
+      final accountCurrency = accountDoc['account_currency']?.toString().trim().isNotEmpty == true
+          ? accountDoc['account_currency'].toString().trim()
+          : currency;
+      final requestedRate = row['exchange_rate'] is num
+          ? (row['exchange_rate'] as num).toDouble()
+          : double.tryParse(row['exchange_rate']?.toString() ?? '') ?? (accountCurrency == currency ? 1.0 : 0.0);
+      if (accountCurrency == currency && requestedRate != 1.0 && requestedRate != 0.0) {
+        throw FormatException('سعر تحويل حساب العملة الأساسية يجب أن يساوي 1: $account');
+      }
+      final exchangeRate = accountCurrency == currency ? 1.0 : requestedRate;
+      if (!exchangeRate.isFinite || exchangeRate <= 0) {
+        throw FormatException('أدخل سعر تحويل موجباً للحساب $account بعملة $accountCurrency.');
+      }
+      if (accountCurrency != currency) hasForeignCurrency = true;
       final costCenter = row['cost_center']?.toString().trim() ?? '';
       if (costCenter.isNotEmpty) {
         final costResponse = await _send('GET',
@@ -3718,7 +4848,7 @@ class FrappeApi {
         final costData = _decode(costResponse.body);
         final costDoc = costData['data'];
         if (costResponse.statusCode < 200 || costResponse.statusCode >= 300 ||
-            costDoc is! Map<String, dynamic> || costDoc['company'] != normalizedCompany ||
+            costDoc is! core.Map<String, dynamic> || costDoc['company'] != normalizedCompany ||
             costDoc['is_group'] == 1 || costDoc['is_group'] == true ||
             costDoc['disabled'] == 1 || costDoc['disabled'] == true) {
           throw FormatException('مركز التكلفة $costCenter غير صالح أو لا يتبع الشركة المحددة أو ليس مركز حركة.');
@@ -3731,30 +4861,62 @@ class FrappeApi {
         final projectData = _decode(projectResponse.body);
         final projectDoc = projectData['data'];
         if (projectResponse.statusCode < 200 || projectResponse.statusCode >= 300 ||
-            projectDoc is! Map<String, dynamic> || projectDoc['company'] != normalizedCompany) {
+            projectDoc is! core.Map<String, dynamic> || projectDoc['company'] != normalizedCompany) {
           throw FormatException('المشروع $project غير صالح أو لا يتبع الشركة المحددة.');
         }
       }
-      debitTotal += debit; creditTotal += credit;
+      final partyType = row['party_type']?.toString().trim() ?? '';
+      final party = row['party']?.toString().trim() ?? '';
+      if (partyType.isEmpty != party.isEmpty) {
+        throw FormatException('يجب تحديد نوع الطرف والطرف معاً للحساب $account.');
+      }
+      final referenceType = row['reference_type']?.toString().trim() ?? '';
+      final referenceName = row['reference_name']?.toString().trim() ?? '';
+      if (referenceType.isEmpty != referenceName.isEmpty) {
+        throw FormatException('يجب تحديد نوع المرجع ورقمه معاً للحساب $account.');
+      }
+      final againstType = row['against_voucher_type']?.toString().trim() ?? '';
+      final againstVoucher = row['against_voucher']?.toString().trim() ?? '';
+      if (againstType.isEmpty != againstVoucher.isEmpty) {
+        throw FormatException('يجب تحديد نوع المستند المقابل ورقمه معاً للحساب $account.');
+      }
+      final baseDebit = debit * exchangeRate;
+      final baseCredit = credit * exchangeRate;
+      if (!baseDebit.isFinite || !baseCredit.isFinite) {
+        throw FormatException('قيمة التحويل للحساب $account تتجاوز النطاق المسموح.');
+      }
+      debitTotal += baseDebit;
+      creditTotal += baseCredit;
       clean.add({
         'doctype': 'Journal Entry Account',
         'account': account,
+        'account_currency': accountCurrency,
+        'exchange_rate': exchangeRate,
         'debit_in_account_currency': debit,
         'credit_in_account_currency': credit,
+        'debit': baseDebit,
+        'credit': baseCredit,
         if (costCenter.isNotEmpty) 'cost_center': costCenter,
         if (project.isNotEmpty) 'project': project,
+        if (partyType.isNotEmpty) 'party_type': partyType,
+        if (party.isNotEmpty) 'party': party,
+        if (referenceType.isNotEmpty) 'reference_type': referenceType,
+        if (referenceName.isNotEmpty) 'reference_name': referenceName,
+        if (againstType.isNotEmpty) 'against_voucher_type': againstType,
+        if (againstVoucher.isNotEmpty) 'against_voucher': againstVoucher,
+        if (row['is_advance'] != null) 'is_advance': row['is_advance'],
       });
     }
     if (debitTotal <= 0 || (debitTotal - creditTotal).abs() > 0.005) throw FormatException('القيد غير متوازن. المدين ' + debitTotal.toStringAsFixed(2) + ' والدائن ' + creditTotal.toStringAsFixed(2) + '.');
     final id = name?.trim() ?? '';
-    final payload = <String, dynamic>{'doctype': 'Journal Entry', 'voucher_type': 'Journal Entry', 'company': normalizedCompany, 'posting_date': postingDate.trim(), 'user_remark': remark.trim(), 'multi_currency': 0, 'accounts': clean};
+    final payload = <String, dynamic>{'doctype': 'Journal Entry', 'voucher_type': 'Journal Entry', 'company': normalizedCompany, 'posting_date': postingDate.trim(), 'user_remark': remark.trim(), 'multi_currency': hasForeignCurrency ? 1 : 0, 'accounts': clean};
     if (id.isEmpty) {
       final response = await _sendJson('POST', '/api/resource/Journal%20Entry', payload);
       final data = _decode(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر إنشاء مسودة القيد.'));
       final created = data['data'];
-      if (created is! Map<String, dynamic> || created['doctype'] != 'Journal Entry' || created['name'] is! String || created['docstatus'] != 0) throw const FormatException('لم يؤكد ERPNext إنشاء مسودة القيد.');
-      return Map<String, dynamic>.from(created);
+      if (created is! core.Map<String, dynamic> || created['doctype'] != 'Journal Entry' || created['name'] is! String || created['docstatus'] != 0) throw const FormatException('لم يؤكد ERPNext إنشاء مسودة القيد.');
+      return core.Map<String, dynamic>.from(created);
     }
     final current = await fetchJournalEntryDocument(id);
     if (current['company'] != normalizedCompany || current['docstatus'] != 0) throw const FormatException('لا يمكن تعديل القيد: تغيرت الشركة أو لم تعد حالته مسودة.');
@@ -3762,11 +4924,11 @@ class FrappeApi {
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تحديث مسودة القيد.'));
     final saved = data['message'];
-    if (saved is! Map<String, dynamic> || saved['doctype'] != 'Journal Entry' || saved['name'] != id || saved['docstatus'] != 0) throw const FormatException('لم يؤكد ERPNext تحديث مسودة القيد.');
-    return Map<String, dynamic>.from(saved);
+    if (saved is! core.Map<String, dynamic> || saved['doctype'] != 'Journal Entry' || saved['name'] != id || saved['docstatus'] != 0) throw const FormatException('لم يؤكد ERPNext تحديث مسودة القيد.');
+    return core.Map<String, dynamic>.from(saved);
   }
 
-  Future<Map<String, dynamic>> submitJournalEntry(String name, {required String company}) async {
+  Future<core.Map<String, dynamic>> submitJournalEntry(String name, {required String company}) async {
     final id = name.trim();
     if (id.isEmpty) throw const FormatException('رقم القيد غير موجود.');
     final current = await fetchJournalEntryDocument(id);
@@ -3777,14 +4939,387 @@ class FrappeApi {
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر ترحيل القيد اليومي.'));
     final submitted = data['message'];
-    if (submitted is! Map<String, dynamic> || submitted['doctype'] != 'Journal Entry' || submitted['name'] != id || submitted['docstatus'] != 1) throw const FormatException('لم يؤكد ERPNext ترحيل القيد اليومي.');
-    return Map<String, dynamic>.from(submitted);
+    if (submitted is! core.Map<String, dynamic> || submitted['doctype'] != 'Journal Entry' || submitted['name'] != id || submitted['docstatus'] != 1) throw const FormatException('لم يؤكد ERPNext ترحيل القيد اليومي.');
+    return core.Map<String, dynamic>.from(submitted);
   }
 
 
+  Future<List<core.Map<String, dynamic>>> fetchPayrollCostCenters({
+    required String company,
+  }) async {
+    final normalizedCompany = company.trim();
+    if (normalizedCompany.isEmpty) throw const FormatException('حدد الشركة لعرض مراكز التكلفة.');
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Cost Center',
+      fields: const ['name', 'cost_center_name', 'company', 'is_group', 'disabled'],
+      filters: [
+        ['company', '=', normalizedCompany],
+        ['is_group', '=', 0],
+        ['disabled', '=', 0],
+      ],
+      orderBy: 'lft asc, name asc',
+      pageLength: 500,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل مراكز التكلفة.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw const FormatException('استجابة مراكز التكلفة غير متوقعة.');
+    return rows.whereType<core.Map<String, dynamic>>()
+        .where((row) => row['company'] == normalizedCompany &&
+            row['is_group'] != 1 && row['is_group'] != true)
+        .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+  }
+
+  Future<List<core.Map<String, dynamic>>> fetchPayrollEntries({
+    required String company,
+    int start = 0,
+  }) async {
+    final normalizedCompany = company.trim();
+    if (normalizedCompany.isEmpty) throw const FormatException('حدد الشركة لعرض دورات الرواتب.');
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Payroll Entry',
+      fields: const [
+        'name', 'company', 'posting_date', 'start_date', 'end_date',
+        'payroll_frequency', 'status', 'docstatus', 'number_of_employees',
+        'salary_slips_created', 'salary_slips_submitted', 'currency',
+      ],
+      filters: [['company', '=', normalizedCompany]],
+      orderBy: 'modified desc, name desc',
+      start: start,
+      pageLength: 50,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل دورات الرواتب. تأكد من تثبيت HRMS وصلاحية Payroll Entry.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw const FormatException('استجابة دورات الرواتب غير متوقعة.');
+    return rows.whereType<core.Map<String, dynamic>>()
+        .where((row) => row['company'] == normalizedCompany)
+        .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+  }
+
+  Future<core.Map<String, dynamic>> fetchPayrollEntryDocument({
+    required String name,
+    required String company,
+  }) async {
+    final id = name.trim(), normalizedCompany = company.trim();
+    if (id.isEmpty || normalizedCompany.isEmpty) throw const FormatException('رقم دورة الرواتب والشركة مطلوبان.');
+    final response = await _send('GET', '/api/resource/Payroll%20Entry/' + Uri.encodeComponent(id));
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل تفاصيل دورة الرواتب.'));
+    }
+    final document = data['data'];
+    if (document is! core.Map<String, dynamic> || document['doctype'] != 'Payroll Entry' ||
+        document['name'] != id || document['company'] != normalizedCompany) {
+      throw const FormatException('دورة الرواتب لا تتبع الشركة المحددة أو أن هويتها غير مطابقة.');
+    }
+    return core.Map<String, dynamic>.from(document);
+  }
+
+  Future<List<core.Map<String, dynamic>>> fetchPayrollSalarySlips({
+    required String payrollEntry,
+    required String company,
+  }) async {
+    final entry = payrollEntry.trim(), normalizedCompany = company.trim();
+    if (entry.isEmpty || normalizedCompany.isEmpty) throw const FormatException('دورة الرواتب والشركة مطلوبتان.');
+    final collected = <core.Map<String, dynamic>>[];
+    var start = 0;
+    while (collected.length < 10000) {
+      final uri = buildResourcePageUri(
+        baseUrl: _baseUrl,
+        resource: 'Salary Slip',
+        fields: const [
+          'name', 'employee', 'employee_name', 'company', 'start_date', 'end_date',
+          'gross_pay', 'total_deduction', 'net_pay', 'currency', 'docstatus', 'status',
+          'payroll_entry',
+        ],
+        filters: [
+          ['company', '=', normalizedCompany],
+          ['payroll_entry', '=', entry],
+        ],
+        orderBy: 'employee_name asc, name asc',
+        start: start,
+        pageLength: 500,
+      );
+      final response = await _sendUri('GET', uri);
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر تحميل كشوف الرواتب لدورة الرواتب المحددة.'));
+      }
+      final rows = data['data'];
+      if (rows is! List) throw const FormatException('استجابة كشوف الرواتب غير متوقعة.');
+      final page = rows.whereType<core.Map<String, dynamic>>()
+          .where((row) => row['company'] == normalizedCompany && row['payroll_entry'] == entry)
+          .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+      collected.addAll(page);
+      if (rows.length < 500) return collected;
+      start += rows.length;
+    }
+    throw const FormatException('تجاوزت كشوف الرواتب حد العرض الآمن 10,000 سجل؛ صفّ الدورة في ERPNext قبل المتابعة.');
+  }
+
+  Future<core.Map<String, dynamic>> createPayrollEntryDraft({
+    required String company,
+    required String postingDate,
+    required String startDate,
+    required String endDate,
+    required String payrollFrequency,
+    required String costCenter,
+    required String currency,
+    required String payrollPayableAccount,
+    required double exchangeRate,
+    String? paymentAccount,
+    String? bankAccount,
+  }) async {
+    final cleanCompany = company.trim();
+    final cleanCostCenter = costCenter.trim();
+    final cleanCurrency = currency.trim();
+    final payable = payrollPayableAccount.trim();
+    final frequency = payrollFrequency.trim();
+    String validDate(String value, String label) {
+      final parsed = DateTime.tryParse(value.trim());
+      if (parsed == null || parsed.toIso8601String().substring(0, 10) != value.trim()) {
+        throw FormatException('$label غير صحيح. استخدم YYYY-MM-DD.');
+      }
+      return value.trim();
+    }
+    final posting = validDate(postingDate, 'تاريخ الترحيل');
+    final from = validDate(startDate, 'بداية فترة الرواتب');
+    final to = validDate(endDate, 'نهاية فترة الرواتب');
+    if (cleanCompany.isEmpty || cleanCostCenter.isEmpty || cleanCurrency.isEmpty ||
+        payable.isEmpty || !const {'Monthly', 'Fortnightly', 'Bimonthly', 'Weekly', 'Daily'}.contains(frequency) ||
+        !exchangeRate.isFinite || exchangeRate <= 0 || from.compareTo(to) > 0) {
+      throw const FormatException('أكمل بيانات دورة الرواتب وتأكد من الفترة والتكرار وسعر الصرف.');
+    }
+    Future<core.Map<String, dynamic>> readSetupDoc(String doctype, String name, String failure) async {
+      final response = await _send(
+        'GET',
+        '/api/resource/' + Uri.encodeComponent(doctype) + '/' + Uri.encodeComponent(name),
+      );
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, failure));
+      }
+      final row = data['data'];
+      if (row is! core.Map<String, dynamic> || row['doctype'] != doctype || row['name'] != name) {
+        throw FormatException('بيانات $doctype غير مطابقة.');
+      }
+      return row;
+    }
+    final setup = await Future.wait([
+      readSetupDoc('Cost Center', cleanCostCenter, 'تعذر التحقق من مركز التكلفة.'),
+      readSetupDoc('Account', payable, 'تعذر التحقق من حساب الرواتب المستحقة.'),
+    ]);
+    final costCenterDoc = setup[0], payableDoc = setup[1];
+    if (costCenterDoc['company'] != cleanCompany || (costCenterDoc['disabled'] == 1 || costCenterDoc['disabled'] == true) ||
+        costCenterDoc['is_group'] == 1 || costCenterDoc['is_group'] == true) {
+      throw const FormatException('مركز التكلفة يجب أن يكون مركز ترحيل نشطاً تابعاً للشركة المحددة.');
+    }
+    if (payableDoc['company'] != cleanCompany || (payableDoc['disabled'] == 1 || payableDoc['disabled'] == true) ||
+        payableDoc['is_group'] == 1 || payableDoc['is_group'] == true ||
+        payableDoc['account_type'] != 'Payable') {
+      throw const FormatException('حساب الرواتب يجب أن يكون حساب Payable نشطاً وقابلاً للترحيل ضمن الشركة.');
+    }
+    final bankId = bankAccount?.trim() ?? '';
+    final paymentId = paymentAccount?.trim() ?? '';
+    if (bankId.isNotEmpty || paymentId.isNotEmpty) {
+      if (bankId.isEmpty || paymentId.isEmpty) {
+        throw const FormatException('يجب تحديد حساب البنك وحساب الأستاذ المرتبط به معاً.');
+      }
+      final bank = await readSetupDoc('Bank Account', bankId, 'تعذر التحقق من حساب البنك.');
+      if (bank['company'] != cleanCompany || bank['disabled'] == 1 || bank['disabled'] == true ||
+          (bank['is_company_account'] != 1 && bank['is_company_account'] != true) || bank['account'] != paymentId) {
+        throw const FormatException('حساب البنك أو حساب الأستاذ المرتبط به لا يتبع الشركة أو غير صالح للصرف.');
+      }
+      final paymentDoc = await readSetupDoc('Account', paymentId, 'تعذر التحقق من حساب الدفع.');
+      if (paymentDoc['company'] != cleanCompany || paymentDoc['disabled'] == 1 || paymentDoc['disabled'] == true ||
+          paymentDoc['is_group'] == 1 || paymentDoc['is_group'] == true ||
+          !{'Bank', 'Cash'}.contains(paymentDoc['account_type'])) {
+        throw const FormatException('حساب الدفع يجب أن يكون حساب بنك أو نقد نشطاً وقابلاً للترحيل ضمن الشركة.');
+      }
+    }
+    final doc = <String, dynamic>{
+      'doctype': 'Payroll Entry',
+      'company': cleanCompany,
+      'posting_date': posting,
+      'start_date': from,
+      'end_date': to,
+      'payroll_frequency': frequency,
+      'salary_slip_based_on_timesheet': 0,
+      'cost_center': cleanCostCenter,
+      'currency': cleanCurrency,
+      'exchange_rate': exchangeRate,
+      'payroll_payable_account': payable,
+      if (paymentAccount?.trim().isNotEmpty == true) 'payment_account': paymentAccount!.trim(),
+      if (bankAccount?.trim().isNotEmpty == true) 'bank_account': bankAccount!.trim(),
+    };
+    final response = await _sendJson('POST', '/api/resource/Payroll%20Entry', doc);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'رفض ERPNext إنشاء دورة الرواتب. تحقق من إعدادات HRMS والحسابات.'));
+    }
+    final created = data['data'];
+    if (created is! core.Map<String, dynamic> || created['doctype'] != 'Payroll Entry' ||
+        created['company'] != cleanCompany || created['docstatus'] != 0 ||
+        (created['name']?.toString().trim().isEmpty ?? true)) {
+      throw const FormatException('لم يؤكد ERPNext إنشاء مسودة دورة الرواتب الصحيحة.');
+    }
+    return core.Map<String, dynamic>.from(created);
+  }
+
+  Future<core.Map<String, dynamic>> _runPayrollEntryMethod({
+    required String name,
+    required String company,
+    required String method,
+    bool requireSubmitted = false,
+  }) async {
+    const allowedMethods = {'fill_employee_details', 'submit_salary_slips', 'make_bank_entry'};
+    if (!allowedMethods.contains(method)) throw ArgumentError.value(method, 'method', 'إجراء رواتب غير مدعوم.');
+    final id = name.trim(), normalizedCompany = company.trim();
+    if (id.isEmpty || normalizedCompany.isEmpty) throw const FormatException('رقم دورة الرواتب والشركة مطلوبان.');
+    final response = await _send('GET', '/api/resource/Payroll%20Entry/' + Uri.encodeComponent(id));
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر إعادة قراءة دورة الرواتب.'));
+    }
+    final current = data['data'];
+    if (current is! core.Map<String, dynamic> || current['doctype'] != 'Payroll Entry' ||
+        current['name'] != id || current['company'] != normalizedCompany ||
+        (requireSubmitted ? current['docstatus'] != 1 : current['docstatus'] != 0)) {
+      throw const FormatException('تم رفض الإجراء لأن دورة الرواتب لا تتبع الشركة أو أن حالتها غير مناسبة.');
+    }
+    final result = await _sendJson('POST', '/api/method/run_doc_method', {
+      'docs': jsonEncode(current),
+      'method': method,
+    });
+    final resultData = _decode(result.body);
+    if (result.statusCode < 200 || result.statusCode >= 300) {
+      throw Exception(_message(resultData, 'تعذر تنفيذ إجراء الرواتب $method.'));
+    }
+    final docs = resultData['docs'];
+    if (docs is! List || docs.isEmpty || docs.first is! core.Map<String, dynamic>) {
+      throw const FormatException('لم يُرجع ERPNext دورة رواتب محدثة بعد تنفيذ الإجراء.');
+    }
+    final updated = core.Map<String, dynamic>.from(docs.first as core.Map);
+    if (updated['doctype'] != 'Payroll Entry' || updated['name'] != id ||
+        updated['company'] != normalizedCompany) {
+      throw const FormatException('استجابة إجراء الرواتب لا تطابق دورة الرواتب المطلوبة.');
+    }
+    updated['_mobile_method_message'] = resultData['message'];
+    return updated;
+  }
+
+  Future<core.Map<String, dynamic>> fillPayrollEmployees({
+    required String name,
+    required String company,
+  }) async {
+    final id = name.trim(), normalizedCompany = company.trim();
+    final updated = await _runPayrollEntryMethod(
+      name: id, company: normalizedCompany, method: 'fill_employee_details',
+    );
+    final employees = updated['employees'];
+    if (employees is! List || employees.isEmpty) {
+      throw const FormatException('لم يعثر HRMS على موظفين لهم تعيين هيكل راتب نشط مطابق للفترة والحسابات.');
+    }
+    final saveResponse = await _sendJson(
+      'PUT',
+      '/api/resource/Payroll%20Entry/' + Uri.encodeComponent(id),
+      {
+        'employees': employees,
+        'number_of_employees': updated['number_of_employees'] ?? employees.length,
+      },
+    );
+    final saveData = _decode(saveResponse.body);
+    if (saveResponse.statusCode < 200 || saveResponse.statusCode >= 300) {
+      throw Exception(_message(saveData, 'تعذر حفظ قائمة الموظفين في مسودة دورة الرواتب.'));
+    }
+    final saved = saveData['data'];
+    if (saved is! core.Map<String, dynamic> || saved['name'] != id ||
+        saved['company'] != normalizedCompany || saved['employees'] is! List ||
+        (saved['employees'] as List).length != employees.length) {
+      throw const FormatException('لم يؤكد ERPNext حفظ قائمة الموظفين الصحيحة في دورة الرواتب.');
+    }
+    final unmarked = updated['_mobile_method_message'];
+    if (unmarked is List && unmarked.isNotEmpty) {
+      throw FormatException('لا يمكن ترحيل الرواتب قبل استكمال تسجيل الحضور لبعض الموظفين. عدد الحالات غير المكتملة: ${unmarked.length}.');
+    }
+    return {...core.Map<String, dynamic>.from(saved), 'mobile_unmarked_attendance': unmarked ?? const []};
+  }
+
+  Future<core.Map<String, dynamic>> submitPayrollSalarySlips({
+    required String name,
+    required String company,
+  }) async {
+    final updated = await _runPayrollEntryMethod(
+      name: name, company: company, method: 'submit_salary_slips', requireSubmitted: true,
+    );
+    final slips = await fetchPayrollSalarySlips(payrollEntry: name, company: company);
+    final pending = slips.where((row) => row['docstatus'] == 0).length;
+    return {...updated, 'mobile_pending_salary_slips': pending};
+  }
+
+  Future<core.Map<String, dynamic>> createPayrollBankEntry({
+    required String name,
+    required String company,
+  }) async {
+    final document = await fetchPayrollEntryDocument(name: name, company: company);
+    if ((document['payment_account']?.toString().trim().isEmpty ?? true) ||
+        (document['bank_account']?.toString().trim().isEmpty ?? true)) {
+      throw const FormatException('حدد حساب الدفع وحساب البنك في دورة الرواتب قبل إنشاء قيد الصرف.');
+    }
+    final slips = await fetchPayrollSalarySlips(payrollEntry: name, company: company);
+    if (slips.isEmpty || slips.any((row) => row['docstatus'] != 1)) {
+      throw const FormatException('لا يمكن إنشاء قيد الصرف قبل اعتماد جميع كشوف الرواتب المرتبطة بالدورة.');
+    }
+    return _runPayrollEntryMethod(
+      name: name, company: company, method: 'make_bank_entry', requireSubmitted: true,
+    );
+  }
+
+  Future<core.Map<String, dynamic>> submitPayrollEntry({
+    required String name,
+    required String company,
+  }) async {
+    final id = name.trim(), normalizedCompany = company.trim();
+    if (id.isEmpty || normalizedCompany.isEmpty) throw const FormatException('رقم دورة الرواتب والشركة مطلوبان.');
+    await fillPayrollEmployees(name: id, company: normalizedCompany);
+    final response = await _send('GET', '/api/resource/Payroll%20Entry/' + Uri.encodeComponent(id));
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر إعادة قراءة دورة الرواتب قبل الترحيل.'));
+    }
+    final current = data['data'];
+    if (current is! core.Map<String, dynamic> || current['doctype'] != 'Payroll Entry' ||
+        current['name'] != id || current['company'] != normalizedCompany ||
+        current['docstatus'] != 0 || current['employees'] is! List ||
+        (current['employees'] as List).isEmpty) {
+      throw const FormatException('لا يمكن ترحيل دورة الرواتب قبل تحميل الموظفين والتحقق من الشركة والحالة.');
+    }
+    final responseSubmit = await _sendJson('POST', '/api/method/frappe.client.submit', {'doc': current});
+    final submitData = _decode(responseSubmit.body);
+    if (responseSubmit.statusCode < 200 || responseSubmit.statusCode >= 300) {
+      throw Exception(_message(submitData, 'رفض ERPNext ترحيل دورة الرواتب وإنشاء كشوف الرواتب.'));
+    }
+    final submitted = submitData['message'];
+    if (submitted is! core.Map<String, dynamic> || submitted['doctype'] != 'Payroll Entry' ||
+        submitted['name'] != id || submitted['company'] != normalizedCompany ||
+        submitted['docstatus'] != 1) {
+      throw const FormatException('لم يؤكد ERPNext ترحيل دورة الرواتب.');
+    }
+    return core.Map<String, dynamic>.from(submitted);
+  }
+
   // HR mobile access is intentionally allow-listed. ERPNext permissions,
   // employee/company rules and document validation remain authoritative.
-  static const Map<String, List<String>> _hrFields = {
+  static const core.Map<String, List<String>> _hrFields = {
     'Employee': ['name', 'employee_name', 'company', 'department', 'designation',
       'status', 'date_of_joining', 'reports_to', 'cell_number', 'prefered_email'],
     'Attendance': ['name', 'employee', 'employee_name', 'company', 'attendance_date',
@@ -3799,7 +5334,37 @@ class FrappeApi {
       'end_date', 'gross_pay', 'total_deduction', 'net_pay', 'currency', 'status', 'docstatus'],
   };
 
-  Future<List<Map<String, dynamic>>> fetchHrRecords({
+  Future<core.Map<String, dynamic>> fetchSalarySlipDetails({
+    required String name,
+    required String company,
+  }) async {
+    final id = name.trim(), normalizedCompany = company.trim();
+    if (id.isEmpty || normalizedCompany.isEmpty) {
+      throw const FormatException('رقم كشف الراتب والشركة مطلوبان.');
+    }
+    final response = await _send(
+      'GET', '/api/resource/Salary%20Slip/' + Uri.encodeComponent(id),
+    );
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل تفاصيل كشف الراتب.'));
+    }
+    final document = data['data'];
+    if (document is! core.Map<String, dynamic> ||
+        document['doctype'] != 'Salary Slip' || document['name'] != id ||
+        document['company'] != normalizedCompany) {
+      throw const FormatException('كشف الراتب لا ينتمي إلى الشركة المحددة أو أن هويته غير مطابقة.');
+    }
+    for (final field in const ['earnings', 'deductions']) {
+      final rows = document[field];
+      if (rows != null && rows is! List) {
+        throw FormatException('تفاصيل $field في كشف الراتب غير متوقعة.');
+      }
+    }
+    return core.Map<String, dynamic>.from(document);
+  }
+
+  Future<List<core.Map<String, dynamic>>> fetchHrRecords({
     required String doctype,
     String? company,
     int start = 0,
@@ -3836,12 +5401,12 @@ class FrappeApi {
     }
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة سجلات $doctype غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>()
+    return rows.whereType<core.Map<String, dynamic>>()
       .where((row) => normalizedCompany.isEmpty || row['company'] == normalizedCompany)
-      .map((row) => Map<String, dynamic>.from(row)).toList(growable: false);
+      .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
   }
 
-  Future<Map<String, dynamic>> _fetchHrEmployee(String employee, String company) async {
+  Future<core.Map<String, dynamic>> _fetchHrEmployee(String employee, String company) async {
     final id = employee.trim(), normalizedCompany = company.trim();
     if (id.isEmpty || normalizedCompany.isEmpty) throw const FormatException('حدد الموظف والشركة.');
     final response = await _send('GET', '/api/resource/Employee/' + Uri.encodeComponent(id));
@@ -3850,15 +5415,15 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر التحقق من الموظف. تحقق من صلاحية قراءة Employee.'));
     }
     final row = data['data'];
-    if (row is! Map<String, dynamic> || row['name'] != id ||
+    if (row is! core.Map<String, dynamic> || row['name'] != id ||
         row['company'] != normalizedCompany || row['status'] == 'Left' ||
         row['status'] == 'Inactive') {
       throw const FormatException('الموظف غير موجود أو لا يتبع الشركة المحددة أو غير نشط.');
     }
-    return Map<String, dynamic>.from(row);
+    return core.Map<String, dynamic>.from(row);
   }
 
-  Future<Map<String, dynamic>> createAttendanceDraft({
+  Future<core.Map<String, dynamic>> createAttendanceDraft({
     required String employee,
     required String company,
     required String attendanceDate,
@@ -3871,6 +5436,9 @@ class FrappeApi {
     }
     if (!const {'Present', 'Absent', 'On Leave', 'Half Day', 'Work From Home'}.contains(status)) {
       throw const FormatException('حالة الحضور المحددة غير مدعومة.');
+    }
+    if (status == 'On Leave' && (leaveType?.trim().isEmpty ?? true)) {
+      throw const FormatException('حدد نوع الإجازة عند تسجيل حالة في إجازة.');
     }
     await _fetchHrEmployee(employee, company);
     final duplicateUri = buildResourcePageUri(
@@ -3891,11 +5459,8 @@ class FrappeApi {
     }
     final existingAttendance = duplicateData['data'];
     if (existingAttendance is! List) throw const FormatException('استجابة التحقق من تكرار الحضور غير متوقعة.');
-    if (existingAttendance.whereType<Map<String, dynamic>>().any((row) => row['docstatus'] != 2)) {
+    if (existingAttendance.whereType<core.Map<String, dynamic>>().any((row) => row['docstatus'] != 2)) {
       throw const FormatException('يوجد سجل حضور أو مسودة لهذا الموظف في التاريخ المحدد.');
-    }
-    if (status == 'On Leave' && (leaveType?.trim().isEmpty ?? true)) {
-      throw const FormatException('حدد نوع الإجازة عند تسجيل حالة في إجازة.');
     }
     final payload = <String, dynamic>{
       'doctype': 'Attendance',
@@ -3911,15 +5476,15 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر إنشاء مسودة الحضور.'));
     }
     final created = data['data'];
-    if (created is! Map<String, dynamic> || created['doctype'] != 'Attendance' ||
+    if (created is! core.Map<String, dynamic> || created['doctype'] != 'Attendance' ||
         created['name'] is! String || created['docstatus'] != 0 ||
         created['employee'] != employee.trim() || created['company'] != company.trim()) {
       throw const FormatException('لم يؤكد ERPNext إنشاء مسودة الحضور المطابقة.');
     }
-    return Map<String, dynamic>.from(created);
+    return core.Map<String, dynamic>.from(created);
   }
 
-  Future<Map<String, dynamic>> createLeaveApplicationDraft({
+  Future<core.Map<String, dynamic>> createLeaveApplicationDraft({
     required String employee,
     required String company,
     required String leaveType,
@@ -3951,15 +5516,15 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر إنشاء طلب الإجازة.'));
     }
     final created = data['data'];
-    if (created is! Map<String, dynamic> || created['doctype'] != 'Leave Application' ||
+    if (created is! core.Map<String, dynamic> || created['doctype'] != 'Leave Application' ||
         created['name'] is! String || created['docstatus'] != 0 ||
         created['employee'] != employee.trim() || created['company'] != company.trim()) {
       throw const FormatException('لم يؤكد ERPNext إنشاء طلب الإجازة المطابق.');
     }
-    return Map<String, dynamic>.from(created);
+    return core.Map<String, dynamic>.from(created);
   }
 
-  Future<List<Map<String, dynamic>>> fetchExpenseClaimTypes() async {
+  Future<List<core.Map<String, dynamic>>> fetchExpenseClaimTypes() async {
     final uri = buildResourcePageUri(
       baseUrl: _baseUrl,
       resource: 'Expense Claim Type',
@@ -3975,12 +5540,12 @@ class FrappeApi {
     }
     final rows = data['data'];
     if (rows is! List) throw const FormatException('استجابة أنواع المصروفات غير متوقعة.');
-    return rows.whereType<Map<String, dynamic>>()
+    return rows.whereType<core.Map<String, dynamic>>()
       .where((row) => row['disabled'] != 1 && row['disabled'] != true)
-      .map((row) => Map<String, dynamic>.from(row)).toList(growable: false);
+      .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
   }
 
-  Future<Map<String, dynamic>> createExpenseClaimDraft({
+  Future<core.Map<String, dynamic>> createExpenseClaimDraft({
     required String employee,
     required String company,
     required String postingDate,
@@ -4006,7 +5571,7 @@ class FrappeApi {
     final typeData = _decode(typeResponse.body);
     final type = typeData['data'];
     if (typeResponse.statusCode < 200 || typeResponse.statusCode >= 300 ||
-        type is! Map<String, dynamic> || type['name'] != expenseType.trim() ||
+        type is! core.Map<String, dynamic> || type['name'] != expenseType.trim() ||
         type['disabled'] == 1 || type['disabled'] == true) {
       throw const FormatException('نوع المصروف غير موجود أو معطل في ERPNext.');
     }
@@ -4017,7 +5582,7 @@ class FrappeApi {
     final accountData = _decode(accountResponse.body);
     final accountDoc = accountData['data'];
     if (accountResponse.statusCode < 200 || accountResponse.statusCode >= 300 ||
-        accountDoc is! Map<String, dynamic> || accountDoc['company'] != company.trim() ||
+        accountDoc is! core.Map<String, dynamic> || accountDoc['company'] != company.trim() ||
         accountDoc['is_group'] == 1 || accountDoc['is_group'] == true ||
         accountDoc['disabled'] == 1 || accountDoc['disabled'] == true) {
       throw const FormatException('حساب المصروف غير صالح أو لا يتبع الشركة المحددة أو ليس حساب حركة.');
@@ -4028,7 +5593,7 @@ class FrappeApi {
       final costData = _decode(costResponse.body);
       final costDoc = costData['data'];
       if (costResponse.statusCode < 200 || costResponse.statusCode >= 300 ||
-          costDoc is! Map<String, dynamic> || costDoc['company'] != company.trim() ||
+          costDoc is! core.Map<String, dynamic> || costDoc['company'] != company.trim() ||
           costDoc['is_group'] == 1 || costDoc['is_group'] == true ||
           costDoc['disabled'] == 1 || costDoc['disabled'] == true) {
         throw const FormatException('مركز التكلفة غير صالح أو لا يتبع الشركة المحددة.');
@@ -4055,15 +5620,204 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر إنشاء مسودة مطالبة المصروفات.'));
     }
     final created = data['data'];
-    if (created is! Map<String, dynamic> || created['doctype'] != 'Expense Claim' ||
+    if (created is! core.Map<String, dynamic> || created['doctype'] != 'Expense Claim' ||
         created['name'] is! String || created['docstatus'] != 0 ||
         created['employee'] != employee.trim() || created['company'] != company.trim()) {
       throw const FormatException('لم يؤكد ERPNext إنشاء مطالبة المصروفات المطابقة.');
     }
-    return Map<String, dynamic>.from(created);
+    return core.Map<String, dynamic>.from(created);
   }
 
-  Future<Map<String, dynamic>> submitHrDraft({
+
+  Future<core.Map<String, dynamic>> createExpenseClaimDraftLines({
+    required String employee,
+    required String company,
+    required String postingDate,
+    required List<core.Map<String, dynamic>> expenses,
+  }) async {
+    final date = DateTime.tryParse(postingDate.trim());
+    if (date == null || date.toIso8601String().substring(0, 10) != postingDate.trim()) {
+      throw const FormatException('تاريخ المطالبة يجب أن يكون بصيغة YYYY-MM-DD.');
+    }
+    if (expenses.isEmpty || expenses.length > 50) {
+      throw const FormatException('أضف بند مصروف واحداً على الأقل، وبحد أقصى 50 بنداً.');
+    }
+    await _fetchHrEmployee(employee, company);
+    final typeCache = <String, core.Map<String, dynamic>>{};
+    final accountCache = <String, core.Map<String, dynamic>>{};
+    final costCenterCache = <String, core.Map<String, dynamic>>{};
+    final cleanExpenses = <core.Map<String, dynamic>>[];
+    for (var index = 0; index < expenses.length; index++) {
+      final row = expenses[index];
+      final typeName = row['expense_type']?.toString().trim() ?? '';
+      final amount = row['amount'] is num
+          ? (row['amount'] as num).toDouble()
+          : double.tryParse(row['amount']?.toString() ?? '') ?? double.nan;
+      if (typeName.isEmpty || !amount.isFinite || amount <= 0) {
+        throw FormatException('تحقق من نوع ومبلغ بند المصروف رقم ${index + 1}.');
+      }
+      var type = typeCache[typeName];
+      if (type == null) {
+        final typeResponse = await _send('GET', '/api/resource/Expense%20Claim%20Type/' + Uri.encodeComponent(typeName));
+        final typeData = _decode(typeResponse.body);
+        final rawType = typeData['data'];
+        if (typeResponse.statusCode < 200 || typeResponse.statusCode >= 300 ||
+            rawType is! core.Map<String, dynamic> || rawType['name'] != typeName ||
+            rawType['disabled'] == 1 || rawType['disabled'] == true) {
+          throw FormatException('نوع المصروف غير موجود أو معطل: $typeName');
+        }
+        type = core.Map<String, dynamic>.from(rawType);
+        typeCache[typeName] = type;
+      }
+      final configuredAccount = type['default_account']?.toString().trim() ?? '';
+      final account = configuredAccount.isNotEmpty
+          ? configuredAccount
+          : (row['default_account']?.toString().trim() ?? '');
+      if (account.isEmpty) throw FormatException('حدد حساباً لبند المصروف: $typeName');
+      var accountDoc = accountCache[account];
+      if (accountDoc == null) {
+        final accountResponse = await _send('GET', '/api/resource/Account/' + Uri.encodeComponent(account));
+        final accountData = _decode(accountResponse.body);
+        final rawAccount = accountData['data'];
+        if (accountResponse.statusCode < 200 || accountResponse.statusCode >= 300 ||
+            rawAccount is! core.Map<String, dynamic> || rawAccount['company'] != company.trim() ||
+            rawAccount['is_group'] == 1 || rawAccount['is_group'] == true ||
+            rawAccount['disabled'] == 1 || rawAccount['disabled'] == true) {
+          throw FormatException('حساب المصروف غير صالح أو لا يتبع الشركة: $account');
+        }
+        accountDoc = core.Map<String, dynamic>.from(rawAccount);
+        accountCache[account] = accountDoc;
+      }
+      final costCenter = row['cost_center']?.toString().trim() ?? '';
+      if (costCenter.isNotEmpty && !costCenterCache.containsKey(costCenter)) {
+        final costResponse = await _send('GET', '/api/resource/Cost%20Center/' + Uri.encodeComponent(costCenter));
+        final costData = _decode(costResponse.body);
+        final rawCostCenter = costData['data'];
+        if (costResponse.statusCode < 200 || costResponse.statusCode >= 300 ||
+            rawCostCenter is! core.Map<String, dynamic> || rawCostCenter['company'] != company.trim() ||
+            rawCostCenter['is_group'] == 1 || rawCostCenter['is_group'] == true ||
+            rawCostCenter['disabled'] == 1 || rawCostCenter['disabled'] == true) {
+          throw FormatException('مركز التكلفة غير صالح أو لا يتبع الشركة: $costCenter');
+        }
+        costCenterCache[costCenter] = core.Map<String, dynamic>.from(rawCostCenter);
+      }
+      cleanExpenses.add({
+        'doctype': 'Expense Claim Detail',
+        'expense_type': typeName,
+        'expense_date': postingDate.trim(),
+        'amount': amount,
+        'default_account': account,
+        'description': row['description']?.toString().trim() ?? '',
+        if (costCenter.isNotEmpty) 'cost_center': costCenter,
+      });
+    }
+    final response = await _sendJson('POST', '/api/resource/Expense%20Claim', {
+      'doctype': 'Expense Claim',
+      'employee': employee.trim(),
+      'company': company.trim(),
+      'posting_date': postingDate.trim(),
+      'expenses': cleanExpenses,
+    });
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر إنشاء مسودة مطالبة المصروفات متعددة البنود.'));
+    }
+    final created = data['data'];
+    final savedExpenses = created is core.Map<String, dynamic> ? created['expenses'] : null;
+    if (created is! core.Map<String, dynamic> || created['doctype'] != 'Expense Claim' ||
+        created['name'] is! String || created['docstatus'] != 0 ||
+        created['employee'] != employee.trim() || created['company'] != company.trim() ||
+        savedExpenses is! List || savedExpenses.length != cleanExpenses.length) {
+      throw const FormatException('لم يؤكد ERPNext إنشاء مطالبة المصروفات متعددة البنود المطابقة.');
+    }
+    return core.Map<String, dynamic>.from(created);
+  }
+
+  Future<List<core.Map<String, dynamic>>> fetchWorkflowTransitions({
+    required String doctype,
+    required String name,
+    required String company,
+  }) async {
+    final type = doctype.trim(), id = name.trim(), normalizedCompany = company.trim();
+    if (type.isEmpty || id.isEmpty || normalizedCompany.isEmpty) {
+      throw const FormatException('نوع المستند ورقمه والشركة مطلوبة لجلب إجراءات الموافقة.');
+    }
+    final response = await _send('GET', '/api/resource/' +
+      Uri.encodeComponent(type) + '/' + Uri.encodeComponent(id));
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر قراءة المستند قبل جلب إجراءات الموافقة.'));
+    }
+    final current = data['data'];
+    if (current is! core.Map<String, dynamic> || current['doctype'] != type ||
+        current['name'] != id || current['company'] != normalizedCompany) {
+      throw const FormatException('المستند لا ينتمي إلى الشركة المحددة أو أن هويته غير مطابقة.');
+    }
+    final uri = Uri.parse('$_baseUrl/api/method/frappe.model.workflow.get_transitions')
+        .replace(queryParameters: {'doc': jsonEncode(current)});
+    final transitionsResponse = await _sendUri('GET', uri);
+    final transitionsData = _decode(transitionsResponse.body);
+    if (transitionsResponse.statusCode < 200 || transitionsResponse.statusCode >= 300) {
+      throw Exception(_message(transitionsData, 'تعذر جلب إجراءات سير العمل من ERPNext.'));
+    }
+    final rows = transitionsData['message'];
+    if (rows is! List) throw const FormatException('استجابة إجراءات سير العمل غير متوقعة.');
+    return rows.whereType<core.Map<String, dynamic>>().where((row) =>
+      row['action'] is String && (row['action'] as String).trim().isNotEmpty
+    ).map((row) => core.Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<core.Map<String, dynamic>> applyWorkflowAction({
+    required String doctype,
+    required String name,
+    required String company,
+    required String action,
+  }) async {
+    final type = doctype.trim(), id = name.trim();
+    final normalizedCompany = company.trim(), selectedAction = action.trim();
+    if (type.isEmpty || id.isEmpty || normalizedCompany.isEmpty || selectedAction.isEmpty) {
+      throw const FormatException('نوع المستند ورقمه والشركة وإجراء الموافقة مطلوبة.');
+    }
+    final response = await _send('GET', '/api/resource/' +
+      Uri.encodeComponent(type) + '/' + Uri.encodeComponent(id));
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر إعادة قراءة المستند قبل تنفيذ إجراء الموافقة.'));
+    }
+    final current = data['data'];
+    if (current is! core.Map<String, dynamic> || current['doctype'] != type ||
+        current['name'] != id || current['company'] != normalizedCompany) {
+      throw const FormatException('تم رفض الإجراء لأن هوية المستند أو الشركة غير مطابقة.');
+    }
+    final transitionsUri = Uri.parse('$_baseUrl/api/method/frappe.model.workflow.get_transitions')
+        .replace(queryParameters: {'doc': jsonEncode(current)});
+    final transitionsResponse = await _sendUri('GET', transitionsUri);
+    final transitionsData = _decode(transitionsResponse.body);
+    if (transitionsResponse.statusCode < 200 || transitionsResponse.statusCode >= 300) {
+      throw Exception(_message(transitionsData, 'تعذر التحقق من صلاحية إجراء سير العمل.'));
+    }
+    final transitions = transitionsData['message'];
+    if (transitions is! List || !transitions.whereType<core.Map>().any((row) =>
+        row['action']?.toString() == selectedAction)) {
+      throw const FormatException('الإجراء غير متاح لهذا المستند أو للمستخدم الحالي.');
+    }
+    final appliedResponse = await _sendJson(
+      'POST', '/api/method/frappe.model.workflow.apply_workflow',
+      {'doc': current, 'action': selectedAction},
+    );
+    final appliedData = _decode(appliedResponse.body);
+    if (appliedResponse.statusCode < 200 || appliedResponse.statusCode >= 300) {
+      throw Exception(_message(appliedData, 'رفض ERPNext تنفيذ إجراء سير العمل.'));
+    }
+    final updated = appliedData['message'];
+    if (updated is! core.Map<String, dynamic> || updated['doctype'] != type ||
+        updated['name'] != id || updated['company'] != normalizedCompany) {
+      throw const FormatException('لم يؤكد ERPNext تنفيذ الإجراء على المستند الصحيح.');
+    }
+    return core.Map<String, dynamic>.from(updated);
+  }
+
+  Future<core.Map<String, dynamic>> submitHrDraft({
     required String doctype,
     required String name,
     required String company,
@@ -4080,7 +5834,7 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر إعادة قراءة المستند قبل الترحيل.'));
     }
     final current = data['data'];
-    if (current is! Map<String, dynamic> || current['doctype'] != doctype ||
+    if (current is! core.Map<String, dynamic> || current['doctype'] != doctype ||
         current['name'] != id || current['company'] != normalizedCompany ||
         current['docstatus'] != 0 || (current['employee']?.toString().isEmpty ?? true)) {
       throw const FormatException('تم رفض الترحيل لأن هوية المستند أو الشركة أو حالته تغيرت.');
@@ -4091,14 +5845,255 @@ class FrappeApi {
       throw Exception(_message(submittedData, 'تعذر ترحيل مستند الموارد البشرية.'));
     }
     final submitted = submittedData['message'];
-    if (submitted is! Map<String, dynamic> || submitted['doctype'] != doctype ||
+    if (submitted is! core.Map<String, dynamic> || submitted['doctype'] != doctype ||
         submitted['name'] != id || submitted['company'] != normalizedCompany ||
         submitted['docstatus'] != 1) {
       throw const FormatException('لم يؤكد ERPNext ترحيل المستند المطلوب.');
     }
-    return Map<String, dynamic>.from(submitted);
+    return core.Map<String, dynamic>.from(submitted);
   }
 
+
+
+  Future<core.Map<String, dynamic>> cancelJournalEntry(String name, {required String company}) async {
+    final id = name.trim(), normalizedCompany = company.trim();
+    if (id.isEmpty || normalizedCompany.isEmpty) throw const FormatException('رقم القيد والشركة مطلوبان.');
+    final current = await fetchJournalEntryDocument(id);
+    if (current['company'] != normalizedCompany || current['docstatus'] != 1) {
+      throw const FormatException('يمكن إلغاء القيد المرحّل التابع للشركة المحددة فقط.');
+    }
+    final reversalRemark = 'قيد عكسي للقيد $id';
+    final reversalUri = buildResourcePageUri(
+      baseUrl: _baseUrl, resource: 'Journal Entry',
+      fields: const ['name', 'docstatus'],
+      filters: [['company', '=', normalizedCompany], ['user_remark', '=', reversalRemark]],
+      orderBy: 'modified desc', pageLength: 20,
+    );
+    final reversalResponse = await _sendUri('GET', reversalUri);
+    final reversalData = _decode(reversalResponse.body);
+    if (reversalResponse.statusCode < 200 || reversalResponse.statusCode >= 300) {
+      throw Exception(_message(reversalData, 'تعذر التحقق من وجود قيد عكسي قبل الإلغاء.'));
+    }
+    final reversalRows = reversalData['data'];
+    if (reversalRows is! List) throw const FormatException('استجابة التحقق من القيد العكسي غير متوقعة.');
+    if (reversalRows.whereType<core.Map<String, dynamic>>().any((row) => row['docstatus'] != 2)) {
+      throw const FormatException('ألغِ أو احسم القيد العكسي أولاً قبل إلغاء القيد الأصلي.');
+    }
+    final response = await _sendJson('POST', '/api/method/frappe.client.cancel', {'doc': current});
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر إلغاء القيد. تحقق من صلاحية الإلغاء والقيود المرتبطة.'));
+    }
+    final canceled = data['message'];
+    if (canceled is! core.Map<String, dynamic> || canceled['doctype'] != 'Journal Entry' ||
+        canceled['name'] != id || canceled['docstatus'] != 2) {
+      throw const FormatException('لم يؤكد ERPNext إلغاء القيد.');
+    }
+    return core.Map<String, dynamic>.from(canceled);
+  }
+
+  Future<core.Map<String, dynamic>> createJournalEntryReversalDraft({
+    required String name,
+    required String company,
+    required String postingDate,
+  }) async {
+    final id = name.trim(), normalizedCompany = company.trim();
+    final date = DateTime.tryParse(postingDate.trim());
+    if (id.isEmpty || normalizedCompany.isEmpty || date == null ||
+        date.toIso8601String().substring(0, 10) != postingDate.trim()) {
+      throw const FormatException('رقم القيد والشركة وتاريخ العكس الصحيح مطلوبة.');
+    }
+    final original = await fetchJournalEntryDocument(id);
+    if (original['doctype'] != 'Journal Entry' || original['company'] != normalizedCompany ||
+        original['docstatus'] != 1 || original['accounts'] is! List) {
+      throw const FormatException('يمكن إنشاء قيد عكسي من قيد مرحّل تابع للشركة المحددة فقط.');
+    }
+    final reversalRemark = 'قيد عكسي للقيد $id';
+    final existingUri = buildResourcePageUri(
+      baseUrl: _baseUrl, resource: 'Journal Entry',
+      fields: const ['name', 'docstatus', 'user_remark'],
+      filters: [['company', '=', normalizedCompany], ['user_remark', '=', reversalRemark]],
+      orderBy: 'modified desc', pageLength: 20,
+    );
+    final existingResponse = await _sendUri('GET', existingUri);
+    final existingData = _decode(existingResponse.body);
+    if (existingResponse.statusCode < 200 || existingResponse.statusCode >= 300) {
+      throw Exception(_message(existingData, 'تعذر التحقق من وجود قيد عكسي سابق.'));
+    }
+    final existingRows = existingData['data'];
+    if (existingRows is! List) throw const FormatException('استجابة التحقق من القيود العكسية غير متوقعة.');
+    if (existingRows.whereType<core.Map<String, dynamic>>().any((row) => row['docstatus'] != 2)) {
+      throw const FormatException('يوجد بالفعل قيد عكسي غير ملغى لهذا القيد.');
+    }
+    final reversedLines = <core.Map<String, dynamic>>[];
+    for (final raw in (original['accounts'] as List).whereType<core.Map<String, dynamic>>()) {
+      reversedLines.add({
+        'account': raw['account']?.toString() ?? '',
+        'debit': raw['credit_in_account_currency'] ?? raw['credit'] ?? 0,
+        'credit': raw['debit_in_account_currency'] ?? raw['debit'] ?? 0,
+        'exchange_rate': raw['exchange_rate'] ?? 1,
+        'cost_center': raw['cost_center'] ?? '',
+        'project': raw['project'] ?? '',
+        'party_type': raw['party_type'] ?? '',
+        'party': raw['party'] ?? '',
+        'reference_type': raw['reference_type'] ?? '',
+        'reference_name': raw['reference_name'] ?? '',
+        'against_voucher_type': raw['against_voucher_type'] ?? '',
+        'against_voucher': raw['against_voucher'] ?? '',
+        'is_advance': raw['is_advance'],
+      });
+    }
+    return saveJournalEntryDraft(
+      company: normalizedCompany,
+      postingDate: postingDate.trim(),
+      remark: reversalRemark,
+      accounts: reversedLines,
+    );
+  }
+
+Future<core.Map<String, dynamic>> startBankStatementImport(String importName) async {
+    final id = importName.trim();
+    if (id.isEmpty) throw const FormatException('رقم مستند الاستيراد غير موجود.');
+    final response = await _sendJson('POST',
+      '/api/method/erpnext.accounts.doctype.bank_statement_import.bank_statement_import.form_start_import',
+      {'data_import': id});
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'رفض ERPNext بدء استيراد كشف البنك.'));
+    }
+    final job = data['message'];
+    if (job != null && (job is! String || job.isEmpty)) {
+      throw const FormatException('أعاد ERPNext معرف مهمة استيراد غير صالح.');
+    }
+    return {'name': id, 'job_id': job, 'status': 'Queued'};
+  }
+
+  Future<core.Map<String, dynamic>> fetchBankStatementImportStatus(String importName) async {
+    final id = importName.trim();
+    if (id.isEmpty) throw const FormatException('رقم مستند الاستيراد غير موجود.');
+    final response = await _sendJson('POST',
+      '/api/method/erpnext.accounts.doctype.bank_statement_import.bank_statement_import.get_import_status',
+      {'docname': id});
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر قراءة حالة استيراد كشف البنك.'));
+    final status = data['message'];
+    if (status is! core.Map<String, dynamic>) throw const FormatException('استجابة حالة الاستيراد غير صحيحة.');
+    return core.Map<String, dynamic>.from(status);
+  }
+
+  Future<core.Map<String, dynamic>> saveBankStatementClosingBalance({
+    required String bankAccount, required String company,
+    required String statementDate, required double closingBalance,
+    String? importName,
+  }) async {
+    final account = bankAccount.trim(), cleanCompany = company.trim();
+    final date = _validateLedgerDate(statementDate, 'تاريخ رصيد كشف البنك');
+    if (account.isEmpty || cleanCompany.isEmpty || date == null ||
+        !closingBalance.isFinite || (importName?.trim().isEmpty ?? false)) {
+      throw const FormatException('بيانات رصيد كشف البنك الختامي غير مكتملة أو غير صحيحة.');
+    }
+    final accountResponse = await _send('GET',
+      '/api/resource/Bank%20Account/' + Uri.encodeComponent(account));
+    final accountData = _decode(accountResponse.body);
+    final bank = accountData['data'];
+    if (accountResponse.statusCode < 200 || accountResponse.statusCode >= 300 ||
+        bank is! core.Map<String, dynamic> || bank['company'] != cleanCompany || bank['name'] != account) {
+      throw const FormatException('الحساب البنكي لا يطابق الشركة؛ لم يُحفظ الرصيد.');
+    }
+    final content = jsonEncode({
+      'kind': 'bank_statement_closing_balance_v1', 'bank_account': account,
+      'company': cleanCompany, 'statement_date': date,
+      'closing_balance': closingBalance,
+      'currency': bank['account_currency'] ?? bank['currency'],
+      'bank_statement_import': importName?.trim(),
+    });
+    final response = await _sendJson('POST', '/api/resource/Comment', {
+      'doctype': 'Comment', 'comment_type': 'Info',
+      'reference_doctype': 'Bank Account', 'reference_name': account, 'content': content,
+    });
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر حفظ رصيد الكشف كسجل دائم في سجل الحساب البنكي.'));
+    final saved = data['data'];
+    if (saved is! core.Map<String, dynamic> || saved['doctype'] != 'Comment' ||
+        saved['reference_doctype'] != 'Bank Account' || saved['reference_name'] != account) {
+      throw const FormatException('لم يؤكد ERPNext حفظ سجل رصيد كشف البنك.');
+    }
+    return core.Map<String, dynamic>.from(saved);
+  }
+
+  Future<core.Map<String, dynamic>?> fetchLatestBankStatementClosingBalance({
+    required String bankAccount, required String company,
+  }) async {
+    final account = bankAccount.trim(), cleanCompany = company.trim();
+    if (account.isEmpty || cleanCompany.isEmpty) throw const FormatException('حدد الحساب البنكي والشركة.');
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl, resource: 'Comment',
+      fields: const ['name', 'content', 'creation', 'reference_doctype', 'reference_name'],
+      filters: [
+        ['reference_doctype', '=', 'Bank Account'],
+        ['reference_name', '=', account], ['comment_type', '=', 'Info'],
+      ],
+      orderBy: 'creation desc', pageLength: 100,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تحميل أرصدة كشف البنك المحفوظة.'));
+    final rows = data['data'];
+    if (rows is! List) throw const FormatException('استجابة أرصدة كشف البنك غير صحيحة.');
+    for (final raw in rows) {
+      if (raw is! core.Map<String, dynamic>) continue;
+      try {
+        final decoded = jsonDecode(raw['content']?.toString() ?? '');
+        if (decoded is core.Map<String, dynamic> &&
+            decoded['kind'] == 'bank_statement_closing_balance_v1' &&
+            decoded['bank_account'] == account && decoded['company'] == cleanCompany) {
+          return {...decoded, 'comment_name': raw['name'], 'creation': raw['creation']};
+        }
+      } catch (_) {}
+    }
+    return null;
+  }
+
+  Future<core.Map<String, dynamic>> fetchPartyLedgerTotals({
+    required String partyType, required String party,
+    String? company, String? fromDate, String? toDate,
+  }) async {
+    final cleanParty = party.trim();
+    final from = _validateLedgerDate(fromDate, 'تاريخ البداية');
+    final to = _validateLedgerDate(toDate, 'تاريخ النهاية');
+    if (cleanParty.isEmpty || !{'Customer', 'Supplier'}.contains(partyType) ||
+        (from != null && to != null && from.compareTo(to) > 0)) {
+      throw const FormatException('بيانات إجماليات كشف الحساب غير صحيحة.');
+    }
+    final filters = <List<dynamic>>[
+      ['party_type', '=', partyType], ['party', '=', cleanParty],
+      ['is_cancelled', '=', 0],
+      if (company?.trim().isNotEmpty == true) ['company', '=', company!.trim()],
+      if (from != null) ['posting_date', '>=', from],
+      if (to != null) ['posting_date', '<=', to],
+    ];
+    final uri = Uri.parse('$_baseUrl/api/method/frappe.client.get_list').replace(
+      queryParameters: {
+        'doctype': 'GL Entry',
+        'fields': jsonEncode(['sum(debit) as debit', 'sum(credit) as credit']),
+        'filters': jsonEncode(filters), 'limit_page_length': '1',
+      },
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر حساب إجماليات كشف الحساب.'));
+    }
+    final rows = data['message'];
+    if (rows is! List || rows.isEmpty || rows.first is! core.Map<String, dynamic>) {
+      return {'debit': 0.0, 'credit': 0.0, 'balance': 0.0};
+    }
+    final row = rows.first as core.Map<String, dynamic>;
+    final debit = double.tryParse(row['debit']?.toString() ?? '') ?? 0.0;
+    final credit = double.tryParse(row['credit']?.toString() ?? '') ?? 0.0;
+    if (!debit.isFinite || !credit.isFinite) throw const FormatException('إجماليات دفتر الأستاذ غير صالحة.');
+    return {'debit': debit, 'credit': credit, 'balance': debit - credit};
+  }
 
   void dispose() => _client.close(force: true);
 }

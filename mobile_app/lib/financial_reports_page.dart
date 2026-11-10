@@ -1,7 +1,14 @@
 // ignore_for_file: prefer_interpolation_to_compose_strings
+import 'dart:core';
+import 'dart:core' as core;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:excel/excel.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
 
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
@@ -38,7 +45,7 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
   String? _company;
   String? _error;
   String? _stockError;
-  List<Map<String, dynamic>> _rows = const [];
+  List<core.Map<String, dynamic>> _rows = const [];
   List<ErpStockBalance> _stockBalances = const [];
   List<ErpWarehouse> _warehouses = const [];
   int _requestGeneration = 0;
@@ -237,7 +244,7 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
   }
 
   Future<void> _copyStandardReportCsv() async {
-    final columns = _standardColumns.whereType<Map>().toList(growable: false);
+    final columns = _standardColumns.whereType<core.Map>().toList(growable: false);
     if (columns.isEmpty || _standardRows.isEmpty) return;
     String cell(dynamic value) => '"' + (value?.toString() ?? '').replaceAll('"', '""') + '"';
     final headers = columns.map((column) => cell(column['label'] ?? column['fieldname'])).join(',');
@@ -248,7 +255,7 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
         final column = columns[index];
         final field = column['fieldname']?.toString() ?? '';
         dynamic value;
-        if (row is Map) {
+        if (row is core.Map) {
           value = row[field];
           value ??= row[column['label']];
         } else if (row is List && index < row.length) {
@@ -265,8 +272,138 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
     );
   }
 
+
+
+  Future<void> _shareStandardReportPdf() async {
+    final columns = _standardColumns.whereType<core.Map>().toList(growable: false);
+    if (columns.isEmpty || _standardRows.isEmpty) return;
+    if (_standardRows.length > 3000) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('التقرير كبير لملف PDF؛ استخدم تصدير Excel لجميع الصفوف.')),
+      );
+      return;
+    }
+    try {
+      final arabicFont = await PdfGoogleFonts.notoNaskhArabicRegular();
+      final arabicBold = await PdfGoogleFonts.notoNaskhArabicBold();
+      final reportWidgets = <pw.Widget>[
+        pw.Text(_standardReportName, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+        pw.SizedBox(height: 4),
+        pw.Text('الشركة: ${_company ?? '—'} • من ${_reportDate(_reportFrom)} إلى ${_reportDate(_reportTo)}',
+          style: const pw.TextStyle(fontSize: 9)),
+        pw.SizedBox(height: 10),
+        ..._standardRows.asMap().entries.map((entry) {
+          final row = entry.value;
+          final values = <String>[];
+          for (var index = 0; index < columns.length; index++) {
+            final column = columns[index];
+            final field = column['fieldname']?.toString() ?? '';
+            final label = (column['label'] ?? field).toString();
+            dynamic value;
+            if (row is core.Map) {
+              value = row[field];
+              value ??= row[column['label']];
+            } else if (row is List && index < row.length) {
+              value = row[index];
+            }
+            if (value != null && value.toString().trim().isNotEmpty) {
+              values.add('$label: ${value.toString()}');
+            }
+          }
+          return pw.Container(
+            width: double.infinity,
+            padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 3),
+            decoration: const pw.BoxDecoration(
+              border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey300, width: 0.4)),
+            ),
+            child: pw.Text(
+              '${entry.key + 1}. ${values.join('   •   ')}',
+              style: const pw.TextStyle(fontSize: 9),
+            ),
+          );
+        }),
+      ];
+      final document = pw.Document();
+      document.addPage(pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        theme: pw.ThemeData.withFont(base: arabicFont, bold: arabicBold),
+        build: (_) => [
+          pw.Directionality(
+            textDirection: pw.TextDirection.rtl,
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: reportWidgets,
+            ),
+          ),
+        ],
+      ));
+      final bytes = await document.save();
+      final safeName = _standardReportName.replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_');
+      await Share.shareXFiles(
+        [XFile.fromData(Uint8List.fromList(bytes), mimeType: 'application/pdf', name: '$safeName.pdf')],
+        fileNameOverrides: ['$safeName.pdf'],
+        subject: 'ERPNext • $_standardReportName',
+        text: 'تقرير $_standardReportName • ${_standardRows.length} صف',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تعذر تصدير PDF: ${error.toString().replaceFirst('Exception: ', '')}')),
+      );
+    }
+  }
+
+  Future<void> _shareStandardReportXlsx() async {
+    final columns = _standardColumns.whereType<core.Map>().toList(growable: false);
+    if (columns.isEmpty || _standardRows.isEmpty) return;
+    try {
+      final workbook = Excel.createExcel();
+      final sheet = workbook['Report'];
+      sheet.appendRow(columns.map((column) =>
+        TextCellValue((column['label'] ?? column['fieldname'] ?? '').toString())
+      ).toList());
+      for (final row in _standardRows) {
+        final values = <CellValue>[];
+        for (var index = 0; index < columns.length; index++) {
+          final column = columns[index];
+          final field = column['fieldname']?.toString() ?? '';
+          dynamic value;
+          if (row is core.Map) {
+            value = row[field];
+            value ??= row[column['label']];
+          } else if (row is List && index < row.length) {
+            value = row[index];
+          }
+          values.add(TextCellValue(value?.toString() ?? ''));
+        }
+        sheet.appendRow(values);
+      }
+      for (var index = 0; index < columns.length; index++) {
+        sheet.setColumnAutoFit(index);
+      }
+      final bytes = workbook.encode();
+      if (bytes == null || bytes.isEmpty) {
+        throw const FormatException('تعذر إنشاء ملف Excel من بيانات التقرير.');
+      }
+      final safeName = _standardReportName.replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_');
+      await Share.shareXFiles(
+        [XFile.fromData(Uint8List.fromList(bytes),
+          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          name: '$safeName.xlsx')],
+        fileNameOverrides: ['$safeName.xlsx'],
+        subject: 'ERPNext • $_standardReportName',
+        text: 'تقرير $_standardReportName • ${_standardRows.length} صف',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تعذر تصدير Excel: ${error.toString().replaceFirst('Exception: ', '')}')),
+      );
+    }
+  }
+
   Widget _buildStandardReport() {
-    final columns = _standardColumns.whereType<Map>().toList(growable: false);
+    final columns = _standardColumns.whereType<core.Map>().toList(growable: false);
     final visibleColumns = columns;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -358,10 +495,17 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
           ),
         if (!_standardLoading && _standardError == null && _standardRows.isNotEmpty) ...[
           const SizedBox(height: 12),
-          Row(children: [
-            Expanded(child: Text('عدد الصفوف: ' + _standardRows.length.toString(), style: Theme.of(context).textTheme.titleMedium)),
-            OutlinedButton.icon(onPressed: _copyStandardReportCsv, icon: const Icon(Icons.copy_all), label: const Text('نسخ CSV')),
-          ]),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text('عدد الصفوف: ' + _standardRows.length.toString(), style: Theme.of(context).textTheme.titleMedium),
+              OutlinedButton.icon(onPressed: _copyStandardReportCsv, icon: const Icon(Icons.copy_all), label: const Text('نسخ CSV')),
+              FilledButton.tonalIcon(onPressed: _shareStandardReportXlsx, icon: const Icon(Icons.file_download_outlined), label: const Text('Excel')),
+              FilledButton.tonalIcon(onPressed: _shareStandardReportPdf, icon: const Icon(Icons.picture_as_pdf_outlined), label: const Text('PDF')),
+            ],
+          ),
           ..._standardRows.map((rawRow) {
             final values = <String>[];
             for (var index = 0; index < visibleColumns.length; index++) {
@@ -369,7 +513,7 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
               final field = column['fieldname']?.toString() ?? '';
               final label = column['label']?.toString() ?? field;
               dynamic value;
-              if (rawRow is Map) {
+              if (rawRow is core.Map) {
                 value = rawRow[field];
                 if (value == null && label.isNotEmpty) value = rawRow[label];
               } else if (rawRow is List && index < rawRow.length) {
@@ -379,7 +523,7 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
                 values.add(label + ': ' + value.toString());
               }
             }
-            if (values.isEmpty && rawRow is Map) {
+            if (values.isEmpty && rawRow is core.Map) {
               rawRow.forEach((key, value) {
                 if (value != null && value.toString().trim().isNotEmpty) {
                   values.add(key.toString() + ': ' + value.toString());
@@ -483,18 +627,18 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
     );
   }
 
-  double _amount(Map<String, dynamic> row) {
+  double _amount(core.Map<String, dynamic> row) {
     final value = row['outstanding_amount'];
     if (value is num) return value.toDouble();
     return double.tryParse(value?.toString() ?? '') ?? 0;
   }
 
-  DateTime? _dueDate(Map<String, dynamic> row) {
+  DateTime? _dueDate(core.Map<String, dynamic> row) {
     final due = DateTime.tryParse(row['due_date']?.toString() ?? '');
     return due ?? DateTime.tryParse(row['posting_date']?.toString() ?? '');
   }
 
-  int _bucket(Map<String, dynamic> row) {
+  int _bucket(core.Map<String, dynamic> row) {
     final due = _dueDate(row);
     if (due == null) return 0;
     final today = DateTime.now();
@@ -511,7 +655,7 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
   String _money(double amount, String currency) =>
       '${amount.toStringAsFixed(2)} ${currency.isEmpty ? '—' : currency}';
 
-  Widget _summaryForCurrency(String currency, List<Map<String, dynamic>> rows) {
+  Widget _summaryForCurrency(String currency, List<core.Map<String, dynamic>> rows) {
     final totals = List<double>.filled(5, 0);
     for (final row in rows) {
       totals[_bucket(row)] += _amount(row);
@@ -554,7 +698,7 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
     );
   }
 
-  Widget _invoiceTile(Map<String, dynamic> row) {
+  Widget _invoiceTile(core.Map<String, dynamic> row) {
     final partyField = _receivables ? 'customer_name' : 'supplier_name';
     final partyCodeField = _receivables ? 'customer' : 'supplier';
     final party = row[partyField]?.toString().trim().isNotEmpty == true
@@ -586,7 +730,7 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final grouped = <String, List<Map<String, dynamic>>>{};
+    final grouped = <String, List<core.Map<String, dynamic>>>{};
     for (final row in _rows) {
       final currency = row['currency']?.toString() ?? '';
       grouped.putIfAbsent(currency, () => []).add(row);
@@ -631,7 +775,7 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
           runSpacing: 8,
           children: [
             OutlinedButton.icon(
-              onPressed: () {
+              onPressed: _standardLoading ? null : () {
                 setState(() {
                   _showInventoryValuation = !_showInventoryValuation;
                   _showStandardReport = false;
@@ -646,7 +790,7 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
               label: Text(_showInventoryValuation ? 'العودة إلى تقارير الذمم' : 'فتح تقرير قيمة المخزون'),
             ),
             OutlinedButton.icon(
-              onPressed: () {
+              onPressed: _standardLoading ? null : () {
                 setState(() {
                   _showStandardReport = !_showStandardReport;
                   _showInventoryValuation = false;
@@ -686,7 +830,7 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
               child: Text(company.name),
             )),
           ],
-          onChanged: (_loading || _stockLoading) ? null : (value) {
+          onChanged: (_loading || _stockLoading || _standardLoading) ? null : (value) {
             setState(() => _company = value == null || value.isEmpty ? null : value);
             if (!_showInventoryValuation && !_showStandardReport) _load();
           },

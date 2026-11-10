@@ -1,3 +1,5 @@
+import 'dart:core';
+import 'dart:core' as core;
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
@@ -10,10 +12,12 @@ import 'sales_pricing_page.dart';
 import 'sales_commission_page.dart';
 import 'sales_dashboard_page.dart';
 import 'payment_reconciliation_page.dart';
+import 'bank_reconciliation_page.dart';
 import 'master_data_page.dart';
 import 'chart_of_accounts_page.dart';
 import 'journal_entries_page.dart';
 import 'hr_workflows_page.dart';
+import 'payroll_page.dart';
 import 'warehouse_hierarchy_page.dart';
 import 'models/erp_models.dart';
 import 'widgets/count_card.dart';
@@ -63,6 +67,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   final _passwordController = TextEditingController();
   final _loginFormKey = GlobalKey<FormState>();
   bool _showPassword = false;
+  bool _isGuest = false;
   final _itemSearchController = TextEditingController();
   final _stockSearchController = TextEditingController();
   final _warehouseSearchController = TextEditingController();
@@ -85,7 +90,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
   String? _selectedWarehouse;
   int _selectedTab = 0;
   bool _busy = false;
-  bool _isGuest = false;
   int _loginAttempt = 0;
   String? _error;
   String? _user;
@@ -145,6 +149,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       if (!mounted || attempt != _loginAttempt) return;
       setState(() {
         _user = user;
+        _isGuest = false;
         _passwordController.clear();
         _companiesLoading = true;
         _companyError = null;
@@ -156,6 +161,69 @@ class _MobileHomePageState extends State<MobileHomePage> {
       await _loadSales();
       if (!mounted || attempt != _loginAttempt) return;
       await _loadPurchases();
+    } catch (error) {
+      if (!mounted || attempt != _loginAttempt) return;
+      setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted && attempt == _loginAttempt) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _continueAsGuest() async {
+    final attempt = ++_loginAttempt;
+    FocusScope.of(context).unfocus();
+    setState(() { _busy = true; _error = null; });
+    try {
+      // Guest access is fully local: no server URL, authentication, or HTTP calls.
+      _api.enableGuestMode();
+      if (!mounted || attempt != _loginAttempt) return;
+      setState(() {
+        _user = 'ضيف';
+        _isGuest = true;
+        // Clearly synthetic sample records make the main screens useful offline.
+        _companies = const [
+          ErpCompany(name: 'شركة العرض التجريبي', abbr: 'DEMO', defaultCurrency: 'YER'),
+        ];
+        _items = const [
+          ErpItem(code: 'DEMO-001', name: 'هاتف ذكي - عينة', group: 'إلكترونيات', stockUom: 'قطعة', isStockItem: true),
+          ErpItem(code: 'DEMO-002', name: 'سماعة لاسلكية - عينة', group: 'إلكترونيات', stockUom: 'قطعة', isStockItem: true),
+          ErpItem(code: 'DEMO-003', name: 'شاحن سريع - عينة', group: 'إكسسوارات', stockUom: 'قطعة', isStockItem: true),
+          ErpItem(code: 'DEMO-004', name: 'كابل USB - عينة', group: 'إكسسوارات', stockUom: 'قطعة', isStockItem: true),
+        ];
+        _warehouses = const [
+          ErpWarehouse(id: 'DEMO-WH-01', name: 'المستودع الرئيسي - تجريبي', company: 'شركة العرض التجريبي'),
+          ErpWarehouse(id: 'DEMO-WH-02', name: 'معرض البيع - تجريبي', company: 'شركة العرض التجريبي'),
+        ];
+        _stockBalances = const [
+          ErpStockBalance(itemCode: 'DEMO-001', warehouse: 'DEMO-WH-01', actualQty: 12, reservedQty: 2, projectedQty: 10, stockUom: 'قطعة', valuationRate: 85000, stockValue: 1020000),
+          ErpStockBalance(itemCode: 'DEMO-002', warehouse: 'DEMO-WH-01', actualQty: 25, reservedQty: 3, projectedQty: 22, stockUom: 'قطعة', valuationRate: 12000, stockValue: 300000),
+          ErpStockBalance(itemCode: 'DEMO-003', warehouse: 'DEMO-WH-02', actualQty: 3, reservedQty: 1, projectedQty: 2, stockUom: 'قطعة', valuationRate: 6500, stockValue: 19500),
+          ErpStockBalance(itemCode: 'DEMO-004', warehouse: 'DEMO-WH-02', actualQty: 40, reservedQty: 0, projectedQty: 40, stockUom: 'قطعة', valuationRate: 1800, stockValue: 72000),
+        ];
+        _customers = const [
+          ErpCustomer(id: 'DEMO-CUST-01', name: 'عميل تجريبي أول', type: 'Individual', group: 'تجريبي', territory: 'صنعاء'),
+          ErpCustomer(id: 'DEMO-CUST-02', name: 'مؤسسة العرض التجريبي', type: 'Company', group: 'تجريبي', territory: 'تعز'),
+        ];
+        _salesInvoices = const [
+          ErpSalesInvoice(id: 'DEMO-SINV-001', customer: 'DEMO-CUST-01', customerName: 'عميل تجريبي أول', postingDate: '2026-11-08', currency: 'YER', grandTotal: 97000, outstandingAmount: 25000, status: 'غير مدفوعة جزئياً'),
+          ErpSalesInvoice(id: 'DEMO-SINV-002', customer: 'DEMO-CUST-02', customerName: 'مؤسسة العرض التجريبي', postingDate: '2026-11-07', currency: 'YER', grandTotal: 24000, outstandingAmount: 0, status: 'مدفوعة'),
+        ];
+        _suppliers = const [
+          ErpSupplier(id: 'DEMO-SUP-01', name: 'مورد تجريبي للإلكترونيات', group: 'تجريبي', type: 'Company'),
+          ErpSupplier(id: 'DEMO-SUP-02', name: 'مورد تجريبي للإكسسوارات', group: 'تجريبي', type: 'Company'),
+        ];
+        _purchaseInvoices = const [
+          ErpPurchaseInvoice(id: 'DEMO-PINV-001', supplier: 'DEMO-SUP-01', supplierName: 'مورد تجريبي للإلكترونيات', postingDate: '2026-11-06', currency: 'YER', grandTotal: 650000, outstandingAmount: 150000, status: 'غير مدفوعة جزئياً'),
+        ];
+        _companiesLoading = false;
+        _companyError = null;
+        _inventoryLoading = false;
+        _inventoryError = null;
+        _salesLoading = false;
+        _salesError = null;
+        _purchaseLoading = false;
+        _purchaseError = null;
+      });
     } catch (error) {
       if (!mounted || attempt != _loginAttempt) return;
       setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
@@ -229,6 +297,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
 
   Future<void> _searchItems(String value) async {
     final query = value.trim();
+    if (_isGuest) {
+      setState(() => _itemSearch = query);
+      return;
+    }
     if (_inventoryLoading || _loadingMoreItems) return;
     final sessionGeneration = _api.sessionGeneration;
     FocusScope.of(context).unfocus();
@@ -281,6 +353,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
 
   Future<void> _searchWarehouses(String value) async {
     final query = value.trim();
+    if (_isGuest) {
+      setState(() => _warehouseSearch = query);
+      return;
+    }
     if (_inventoryLoading || _loadingMoreWarehouses || _searchingWarehouses) return;
     final sessionGeneration = _api.sessionGeneration;
     FocusScope.of(context).unfocus();
@@ -333,6 +409,13 @@ class _MobileHomePageState extends State<MobileHomePage> {
 
   Future<void> _searchStockBalances(String value, {bool updateWarehouse = false, String? warehouse}) async {
     final query = value.trim();
+    if (_isGuest) {
+      setState(() {
+        _stockSearch = query;
+        if (updateWarehouse) _selectedWarehouse = warehouse;
+      });
+      return;
+    }
     if (_loadingMoreStock || _inventoryLoading) return;
     final sessionGeneration = _api.sessionGeneration;
     FocusScope.of(context).unfocus();
@@ -438,6 +521,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
 
   Future<void> _searchCustomers(String value) async {
     final query = value.trim();
+    if (_isGuest) {
+      setState(() => _customerSearch = query);
+      return;
+    }
     if (_salesLoading || _loadingMoreCustomers || _searchingCustomers) return;
     final sessionGeneration = _api.sessionGeneration;
     FocusScope.of(context).unfocus();
@@ -470,6 +557,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
 
   Future<void> _searchSalesInvoices(String value) async {
     final query = value.trim();
+    if (_isGuest) {
+      setState(() => _salesInvoiceSearch = query);
+      return;
+    }
     if (_salesLoading || _loadingMoreSalesInvoices || _searchingSalesInvoices) return;
     final sessionGeneration = _api.sessionGeneration;
     FocusScope.of(context).unfocus();
@@ -502,6 +593,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
 
   Future<void> _searchSuppliers(String value) async {
     final query = value.trim();
+    if (_isGuest) {
+      setState(() => _supplierSearch = query);
+      return;
+    }
     if (_purchaseLoading || _loadingMoreSuppliers || _searchingSuppliers) return;
     final sessionGeneration = _api.sessionGeneration;
     FocusScope.of(context).unfocus();
@@ -534,6 +629,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
 
   Future<void> _searchPurchaseInvoices(String value) async {
     final query = value.trim();
+    if (_isGuest) {
+      setState(() => _purchaseInvoiceSearch = query);
+      return;
+    }
     if (_purchaseLoading || _loadingMorePurchaseInvoices || _searchingPurchaseInvoices) return;
     final sessionGeneration = _api.sessionGeneration;
     FocusScope.of(context).unfocus();
@@ -640,68 +739,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
     }
   }
 
-  void _enterGuestMode() {
-    if (_busy || !mounted) return;
-    setState(() {
-      _isGuest = true;
-      _user = 'ضيف • وضع تجريبي';
-      _selectedTab = 0;
-      _error = null;
-      _companies = const [
-        ErpCompany(name: 'شركة العرض التجريبي', abbr: 'DEMO', defaultCurrency: 'YER'),
-      ];
-      _items = const [
-        ErpItem(code: 'ITEM-001', name: 'صنف تجريبي - هاتف', group: 'إلكترونيات', stockUom: 'قطعة', isStockItem: true),
-        ErpItem(code: 'ITEM-002', name: 'صنف تجريبي - ملحقات', group: 'إكسسوارات', stockUom: 'قطعة', isStockItem: true, hasBatchNo: true),
-        ErpItem(code: 'ITEM-003', name: 'صنف تجريبي - جهاز', group: 'أجهزة', stockUom: 'قطعة', isStockItem: true, hasSerialNo: true),
-      ];
-      _warehouses = const [
-        ErpWarehouse(id: 'المستودع الرئيسي - DEMO', name: 'المستودع الرئيسي', company: 'شركة العرض التجريبي'),
-        ErpWarehouse(id: 'مستودع الفرع - DEMO', name: 'مستودع الفرع', company: 'شركة العرض التجريبي'),
-      ];
-      _stockBalances = const [
-        ErpStockBalance(itemCode: 'ITEM-001', warehouse: 'المستودع الرئيسي - DEMO', actualQty: 24, reservedQty: 4, projectedQty: 20, stockUom: 'قطعة', valuationRate: 12000, stockValue: 288000),
-        ErpStockBalance(itemCode: 'ITEM-002', warehouse: 'المستودع الرئيسي - DEMO', actualQty: 8, reservedQty: 2, projectedQty: 6, stockUom: 'قطعة', valuationRate: 2500, stockValue: 20000),
-        ErpStockBalance(itemCode: 'ITEM-003', warehouse: 'مستودع الفرع - DEMO', actualQty: 3, reservedQty: 0, projectedQty: 3, stockUom: 'قطعة', valuationRate: 45000, stockValue: 135000),
-      ];
-      _customers = const [
-        ErpCustomer(id: 'CUS-DEMO-001', name: 'عميل تجريبي', type: 'Company', group: 'تجاري', territory: 'اليمن'),
-      ];
-      _salesInvoices = const [
-        ErpSalesInvoice(id: 'SINV-DEMO-001', customer: 'CUS-DEMO-001', customerName: 'عميل تجريبي', postingDate: '2026-11-01', currency: 'YER', grandTotal: 180000, outstandingAmount: 60000, status: 'غير مدفوعة جزئياً'),
-        ErpSalesInvoice(id: 'SINV-DEMO-002', customer: 'CUS-DEMO-001', customerName: 'عميل تجريبي', postingDate: '2026-11-05', currency: 'YER', grandTotal: 45000, outstandingAmount: 0, status: 'مدفوعة'),
-      ];
-      _suppliers = const [
-        ErpSupplier(id: 'SUP-DEMO-001', name: 'مورد تجريبي', group: 'محلي', type: 'Company'),
-      ];
-      _purchaseInvoices = const [
-        ErpPurchaseInvoice(id: 'PINV-DEMO-001', supplier: 'SUP-DEMO-001', supplierName: 'مورد تجريبي', postingDate: '2026-11-03', currency: 'YER', grandTotal: 95000, outstandingAmount: 35000, status: 'غير مدفوعة جزئياً'),
-      ];
-      _itemsOffset = _items.length;
-      _warehousesOffset = _warehouses.length;
-      _stockOffset = _stockBalances.length;
-      _customersOffset = _customers.length;
-      _salesInvoicesOffset = _salesInvoices.length;
-      _suppliersOffset = _suppliers.length;
-      _purchaseInvoicesOffset = _purchaseInvoices.length;
-      _itemsHasMore = false;
-      _warehousesHasMore = false;
-      _stockHasMore = false;
-      _customersHasMore = false;
-      _salesInvoicesHasMore = false;
-      _suppliersHasMore = false;
-      _purchaseInvoicesHasMore = false;
-      _companyError = null;
-      _inventoryError = null;
-      _salesError = null;
-      _purchaseError = null;
-      _companiesLoading = false;
-      _inventoryLoading = false;
-      _salesLoading = false;
-      _purchaseLoading = false;
-    });
-  }
-
   Future<void> _logout() async {
     _loginAttempt++;
     final logoutRequest = _api.logout();
@@ -802,14 +839,42 @@ class _MobileHomePageState extends State<MobileHomePage> {
   }
 
 
+  Widget _buildGuestReportsPage() => ListView(
+    padding: const EdgeInsets.all(18),
+    children: [
+      _guestDemoBanner(),
+      _pageHeader('التقارير', 'ملخصات مالية تجريبية محلية', Icons.assessment_outlined),
+      const SizedBox(height: 12),
+      const Card(child: ListTile(
+        leading: Icon(Icons.account_balance_wallet_outlined),
+        title: Text('ذمم العملاء التجريبية'),
+        subtitle: Text('25,000 ر.ي — مبلغ متبقٍ على فواتير عينة'),
+      )),
+      const Card(child: ListTile(
+        leading: Icon(Icons.local_shipping_outlined),
+        title: Text('ذمم الموردين التجريبية'),
+        subtitle: Text('150,000 ر.ي — مبلغ متبقٍ على فواتير عينة'),
+      )),
+      const Card(child: ListTile(
+        leading: Icon(Icons.bar_chart_outlined),
+        title: Text('تقرير الأرباح والخسائر'),
+        subtitle: Text('عرض توضيحي فقط؛ لا يمثل بيانات محاسبية حقيقية.'),
+      )),
+      const Card(child: ListTile(
+        leading: Icon(Icons.inventory_2_outlined),
+        title: Text('تقييم المخزون'),
+        subtitle: Text('القيم المعروضة عينات افتراضية بعملة الريال اليمني.'),
+      )),
+    ],
+  );
+
   Widget _buildSelectedPage() {
-    if (_isGuest) return _buildGuestPage();
     switch (_selectedTab) {
       case 1: return _buildItemsPage();
       case 2: return _buildStockPage();
       case 3: return _buildWarehousesPage();
       case 4: return _buildSalesPage();
-      case 5: return FinancialReportsPage(api: _api, companies: _companies);
+      case 5: return _isGuest ? _buildGuestReportsPage() : FinancialReportsPage(api: _api, companies: _companies);
       default: return _buildDashboard();
     }
   }
@@ -821,12 +886,33 @@ class _MobileHomePageState extends State<MobileHomePage> {
       Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
       Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
     ])),
-    IconButton(tooltip: 'تحديث البيانات', onPressed: _inventoryLoading ? null : _loadInventory, icon: const Icon(Icons.refresh)),
+    IconButton(tooltip: 'تحديث البيانات', onPressed: _isGuest || _inventoryLoading ? null : _loadInventory, icon: const Icon(Icons.refresh)),
   ]);
 
   Widget _errorCard(String message) => Card(
     child: Padding(padding: const EdgeInsets.all(14), child: Text(message, style: TextStyle(color: Theme.of(context).colorScheme.error))),
   );
+
+  Widget _guestDemoBanner() => Card(
+    color: Theme.of(context).colorScheme.tertiaryContainer,
+    child: const ListTile(
+      dense: true,
+      leading: Icon(Icons.science_outlined),
+      title: Text('بيانات تجريبية محلية'),
+      subtitle: Text('هذه سجلات وهمية للاستعراض فقط. لا يوجد اتصال بالخادم ولا يمكن حفظ معاملات حقيقية.'),
+    ),
+  );
+
+  bool _requireServerAccess(String feature) {
+    if (!_isGuest) return true;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(
+        content: Text('ميزة "$feature" تحتاج إلى تسجيل الدخول إلى خادم ERPNext. وضع الضيف للعرض المحلي فقط.'),
+        behavior: SnackBarBehavior.floating,
+      ));
+    return false;
+  }
 
   Widget _buildItemsPage() {
     final query = _itemSearch.trim().toLowerCase();
@@ -835,6 +921,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       (item.group ?? '').toLowerCase().contains(query)
     ).toList(growable: false);
     return ListView(padding: const EdgeInsets.all(18), children: [
+      if (_isGuest) _guestDemoBanner(),
       _pageHeader('الأصناف', 'بحث في الأصناف المحمّلة من ERPNext', Icons.sell_outlined),
       const SizedBox(height: 16),
       TextField(
@@ -863,7 +950,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
             ? null
             : () => _searchItems(_itemSearchController.text),
         icon: const Icon(Icons.search),
-        label: const Text('بحث في جميع الأصناف بالخادم'),
+        label: Text(_isGuest ? 'بحث محلي' : 'بحث في جميع الأصناف بالخادم'),
       ),
       const SizedBox(height: 10),
       Text('المعروض ${filtered.length} من ${_items.length} صنف في نتيجة البحث الحالية'),
@@ -907,7 +994,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
           if (item.isStockItem) ...[
             const SizedBox(height: 12),
             FilledButton.icon(
-              onPressed: () {
+              onPressed: _isGuest ? null : () {
                 Navigator.of(context).pop();
                 _openStockWorkflow(initialItemCode: item.code);
               },
@@ -921,9 +1008,13 @@ class _MobileHomePageState extends State<MobileHomePage> {
   }
 
   Widget _buildStockPage() {
-    final filtered = _stockBalances;
+    final filtered = _stockBalances.where((row) =>
+      (_stockSearch.isEmpty || row.itemCode.toLowerCase().contains(_stockSearch.toLowerCase())) &&
+      (_selectedWarehouse == null || row.warehouse == _selectedWarehouse)
+    ).toList(growable: false);
     final loadedWarehouses = filtered.map((row) => row.warehouse).toSet().length;
     return ListView(padding: const EdgeInsets.all(18), children: [
+      if (_isGuest) _guestDemoBanner(),
       _pageHeader('أرصدة المخزون', 'الكميات وقيمة المخزون ومعدل التقييم حسب المستودع', Icons.inventory_2_outlined),
       const Text('قيمة المخزون ومعدل التقييم من سجل Bin في ERPNext وبعملة الشركة المالكة للمستودع. لا تجمع القيم بين شركات ذات عملات مختلفة.'),
       const SizedBox(height: 16),
@@ -941,7 +1032,8 @@ class _MobileHomePageState extends State<MobileHomePage> {
         controller: _stockSearchController,
         label: 'ابحث برمز الصنف',
         onSearch: _searchStockBalances,
-        loading: _inventoryLoading,
+        loading: _inventoryLoading ,
+        buttonLabel: _isGuest ? 'بحث محلي' : 'بحث في الخادم'
       ),
       const SizedBox(height: 8),
       Row(children: [
@@ -985,19 +1077,21 @@ class _MobileHomePageState extends State<MobileHomePage> {
       (warehouse.company ?? '').toLowerCase().contains(query)
     ).toList(growable: false);
     return ListView(padding: const EdgeInsets.all(18), children: [
+      if (_isGuest) _guestDemoBanner(),
       _pageHeader('المستودعات', 'المستودعات الفعلية المتاحة للمستخدم', Icons.warehouse_outlined),
       const SizedBox(height: 16),
       ServerSearchField(
         controller: _warehouseSearchController,
         label: 'بحث في المستودعات أو الشركة',
         onSearch: _searchWarehouses,
-        loading: _searchingWarehouses,
+        loading: _searchingWarehouses ,
+        buttonLabel: _isGuest ? 'بحث محلي' : 'بحث في الخادم'
       ),
       const SizedBox(height: 10),
       Align(
         alignment: AlignmentDirectional.centerStart,
         child: OutlinedButton.icon(
-          onPressed: _inventoryLoading ? null : _openWarehouseHierarchy,
+          onPressed: _isGuest || _inventoryLoading ? null : _openWarehouseHierarchy,
           icon: const Icon(Icons.account_tree_outlined),
           label: const Text('عرض شجرة المستودعات'),
         ),
@@ -1028,6 +1122,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   }
 
   void _openSalesCommissions() {
+    if (!_requireServerAccess('العمولات')) return;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -1037,49 +1132,71 @@ class _MobileHomePageState extends State<MobileHomePage> {
     );
   }
 
+  void _openBankReconciliation() {
+    if (!_requireServerAccess('التسوية البنكية')) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => BankReconciliationPage(api: _api, companies: _companies),
+    ));
+  }
+
   void _openPaymentReconciliation() {
+    if (!_requireServerAccess('تسوية المدفوعات')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => PaymentReconciliationPage(api: _api, companies: _companies),
     ));
   }
 
   void _openSalesDashboard() {
+    if (!_requireServerAccess('مؤشرات المبيعات')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => SalesDashboardPage(api: _api, companies: _companies),
     ));
   }
 
   void _openChartOfAccounts() {
+    if (!_requireServerAccess('دليل الحسابات')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => ChartOfAccountsPage(api: _api, companies: _companies),
     ));
   }
 
   void _openJournalEntries() {
+    if (!_requireServerAccess('القيود اليومية')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => JournalEntriesPage(api: _api, companies: _companies),
     ));
   }
 
+  void _openPayroll() {
+    if (!_requireServerAccess('دورة الرواتب')) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => PayrollPage(api: _api, companies: _companies),
+    ));
+  }
+
   void _openHrWorkflows() {
+    if (!_requireServerAccess('الموارد البشرية')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => HrWorkflowsPage(api: _api, companies: _companies),
     ));
   }
 
   void _openWarehouseHierarchy() {
+    if (!_requireServerAccess('شجرة المستودعات')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => WarehouseHierarchyPage(api: _api),
     ));
   }
 
   void _openMasterData() {
+    if (!_requireServerAccess('إدارة البيانات الأساسية')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => MasterDataPage(api: _api, companies: _companies),
     ));
   }
 
   void _openSalesPricing() {
+    if (!_requireServerAccess('أسعار البيع')) return;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -1090,6 +1207,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   }
 
   void _editCustomerProfile(ErpCustomer customer) {
+    if (!_requireServerAccess('تعديل ملف العميل')) return;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -1104,6 +1222,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   }
 
   void _showCustomerLedger(ErpCustomer customer) {
+    if (!_requireServerAccess('كشف حساب العميل')) return;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -1113,13 +1232,25 @@ class _MobileHomePageState extends State<MobileHomePage> {
     );
   }
 
+  void _showSupplierLedger(ErpSupplier supplier) {
+    if (!_requireServerAccess('كشف حساب المورد')) return;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => _SupplierLedgerSheet(api: _api, supplier: supplier, companies: _companies),
+    );
+  }
+
   void _showInvoiceDetails(String documentType, String invoiceId) {
+    if (!_requireServerAccess('تفاصيل الفاتورة')) return;
     showModalBottomSheet<void>(
       context: context, isScrollControlled: true, showDragHandle: true,
       builder: (sheetContext) => SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          child: FutureBuilder<Map<String, dynamic>>(
+          child: FutureBuilder<core.Map<String, dynamic>>(
             future: _api.fetchInvoiceDocument(documentType, invoiceId),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
@@ -1133,7 +1264,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
               final lines = <ErpInvoiceLine>[];
               if (rawItems is List) {
                 for (final row in rawItems) {
-                  if (row is Map<String, dynamic>) {
+                  if (row is core.Map<String, dynamic>) {
                     try { lines.add(ErpInvoiceLine.fromJson(row)); } catch (_) {}
                   }
                 }
@@ -1242,9 +1373,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
 
                         final amountController = TextEditingController(text: outstandingAmount.toStringAsFixed(2));
                         var selectedAccount = accounts.first.name;
-                        Map<String, dynamic>? paymentInput;
+                        core.Map<String, dynamic>? paymentInput;
                         try {
-                          paymentInput = await showDialog<Map<String, dynamic>>(
+                          paymentInput = await showDialog<core.Map<String, dynamic>>(
                             context: context,
                             builder: (dialogContext) => AlertDialog(
                               title: const Text('تسجيل دفعة من العميل'),
@@ -1383,7 +1514,8 @@ class _MobileHomePageState extends State<MobileHomePage> {
     );
   }
 
-  Future<void> _openSalesInvoiceComposer({Map<String, dynamic>? initialDraft}) async {
+  Future<void> _openSalesInvoiceComposer({core.Map<String, dynamic>? initialDraft}) async {
+    if (!_requireServerAccess('إنشاء فاتورة مبيعات')) return;
     if (_customers.isEmpty || _items.isEmpty || _companies.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('لا يمكن إنشاء فاتورة قبل تحميل العملاء والأصناف والشركات. تحقق من صلاحيات القراءة ثم حدّث البيانات.')),
@@ -1407,6 +1539,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   }
 
   Future<void> _openSalesWorkflow() async {
+    if (!_requireServerAccess('دورة المبيعات')) return;
     await Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => SalesWorkflowPage(
         api: _api,
@@ -1423,6 +1556,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   }
 
   Future<void> _openPurchaseWorkflow({String? initialInvoiceName}) async {
+    if (!_requireServerAccess('إدارة المشتريات')) return;
     await Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => PurchaseWorkflowPage(
         api: _api,
@@ -1437,6 +1571,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   }
 
   Future<void> _openStockWorkflow({String? initialItemCode}) async {
+    if (!_requireServerAccess('عمليات المخزون')) return;
     await Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => StockWorkflowPage(
         api: _api,
@@ -1451,68 +1586,95 @@ class _MobileHomePageState extends State<MobileHomePage> {
   }
 
   Widget _buildSalesPage() {
+    final invoiceQuery = _salesInvoiceSearch.toLowerCase();
+    final customerQuery = _customerSearch.toLowerCase();
+    final purchaseQuery = _purchaseInvoiceSearch.toLowerCase();
+    final supplierQuery = _supplierSearch.toLowerCase();
+    final visibleSalesInvoices = _salesInvoices.where((row) =>
+      invoiceQuery.isEmpty || row.id.toLowerCase().contains(invoiceQuery) || row.customerName.toLowerCase().contains(invoiceQuery)
+    ).toList(growable: false);
+    final visibleCustomers = _customers.where((row) =>
+      customerQuery.isEmpty || row.id.toLowerCase().contains(customerQuery) || row.name.toLowerCase().contains(customerQuery)
+    ).toList(growable: false);
+    final visiblePurchaseInvoices = _purchaseInvoices.where((row) =>
+      purchaseQuery.isEmpty || row.id.toLowerCase().contains(purchaseQuery) || row.supplierName.toLowerCase().contains(purchaseQuery)
+    ).toList(growable: false);
+    final visibleSuppliers = _suppliers.where((row) =>
+      supplierQuery.isEmpty || row.id.toLowerCase().contains(supplierQuery) || row.name.toLowerCase().contains(supplierQuery)
+    ).toList(growable: false);
     return ListView(padding: const EdgeInsets.all(18), children: [
+      if (_isGuest) _guestDemoBanner(),
       Row(children: [
-        Expanded(child: Row(children: [const CircleAvatar(child: Icon(Icons.receipt_long_outlined)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('المعاملات', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)), Text('فواتير المبيعات وإنشاء الفواتير، مع عرض بيانات المشتريات والعملاء والموردين', style: Theme.of(context).textTheme.bodySmall)]))])),
-        IconButton(tooltip: 'تحديث المبيعات', onPressed: _salesLoading ? null : _loadSales, icon: const Icon(Icons.refresh)),
-        IconButton(tooltip: 'تحديث المشتريات', onPressed: _purchaseLoading ? null : _loadPurchases, icon: const Icon(Icons.shopping_cart_outlined)),
+        Expanded(child: Row(children: [const CircleAvatar(child: Icon(Icons.receipt_long_outlined)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('المعاملات', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)), Text(_isGuest ? 'عرض عينات المبيعات والمشتريات والعملاء والموردين محلياً' : 'فواتير المبيعات وإنشاء الفواتير، مع عرض بيانات المشتريات والعملاء والموردين', style: Theme.of(context).textTheme.bodySmall)]))])),
+        IconButton(tooltip: 'تحديث المبيعات', onPressed: _isGuest || _salesLoading ? null : _loadSales, icon: const Icon(Icons.refresh)),
+        IconButton(tooltip: 'تحديث المشتريات', onPressed: _isGuest || _purchaseLoading ? null : _loadPurchases, icon: const Icon(Icons.shopping_cart_outlined)),
       ]),
       Wrap(
         spacing: 8,
         runSpacing: 8,
         children: [
           OutlinedButton.icon(
-            onPressed: _salesLoading || _inventoryLoading ? null : _openSalesWorkflow,
+            onPressed: _isGuest || _salesLoading || _inventoryLoading ? null : _openSalesWorkflow,
             icon: const Icon(Icons.route_outlined),
             label: const Text('دورة المبيعات'),
           ),
           OutlinedButton.icon(
-            onPressed: _purchaseLoading || _inventoryLoading ? null : _openPurchaseWorkflow,
+            onPressed: _isGuest || _purchaseLoading || _inventoryLoading ? null : _openPurchaseWorkflow,
             icon: const Icon(Icons.shopping_bag_outlined),
             label: const Text('إدارة المشتريات'),
           ),
           OutlinedButton.icon(
-            onPressed: _inventoryLoading ? null : _openStockWorkflow,
+            onPressed: _isGuest || _inventoryLoading ? null : _openStockWorkflow,
             icon: const Icon(Icons.warehouse_outlined),
             label: const Text('عمليات المخزون'),
           ),
           OutlinedButton.icon(
-            onPressed: _salesLoading ? null : _openSalesDashboard,
+            onPressed: _isGuest || _salesLoading ? null : _openSalesDashboard,
             icon: const Icon(Icons.insights_outlined),
             label: const Text('مؤشرات المبيعات'),
           ),
           OutlinedButton.icon(
-            onPressed: _salesLoading || _purchaseLoading ? null : _openPaymentReconciliation,
+            onPressed: _isGuest || _salesLoading || _purchaseLoading ? null : _openBankReconciliation,
+            icon: const Icon(Icons.account_balance_outlined),
+            label: const Text('التسوية البنكية'),
+          ),
+          OutlinedButton.icon(
+            onPressed: _isGuest || _salesLoading || _purchaseLoading ? null : _openPayroll,
+            icon: const Icon(Icons.payments_outlined),
+            label: const Text('دورة الرواتب'),
+          ),
+          OutlinedButton.icon(
+            onPressed: _isGuest || _salesLoading || _purchaseLoading ? null : _openPaymentReconciliation,
             icon: const Icon(Icons.compare_arrows_outlined),
             label: const Text('تسوية المدفوعات'),
           ),
           OutlinedButton.icon(
-            onPressed: _salesLoading ? null : _openSalesPricing,
+            onPressed: _isGuest || _salesLoading ? null : _openSalesPricing,
             icon: const Icon(Icons.price_change_outlined),
             label: const Text('أسعار البيع'),
           ),
           OutlinedButton.icon(
-            onPressed: _companies.isEmpty ? null : _openChartOfAccounts,
+            onPressed: !_isGuest && _companies.isNotEmpty ? _openChartOfAccounts : null,
             icon: const Icon(Icons.account_tree_outlined),
             label: const Text('دليل الحسابات'),
           ),
           OutlinedButton.icon(
-            onPressed: _companies.isEmpty ? null : _openJournalEntries,
+            onPressed: !_isGuest && _companies.isNotEmpty ? _openJournalEntries : null,
             icon: const Icon(Icons.post_add_outlined),
             label: const Text('القيود اليومية'),
           ),
           OutlinedButton.icon(
-            onPressed: _inventoryLoading || _purchaseLoading ? null : _openMasterData,
+            onPressed: _isGuest || _inventoryLoading || _purchaseLoading ? null : _openMasterData,
             icon: const Icon(Icons.settings_suggest_outlined),
             label: const Text('إدارة البيانات الأساسية'),
           ),
           OutlinedButton.icon(
-            onPressed: _salesLoading ? null : _openSalesCommissions,
+            onPressed: _isGuest || _salesLoading ? null : _openSalesCommissions,
             icon: const Icon(Icons.percent_outlined),
             label: const Text('العمولات'),
           ),
           OutlinedButton.icon(
-            onPressed: _companies.isEmpty ? null : _openHrWorkflows,
+            onPressed: !_isGuest && _companies.isNotEmpty ? _openHrWorkflows : null,
             icon: const Icon(Icons.groups_outlined),
             label: const Text('الموارد البشرية'),
           ),
@@ -1522,7 +1684,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       Align(
         alignment: AlignmentDirectional.centerStart,
         child: FilledButton.icon(
-          onPressed: _salesLoading || _inventoryLoading ? null : _openSalesInvoiceComposer,
+          onPressed: _isGuest || _salesLoading || _inventoryLoading ? null : _openSalesInvoiceComposer,
           icon: const Icon(Icons.add_shopping_cart),
           label: const Text('إنشاء فاتورة مبيعات'),
         ),
@@ -1534,40 +1696,42 @@ class _MobileHomePageState extends State<MobileHomePage> {
         controller: _salesInvoiceSearchController,
         label: 'بحث في فواتير المبيعات',
         onSearch: _searchSalesInvoices,
-        loading: _searchingSalesInvoices,
+        loading: _searchingSalesInvoices ,
+        buttonLabel: _isGuest ? 'بحث محلي' : 'بحث في الخادم'
       ),
-      Text('فواتير المبيعات (${_salesInvoices.length})', style: Theme.of(context).textTheme.titleMedium),
-      if (_salesInvoices.isEmpty && !_salesLoading) const Card(child: ListTile(title: Text('لا توجد فواتير ظاهرة أو تعذر تحميلها'))),
-      ..._salesInvoices.map((invoice) => Card(child: ListTile(
+      Text('فواتير المبيعات (${visibleSalesInvoices.length})', style: Theme.of(context).textTheme.titleMedium),
+      if (visibleSalesInvoices.isEmpty && !_salesLoading) const Card(child: ListTile(title: Text('لا توجد فواتير ظاهرة أو تعذر تحميلها'))),
+      ...visibleSalesInvoices.map((invoice) => Card(child: ListTile(
         leading: CircleAvatar(child: Icon(invoice.isReturn ? Icons.assignment_return_outlined : Icons.receipt_long_outlined)),
         title: Text(invoice.isReturn ? 'مرتجع • ${invoice.id}' : invoice.id),
         subtitle: Text('${invoice.customerName} • ${invoice.postingDate ?? '—'}${invoice.returnAgainst == null ? '' : '\nمرتبط بالفاتورة: ${invoice.returnAgainst}'}\n${invoice.status ?? 'حالة غير محددة'} • متبقٍ: ${invoice.outstandingAmount.toStringAsFixed(2)} ${invoice.currency ?? ''}'),
         isThreeLine: true,
         trailing: Text(invoice.grandTotal.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
-        onTap: () => _showInvoiceDetails('Sales Invoice', invoice.id),
+        onTap: _isGuest ? null : () => _showInvoiceDetails('Sales Invoice', invoice.id),
       ))),
-      if (_salesInvoicesHasMore || _loadingMoreSalesInvoices) LoadMoreButton(_loadingMoreSalesInvoices, 'تحميل المزيد من فواتير المبيعات', _loadMoreSalesInvoices),
+      if (!_isGuest && (_salesInvoicesHasMore || _loadingMoreSalesInvoices)) LoadMoreButton(_loadingMoreSalesInvoices, 'تحميل المزيد من فواتير المبيعات', _loadMoreSalesInvoices),
       const SizedBox(height: 18),
       ServerSearchField(
         controller: _customerSearchController,
         label: 'بحث في العملاء',
         onSearch: _searchCustomers,
-        loading: _searchingCustomers,
+        loading: _searchingCustomers ,
+        buttonLabel: _isGuest ? 'بحث محلي' : 'بحث في الخادم'
       ),
-      Text('العملاء (${_customers.length})', style: Theme.of(context).textTheme.titleMedium),
-      if (_customers.isEmpty && !_salesLoading) const Card(child: ListTile(title: Text('لا توجد بيانات عملاء ظاهرة'))),
-      ..._customers.map((customer) => Card(child: ListTile(
+      Text('العملاء (${visibleCustomers.length})', style: Theme.of(context).textTheme.titleMedium),
+      if (visibleCustomers.isEmpty && !_salesLoading) const Card(child: ListTile(title: Text('لا توجد بيانات عملاء ظاهرة'))),
+      ...visibleCustomers.map((customer) => Card(child: ListTile(
         leading: const CircleAvatar(child: Icon(Icons.person_outline)),
         title: Text(customer.name),
         subtitle: Text([customer.id, if (customer.group != null) customer.group!, if (customer.territory != null) customer.territory!].join(' • ')),
         trailing: IconButton(
           tooltip: 'تعديل ملف العميل',
           icon: const Icon(Icons.edit_outlined),
-          onPressed: () => _editCustomerProfile(customer),
+          onPressed: _isGuest ? null : () => _editCustomerProfile(customer),
         ),
-        onTap: () => _showCustomerLedger(customer),
+        onTap: _isGuest ? null : () => _showCustomerLedger(customer),
       ))),
-      if (_customersHasMore || _loadingMoreCustomers) LoadMoreButton(_loadingMoreCustomers, 'تحميل المزيد من العملاء', _loadMoreCustomers),
+      if (!_isGuest && (_customersHasMore || _loadingMoreCustomers)) LoadMoreButton(_loadingMoreCustomers, 'تحميل المزيد من العملاء', _loadMoreCustomers),
       const Divider(height: 28),
       if (_purchaseLoading) const LinearProgressIndicator(),
       if (_purchaseError != null) _errorCard(_purchaseError!),
@@ -1575,34 +1739,38 @@ class _MobileHomePageState extends State<MobileHomePage> {
         controller: _purchaseInvoiceSearchController,
         label: 'بحث في فواتير المشتريات',
         onSearch: _searchPurchaseInvoices,
-        loading: _searchingPurchaseInvoices,
+        loading: _searchingPurchaseInvoices ,
+        buttonLabel: _isGuest ? 'بحث محلي' : 'بحث في الخادم'
       ),
-      Text('فواتير المشتريات (${_purchaseInvoices.length})', style: Theme.of(context).textTheme.titleMedium),
-      if (_purchaseInvoices.isEmpty && !_purchaseLoading) const Card(child: ListTile(title: Text('لا توجد فواتير مشتريات ظاهرة'))),
-      ..._purchaseInvoices.map((invoice) => Card(child: ListTile(
+      Text('فواتير المشتريات (${visiblePurchaseInvoices.length})', style: Theme.of(context).textTheme.titleMedium),
+      if (visiblePurchaseInvoices.isEmpty && !_purchaseLoading) const Card(child: ListTile(title: Text('لا توجد فواتير مشتريات ظاهرة'))),
+      ...visiblePurchaseInvoices.map((invoice) => Card(child: ListTile(
         leading: const CircleAvatar(child: Icon(Icons.shopping_cart_outlined)),
         title: Text(invoice.id),
         subtitle: Text('${invoice.supplierName} • ${invoice.postingDate ?? '—'}\n${invoice.status ?? 'حالة غير محددة'} • متبقٍ: ${invoice.outstandingAmount.toStringAsFixed(2)} ${invoice.currency ?? ''}'),
         isThreeLine: true,
         trailing: Text(invoice.grandTotal.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
-        onTap: () => _openPurchaseWorkflow(initialInvoiceName: invoice.id),
+        onTap: _isGuest ? null : () => _openPurchaseWorkflow(initialInvoiceName: invoice.id),
       ))),
-      if (_purchaseInvoicesHasMore || _loadingMorePurchaseInvoices) LoadMoreButton(_loadingMorePurchaseInvoices, 'تحميل المزيد من فواتير المشتريات', _loadMorePurchaseInvoices),
+      if (!_isGuest && (_purchaseInvoicesHasMore || _loadingMorePurchaseInvoices)) LoadMoreButton(_loadingMorePurchaseInvoices, 'تحميل المزيد من فواتير المشتريات', _loadMorePurchaseInvoices),
       const SizedBox(height: 18),
       ServerSearchField(
         controller: _supplierSearchController,
         label: 'بحث في الموردين',
         onSearch: _searchSuppliers,
-        loading: _searchingSuppliers,
+        loading: _searchingSuppliers ,
+        buttonLabel: _isGuest ? 'بحث محلي' : 'بحث في الخادم'
       ),
-      Text('الموردون (${_suppliers.length})', style: Theme.of(context).textTheme.titleMedium),
-      if (_suppliers.isEmpty && !_purchaseLoading) const Card(child: ListTile(title: Text('لا توجد بيانات موردين ظاهرة'))),
-      ..._suppliers.map((supplier) => Card(child: ListTile(
+      Text('الموردون (${visibleSuppliers.length})', style: Theme.of(context).textTheme.titleMedium),
+      if (visibleSuppliers.isEmpty && !_purchaseLoading) const Card(child: ListTile(title: Text('لا توجد بيانات موردين ظاهرة'))),
+      ...visibleSuppliers.map((supplier) => Card(child: ListTile(
         leading: const CircleAvatar(child: Icon(Icons.local_shipping_outlined)),
         title: Text(supplier.name),
         subtitle: Text([supplier.id, if (supplier.group != null) supplier.group!, if (supplier.type != null) supplier.type!].join(' • ')),
+        trailing: const Icon(Icons.receipt_long_outlined),
+        onTap: _isGuest ? null : () => _showSupplierLedger(supplier),
       ))),
-      if (_suppliersHasMore || _loadingMoreSuppliers) LoadMoreButton(_loadingMoreSuppliers, 'تحميل المزيد من الموردين', _loadMoreSuppliers),
+      if (!_isGuest && (_suppliersHasMore || _loadingMoreSuppliers)) LoadMoreButton(_loadingMoreSuppliers, 'تحميل المزيد من الموردين', _loadMoreSuppliers),
       const SizedBox(height: 10),
       Text('تتم إدارة دورة المبيعات من شاشة المبيعات، ودورة المشتريات والدفعات والمرتجعات من شاشة إدارة المشتريات، مع تحديث أرصدة المخزون بعد العمليات المرحلة.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
     ]);
@@ -1634,7 +1802,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'سجّل الدخول للوصول إلى بيانات شركتك ومخزونك ومعاملاتك.',
+                  'سجّل الدخول لبيانات شركتك، أو ادخل كضيف لاستكشاف التطبيق دون خادم أو حساب.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodyLarge,
                 ),
@@ -1725,13 +1893,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
                 ),
                 const SizedBox(height: 10),
                 OutlinedButton.icon(
-                  onPressed: _busy ? null : _enterGuestMode,
+                  onPressed: _busy ? null : _continueAsGuest,
                   icon: const Icon(Icons.visibility_outlined),
-                  label: const Text('الدخول كضيف • بدون خادم أو حساب'),
-                ),
-                const Padding(
-                  padding: EdgeInsets.only(top: 6),
-                  child: Text('يفتح بيانات تجريبية محلية للعرض فقط، دون اتصال بالإنترنت أو تنفيذ معاملات.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12)),
+                  label: const Text('الدخول كضيف دون خادم أو حساب'),
                 ),
                 const SizedBox(height: 16),
                 Card(
@@ -1760,109 +1924,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
     );
   }
 
-  Widget _buildGuestPage() {
-    final scheme = Theme.of(context).colorScheme;
-    final Widget content = switch (_selectedTab) {
-      1 => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('الأصناف التجريبية', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 8),
-        ..._items.map((item) => Card(child: ListTile(
-          leading: const Icon(Icons.inventory_2_outlined),
-          title: Text(item.name),
-          subtitle: Text('${item.code} • ${item.group} • ${item.stockUom}'),
-          trailing: const Icon(Icons.visibility_outlined),
-        ))),
-      ]),
-      2 => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('أرصدة المخزون التجريبية', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 8),
-        ..._stockBalances.map((balance) => Card(child: ListTile(
-          leading: const Icon(Icons.inventory_outlined),
-          title: Text(balance.itemCode),
-          subtitle: Text('${balance.warehouse}\nمتاح: ${balance.availableQty} • متوقع: ${balance.projectedQty} ${balance.stockUom ?? ''}'),
-          isThreeLine: true,
-          trailing: Text(balance.stockValue?.toStringAsFixed(0) ?? '—'),
-        ))),
-      ]),
-      3 => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('المستودعات التجريبية', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 8),
-        ..._warehouses.map((warehouse) => Card(child: ListTile(
-          leading: const Icon(Icons.warehouse_outlined),
-          title: Text(warehouse.name),
-          subtitle: Text(warehouse.company ?? ''),
-        ))),
-      ]),
-      4 => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('المعاملات التجريبية', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 8),
-        Text('فواتير المبيعات', style: Theme.of(context).textTheme.titleMedium),
-        ..._salesInvoices.map((invoice) => Card(child: ListTile(
-          leading: const Icon(Icons.receipt_long_outlined),
-          title: Text(invoice.id),
-          subtitle: Text('${invoice.customerName} • ${invoice.status} • متبقٍ ${invoice.outstandingAmount.toStringAsFixed(0)} ${invoice.currency}'),
-          trailing: Text(invoice.grandTotal.toStringAsFixed(0)),
-        ))),
-        const SizedBox(height: 12),
-        Text('فواتير المشتريات', style: Theme.of(context).textTheme.titleMedium),
-        ..._purchaseInvoices.map((invoice) => Card(child: ListTile(
-          leading: const Icon(Icons.shopping_cart_outlined),
-          title: Text(invoice.id),
-          subtitle: Text('${invoice.supplierName} • ${invoice.status} • متبقٍ ${invoice.outstandingAmount.toStringAsFixed(0)} ${invoice.currency}'),
-          trailing: Text(invoice.grandTotal.toStringAsFixed(0)),
-        ))),
-        const SizedBox(height: 8),
-        Text('العملاء: ${_customers.length} • الموردون: ${_suppliers.length}'),
-      ]),
-      5 => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('ملخص تقارير تجريبي', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 8),
-        const Card(child: ListTile(leading: Icon(Icons.trending_up), title: Text('إجمالي المبيعات التجريبي'), trailing: Text('225,000 YER'))),
-        const Card(child: ListTile(leading: Icon(Icons.account_balance_wallet_outlined), title: Text('المبالغ المستحقة التجريبية'), trailing: Text('60,000 YER'))),
-        const Card(child: ListTile(leading: Icon(Icons.inventory_2_outlined), title: Text('قيمة المخزون التجريبية'), trailing: Text('443,000 YER'))),
-      ]),
-      _ => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text('لوحة تحكم تجريبية', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 12),
-        Wrap(spacing: 8, runSpacing: 8, children: [
-          CountCard(label: 'الأصناف', count: _items.length, icon: Icons.inventory_2_outlined),
-          CountCard(label: 'المستودعات', count: _warehouses.length, icon: Icons.warehouse_outlined),
-          CountCard(label: 'فواتير البيع', count: _salesInvoices.length, icon: Icons.receipt_long_outlined),
-          CountCard(label: 'فواتير الشراء', count: _purchaseInvoices.length, icon: Icons.shopping_cart_outlined),
-        ]),
-        const SizedBox(height: 12),
-        const Card(child: ListTile(leading: Icon(Icons.business_outlined), title: Text('شركة العرض التجريبي'), subtitle: Text('العملة: YER'))),
-        Card(child: ListTile(leading: const Icon(Icons.people_outline), title: const Text('العملاء والموردون'), subtitle: Text('${_customers.length} عميل • ${_suppliers.length} مورد'))),
-      ]),
-    };
-    return ListView(
-      key: const ValueKey('guest-demo'),
-      padding: const EdgeInsets.all(18),
-      children: [
-        Row(children: [
-          const CircleAvatar(child: Icon(Icons.person_outline)),
-          const SizedBox(width: 10),
-          const Expanded(child: Text('وضع الضيف', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
-          IconButton(tooltip: 'الخروج من وضع الضيف', onPressed: _logout, icon: const Icon(Icons.logout)),
-        ]),
-        const SizedBox(height: 12),
-        Card(
-          color: scheme.tertiaryContainer,
-          child: const Padding(
-            padding: EdgeInsets.all(12),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Icon(Icons.info_outline),
-              SizedBox(width: 10),
-              Expanded(child: Text('هذه بيانات تجريبية محلية للعرض فقط. لا يوجد اتصال بخادم ERPNext، ولا تُرسل أو تُحفظ أي معاملات. استخدم تسجيل الدخول للوصول إلى بيانات شركتك الحقيقية.')),
-            ]),
-          ),
-        ),
-        const SizedBox(height: 16),
-        content,
-      ],
-    );
-  }
-
   Widget _buildDashboard() {
     final scheme = Theme.of(context).colorScheme;
     return ListView(
@@ -1882,23 +1943,32 @@ class _MobileHomePageState extends State<MobileHomePage> {
           IconButton(tooltip: 'تسجيل الخروج', onPressed: _busy ? null : _logout, icon: const Icon(Icons.logout)),
         ]),
         const SizedBox(height: 24),
+        if (_isGuest)
+          Card(
+            color: scheme.tertiaryContainer,
+            child: const ListTile(
+              leading: Icon(Icons.visibility_outlined),
+              title: Text('وضع الضيف المحلي — بيانات تجريبية فقط'),
+              subtitle: Text('أنت داخل التطبيق دون خادم أو حساب. الأسماء والأرصدة والفواتير المعروضة عينات وهمية للتجربة فقط؛ لا تحفظ عملياتك ولا تتصل ببيانات حقيقية.'),
+            ),
+          ),
         Card(
           color: scheme.primaryContainer,
-          child: const Padding(
-            padding: EdgeInsets.all(18),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Icon(Icons.cloud_done_outlined, size: 30),
-              SizedBox(height: 10),
-              Text('تم الاتصال بخادم ERPNext', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-              SizedBox(height: 5),
-              Text('تسجيل الدخول والتحقق من الجلسة يعملان عبر واجهة Frappe API.'),
+              const Icon(Icons.cloud_done_outlined, size: 30),
+              const SizedBox(height: 10),
+              Text(_isGuest ? 'تم فتح وضع الضيف' : 'تم الاتصال بخادم ERPNext', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+              const SizedBox(height: 5),
+              Text(_isGuest ? 'تم الدخول محلياً دون إرسال أي طلب إلى خادم. كل الأرقام والسجلات المعروضة بيانات توضيحية وليست حقيقية.' : 'تسجيل الدخول والتحقق من الجلسة يعملان عبر واجهة Frappe API.'),
             ]),
           ),
         ),
         const SizedBox(height: 18),
         Row(children: [
-          Expanded(child: Text('شركات النظام', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))),
-          IconButton(tooltip: 'تحديث الشركات', onPressed: _companiesLoading ? null : _loadCompanies, icon: const Icon(Icons.refresh)),
+          Expanded(child: Text(_isGuest ? 'الشركة التجريبية' : 'شركات النظام', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))),
+          IconButton(tooltip: 'تحديث الشركات', onPressed: _isGuest || _companiesLoading ? null : _loadCompanies, icon: const Icon(Icons.refresh)),
         ]),
         if (_companiesLoading)
           const LinearProgressIndicator()
@@ -1918,7 +1988,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         const SizedBox(height: 18),
         Row(children: [
           Expanded(child: Text('بيانات المخزون', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))),
-          IconButton(tooltip: 'تحديث بيانات المخزون', onPressed: _inventoryLoading ? null : _loadInventory, icon: const Icon(Icons.refresh)),
+          IconButton(tooltip: 'تحديث بيانات المخزون', onPressed: _isGuest || _inventoryLoading ? null : _loadInventory, icon: const Icon(Icons.refresh)),
         ]),
         if (_inventoryLoading)
           const LinearProgressIndicator(),
@@ -1980,7 +2050,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
           onTap: () => setState(() => _selectedTab = 4),
         )),
         const SizedBox(height: 10),
-        Text('يمكنك إنشاء فواتير المبيعات وترحيلها وتسجيل دفعات العملاء وإعداد مسودات المرتجعات من شاشة المعاملات.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
+        Text(_isGuest ? 'في وضع الضيف يمكنك استعراض العينات والبحث فيها فقط. سجّل الدخول إلى ERPNext لتفعيل إنشاء المستندات والترحيل والدفعات والتقارير.' : 'يمكنك إنشاء فواتير المبيعات وترحيلها وتسجيل دفعات العملاء وإعداد مسودات المرتجعات من شاشة المعاملات.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
       ],
     );
   }
@@ -1998,12 +2068,16 @@ class _CustomerLedgerSheet extends StatefulWidget {
 }
 
 class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
-  final List<Map<String, dynamic>> _rows = [];
+  final List<core.Map<String, dynamic>> _rows = [];
   bool _loading = true;
   bool _loadingMore = false;
   bool _hasMore = false;
   String? _company;
   String? _error;
+  final _fromDate = TextEditingController();
+  final _toDate = TextEditingController();
+  core.Map<String, dynamic> _opening = {'balance': 0.0};
+  core.Map<String, dynamic> _periodTotals = {'debit': 0.0, 'credit': 0.0, 'balance': 0.0};
 
   @override
   void initState() {
@@ -2025,8 +2099,32 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
       final page = await widget.api.fetchCustomerLedger(
         customer: widget.customer.id,
         company: _company,
+        fromDate: _fromDate.text,
+        toDate: _toDate.text,
         start: more ? _rows.length : 0,
       );
+      if (!more) {
+        if (_company == null) {
+          if (mounted) {
+            setState(() {
+              _periodTotals = {'debit': 0.0, 'credit': 0.0, 'balance': 0.0};
+              _opening = {'balance': 0.0};
+            });
+          }
+        } else {
+          final totals = await widget.api.fetchPartyLedgerTotals(
+            partyType: 'Customer', party: widget.customer.id,
+            company: _company, fromDate: _fromDate.text, toDate: _toDate.text,
+          );
+          final opening = _fromDate.text.trim().isEmpty
+              ? <String, dynamic>{'balance': 0.0}
+              : await widget.api.fetchPartyLedgerOpeningBalance(
+                  partyType: 'Customer', party: widget.customer.id,
+                  company: _company, beforeDate: _fromDate.text,
+                );
+          if (mounted) setState(() { _periodTotals = totals; _opening = opening; });
+        }
+      }
       if (!mounted) return;
       setState(() {
         if (more) {
@@ -2053,13 +2151,18 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
     }
   }
 
-  double _amount(Map<String, dynamic> row, String field) =>
+  @override
+  void dispose() {
+    _fromDate.dispose();
+    _toDate.dispose();
+    super.dispose();
+  }
+
+  double _amount(core.Map<String, dynamic> row, String field) =>
       double.tryParse(row[field]?.toString() ?? '') ?? 0;
 
   @override
   Widget build(BuildContext context) {
-    final debit = _rows.fold<double>(0, (sum, row) => sum + _amount(row, 'debit'));
-    final credit = _rows.fold<double>(0, (sum, row) => sum + _amount(row, 'credit'));
     return SizedBox(
       height: MediaQuery.of(context).size.height * .82,
       child: Column(
@@ -2089,13 +2192,29 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
                   },
                 ),
                 const SizedBox(height: 8),
+                Row(children: [
+                  Expanded(child: TextField(controller: _fromDate, keyboardType: TextInputType.datetime,
+                    decoration: const InputDecoration(labelText: 'من تاريخ YYYY-MM-DD'))),
+                  const SizedBox(width: 8),
+                  Expanded(child: TextField(controller: _toDate, keyboardType: TextInputType.datetime,
+                    decoration: const InputDecoration(labelText: 'إلى تاريخ YYYY-MM-DD'))),
+                ]),
+                Align(alignment: AlignmentDirectional.centerEnd, child: TextButton.icon(
+                  onPressed: _loading || _loadingMore ? null : () => _load(),
+                  icon: const Icon(Icons.filter_alt_outlined), label: const Text('تطبيق فترة الكشف'),
+                )),
                 Wrap(
                   spacing: 16,
                   runSpacing: 6,
                   children: [
-                    Text('مدين: ${debit.toStringAsFixed(2)}'),
-                    Text('دائن: ${credit.toStringAsFixed(2)}'),
-                    Text('صافي الحركات المحمّلة: ${(debit - credit).toStringAsFixed(2)}'),
+                    if (_company == null)
+                      const Text('اختر شركة لاحتساب الأرصدة؛ لا يتم جمع عملات شركات مختلفة.')
+                    else ...[
+                      Text('مدين الفترة: ${(_periodTotals['debit'] ?? 0)}'),
+                      Text('دائن الفترة: ${(_periodTotals['credit'] ?? 0)}'),
+                      Text('الرصيد الافتتاحي: ${(_opening['balance'] ?? 0)}'),
+                      Text('الرصيد الختامي: ${((_opening['balance'] as num? ?? 0) + (_periodTotals['balance'] as num? ?? 0)).toStringAsFixed(2)}'),
+                    ],
                   ],
                 ),
               ],
@@ -2156,6 +2275,233 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
   }
 }
 
+
+class _SupplierLedgerSheet extends StatefulWidget {
+  const _SupplierLedgerSheet({
+    required this.api,
+    required this.supplier,
+    required this.companies,
+  });
+
+  final FrappeApi api;
+  final ErpSupplier supplier;
+  final List<ErpCompany> companies;
+
+  @override
+  State<_SupplierLedgerSheet> createState() => _SupplierLedgerSheetState();
+}
+
+class _SupplierLedgerSheetState extends State<_SupplierLedgerSheet> {
+  final List<core.Map<String, dynamic>> _rows = [];
+  bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = false;
+  String? _company;
+  String? _error;
+  final _fromDate = TextEditingController();
+  final _toDate = TextEditingController();
+  core.Map<String, dynamic> _opening = {'balance': 0.0};
+  core.Map<String, dynamic> _periodTotals = {'debit': 0.0, 'credit': 0.0, 'balance': 0.0};
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load({bool more = false}) async {
+    if (_loadingMore || (more && !_hasMore)) return;
+    setState(() {
+      if (more) {
+        _loadingMore = true;
+      } else {
+        _loading = true;
+        _error = null;
+      }
+    });
+    try {
+      final page = await widget.api.fetchSupplierLedger(
+        supplier: widget.supplier.id,
+        company: _company,
+        fromDate: _fromDate.text,
+        toDate: _toDate.text,
+        start: more ? _rows.length : 0,
+      );
+      if (!more) {
+        if (_company == null) {
+          if (mounted) {
+            setState(() {
+              _periodTotals = {'debit': 0.0, 'credit': 0.0, 'balance': 0.0};
+              _opening = {'balance': 0.0};
+            });
+          }
+        } else {
+          final totals = await widget.api.fetchPartyLedgerTotals(
+            partyType: 'Supplier', party: widget.supplier.id,
+            company: _company, fromDate: _fromDate.text, toDate: _toDate.text,
+          );
+          final opening = _fromDate.text.trim().isEmpty
+              ? <String, dynamic>{'balance': 0.0}
+              : await widget.api.fetchPartyLedgerOpeningBalance(
+                  partyType: 'Supplier', party: widget.supplier.id,
+                  company: _company, beforeDate: _fromDate.text,
+                );
+          if (mounted) setState(() { _periodTotals = totals; _opening = opening; });
+        }
+      }
+      if (!mounted) return;
+      setState(() {
+        if (more) {
+          _rows.addAll(page);
+        } else {
+          _rows
+            ..clear()
+            ..addAll(page);
+        }
+        _hasMore = page.length == FrappeApi.pageSize;
+        _error = null;
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _loadingMore = false;
+        });
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _fromDate.dispose();
+    _toDate.dispose();
+    super.dispose();
+  }
+
+  double _amount(core.Map<String, dynamic> row, String field) =>
+      double.tryParse(row[field]?.toString() ?? '') ?? 0;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * .82,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('كشف حساب المورد', style: Theme.of(context).textTheme.titleLarge),
+                Text('${widget.supplier.name} • ${widget.supplier.id}'),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: _company ?? '',
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'الشركة'),
+                  items: [
+                    const DropdownMenuItem(value: '', child: Text('جميع الشركات')),
+                    ...widget.companies.map((company) => DropdownMenuItem(
+                      value: company.name,
+                      child: Text(company.name),
+                    )),
+                  ],
+                  onChanged: (_loading || _loadingMore) ? null : (value) {
+                    setState(() => _company = value == null || value.isEmpty ? null : value);
+                    _load();
+                  },
+                ),
+                const SizedBox(height: 8),
+                Row(children: [
+                  Expanded(child: TextField(controller: _fromDate, keyboardType: TextInputType.datetime,
+                    decoration: const InputDecoration(labelText: 'من تاريخ YYYY-MM-DD'))),
+                  const SizedBox(width: 8),
+                  Expanded(child: TextField(controller: _toDate, keyboardType: TextInputType.datetime,
+                    decoration: const InputDecoration(labelText: 'إلى تاريخ YYYY-MM-DD'))),
+                ]),
+                Align(alignment: AlignmentDirectional.centerEnd, child: TextButton.icon(
+                  onPressed: _loading || _loadingMore ? null : () => _load(),
+                  icon: const Icon(Icons.filter_alt_outlined), label: const Text('تطبيق فترة الكشف'),
+                )),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 6,
+                  children: [
+                    if (_company == null)
+                      const Text('اختر شركة لاحتساب الأرصدة؛ لا يتم جمع عملات شركات مختلفة.')
+                    else ...[
+                      Text('مدين الفترة: ${(_periodTotals['debit'] ?? 0)}'),
+                      Text('دائن الفترة: ${(_periodTotals['credit'] ?? 0)}'),
+                      Text('الرصيد الافتتاحي: ${(_opening['balance'] ?? 0)}'),
+                      Text('الرصيد الختامي: ${((_opening['balance'] as num? ?? 0) + (_periodTotals['balance'] as num? ?? 0)).toStringAsFixed(2)}'),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (_loading) const LinearProgressIndicator(),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(children: [
+                Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                TextButton.icon(
+                  onPressed: _loading ? null : () => _load(),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('إعادة المحاولة'),
+                ),
+              ]),
+            ),
+          Expanded(
+            child: _rows.isEmpty
+                ? Center(child: Text(_loading ? 'جارٍ تحميل كشف الحساب...' : 'لا توجد حركات حساب ظاهرة.'))
+                : ListView.separated(
+                    itemCount: _rows.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final row = _rows[index];
+                      final debitValue = _amount(row, 'debit');
+                      final creditValue = _amount(row, 'credit');
+                      return ListTile(
+                        dense: true,
+                        title: Text(row['voucher_no']?.toString() ?? row['name']?.toString() ?? 'قيد محاسبي'),
+                        subtitle: Text([
+                          row['posting_date']?.toString() ?? '',
+                          row['voucher_type']?.toString() ?? '',
+                          row['account']?.toString() ?? '',
+                          row['company']?.toString() ?? '',
+                          row['remarks']?.toString() ?? '',
+                        ].where((value) => value.isNotEmpty).join(' • ')),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            if (debitValue != 0) Text('مدين ${debitValue.toStringAsFixed(2)}'),
+                            if (creditValue != 0) Text('دائن ${creditValue.toStringAsFixed(2)}'),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          if (_hasMore || _loadingMore)
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: OutlinedButton(
+                onPressed: _loadingMore ? null : () => _load(more: true),
+                child: Text(_loadingMore ? 'جارٍ التحميل...' : 'تحميل المزيد'),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
 
 class _CustomerProfileEditorSheet extends StatefulWidget {
   const _CustomerProfileEditorSheet({

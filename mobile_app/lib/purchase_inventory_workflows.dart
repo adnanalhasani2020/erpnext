@@ -1,3 +1,5 @@
+import 'dart:core';
+import 'dart:core' as core;
 // ignore_for_file: prefer_interpolation_to_compose_strings, curly_braces_in_flow_control_structures
 import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
@@ -30,16 +32,16 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
   }
 
   List<ErpPurchaseInvoice> rows = [];
-  List<Map<String, dynamic>> purchaseOrders = [];
+  List<core.Map<String, dynamic>> purchaseOrders = [];
   int purchaseOrderOffset = 0;
   bool hasMorePurchaseOrders = false;
   bool loadingMorePurchaseOrders = false;
-  List<Map<String, dynamic>> supplierPayments = [];
-  List<Map<String, dynamic>> draftSupplierPayments = [];
+  List<core.Map<String, dynamic>> supplierPayments = [];
+  List<core.Map<String, dynamic>> draftSupplierPayments = [];
   int draftPaymentOffset = 0;
   bool hasMoreDraftPayments = false;
   bool loadingMoreDraftPayments = false;
-  List<Map<String, dynamic>> supplierLedger = [];
+  List<core.Map<String, dynamic>> supplierLedger = [];
   String? selectedLedgerSupplier;
   String? selectedLedgerCompany;
   bool ledgerLoading = false;
@@ -294,7 +296,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       final draft = await widget.api.fetchSupplierPaymentDraftDocument(name);
       if (!mounted) return;
       final references = (draft['references'] as List)
-          .whereType<Map<String, dynamic>>()
+          .whereType<core.Map<String, dynamic>>()
           .toList(growable: false);
       final confirmed = await showDialog<bool>(
         context: context,
@@ -349,7 +351,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       final payment = await widget.api.fetchSupplierPaymentDocument(name);
       if (!mounted) return;
       final references = (payment['references'] as List)
-          .whereType<Map<String, dynamic>>()
+          .whereType<core.Map<String, dynamic>>()
           .toList(growable: false);
       await showModalBottomSheet<void>(
         context: context,
@@ -413,10 +415,10 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     FilledButton(onPressed: () => Navigator.pop(c, true), child: Text(actionLabel)),
   ])) == true;
 
-  Future<void> compose({Map<String, dynamic>? draft}) =>
+  Future<void> compose({core.Map<String, dynamic>? draft}) =>
       _runExclusive(() => _compose(draft: draft));
 
-  Future<void> _compose({Map<String, dynamic>? draft}) async {
+  Future<void> _compose({core.Map<String, dynamic>? draft}) async {
     if (widget.companies.isEmpty || widget.suppliers.isEmpty || widget.items.isEmpty) {
       notice('تأكد من تحميل الشركات والموردين والأصناف وصلاحيات قراءتها.');
       return;
@@ -424,11 +426,11 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     var selectedCompany = draft?['company']?.toString() ?? widget.companies.first.name;
     var selectedSupplier = draft?['supplier']?.toString() ?? widget.suppliers.first.id;
     final updateStock = ValueNotifier<bool>(draft?['update_stock'] == 1 || draft?['update_stock'] == true);
-    final lineRows = <Map<String, dynamic>>[];
+    final lineRows = <core.Map<String, dynamic>>[];
     final sourceLines = draft?['items'] is List
-        ? (draft!['items'] as List).whereType<Map<String, dynamic>>().toList()
-        : <Map<String, dynamic>>[];
-    void addLine([Map<String, dynamic>? source]) {
+        ? (draft!['items'] as List).whereType<core.Map<String, dynamic>>().toList()
+        : <core.Map<String, dynamic>>[];
+    void addLine([core.Map<String, dynamic>? source]) {
       // Keep the original item code if the catalog page does not contain it.
       // Saving is blocked until the user selects a loaded item; never substitute
       // the first catalog item into an existing purchase invoice draft.
@@ -440,7 +442,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       final sourceWarehouse = source?['warehouse']?.toString();
       lineRows.add({
         'item': validItem,
-        'source': source == null ? null : Map<String, dynamic>.from(source),
+        'source': source == null ? null : core.Map<String, dynamic>.from(source),
         'qty': TextEditingController(text: (source?['qty'] ?? 1).toString()),
         'rate': TextEditingController(text: (source?['rate'] ?? 0).toString()),
         'serial_no': TextEditingController(text: source?['serial_no']?.toString() ?? ''),
@@ -451,7 +453,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     }
     if (sourceLines.isEmpty) { addLine(); } else { for (final row in sourceLines) { addLine(row); } }
     try {
-      final values = await showDialog<Map<String, dynamic>>(
+      final values = await showDialog<core.Map<String, dynamic>>(
         context: context,
         builder: (dialogContext) => StatefulBuilder(builder: (context, refreshDialog) {
           final companies = widget.companies.map((x) => x.name).toSet().toList();
@@ -475,7 +477,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                     if (!widget.warehouses.any((w) => w.id == row['warehouse'] &&
                         (w.company == selectedCompany))) row['warehouse'] = null;
                     final source = row['source'];
-                    if (source is Map<String, dynamic>) {
+                    if (source is core.Map<String, dynamic>) {
                       row['source'] = <String, dynamic>{
                         if (source['name'] != null) 'name': source['name'],
                       };
@@ -535,7 +537,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                         (row['batch_no'] as TextEditingController).clear();
                         (row['expiry_date'] as TextEditingController).clear();
                         final source = row['source'];
-                        if (source is Map<String, dynamic>) {
+                        if (source is core.Map<String, dynamic>) {
                           row['source'] = <String, dynamic>{
                             if (source['name'] != null) 'name': source['name'],
                           };
@@ -583,7 +585,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                   notice('الشركة أو المورد الموجود في المسودة غير موجود ضمن البيانات المحمّلة. حدّث القوائم قبل الحفظ.');
                   return;
                 }
-                final items = <Map<String, dynamic>>[];
+                final items = <core.Map<String, dynamic>>[];
                 for (final row in lineRows) {
                   final qty = double.tryParse((row['qty'] as TextEditingController).text.trim());
                   final rate = double.tryParse((row['rate'] as TextEditingController).text.trim());
@@ -596,8 +598,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                   final selectedItem = matchingItems.first;
                   if (code.isEmpty || qty == null || !qty.isFinite || qty <= 0 ||
                       rate == null || !rate.isFinite || rate < 0) return;
-                  final itemRow = row['source'] is Map<String, dynamic>
-                      ? Map<String, dynamic>.from(row['source'] as Map<String, dynamic>)
+                  final itemRow = row['source'] is core.Map<String, dynamic>
+                      ? core.Map<String, dynamic>.from(row['source'] as core.Map<String, dynamic>)
                       : <String, dynamic>{};
                   if (itemRow['item_code'] != null && itemRow['item_code'] != code) {
                     for (final field in const ['serial_and_batch_bundle', 'rejected_serial_and_batch_bundle', 'serial_no', 'batch_no', 'use_serial_batch_fields']) {
@@ -679,10 +681,10 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     }
   }
 
-  Future<void> composePurchaseOrder({Map<String, dynamic>? draft}) =>
+  Future<void> composePurchaseOrder({core.Map<String, dynamic>? draft}) =>
       _runExclusive(() => _composePurchaseOrder(draft: draft));
 
-  Future<void> _composePurchaseOrder({Map<String, dynamic>? draft}) async {
+  Future<void> _composePurchaseOrder({core.Map<String, dynamic>? draft}) async {
     if (widget.companies.isEmpty || widget.suppliers.isEmpty || widget.items.isEmpty) {
       notice('حمّل الشركات والموردين والأصناف أولاً لإنشاء أمر الشراء.');
       return;
@@ -692,10 +694,10 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     final today = DateTime.now().toIso8601String().substring(0, 10);
     final scheduleDate = TextEditingController(text: draft?['schedule_date']?.toString() ?? today);
     final sourceRows = draft?['items'] is List
-        ? (draft!['items'] as List).whereType<Map<String, dynamic>>().toList()
-        : <Map<String, dynamic>>[];
-    final lines = <Map<String, dynamic>>[];
-    void addLine([Map<String, dynamic>? source]) {
+        ? (draft!['items'] as List).whereType<core.Map<String, dynamic>>().toList()
+        : <core.Map<String, dynamic>>[];
+    final lines = <core.Map<String, dynamic>>[];
+    void addLine([core.Map<String, dynamic>? source]) {
       final code = source?['item_code']?.toString();
       // Preserve an existing draft's item code even when the current
       // dashboard catalog is incomplete; never silently replace it with item 1.
@@ -705,7 +707,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       final sourceWarehouse = source?['warehouse']?.toString();
       lines.add({
         'item': validCode,
-        'source': source == null ? null : Map<String, dynamic>.from(source),
+        'source': source == null ? null : core.Map<String, dynamic>.from(source),
         'qty': TextEditingController(text: (source?['qty'] ?? 1).toString()),
         'rate': TextEditingController(text: (source?['rate'] ?? 0).toString()),
         'warehouse': widget.warehouses.any((w) => w.id == sourceWarehouse &&
@@ -714,7 +716,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     }
     if (sourceRows.isEmpty) { addLine(); } else { for (final row in sourceRows) { addLine(row); } }
     try {
-      final values = await showDialog<Map<String, dynamic>>(
+      final values = await showDialog<core.Map<String, dynamic>>(
         context: context,
         builder: (dialogContext) => StatefulBuilder(builder: (context, refresh) {
           final companies = widget.companies.map((x) => x.name).toSet().toList();
@@ -791,7 +793,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                           if (v == null) return;
                           line['item'] = v;
                           final source = line['source'];
-                          if (source is Map<String, dynamic>) {
+                          if (source is core.Map<String, dynamic>) {
                             line['source'] = <String, dynamic>{};
                           }
                         }),
@@ -829,7 +831,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                   notice('الشركة أو المورد الموجود في المسودة غير موجود ضمن البيانات المحمّلة. حدّث القوائم قبل الحفظ.');
                   return;
                 }
-                final payloadLines = <Map<String, dynamic>>[];
+                final payloadLines = <core.Map<String, dynamic>>[];
                 for (final line in lines) {
                   final code = line['item'] as String;
                   final matching = widget.items.where((x) => x.code == code).toList();
@@ -843,8 +845,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                     notice('تحقق من الصنف والكمية والسعر، وتأكد من صحة المستودع إذا اخترته.');
                     return;
                   }
-                  final source = line['source'] is Map<String, dynamic>
-                      ? Map<String, dynamic>.from(line['source'] as Map<String, dynamic>)
+                  final source = line['source'] is core.Map<String, dynamic>
+                      ? core.Map<String, dynamic>.from(line['source'] as core.Map<String, dynamic>)
                       : <String, dynamic>{};
                   source['item_code'] = code;
                   source['qty'] = qty;
@@ -914,7 +916,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
             Text('الحالة: ${doc['docstatus'] == 0 ? 'مسودة' : doc['docstatus'] == 1 ? 'مرحّل' : 'ملغي'} • ${doc['status'] ?? '—'}'),
             Text('الإجمالي: ${doc['grand_total'] ?? '—'} ${doc['currency'] ?? ''}'),
             const Divider(),
-            ...((doc['items'] as List? ?? []).whereType<Map<String, dynamic>>().map((row) => ListTile(
+            ...((doc['items'] as List? ?? []).whereType<core.Map<String, dynamic>>().map((row) => ListTile(
               title: Text((row['item_name'] ?? row['item_code'] ?? 'صنف').toString()),
               subtitle: Text('الكمية: ${row['qty'] ?? '—'} • المستلم: ${row['received_qty'] ?? 0} • المستودع: ${row['warehouse'] ?? '—'}'),
             ))),
@@ -971,7 +973,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
           Text('الإجمالي: ' + (doc['grand_total'] ?? '—').toString() + ' ' + (doc['currency'] ?? '').toString()),
           Text('المتبقي: ' + (doc['outstanding_amount'] ?? '—').toString()),
           const Divider(),
-          ...((doc['items'] as List? ?? []).whereType<Map<String, dynamic>>().map((x) => ListTile(title: Text((x['item_name'] ?? x['item_code']).toString()), subtitle: Text('الكمية: ' + (x['qty'] ?? '').toString() + ' • المستودع: ' + (x['warehouse'] ?? '—').toString())))),
+          ...((doc['items'] as List? ?? []).whereType<core.Map<String, dynamic>>().map((x) => ListTile(title: Text((x['item_name'] ?? x['item_code']).toString()), subtitle: Text('الكمية: ' + (x['qty'] ?? '').toString() + ' • المستودع: ' + (x['warehouse'] ?? '—').toString())))),
           if (doc['docstatus'] == 0) ...[
             if (doc['is_return'] != 1 && doc['is_return'] != true)
               FilledButton(onPressed: () { Navigator.pop(sheet); compose(draft: doc); }, child: const Text('تعديل المسودة')),
@@ -1047,10 +1049,10 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
         ]))));
     } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
   }
-  Future<Map<String, double?>?> _purchaseReturnQuantitiesDialog(
-      Map<String, dynamic> invoice, Map<String, double> returnable) async {
+  Future<core.Map<String, double?>?> _purchaseReturnQuantitiesDialog(
+      core.Map<String, dynamic> invoice, core.Map<String, double> returnable) async {
     final sourceItems = (invoice['items'] as List? ?? [])
-        .whereType<Map<String, dynamic>>()
+        .whereType<core.Map<String, dynamic>>()
         .where((row) => row['name'] is String && (row['name'] as String).isNotEmpty)
         .toList();
     if (sourceItems.isEmpty) {
@@ -1063,7 +1065,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       controllers[name] = TextEditingController(text: (returnable[name] ?? 0).toString());
     }
     try {
-      return await showDialog<Map<String, double?>>(
+      return await showDialog<core.Map<String, double?>>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: const Text('كميات مرتجع المشتريات'),
@@ -1107,7 +1109,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     }
   }
 
-  Future<Map<String, dynamic>?> _supplierPaymentDialog(String company) async {
+  Future<core.Map<String, dynamic>?> _supplierPaymentDialog(String company) async {
     try {
       final accounts = await widget.api.fetchPaymentAccounts(company);
       if (!mounted) return null;
@@ -1118,7 +1120,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       final amount = TextEditingController();
       var account = accounts.first.name;
       try {
-        return await showDialog<Map<String, dynamic>>(
+        return await showDialog<core.Map<String, dynamic>>(
           context: context,
           builder: (c) => StatefulBuilder(builder: (context, refresh) => AlertDialog(
             title: const Text('تسجيل دفعة المورد'),
@@ -1344,10 +1346,10 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
   List<ErpStockReorderAlert> reorderAlerts = [];
   bool loadingReorderAlerts = false;
   String? reorderAlertError;
-  List<Map<String, dynamic>> movements = [];
-  List<Map<String, dynamic>> drafts = [];
-  final Map<String, int> draftOffsets = {};
-  final Map<String, bool> draftHasMore = {};
+  List<core.Map<String, dynamic>> movements = [];
+  List<core.Map<String, dynamic>> drafts = [];
+  final core.Map<String, int> draftOffsets = {};
+  final core.Map<String, bool> draftHasMore = {};
   bool loadingMoreDrafts = false;
   String? draftError;
   bool loading = false;
@@ -1416,7 +1418,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       );
       if (mounted) setState(() { movements = data; offset = data.length; hasMore = data.length == FrappeApi.pageSize; });
     } catch (e) { if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', '')); }
-    final loadedDrafts = <Map<String, dynamic>>[];
+    final loadedDrafts = <core.Map<String, dynamic>>[];
     final draftErrors = <String>[];
     final nextOffsets = <String, int>{};
     final nextHasMore = <String, bool>{};
@@ -1454,7 +1456,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     if (loading || loadingMoreDrafts ||
         !draftHasMore.values.any((hasMore) => hasMore)) return;
     setState(() => loadingMoreDrafts = true);
-    final additions = <Map<String, dynamic>>[];
+    final additions = <core.Map<String, dynamic>>[];
     final errors = <String>[];
     final nextOffsets = <String, int>{};
     final nextHasMore = <String, bool>{};
@@ -1497,7 +1499,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     }
   }
 
-  Future<void> reviewDraft(Map<String, dynamic> summary) async {
+  Future<void> reviewDraft(core.Map<String, dynamic> summary) async {
     try {
       final type = summary['doctype'].toString();
       final name = summary['name'].toString();
@@ -1510,7 +1512,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
           Text('التاريخ: ' + (doc['posting_date'] ?? '—').toString()),
           Text('الغرض: ' + (doc['purpose'] ?? doc['stock_entry_type'] ?? '—').toString()),
           const Divider(),
-          ...((doc['items'] as List? ?? []).whereType<Map<String, dynamic>>().map((row) => ListTile(
+          ...((doc['items'] as List? ?? []).whereType<core.Map<String, dynamic>>().map((row) => ListTile(
             title: Text((row['item_name'] ?? row['item_code'] ?? 'صنف').toString()),
             subtitle: Text('الكمية: ' + (row['qty'] ?? '—').toString() + ' • من: ' + (row['s_warehouse'] ?? '—').toString() + ' • إلى: ' + (row['t_warehouse'] ?? row['warehouse'] ?? '—').toString()),
           ))),
@@ -1532,10 +1534,10 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         ]))));
     } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
   }
-  Future<void> submitDraft(Map<String, dynamic> summary) =>
+  Future<void> submitDraft(core.Map<String, dynamic> summary) =>
       _runExclusive(() => _submitDraft(summary));
 
-  Future<void> _submitDraft(Map<String, dynamic> summary) async {
+  Future<void> _submitDraft(core.Map<String, dynamic> summary) async {
     final type = summary['doctype'].toString();
     final name = summary['name'].toString();
     if (!await confirm('ترحيل مسودة ' + name, 'سيتم ترحيل المستند وتحديث المخزون أو القيود حسب نوعه. راجع تفاصيله في ERPNext إذا لزم الأمر.')) return;
@@ -1555,7 +1557,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       await load(); widget.onChanged?.call();
     } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
   }
-  Future<void> showMovementDetails(Map<String, dynamic> movement) async {
+  Future<void> showMovementDetails(core.Map<String, dynamic> movement) async {
     if (!mounted) return;
     final voucherType = movement['voucher_type']?.toString() ?? '';
     final voucherName = movement['voucher_no']?.toString() ?? '';
@@ -1608,7 +1610,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                   ? 'ملغي'
                   : 'غير محدد';
       final rows = (document['items'] as List? ?? [])
-          .whereType<Map<String, dynamic>>()
+          .whereType<core.Map<String, dynamic>>()
           .toList(growable: false);
       await showModalBottomSheet<void>(
         context: context,
@@ -1662,13 +1664,13 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     } catch (e) { if (mounted) setState(() => error = e.toString().replaceFirst('Exception: ', '')); }
     finally { if (mounted) setState(() => loadingMore = false); }
   }
-  Future<List<Map<String, dynamic>>?> _stockItemLinesDialog({
+  Future<List<core.Map<String, dynamic>>?> _stockItemLinesDialog({
     required String title, bool includeRate = false, bool allowZeroQuantity = false, bool requirePositiveRate = false,
     String? trackingWarehouse,
     String? reconciliationWarehouse,
   }) async {
     if (widget.items.isEmpty) return null;
-    final lines = <Map<String, dynamic>>[];
+    final lines = <core.Map<String, dynamic>>[];
     void addLine() {
       lines.add({
         'item': widget.items.first.code,
@@ -1685,7 +1687,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     }
     addLine();
     try {
-      return await showDialog<List<Map<String, dynamic>>>(
+      return await showDialog<List<core.Map<String, dynamic>>>(
         context: context,
         builder: (dialogContext) => StatefulBuilder(builder: (context, refresh) => AlertDialog(
           title: Text(title),
@@ -1773,15 +1775,16 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                               ignoreReservedStock: true,
                               includeExpired: true,
                             );
-                            if (batchNo.isEmpty && available.length == 1) {
-                              batchNo = available.first['batch_no'].toString();
-                            } else if (batchNo.isEmpty && available.length > 1) {
+                            final availableRows = available.whereType<Map<String, dynamic>>().toList(growable: false);
+                            if (batchNo.isEmpty && availableRows.length == 1) {
+                              batchNo = availableRows.first['batch_no'].toString();
+                            } else if (batchNo.isEmpty && availableRows.length > 1) {
                               if (!context.mounted) return;
                               final chosen = await showDialog<String>(
                                 context: context,
                                 builder: (pickerContext) => SimpleDialog(
                                   title: const Text('اختر الدفعة الحالية'),
-                                  children: available.map((entry) => SimpleDialogOption(
+                                  children: availableRows.map((entry) => SimpleDialogOption(
                                     onPressed: () => Navigator.pop(pickerContext, entry['batch_no'].toString()),
                                     child: Text(entry['batch_no'].toString() + ' • الكمية الحالية: ' + (entry['qty'] ?? 0).toString()),
                                   )).toList(),
@@ -1790,7 +1793,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                               if (chosen == null) return;
                               batchNo = chosen;
                             }
-                            final batchRows = available.where((entry) => entry['batch_no'] == batchNo).toList();
+                            final batchRows = availableRows.where((entry) => entry['batch_no'] == batchNo).toList();
                             currentQty = batchRows.isEmpty ? 0.0 :
                               (double.tryParse(batchRows.first['qty']?.toString() ?? '') ?? 0);
                             if (batchNo.isEmpty && currentQty > 0) {
@@ -1858,7 +1861,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
           actions: [
             TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
             FilledButton(onPressed: () {
-              final result = <Map<String, dynamic>>[];
+              final result = <core.Map<String, dynamic>>[];
               final seenItems = <String>{};
               for (final row in lines) {
                 final itemCode = row['item'] as String;
@@ -2035,10 +2038,10 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     }
   }
 
-  Future<List<Map<String, dynamic>>?> _purchaseOrderReceiptLinesDialog(
-      Map<String, dynamic> order) async {
+  Future<List<core.Map<String, dynamic>>?> _purchaseOrderReceiptLinesDialog(
+      core.Map<String, dynamic> order) async {
     final orderItems = (order['items'] as List? ?? [])
-        .whereType<Map<String, dynamic>>()
+        .whereType<core.Map<String, dynamic>>()
         .where((row) {
           final ordered = double.tryParse(row['qty']?.toString() ?? '') ?? 0;
           final received = double.tryParse(row['received_qty']?.toString() ?? '') ?? 0;
@@ -2049,7 +2052,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       notice('لا توجد كميات متبقية للاستلام في أمر الشراء.');
       return null;
     }
-    final rows = <Map<String, dynamic>>[];
+    final rows = <core.Map<String, dynamic>>[];
     for (final source in orderItems) {
       final remaining = (double.tryParse(source['qty']?.toString() ?? '') ?? 0) -
           (double.tryParse(source['received_qty']?.toString() ?? '') ?? 0);
@@ -2076,7 +2079,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       }
     }
     try {
-      return await showDialog<List<Map<String, dynamic>>>(
+      return await showDialog<List<core.Map<String, dynamic>>>(
         context: context,
         builder: (dialogContext) => StatefulBuilder(builder: (context, refresh) => AlertDialog(
           title: Text('استلام من أمر الشراء ${order['name']}'),
@@ -2086,7 +2089,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
               const Text('تظهر الكميات المتبقية فقط. لا يمكن استلام كمية أكبر من المتبقي في كل بند.'),
               ...List.generate(rows.length, (index) {
                 final row = rows[index];
-                final source = row['source'] as Map<String, dynamic>;
+                final source = row['source'] as core.Map<String, dynamic>;
                 final code = source['item_code'].toString();
                 final matchingItems = widget.items.where((x) => x.code == code).toList();
                 final item = matchingItems.isEmpty ? null : matchingItems.first;
@@ -2143,9 +2146,9 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
           actions: [
             TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
             FilledButton(onPressed: () {
-              final result = <Map<String, dynamic>>[];
+              final result = <core.Map<String, dynamic>>[];
               for (final row in rows) {
-                final source = row['source'] as Map<String, dynamic>;
+                final source = row['source'] as core.Map<String, dynamic>;
                 final code = source['item_code'].toString();
                 final matchingItems = widget.items.where((x) => x.code == code).toList();
                 final item = matchingItems.isEmpty ? null : matchingItems.first;
@@ -2209,7 +2212,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
 
   Future<void> _purchaseReceiptFromOrder() async {
     try {
-      final orders = <Map<String, dynamic>>[];
+      final orders = <core.Map<String, dynamic>>[];
       var orderOffset = 0;
       while (true) {
         final page = await widget.api.fetchPurchaseOrders(start: orderOffset);

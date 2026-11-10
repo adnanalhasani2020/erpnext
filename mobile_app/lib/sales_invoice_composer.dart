@@ -1,11 +1,13 @@
+import 'dart:core';
+import 'dart:core' as core;
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
 import 'models/serial_batch_tracking.dart';
 
-Map<String, dynamic> buildSalesInvoiceLinePayload({
-  required Map<String, dynamic>? sourceRow,
+core.Map<String, dynamic> buildSalesInvoiceLinePayload({
+  required core.Map<String, dynamic>? sourceRow,
   required String itemCode,
   required double quantity,
   required double rate,
@@ -13,7 +15,7 @@ Map<String, dynamic> buildSalesInvoiceLinePayload({
   bool removeWarehouse = false,
   bool replaceTrackingAllocation = false,
 }) {
-  final row = Map<String, dynamic>.from(sourceRow ?? const <String, dynamic>{});
+  final row = core.Map<String, dynamic>.from(sourceRow ?? const <String, dynamic>{});
   if (row['item_code'] != null && row['item_code'] != itemCode) {
     for (final field in const [
       'sales_order', 'so_detail', 'delivery_note', 'dn_detail',
@@ -72,7 +74,7 @@ class SalesInvoiceComposer extends StatefulWidget {
   final List<ErpWarehouse> warehouses;
   final List<ErpCompany> companies;
   final ValueChanged<bool> onCompleted;
-  final Map<String, dynamic>? initialDraft;
+  final core.Map<String, dynamic>? initialDraft;
 
   @override
   State<SalesInvoiceComposer> createState() => _SalesInvoiceComposerState();
@@ -80,7 +82,7 @@ class SalesInvoiceComposer extends StatefulWidget {
 
 class _SalesInvoiceLineDraft {
   ErpItem? item;
-  Map<String, dynamic>? sourceRow;
+  core.Map<String, dynamic>? sourceRow;
   ErpWarehouse? warehouse;
   final quantity = TextEditingController(text: '1');
   final rate = TextEditingController(text: '0');
@@ -114,18 +116,18 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
   late final List<ErpCompany> _availableCompanies;
   late final List<ErpItem> _availableItems;
   late final List<ErpWarehouse> _availableWarehouses;
-  Map<String, dynamic>? _existingDraft;
+  core.Map<String, dynamic>? _existingDraft;
   String? _postingDate;
   ErpCustomer? _customer;
   ErpCompany? _company;
   bool _updateStock = true;
   bool _loadingSalesPersons = false;
-  List<Map<String, dynamic>> _salesPersons = const [];
-  final List<Map<String, dynamic>> _salesTeam = [];
+  List<core.Map<String, dynamic>> _salesPersons = const [];
+  final List<core.Map<String, dynamic>> _salesTeam = [];
   bool _saving = false;
   String? _error;
   String? _createdInvoiceId;
-  Map<String, dynamic>? _pendingDraft;
+  core.Map<String, dynamic>? _pendingDraft;
 
   @override
   void initState() {
@@ -137,7 +139,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
     _availableWarehouses = List<ErpWarehouse>.of(widget.warehouses);
     _existingDraft = widget.initialDraft == null
         ? null
-        : Map<String, dynamic>.from(widget.initialDraft!);
+        : core.Map<String, dynamic>.from(widget.initialDraft!);
     _postingDate = _existingDraft?['posting_date']?.toString();
     if (_postingDate == null || _postingDate!.isEmpty) _postingDate = _today();
 
@@ -170,7 +172,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
     _updateStock = draft['update_stock'] == 1 || draft['update_stock'] == true;
     final rawSalesTeam = draft['sales_team'];
     if (rawSalesTeam is List) {
-      for (final raw in rawSalesTeam.whereType<Map>()) {
+      for (final raw in rawSalesTeam.whereType<core.Map>()) {
         final person = raw['sales_person']?.toString() ?? '';
         final percentage = double.tryParse(raw['allocated_percentage']?.toString() ?? '') ?? 0;
         if (person.isNotEmpty && percentage > 0) {
@@ -183,7 +185,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
     }
     final rawItems = draft['items'];
     if (rawItems is List) {
-      for (final raw in rawItems.whereType<Map<String, dynamic>>()) {
+      for (final raw in rawItems.whereType<core.Map<String, dynamic>>()) {
         final code = raw['item_code']?.toString() ?? '';
         if (code.isEmpty) continue;
         ErpItem? item;
@@ -202,7 +204,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
 
         final line = _SalesInvoiceLineDraft();
         line.item = item;
-        line.sourceRow = Map<String, dynamic>.from(raw);
+        line.sourceRow = core.Map<String, dynamic>.from(raw);
         line.quantity.text = raw['qty']?.toString() ?? '1';
         line.rate.text = raw['rate']?.toString() ?? '0';
         line.serialNumbers.text = raw['serial_no']?.toString() ?? '';
@@ -242,9 +244,10 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
     try {
       final rows = await widget.api.fetchSalesPersons();
       if (!mounted) return;
+      final validRows = rows.whereType<Map<String, dynamic>>().toList(growable: false);
       setState(() {
-        _salesPersons = rows;
-        _salesTeam.removeWhere((entry) => !rows.any(
+        _salesPersons = validRows;
+        _salesTeam.removeWhere((entry) => !validRows.any(
           (person) => person['name'] == entry['sales_person'],
         ));
       });
@@ -270,7 +273,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
     final percent = TextEditingController(
       text: (_salesTeam.isEmpty ? 100 : 0).toString(),
     );
-    final result = await showDialog<Map<String, dynamic>>(
+    final result = await showDialog<core.Map<String, dynamic>>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (dialogContext, refresh) => AlertDialog(
@@ -464,7 +467,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
           'company': _company!.name,
           'posting_date': _postingDate ?? _today(),
           'update_stock': _updateStock ? 1 : 0,
-          if (_salesTeam.isNotEmpty) 'sales_team': _salesTeam.map((row) => Map<String, dynamic>.from(row)).toList(growable: false),
+          if (_salesTeam.isNotEmpty) 'sales_team': _salesTeam.map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false),
           'items': _lines.map((line) {
             final linePayload = buildSalesInvoiceLinePayload(
               sourceRow: line.sourceRow,
@@ -600,7 +603,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
                     else ...[
                       ...List.generate(_salesTeam.length, (index) {
                         final row = _salesTeam[index];
-                        final person = _salesPersons.cast<Map<String, dynamic>?>().firstWhere(
+                        final person = _salesPersons.cast<core.Map<String, dynamic>?>().firstWhere(
                           (candidate) => candidate?['name'] == row['sales_person'],
                           orElse: () => null,
                         );

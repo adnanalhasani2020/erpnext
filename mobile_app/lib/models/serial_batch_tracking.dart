@@ -1,9 +1,11 @@
+import 'dart:core';
+import 'dart:core' as core;
 // ignore_for_file: prefer_interpolation_to_compose_strings
 import 'package:flutter/material.dart';
 import '../api/frappe_api.dart';
 import 'erp_models.dart';
 List<String> parseSerialNumbers(String value) => value.split(RegExp(r'[\r\n,;]+')).map((v) => v.trim()).where((v) => v.isNotEmpty).toList(growable: false);
-Map<String, dynamic> buildSerialBatchFields({required ErpItem item, required double quantity, required String serialNumbers, required String batchNumber}) {
+core.Map<String, dynamic> buildSerialBatchFields({required ErpItem item, required double quantity, required String serialNumbers, required String batchNumber}) {
   if (!item.hasSerialNo && !item.hasBatchNo) return const {};
   if (!quantity.isFinite || quantity <= 0) throw const FormatException('كمية الصنف المتتبع يجب أن تكون أكبر من صفر.');
   final serials = parseSerialNumbers(serialNumbers);
@@ -21,7 +23,7 @@ Map<String, dynamic> buildSerialBatchFields({required ErpItem item, required dou
 }
 
 
-Future<Map<String, dynamic>?> showAvailableSerialBatchPicker({
+Future<core.Map<String, dynamic>?> showAvailableSerialBatchPicker({
   required BuildContext context,
   required FrappeApi api,
   required ErpItem item,
@@ -32,12 +34,12 @@ Future<Map<String, dynamic>?> showAvailableSerialBatchPicker({
       (item.hasSerialNo && (quantity - quantity.round()).abs() > 0.000001)) {
     throw const FormatException('كمية الصنف غير صالحة لاختيار أرقامه.');
   }
-  if (item.hasSerialNo && quantity > 200) {
-    throw const FormatException('اختيار أكثر من 200 رقم تسلسلي في عملية واحدة غير مدعوم.');
+  if (item.hasSerialNo && quantity > 5000) {
+    throw const FormatException('اختيار أكثر من 5000 رقم تسلسلي في بند واحد غير مدعوم؛ قسّم العملية إلى بنود أصغر.');
   }
   final batches = item.hasBatchNo
       ? await api.fetchAvailableBatches(itemCode: item.code, warehouse: warehouse)
-      : <Map<String, dynamic>>[];
+      : <core.Map<String, dynamic>>[];
   if (item.hasBatchNo && batches.isEmpty) {
     throw FormatException('لا توجد دفعات موجبة متاحة للصنف ' + item.code + ' في المستودع المحدد.');
   }
@@ -47,7 +49,7 @@ Future<Map<String, dynamic>?> showAvailableSerialBatchPicker({
     availableSerials = await api.fetchAvailableSerialNumbers(
       itemCode: item.code,
       warehouse: warehouse,
-      quantity: (quantity.round() * 5).clamp(quantity.round(), 200).toInt(),
+      quantity: (quantity.round() * 5).clamp(quantity.round(), 5000).toInt(),
       batchNumbers: selectedBatch == null ? const [] : [selectedBatch],
     );
     if (availableSerials.length < quantity.round()) {
@@ -56,7 +58,7 @@ Future<Map<String, dynamic>?> showAvailableSerialBatchPicker({
   }
   if (!context.mounted) return null;
   final selectedSerials = <String>{};
-  return showDialog<Map<String, dynamic>>(
+  return showDialog<core.Map<String, dynamic>>(
     context: context,
     builder: (dialogContext) => StatefulBuilder(builder: (dialogContext, refresh) {
       final batchRow = batches.where((row) => row['batch_no'] == selectedBatch).toList();
@@ -89,7 +91,7 @@ Future<Map<String, dynamic>?> showAvailableSerialBatchPicker({
                     try {
                       final serials = await api.fetchAvailableSerialNumbers(
                         itemCode: item.code, warehouse: warehouse,
-                        quantity: (quantity.round() * 5).clamp(quantity.round(), 200).toInt(),
+                        quantity: (quantity.round() * 5).clamp(quantity.round(), 5000).toInt(),
                         batchNumbers: [value],
                       );
                       if (!dialogContext.mounted) return;
@@ -112,19 +114,28 @@ Future<Map<String, dynamic>?> showAvailableSerialBatchPicker({
               if (availableSerials.isEmpty)
                 const Padding(padding: EdgeInsets.all(12), child: CircularProgressIndicator())
               else
-                ...availableSerials.map((serial) => CheckboxListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  value: selectedSerials.contains(serial),
-                  title: Text(serial),
-                  onChanged: (checked) => refresh(() {
-                    if (checked == true && selectedSerials.length < quantity.round()) {
-                      selectedSerials.add(serial);
-                    } else {
-                      selectedSerials.remove(serial);
-                    }
-                  }),
-                )),
+                SizedBox(
+                  height: 300,
+                  child: ListView.builder(
+                    itemCount: availableSerials.length,
+                    itemBuilder: (context, index) {
+                      final serial = availableSerials[index];
+                      return CheckboxListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        value: selectedSerials.contains(serial),
+                        title: Text(serial),
+                        onChanged: (checked) => refresh(() {
+                          if (checked == true && selectedSerials.length < quantity.round()) {
+                            selectedSerials.add(serial);
+                          } else {
+                            selectedSerials.remove(serial);
+                          }
+                        }),
+                      );
+                    },
+                  ),
+                ),
             ],
           ],
         ))),

@@ -1,3 +1,5 @@
+import 'dart:core';
+import 'dart:core' as core;
 import 'dart:convert';
 import 'dart:io';
 
@@ -20,7 +22,7 @@ void main() {
       purchaseInvoiceWasRefetched = false;
       server.listen((request) async {
         final segments = request.uri.pathSegments;
-        Map<String, dynamic> response;
+        core.Map<String, dynamic> response;
         if (request.method == 'GET' &&
             segments.length == 4 &&
             segments[2] == 'Purchase Invoice') {
