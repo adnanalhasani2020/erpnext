@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:io';
 
-/// Flutter's widget test binding replaces HttpClient with a fake client that
-/// returns 400 for every request. The API integration tests use loopback
-/// HttpServer fixtures, so run the test suite with a real HttpClient inside
-/// the test zone while keeping all requests local to their fixture servers.
+import 'package:flutter_test/flutter_test.dart';
+
+/// Flutter's widget test binding installs a blocking HttpClient override.
+/// Initialize it before installing the suite-level override so API tests can
+/// communicate only with their local HttpServer fixtures.
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
+  TestWidgetsFlutterBinding.ensureInitialized();
   await HttpOverrides.runZoned(
     testMain,
     createHttpClient: (_) => HttpClient(),
