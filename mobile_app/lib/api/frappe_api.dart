@@ -5659,7 +5659,7 @@ class FrappeApi {
       'from_date', 'to_date', 'total_leave_days', 'status', 'docstatus',
       'posting_date', 'description'],
     'Expense Claim': ['name', 'employee', 'employee_name', 'company', 'posting_date',
-      'total_claimed_amount', 'total_sanctioned_amount', 'approval_status',
+      'total_claimed_amount', 'total_sanctioned_amount', 'total_amount_reimbursed', 'approval_status',
       'status', 'docstatus'],
     'Salary Slip': ['name', 'employee', 'employee_name', 'company', 'start_date',
       'end_date', 'gross_pay', 'total_deduction', 'net_pay', 'currency', 'status', 'docstatus'],
@@ -6062,6 +6062,138 @@ class FrappeApi {
       throw const FormatException('لم يؤكد ERPNext إنشاء مطالبة المصروفات متعددة البنود المطابقة.');
     }
     return core.Map<String, dynamic>.from(created);
+  }
+
+
+  Future<core.Map<String, dynamic>> payExpenseClaim({
+    required String claimName,
+    required double amount,
+    String? bankAccount,
+  }) async {
+    final id = claimName.trim();
+    if (id.isEmpty || !amount.isFinite || amount <= 0) {
+      throw const FormatException('حدد مطالبة المصروف ومبلغ سداد موجباً.');
+    }
+    final actionKey = 'expense-claim-payment:$id';
+    if (!_inFlightPaymentActions.add(actionKey)) {
+      throw const FormatException('سداد هذه المطالبة قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
+    }
+    try {
+      final claimResponse = await _send(
+        'GET', '/api/resource/Expense%20Claim/' + Uri.encodeComponent(id),
+      );
+      final claimData = _decode(claimResponse.body);
+      if (claimResponse.statusCode < 200 || claimResponse.statusCode >= 300) {
+        throw Exception(_message(claimData, 'تعذر تحميل مطالبة المصروف قبل السداد.'));
+      }
+      final claim = claimData['data'];
+      if (claim is! core.Map<String, dynamic> ||
+          claim['doctype'] != 'Expense Claim' || claim['name'] != id ||
+          claim['docstatus'] != 1 || claim['approval_status'] != 'Approved' ||
+          (claim['employee']?.toString().trim().isEmpty ?? true) ||
+          (claim['company']?.toString().trim().isEmpty ?? true)) {
+        throw const FormatException('لا يمكن سداد إلا مطالبة مصروف مرحّلة ومعتمدة تابعة لموظف وشركة صحيحين.');
+      }
+      final sanctioned = double.tryParse(claim['total_sanctioned_amount']?.toString() ?? '') ?? 0;
+      final reimbursed = double.tryParse(claim['total_amount_reimbursed']?.toString() ?? '') ?? 0;
+      final outstanding = sanctioned - reimbursed;
+      if (!sanctioned.isFinite || !reimbursed.isFinite || !outstanding.isFinite ||
+          outstanding <= 0 || amount > outstanding + 0.000001) {
+        throw FormatException('مبلغ السداد يتجاوز المتبقي المعتمد للمطالبة (\${outstanding.toStringAsFixed(2)}).');
+      }
+      final selectedAccount = bankAccount?.trim() ?? '';
+      if (selectedAccount.isNotEmpty) {
+        final accountResponse = await _send(
+          'GET', '/api/resource/Account/' + Uri.encodeComponent(selectedAccount),
+        );
+        final accountData = _decode(accountResponse.body);
+        final account = accountData['data'];
+        if (accountResponse.statusCode < 200 || accountResponse.statusCode >= 300 ||
+            account is! core.Map<String, dynamic> ||
+            account['company'] != claim['company'] ||
+            account['is_group'] == 1 || account['is_group'] == true ||
+            account['disabled'] == 1 || account['disabled'] == true ||
+            !{'Cash', 'Bank'}.contains(account['account_type'])) {
+          throw const FormatException('حساب الصندوق أو البنك غير صالح أو لا يتبع شركة المطالبة.');
+        }
+      }
+      final setup = await _sendJson(
+        'POST',
+        '/api/method/erpnext.accounts.doctype.payment_entry.payment_entry.get_payment_entry',
+        {
+          'dt': 'Expense Claim',
+          'dn': id,
+          'party_amount': amount,
+          if (selectedAccount.isNotEmpty) 'bank_account': selectedAccount,
+        },
+      );
+      final setupData = _decode(setup.body);
+      if (setup.statusCode < 200 || setup.statusCode >= 300) {
+        throw Exception(_message(setupData, 'تعذر تجهيز سند سداد مطالبة المصروف من ERPNext.'));
+      }
+      final rawDraft = setupData['message'];
+      if (rawDraft is! core.Map<String, dynamic> ||
+          rawDraft['doctype'] != 'Payment Entry' ||
+          rawDraft['payment_type'] != 'Pay' ||
+          rawDraft['party_type'] != 'Employee' ||
+          rawDraft['party'] != claim['employee'] ||
+          rawDraft['company'] != claim['company'] ||
+          (selectedAccount.isNotEmpty && rawDraft['paid_from'] != selectedAccount)) {
+        throw const FormatException('سند الدفع الذي جهزه ERPNext لا يطابق الموظف أو الشركة أو الحساب المحدد.');
+      }
+      final references = rawDraft['references'];
+      if (references is! List) {
+        throw const FormatException('سند الدفع لا يحتوي مراجع مطالبة المصروف.');
+      }
+      var allocated = 0.0;
+      for (final raw in references.whereType<core.Map<String, dynamic>>()) {
+        if (raw['reference_doctype'] != 'Expense Claim' || raw['reference_name'] != id) continue;
+        allocated += double.tryParse(raw['allocated_amount']?.toString() ?? '') ?? 0;
+      }
+      if ((allocated - amount).abs() > 0.01) {
+        throw FormatException('تخصيص سند الدفع للمطالبة (\${allocated.toStringAsFixed(2)}) لا يطابق مبلغ السداد المطلوب (\${amount.toStringAsFixed(2)}).');
+      }
+      final insert = await _sendJson('POST', '/api/resource/Payment%20Entry', rawDraft);
+      final insertData = _decode(insert.body);
+      if (insert.statusCode < 200 || insert.statusCode >= 300) {
+        throw Exception(_message(insertData, 'تعذر حفظ سند سداد مطالبة المصروف.'));
+      }
+      final created = insertData['data'];
+      if (created is! core.Map<String, dynamic> ||
+          created['doctype'] != 'Payment Entry' ||
+          created['name'] is! String || created['docstatus'] != 0 ||
+          created['payment_type'] != 'Pay' || created['party_type'] != 'Employee' ||
+          created['party'] != claim['employee'] || created['company'] != claim['company']) {
+        throw const FormatException('لم يؤكد ERPNext حفظ مسودة سند سداد المطالبة المطابقة.');
+      }
+      try {
+        final submitted = await _submitMobileDocument(created, 'Payment Entry');
+        if (submitted['payment_type'] != 'Pay' ||
+            submitted['party_type'] != 'Employee' ||
+            submitted['party'] != claim['employee'] ||
+            submitted['company'] != claim['company'] ||
+            submitted['docstatus'] != 1) {
+          throw const FormatException('لم يؤكد ERPNext ترحيل سند سداد الموظف المطابق.');
+        }
+        return submitted;
+      } catch (error) {
+        try {
+          final confirmed = await _fetchPaymentEntryDocument(created['name'].toString());
+          if (confirmed['docstatus'] == 1 &&
+              confirmed['payment_type'] == 'Pay' &&
+              confirmed['party_type'] == 'Employee' &&
+              confirmed['party'] == claim['employee'] &&
+              confirmed['company'] == claim['company']) {
+            return confirmed;
+          }
+        } catch (_) {
+          // Preserve the original uncertain result and never create another payment.
+        }
+        throw Exception('تم إنشاء سند الدفع \${created['name']} لكن لم يتأكد ترحيله. راجع السند في ERPNext قبل أي محاولة أخرى. \${error.toString().replaceFirst('Exception: ', '')}');
+      }
+    } finally {
+      _inFlightPaymentActions.remove(actionKey);
+    }
   }
 
   Future<List<core.Map<String, dynamic>>> fetchWorkflowTransitions({
