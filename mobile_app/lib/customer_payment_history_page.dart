@@ -15,6 +15,12 @@ class _CustomerPaymentHistoryPageState extends State<CustomerPaymentHistoryPage>
   List<Map<String, dynamic>> _payments = const [];
   List<Map<String, dynamic>> _drafts = const [];
   bool _loading = false;
+  bool _loadingMorePayments = false;
+  bool _loadingMoreDrafts = false;
+  bool _hasMorePayments = false;
+  bool _hasMoreDrafts = false;
+  int _paymentOffset = 0;
+  int _draftOffset = 0;
   String? _error;
 
   @override
@@ -29,15 +35,55 @@ class _CustomerPaymentHistoryPageState extends State<CustomerPaymentHistoryPage>
     try {
       final query = _search.text.trim().isEmpty ? null : _search.text.trim();
       final results = await Future.wait([
-        widget.api.fetchCustomerPayments(search: query),
-        widget.api.fetchDraftCustomerPayments(search: query),
+        widget.api.fetchCustomerPayments(search: query, start: 0),
+        widget.api.fetchDraftCustomerPayments(search: query, start: 0),
       ]);
       if (!mounted) return;
-      setState(() { _payments = results[0]; _drafts = results[1]; });
+      setState(() {
+        _payments = results[0];
+        _drafts = results[1];
+        _paymentOffset = _payments.length;
+        _draftOffset = _drafts.length;
+        _hasMorePayments = _payments.length == FrappeApi.pageSize;
+        _hasMoreDrafts = _drafts.length == FrappeApi.pageSize;
+      });
     } catch (error) {
       if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadMorePayments({required bool drafts}) async {
+    if (_loading || (drafts ? _loadingMoreDrafts || !_hasMoreDrafts : _loadingMorePayments || !_hasMorePayments)) return;
+    setState(() {
+      if (drafts) _loadingMoreDrafts = true;
+      else _loadingMorePayments = true;
+    });
+    try {
+      final query = _search.text.trim().isEmpty ? null : _search.text.trim();
+      final page = drafts
+          ? await widget.api.fetchDraftCustomerPayments(search: query, start: _draftOffset)
+          : await widget.api.fetchCustomerPayments(search: query, start: _paymentOffset);
+      if (!mounted) return;
+      setState(() {
+        if (drafts) {
+          _drafts = [..._drafts, ...page];
+          _draftOffset += page.length;
+          _hasMoreDrafts = page.length == FrappeApi.pageSize;
+        } else {
+          _payments = [..._payments, ...page];
+          _paymentOffset += page.length;
+          _hasMorePayments = page.length == FrappeApi.pageSize;
+        }
+      });
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))));
+    } finally {
+      if (mounted) setState(() {
+        if (drafts) _loadingMoreDrafts = false;
+        else _loadingMorePayments = false;
+      });
     }
   }
 
@@ -139,6 +185,12 @@ class _CustomerPaymentHistoryPageState extends State<CustomerPaymentHistoryPage>
           subtitle: Text('${row['party_name'] ?? row['party'] ?? 'عميل غير محدد'} • ${row['posting_date'] ?? '—'} • مسودة'),
           trailing: Text((row['paid_amount'] ?? 0).toString()), onTap: () => _showDraft(row['name'].toString()),
         ))),
+        if (_hasMoreDrafts || _loadingMoreDrafts)
+          Center(child: TextButton.icon(
+            onPressed: _loadingMoreDrafts ? null : () => _loadMorePayments(drafts: true),
+            icon: _loadingMoreDrafts ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.expand_more),
+            label: const Text('تحميل مسودات إضافية'),
+          )),
         const Divider(height: 32),
         Text('سجل سندات القبض المرحلة (${_payments.length})', style: Theme.of(context).textTheme.titleMedium),
         if (_payments.isEmpty && !_loading) const ListTile(title: Text('لا توجد دفعات عملاء ظاهرة.')),
@@ -148,6 +200,12 @@ class _CustomerPaymentHistoryPageState extends State<CustomerPaymentHistoryPage>
           isThreeLine: true, trailing: Text((row['paid_amount'] ?? 0).toString()),
           onTap: () => _showPayment(row['name'].toString()),
         ))),
+        if (_hasMorePayments || _loadingMorePayments)
+          Center(child: TextButton.icon(
+            onPressed: _loadingMorePayments ? null : () => _loadMorePayments(drafts: false),
+            icon: _loadingMorePayments ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.expand_more),
+            label: const Text('تحميل دفعات إضافية'),
+          )),
       ]),
     );
   }
