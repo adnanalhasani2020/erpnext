@@ -318,7 +318,7 @@ class _WarehouseHierarchyPageState extends State<WarehouseHierarchyPage> {
         if (_hasMore || _loadingMore) Padding(padding: const EdgeInsets.all(12), child: OutlinedButton.icon(onPressed: _loadingMore ? null : () => _load(more: true), icon: const Icon(Icons.expand_more), label: Text(_loadingMore ? 'جارٍ التحميل...' : 'تحميل مستودعات إضافية'))),
         const Padding(
           padding: EdgeInsets.all(10),
-          child: Text('عرض هرمي للقراءة فقط. إنشاء المستودعات وتعديل الأب والشركة يتم من إدارة البيانات الأساسية، وتظل قواعد ERPNext هي المرجع.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12)),
+          child: Text('تدعم هذه الشاشة التحديد الجماعي وتفعيل وتعطيل المستودعات ونقلها بين المجموعات. إنشاء مستودع جديد وتغيير الشركة يتم من إدارة البيانات الأساسية، ويظل ERPNext مرجع التحقق النهائي.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12)),
         ),
       ]),
     );

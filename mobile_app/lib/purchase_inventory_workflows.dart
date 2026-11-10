@@ -1669,11 +1669,18 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     String? trackingWarehouse,
     String? reconciliationWarehouse,
   }) async {
-    if (widget.items.isEmpty) return null;
+    final availableItems = List<ErpItem>.from(widget.items);
+    final itemSearch = TextEditingController();
+    if (availableItems.isEmpty) {
+      try { availableItems.addAll(await widget.api.fetchItems()); } catch (_) {}
+    }
+    if (!mounted) return null;
     final lines = <core.Map<String, dynamic>>[];
     void addLine() {
+      if (lines.length >= 500) { notice('الحد الأقصى 500 بند في المستند الواحد؛ قسّم العملية إلى مستندات أصغر.'); return; }
+      if (availableItems.isEmpty) { notice('ابحث عن صنف من الخادم أولاً.'); return; }
       lines.add({
-        'item': widget.items.first.code,
+        'item': availableItems.first.code,
         'qty': TextEditingController(text: allowZeroQuantity ? '0' : '1'),
         'rate': TextEditingController(text: '0'),
         'serial_no': TextEditingController(),
@@ -1699,9 +1706,33 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                 TextButton.icon(onPressed: () => refresh(addLine),
                   icon: const Icon(Icons.add), label: const Text('إضافة صنف')),
               ]),
+              Row(children: [
+                Expanded(child: TextField(controller: itemSearch, decoration: const InputDecoration(
+                  labelText: 'بحث عن صنف في ERPNext', hintText: 'رمز الصنف أو الاسم'),
+                  onSubmitted: (_) async {
+                    try {
+                      final found = await widget.api.fetchItems(search: itemSearch.text.trim());
+                      refresh(() {
+                        final known = availableItems.map((x) => x.code).toSet();
+                        availableItems.addAll(found.where((x) => !known.contains(x.code)));
+                        if (lines.isEmpty && availableItems.isNotEmpty) addLine();
+                      });
+                    } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
+                  })),
+                IconButton(tooltip: 'بحث في الخادم', onPressed: () async {
+                  try {
+                    final found = await widget.api.fetchItems(search: itemSearch.text.trim());
+                    refresh(() {
+                      final known = availableItems.map((x) => x.code).toSet();
+                      availableItems.addAll(found.where((x) => !known.contains(x.code)));
+                      if (lines.isEmpty && availableItems.isNotEmpty) addLine();
+                    });
+                  } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
+                }, icon: const Icon(Icons.search)),
+              ]),
               ...List.generate(lines.length, (index) {
                 final row = lines[index];
-                final matchingItems = widget.items.where((x) => x.code == row['item']).toList();
+                final matchingItems = availableItems.where((x) => x.code == row['item']).toList();
                 final item = matchingItems.isEmpty ? null : matchingItems.first;
                 return Card(child: Padding(padding: const EdgeInsets.all(8), child: Column(children: [
                   Row(children: [
@@ -1718,10 +1749,10 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                   ]),
                   DropdownButtonFormField<String>(
                 initialValue: item?.code, isExpanded: true,
-                    decoration: InputDecoration(labelText: 'الصنف', helperText: item?.name ?? 'حمّل قائمة الأصناف لاختيار صنف.'),
-                    items: widget.items.map((x) => DropdownMenuItem(value: x.code,
+                    decoration: InputDecoration(labelText: 'الصنف', helperText: item?.name ?? 'ابحث عن الصنف في الخادم لإضافته.'),
+                    items: availableItems.map((x) => DropdownMenuItem(value: x.code,
                       child: Text('${x.name} (${x.code})', overflow: TextOverflow.ellipsis))).toList(),
-                    onChanged: widget.items.isEmpty ? null : (v) => refresh(() {
+                    onChanged: availableItems.isEmpty ? null : (v) => refresh(() {
                       if (v != null && v != row['item']) {
                         row['item'] = v;
                         (row['serial_no'] as TextEditingController).clear();
@@ -1867,9 +1898,9 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                 final itemCode = row['item'] as String;
                 final qty = double.tryParse((row['qty'] as TextEditingController).text.trim());
                 final rate = double.tryParse((row['rate'] as TextEditingController).text.trim());
-                final matchingItems = widget.items.where((x) => x.code == row['item']).toList();
+                final matchingItems = availableItems.where((x) => x.code == row['item']).toList();
                 if (matchingItems.isEmpty) {
-                  notice('الصنف ${row['item']} غير موجود في قائمة الأصناف المحملة. حدّث قائمة الأصناف ثم أعد المحاولة.');
+                  notice('الصنف ${row['item']} غير موجود في نتائج البحث الحالية؛ ابحث عنه من الخادم أولاً.');
                   return;
                 }
                 final selectedItem = matchingItems.first;
@@ -1932,6 +1963,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         )),
       );
     } finally {
+      itemSearch.dispose();
       for (final row in lines) {
         (row['qty'] as TextEditingController).dispose();
         (row['rate'] as TextEditingController).dispose();
@@ -1946,7 +1978,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
   Future<void> movement(String purpose) =>
       _runExclusive(() => _movement(purpose));
 
-  Future<void> _movement(String purpose) async {
+  Future<void> _movement(String purpose, {bool damage = false}) async {
     if (widget.companies.isEmpty || widget.items.isEmpty || widget.warehouses.isEmpty) {
       notice('حمّل الشركات والأصناف والمستودعات أولاً.');
       return;
@@ -1954,11 +1986,12 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     var selectedCompany = widget.companies.first.name;
     final from = TextEditingController();
     final to = TextEditingController();
+    final damageReason = TextEditingController();
     try {
       final warehouses = widget.warehouses;
       final values = await showDialog<bool>(context: context, builder: (c) => StatefulBuilder(
         builder: (context, refresh) => AlertDialog(
-          title: Text(purpose == 'Material Receipt' ? 'استلام مخزون' :
+          title: Text(damage ? 'تسجيل تلف وهالك' : purpose == 'Material Receipt' ? 'استلام مخزون' :
               purpose == 'Material Issue' ? 'صرف / تسليم مخزون' : 'تحويل بين المستودعات'),
           content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
             DropdownButtonFormField<String>(
@@ -1989,6 +2022,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                     .map((w) => DropdownMenuItem(value: w.id, child: Text('${w.name} (${w.id})'))).toList(),
                 onChanged: (v) => to.text = v ?? '',
               ),
+            if (damage) TextField(controller: damageReason, maxLines: 2, decoration: const InputDecoration(labelText: 'سبب التلف والهالك *', hintText: 'انتهاء صلاحية، كسر، تلف أثناء التخزين')),
             const SizedBox(height: 8),
             const Text('ستحدد الأصناف والكميات في الخطوة التالية.'),
           ])),
@@ -1997,6 +2031,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
             FilledButton(onPressed: () {
               if ((purpose != 'Material Receipt' && from.text.trim().isEmpty) ||
                   (purpose != 'Material Issue' && to.text.trim().isEmpty) ||
+                  (damage && damageReason.text.trim().isEmpty) ||
                   (purpose == 'Material Transfer' && from.text.trim() == to.text.trim())) return;
               Navigator.pop(c, true);
             }, child: const Text('التالي')),
@@ -2016,6 +2051,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         fromWarehouse: from.text.trim().isEmpty ? null : from.text.trim(),
         toWarehouse: to.text.trim().isEmpty ? null : to.text.trim(),
         items: items,
+        remarks: damage ? 'تلف وهالك: ${damageReason.text.trim()}' : null,
       );
       if (await confirm('ترحيل حركة المخزون',
           'تم إنشاء المسودة ${doc['name'] ?? ''} بعدد ${items.length} صنف. الترحيل سيغير أرصدة المخزون.')) {
@@ -2035,6 +2071,355 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
     } finally {
       from.dispose();
       to.dispose();
+      damageReason.dispose();
+    }
+  }
+
+  Future<void> pickPackShip() => _runExclusive(_pickPackShip);
+
+  Future<void> _pickPackShip() async {
+    try {
+      final orders = <core.Map<String, dynamic>>[];
+      var start = 0;
+      while (true) {
+        final page = await widget.api.fetchSalesWorkflowDocuments('Sales Order', start: start);
+        orders.addAll(page);
+        if (page.length < FrappeApi.pageSize) break;
+        start += page.length;
+        if (orders.length >= 10000) throw const FormatException('تجاوزت أوامر البيع حد البحث البالغ 10,000؛ استخدم فلتر أمر بيع أضيق.');
+      }
+      if (!mounted) return;
+      final eligible = orders.where((row) => row['docstatus'] == 1 && !const {'Completed', 'Closed', 'Cancelled'}.contains(row['status']?.toString())).toList(growable: false);
+      if (eligible.isEmpty) { notice('لا توجد أوامر بيع مرحلة ضمن النتائج الحالية.'); return; }
+      String? selected = eligible.first['name']?.toString();
+      final confirmedOrder = await showDialog<bool>(context: context, builder: (dialogContext) => StatefulBuilder(builder: (context, refresh) => AlertDialog(
+        title: const Text('التقاط وتجهيز طلب تسليم'),
+        content: SizedBox(width: 480, child: DropdownButtonFormField<String>(
+          initialValue: selected, isExpanded: true, decoration: const InputDecoration(labelText: 'أمر البيع المرحّل'),
+          items: eligible.map((row) => DropdownMenuItem(value: row['name']?.toString(), child: Text('${row['name']} • ${row['customer_name'] ?? row['customer'] ?? ''}', overflow: TextOverflow.ellipsis))).toList(),
+          onChanged: (value) => refresh(() => selected = value),
+        )),
+        actions: [TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('إلغاء')),
+          FilledButton(onPressed: selected == null ? null : () => Navigator.pop(dialogContext, true), child: const Text('إنشاء قائمة الالتقاط'))],
+      )));
+      if (confirmedOrder != true || selected == null || !mounted) return;
+      final draft = await widget.api.createPickListFromSalesOrder(selected!);
+      if (!mounted) return;
+      final locations = (draft['locations'] as List? ?? []).whereType<core.Map<String, dynamic>>().toList();
+      final picked = <String, TextEditingController>{};
+      for (var i = 0; i < locations.length; i++) picked['$i'] = TextEditingController(text: (locations[i]['picked_qty'] ?? '').toString());
+      try {
+        final ready = await showDialog<bool>(context: context, builder: (dialogContext) => AlertDialog(
+          title: Text('مراجعة التجهيز • ${draft['name']}'),
+          content: SizedBox(width: 520, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Text('راجع المستودع والدفعة والأرقام التسلسلية، وأدخل الكمية الملتقطة فعلياً. سيعيد ERPNext التحقق من التوفر عند الترحيل.'),
+            ...List.generate(locations.length, (i) { final row = locations[i]; return Card(child: Padding(padding: const EdgeInsets.all(8), child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text('${row['item_code'] ?? ''} • ${row['warehouse'] ?? 'سيحدده ERPNext'}', style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text('المطلوب: ${row['stock_qty'] ?? row['qty'] ?? 0} • الدفعة: ${row['batch_no'] ?? '—'}'),
+              TextField(controller: picked['$i'], keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'الكمية الملتقطة فعلياً')),
+            ])));}),
+          ]))),
+          actions: [TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('حفظ كمسودة')),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('تأكيد التجهيز والترحيل'))],
+        ));
+        for (var i = 0; i < locations.length; i++) {
+          final rawQty = picked['$i']!.text.trim();
+          final qty = rawQty.isEmpty && ready != true ? 0.0 : double.tryParse(rawQty);
+          if (qty == null || !qty.isFinite || qty < 0 ||
+              (ready == true && qty <= 0) ||
+              qty > (double.tryParse((locations[i]['stock_qty'] ?? locations[i]['qty'] ?? 0).toString()) ?? 0) + 0.000001) {
+            throw const FormatException('أدخل كمية ملتقطة موجبة لكل بند قبل الترحيل، ولا تتجاوز الكمية المطلوبة. يمكنك حفظ المسودة بكمية صفر.');
+          }
+          locations[i]['picked_qty'] = qty;
+        }
+        if (ready != true) {
+          await widget.api.saveStockPickList(draft['name'].toString(), locations);
+          notice('حُفظت كميات الالتقاط في المسودة ${draft['name']}.');
+          return;
+        }
+        final saved = await widget.api.saveStockPickList(draft['name'].toString(), locations);
+        final submitted = await widget.api.submitPickList(saved);
+        final notes = await widget.api.createDeliveryNotesFromPickList(submitted['name'].toString());
+        notice('تم ترحيل قائمة الالتقاط ${submitted['name']} وإنشاء ${notes.length} إذن تسليم: ${notes.map((x) => x['name']).join('، ')}. أذونات التسليم مسودات وتحتاج مراجعة وترحيلاً منفصلاً.');
+        await load(); widget.onChanged?.call();
+      } finally { for (final controller in picked.values) { controller.dispose(); } }
+    } catch (e) { notice(e.toString().replaceFirst('Exception: ', '')); }
+  }
+
+  Future<void> showBatchTrace() async {
+    final search = TextEditingController();
+    try {
+      final query = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('تتبع الدفعات'),
+          content: TextField(
+            controller: search,
+            decoration: const InputDecoration(labelText: 'رقم الدفعة أو الصنف'),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, search.text.trim()), child: const Text('بحث')),
+          ],
+        ),
+      );
+      if (query == null || !mounted) return;
+      if (query.trim().isEmpty) {
+        notice('أدخل رقم دفعة أو رمز صنف لتضييق البحث.');
+        return;
+      }
+
+      final rows = <core.Map<String, dynamic>>[];
+      var offset = 0;
+      while (true) {
+        final page = await widget.api.fetchBatchTraceRecords(start: offset, search: query);
+        rows.addAll(page);
+        if (page.length < FrappeApi.pageSize) break;
+        offset += page.length;
+        if (rows.length >= 10000) {
+          throw const FormatException('تجاوز سجل الدفعات 10,000 نتيجة؛ استخدم رقم دفعة أو صنفاً أكثر تحديداً.');
+        }
+      }
+      if (!mounted) return;
+
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (sheetContext) => SafeArea(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: rows.length + 1,
+            itemBuilder: (listContext, index) {
+              if (index == 0) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text('نتائج الدفعات (${rows.length})', style: Theme.of(listContext).textTheme.titleLarge),
+                );
+              }
+              final row = rows[index - 1];
+              return ListTile(
+                title: Text('${row['batch_id'] ?? row['name']}'),
+                subtitle: Text('الصنف: ${row['item'] ?? '—'} • انتهاء: ${row['expiry_date'] ?? '—'}'),
+                onTap: () async {
+                  try {
+                    final bundleEntries = <core.Map<String, dynamic>>[];
+                    var bundleOffset = 0;
+                    while (true) {
+                      final page = await widget.api.fetchBatchLedgerEntries(
+                        row['name'].toString(),
+                        start: bundleOffset,
+                      );
+                      bundleEntries.addAll(page);
+                      if (page.length < 500) break;
+                      bundleOffset += page.length;
+                      if (bundleEntries.length >= 10000) {
+                        throw const FormatException('تجاوز سجل الدفعة 10,000 حركة.');
+                      }
+                    }
+                    if (!mounted || !sheetContext.mounted) return;
+                    Navigator.pop(sheetContext);
+
+                    if (bundleEntries.isNotEmpty) {
+                      await showModalBottomSheet<void>(
+                        context: context,
+                        showDragHandle: true,
+                        builder: (_) => SafeArea(
+                          child: ListView.builder(
+                            padding: const EdgeInsets.all(16),
+                            itemCount: bundleEntries.length + 1,
+                            itemBuilder: (historyContext, historyIndex) {
+                              if (historyIndex == 0) {
+                                return Text('السجل التاريخي للدفعة ${row['name']}',
+                                  style: Theme.of(historyContext).textTheme.titleLarge);
+                              }
+                              final entry = bundleEntries[historyIndex - 1];
+                              final bundle = entry['bundle'] as core.Map<String, dynamic>? ?? const <String, dynamic>{};
+                              return ListTile(
+                                title: Text('${bundle['posting_date'] ?? '—'} • ${bundle['voucher_type'] ?? '—'} ${bundle['voucher_no'] ?? ''}'),
+                                subtitle: Text('المستودع: ${bundle['warehouse'] ?? '—'} • الكمية: ${entry['qty'] ?? '—'} • الرقم التسلسلي: ${entry['serial_no'] ?? '—'} • الاتجاه: ${bundle['type_of_transaction'] ?? '—'}'),
+                              );
+                            },
+                          ),
+                        ),
+                      );
+                      return;
+                    }
+
+                    final moves = <core.Map<String, dynamic>>[];
+                    var moveOffset = 0;
+                    while (true) {
+                      final page = await widget.api.fetchStockMovements(
+                        start: moveOffset,
+                        batchNo: row['name']?.toString(),
+                      );
+                      moves.addAll(page);
+                      if (page.length < FrappeApi.pageSize) break;
+                      moveOffset += page.length;
+                      if (moves.length >= 10000) {
+                        throw const FormatException('تجاوزت حركات الدفعة 10,000 حركة؛ استخدم فلاتر زمنية أضيق.');
+                      }
+                    }
+                    if (!mounted) return;
+                    await showModalBottomSheet<void>(
+                      context: context,
+                      showDragHandle: true,
+                      builder: (_) => SafeArea(
+                        child: ListView.builder(
+                          padding: const EdgeInsets.all(16),
+                          itemCount: moves.length + 1,
+                          itemBuilder: (historyContext, historyIndex) {
+                            if (historyIndex == 0) {
+                              return Text('حركة الدفعة ${row['name']}',
+                                style: Theme.of(historyContext).textTheme.titleLarge);
+                            }
+                            final move = moves[historyIndex - 1];
+                            return ListTile(
+                              title: Text('${move['posting_date']} • ${move['voucher_type']} ${move['voucher_no']}'),
+                              subtitle: Text('المستودع: ${move['warehouse']} • الكمية: ${move['actual_qty']} • الرصيد: ${move['qty_after_transaction']}'),
+                            );
+                          },
+                        ),
+                      ),
+                    );
+                  } catch (error) {
+                    if (mounted) notice(error.toString().replaceFirst('Exception: ', ''));
+                  }
+                },
+              );
+            },
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) notice(error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      search.dispose();
+    }
+  }
+
+  Future<void> showSerialTrace() async {
+    final search = TextEditingController();
+    try {
+      final query = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('تتبع الأرقام التسلسلية'),
+          content: TextField(
+            controller: search,
+            decoration: const InputDecoration(labelText: 'الرقم التسلسلي أو رمز الصنف'),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+            FilledButton(onPressed: () => Navigator.pop(dialogContext, search.text.trim()), child: const Text('بحث')),
+          ],
+        ),
+      );
+      if (query == null || !mounted) return;
+      if (query.trim().isEmpty) {
+        notice('أدخل رقماً تسلسلياً أو رمز صنف لتضييق البحث.');
+        return;
+      }
+
+      final rows = <core.Map<String, dynamic>>[];
+      var offset = 0;
+      while (true) {
+        final page = await widget.api.fetchSerialTraceRecords(start: offset, search: query);
+        rows.addAll(page);
+        if (page.length < FrappeApi.pageSize) break;
+        offset += page.length;
+        if (rows.length >= 10000) {
+          throw const FormatException('تجاوز سجل الأرقام التسلسلية 10,000 نتيجة؛ استخدم رقماً تسلسلياً أو صنفاً أكثر تحديداً.');
+        }
+      }
+      if (!mounted) return;
+
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        showDragHandle: true,
+        builder: (sheetContext) => SafeArea(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: rows.length + 1,
+            itemBuilder: (listContext, index) {
+              if (index == 0) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text('الأرقام التسلسلية (${rows.length})', style: Theme.of(listContext).textTheme.titleLarge),
+                );
+              }
+              final row = rows[index - 1];
+              return ListTile(
+                title: Text(row['name']?.toString() ?? ''),
+                subtitle: Text('الصنف: ${row['item_code'] ?? '—'} • الحالة: ${row['status'] ?? '—'} • المستودع: ${row['warehouse'] ?? '—'}'),
+                onTap: () async {
+                  try {
+                    final entries = <core.Map<String, dynamic>>[];
+                    var entryOffset = 0;
+                    while (true) {
+                      final page = await widget.api.fetchSerialLedgerEntries(
+                        row['name'].toString(),
+                        start: entryOffset,
+                      );
+                      entries.addAll(page);
+                      if (page.length < 500) break;
+                      entryOffset += page.length;
+                      if (entries.length >= 10000) {
+                        throw const FormatException('تجاوز سجل الرقم التسلسلي 10,000 حركة.');
+                      }
+                    }
+                    if (!mounted || !sheetContext.mounted) return;
+                    Navigator.pop(sheetContext);
+
+                    await showModalBottomSheet<void>(
+                      context: context,
+                      showDragHandle: true,
+                      builder: (_) => SafeArea(
+                        child: entries.isEmpty
+                            ? ListView(
+                                padding: const EdgeInsets.all(16),
+                                children: [
+                                  Text('تفاصيل الرقم ${row['name']}', style: Theme.of(context).textTheme.titleLarge),
+                                  Text('الحالة الحالية: ${row['status'] ?? '—'}'),
+                                  Text('المستودع الحالي: ${row['warehouse'] ?? '—'}'),
+                                  Text('الدفعة: ${row['batch_no'] ?? '—'}'),
+                                  Text('مستند الشراء: ${row['purchase_document_no'] ?? '—'}'),
+                                  Text('مستند التسليم: ${row['delivery_document_no'] ?? '—'}'),
+                                  const Text('لا توجد قيود Serial and Batch Bundle ظاهرة لهذا الرقم ضمن صلاحيات المستخدم أو إصدار الخادم.'),
+                                ],
+                              )
+                            : ListView.builder(
+                                padding: const EdgeInsets.all(16),
+                                itemCount: entries.length + 1,
+                                itemBuilder: (historyContext, historyIndex) {
+                                  if (historyIndex == 0) {
+                                    return Text('السجل التاريخي للرقم ${row['name']}',
+                                      style: Theme.of(historyContext).textTheme.titleLarge);
+                                  }
+                                  final entry = entries[historyIndex - 1];
+                                  final bundle = entry['bundle'] as core.Map<String, dynamic>? ?? const <String, dynamic>{};
+                                  return ListTile(
+                                    title: Text('${bundle['posting_date'] ?? '—'} • ${bundle['voucher_type'] ?? '—'} ${bundle['voucher_no'] ?? ''}'),
+                                    subtitle: Text('المستودع: ${bundle['warehouse'] ?? '—'} • الدفعة: ${entry['batch_no'] ?? '—'} • الكمية: ${entry['qty'] ?? '—'} • الاتجاه: ${bundle['type_of_transaction'] ?? '—'}'),
+                                  );
+                                },
+                              ),
+                      ),
+                    );
+                  } catch (error) {
+                    if (mounted) notice(error.toString().replaceFirst('Exception: ', ''));
+                  }
+                },
+              );
+            },
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) notice(error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      search.dispose();
     }
   }
 
@@ -2501,6 +2886,10 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         FilledButton.tonal(onPressed: purchaseReceipt, child: const Text('استلام مشتريات مباشر')),
         FilledButton.tonal(onPressed: purchaseReceiptFromOrder, child: const Text('استلام من أمر شراء')),
         FilledButton.tonal(onPressed: () => movement('Material Issue'), child: const Text('صرف / تسليم')),
+        FilledButton.tonal(onPressed: () => _runExclusive(() => _movement('Material Issue', damage: true)), child: const Text('تسجيل تلف وهالك')),
+        FilledButton.tonal(onPressed: pickPackShip, child: const Text('التقاط وتجهيز وشحن')),
+        FilledButton.tonal(onPressed: showBatchTrace, child: const Text('تتبع الدفعات')),
+        FilledButton.tonal(onPressed: showSerialTrace, child: const Text('تتبع الأرقام التسلسلية')),
         FilledButton.tonal(onPressed: () => movement('Material Transfer'), child: const Text('تحويل')),
         FilledButton.icon(onPressed: reconcile, icon: const Icon(Icons.fact_check_outlined), label: const Text('جرد وتسوية')),
       ]),

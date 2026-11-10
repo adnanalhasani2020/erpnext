@@ -1028,6 +1028,12 @@ class _MobileHomePageState extends State<MobileHomePage> {
         onChanged: (value) => _searchStockBalances(_stockSearchController.text, updateWarehouse: true, warehouse: value),
       ),
       const SizedBox(height: 12),
+      FilledButton.icon(
+        onPressed: _isGuest ? null : () => _openStockWorkflow(),
+        icon: const Icon(Icons.tune),
+        label: const Text('فتح عمليات المخزون المتقدمة'),
+      ),
+      const SizedBox(height: 10),
       ServerSearchField(
         controller: _stockSearchController,
         label: 'ابحث برمز الصنف',
