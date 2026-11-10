@@ -6101,6 +6101,46 @@ class FrappeApi {
           outstanding <= 0 || amount > outstanding + 0.000001) {
         throw FormatException('مبلغ السداد يتجاوز المتبقي المعتمد للمطالبة (${outstanding.toStringAsFixed(2)}).');
       }
+      final pendingUri = buildResourcePageUri(
+        baseUrl: _baseUrl,
+        resource: 'Payment Entry',
+        fields: const ['name', 'docstatus', 'payment_type', 'party_type', 'party', 'company'],
+        filters: [
+          ['company', '=', claim['company']],
+          ['party_type', '=', 'Employee'],
+          ['party', '=', claim['employee']],
+          ['payment_type', '=', 'Pay'],
+          ['docstatus', '=', 0],
+        ],
+        orderBy: 'modified desc, name desc',
+        pageLength: 100,
+      );
+      final pendingResponse = await _sendUri('GET', pendingUri);
+      final pendingData = _decode(pendingResponse.body);
+      if (pendingResponse.statusCode < 200 || pendingResponse.statusCode >= 300) {
+        throw Exception(_message(pendingData, 'تعذر التحقق من مسودات سداد المطالبة قبل إنشاء دفعة جديدة.'));
+      }
+      final pendingRows = pendingData['data'];
+      if (pendingRows is! List) {
+        throw const FormatException('استجابة مسودات دفعات الموظف غير متوقعة.');
+      }
+      for (final raw in pendingRows.whereType<core.Map<String, dynamic>>()) {
+        final pendingName = raw['name']?.toString().trim() ?? '';
+        if (pendingName.isEmpty || raw['company'] != claim['company'] ||
+            raw['party'] != claim['employee'] || raw['docstatus'] != 0) continue;
+        final pending = await _fetchPaymentEntryDraft(
+          pendingName, paymentType: 'Pay', partyType: 'Employee',
+        );
+        final pendingReferences = pending['references'];
+        if (pending['company'] == claim['company'] &&
+            pending['party'] == claim['employee'] &&
+            pendingReferences is List &&
+            pendingReferences.whereType<core.Map<String, dynamic>>().any((reference) =>
+              reference['reference_doctype'] == 'Expense Claim' &&
+              reference['reference_name'] == id)) {
+          throw FormatException('يوجد بالفعل سند دفع مسودة ($pendingName) مرتبط بهذه المطالبة. راجعه أو ألغِه قبل إنشاء سند آخر.');
+        }
+      }
       final selectedAccount = bankAccount?.trim() ?? '';
       if (selectedAccount.isNotEmpty) {
         final accountResponse = await _send(
