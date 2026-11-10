@@ -1,6 +1,7 @@
 // ignore_for_file: prefer_interpolation_to_compose_strings, prefer_const_constructors
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import '../models/erp_models.dart';
 
@@ -1707,6 +1708,72 @@ class FrappeApi {
     return _submitMobileDocument(draft, 'Payment Entry');
   }
 
+  Future<List<Map<String, dynamic>>> fetchCustomerPayments({int start = 0, String? search}) async {
+    final query = search?.trim() ?? '';
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl, resource: 'Payment Entry',
+      fields: const ['name', 'posting_date', 'party', 'party_name', 'paid_amount',
+        'paid_to', 'reference_no', 'reference_date', 'status', 'docstatus', 'company'],
+      filters: const [['payment_type', '=', 'Receive'], ['party_type', '=', 'Customer'], ['docstatus', '=', 1]],
+      orFilters: query.isEmpty ? null : [
+        ['name', 'like', '%$query%'], ['party', 'like', '%$query%'], ['party_name', 'like', '%$query%'],
+      ],
+      orderBy: 'posting_date desc, name desc', start: start,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل سجل دفعات العملاء. تحقق من صلاحية قراءة Payment Entry.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة سجل دفعات العملاء غير صحيحة.');
+    return rows.whereType<Map<String, dynamic>>().toList(growable: false);
+  }
+
+  Future<List<Map<String, dynamic>>> fetchDraftCustomerPayments({int start = 0, String? search}) async {
+    final query = search?.trim() ?? '';
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl, resource: 'Payment Entry',
+      fields: const ['name', 'posting_date', 'party', 'party_name', 'paid_amount',
+        'payment_type', 'party_type', 'paid_to', 'reference_no', 'reference_date', 'status', 'docstatus', 'company'],
+      filters: const [['payment_type', '=', 'Receive'], ['party_type', '=', 'Customer'], ['docstatus', '=', 0]],
+      orFilters: query.isEmpty ? null : [
+        ['name', 'like', '%$query%'], ['party', 'like', '%$query%'], ['party_name', 'like', '%$query%'],
+      ],
+      orderBy: 'modified desc, name desc', start: start,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل مسودات دفعات العملاء.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة مسودات دفعات العملاء غير صحيحة.');
+    return rows.whereType<Map<String, dynamic>>()
+      .where((row) => row['docstatus'] == 0 && row['payment_type'] == 'Receive' && row['party_type'] == 'Customer')
+      .toList(growable: false);
+  }
+
+  Future<Map<String, dynamic>> fetchCustomerPaymentDraftDocument(String name) =>
+      _fetchPaymentEntryDraft(name, paymentType: 'Receive', partyType: 'Customer');
+
+  Future<Map<String, dynamic>> submitCustomerPaymentDraft(Map<String, dynamic> draft) async {
+    if (draft['doctype'] != 'Payment Entry' || draft['payment_type'] != 'Receive' ||
+        draft['party_type'] != 'Customer') {
+      throw const FormatException('المستند ليس مسودة سند قبض عميل صحيحة.');
+    }
+    return _submitMobileDocument(draft, 'Payment Entry');
+  }
+
+  Future<Map<String, dynamic>> fetchCustomerPaymentDocument(String name) async {
+    final document = await _fetchPaymentEntryDocument(name);
+    if (document['payment_type'] != 'Receive' || document['party_type'] != 'Customer' ||
+        document['docstatus'] != 1 || document['references'] is! List) {
+      throw const FormatException('سند القبض غير مرحّل أو لا يخص دفعات العملاء.');
+    }
+    return document;
+  }
+
   Future<Map<String, dynamic>> fetchSupplierPaymentDocument(String name) async {
     if (name.trim().isEmpty) throw const FormatException('رقم سند صرف المورد غير موجود.');
     final response = await _send(
@@ -2226,8 +2293,8 @@ class FrappeApi {
       }
       final qty = rawItem['qty'];
       final rate = rawItem['rate'];
-      if (qty is! num || !qty.isFinite || qty <= 0 || rate is! num || !rate.isFinite || rate <= 0 || !(qty * rate).isFinite) {
-        throw const FormatException('تحقق من كمية وسعر كل بند في الفاتورة.');
+      if (qty is! num || !qty.isFinite || qty <= 0 || rate is! num || !rate.isFinite || rate < 0 || !(qty * rate).isFinite) {
+        throw const FormatException('تحقق من كمية وسعر كل بند في الفاتورة؛ السعر الصفري مسموح للأصناف المجانية.');
       }
     }
     await _validateDocumentWarehouses(invoice);
@@ -2522,90 +2589,127 @@ class FrappeApi {
     return saved;
   }
 
-  Future<Map<String, dynamic>> createSalesReturn(String invoiceName) async {
+  Future<Map<String, double>> fetchSalesReturnableQuantities(String invoiceName) async {
+    final name = invoiceName.trim();
+    if (name.isEmpty) throw const FormatException('رقم فاتورة المبيعات غير موجود.');
+    final source = await fetchInvoiceDocument('Sales Invoice', name);
+    if (source['docstatus'] != 1 || source['is_return'] == 1 || source['is_return'] == true) {
+      throw const FormatException('حساب الكميات المتبقية يتطلب فاتورة مبيعات أصلية مرحلة.');
+    }
+    final mapped = await _sendJson('POST',
+      '/api/method/erpnext.accounts.doctype.sales_invoice.mapper.make_sales_return',
+      {'source_name': name});
+    final data = _decode(mapped.body);
+    if (mapped.statusCode < 200 || mapped.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر حساب الكميات المتبقية للمرتجع.'));
+    }
+    final raw = data['message'];
+    if (raw is! Map<String, dynamic> || raw['doctype'] != 'Sales Invoice' ||
+        (raw['is_return'] != 1 && raw['is_return'] != true) ||
+        raw['return_against'] != name || raw['items'] is! List) {
+      throw Exception('لم يؤكد ERPNext بيانات الكميات القابلة للإرجاع.');
+    }
+    final result = <String, double>{};
+    for (final row in (raw['items'] as List).whereType<Map<String, dynamic>>()) {
+      final sourceItem = row['sales_invoice_item']?.toString();
+      final qty = double.tryParse(row['qty']?.toString() ?? '');
+      if (sourceItem == null || sourceItem.isEmpty || qty == null || !qty.isFinite || qty == 0) continue;
+      if (result.containsKey(sourceItem)) {
+        throw const FormatException('تكررت إحالة بند الفاتورة الأصلية في بيانات المرتجع.');
+      }
+      result[sourceItem] = qty.abs();
+    }
+    return result;
+  }
+
+  Future<Map<String, dynamic>> createSalesReturn(
+    String invoiceName, {Map<String, double?>? quantitiesBySourceItem}
+  ) async {
     final actionKey = 'return:$invoiceName';
     if (!_inFlightSalesActions.add(actionKey)) {
       throw const FormatException('إنشاء مرتجع هذه الفاتورة قيد التنفيذ بالفعل؛ انتظر النتيجة قبل إعادة المحاولة.');
     }
     try {
-    final normalizedName = invoiceName.trim();
-    if (normalizedName.isEmpty) {
-      throw const FormatException('رقم فاتورة البيع الأصلية غير موجود.');
-    }
-
-    final pendingUri = Uri.parse('$_baseUrl/api/resource/Sales%20Invoice').replace(
-      queryParameters: {
+      final normalizedName = invoiceName.trim();
+      if (normalizedName.isEmpty) throw const FormatException('رقم فاتورة البيع الأصلية غير موجود.');
+      final source = await fetchInvoiceDocument('Sales Invoice', normalizedName);
+      if (source['docstatus'] != 1 || source['is_return'] == 1 || source['is_return'] == true) {
+        throw const FormatException('يمكن إنشاء مرتجع من فاتورة مبيعات أصلية مرحّلة فقط.');
+      }
+      final pendingUri = Uri.parse('$_baseUrl/api/resource/Sales%20Invoice').replace(queryParameters: {
         'fields': jsonEncode(['name', 'return_against', 'docstatus']),
         'filters': jsonEncode([
-          ['return_against', '=', normalizedName],
-          ['is_return', '=', 1],
-          ['docstatus', '=', 0],
+          ['return_against', '=', normalizedName], ['is_return', '=', 1], ['docstatus', '=', 0],
         ]),
-        'limit_page_length': '5',
-        'order_by': 'modified desc',
-      },
-    );
-    final pendingResponse = await _sendUri('GET', pendingUri);
-    final pendingData = _decode(pendingResponse.body);
-    if (pendingResponse.statusCode < 200 || pendingResponse.statusCode >= 300) {
-      throw Exception(_message(pendingData, 'تعذر التحقق من وجود مسودات مرتجع سابقة؛ أوقف الإنشاء لتجنب التكرار.'));
-    }
-    final pendingRows = pendingData['data'];
-    if (pendingRows is List && pendingRows.isNotEmpty) {
-      final pendingName = pendingRows.first is Map<String, dynamic>
-          ? (pendingRows.first as Map<String, dynamic>)['name']?.toString()
-          : null;
-      throw FormatException(
-        'يوجد مرتجع غير مرحّل لهذه الفاتورة ${pendingName ?? ''}. افتح المسودة الحالية وراجعها أو رحّلها قبل إنشاء مرتجع آخر.',
-      );
-    }
-
-    final source = await fetchInvoiceDocument('Sales Invoice', normalizedName);
-    if (source['docstatus'] != 1 || source['is_return'] == 1 || source['is_return'] == true) {
-      throw const FormatException('يمكن إنشاء مرتجع من فاتورة مبيعات أصلية مرحّلة فقط.');
-    }
-
-    // Let ERPNext map the return so it carries original taxes, item references,
-    // negative quantities, and already-returned quantity limits.
-    final mapped = await _sendJson(
-      'POST',
-      '/api/method/erpnext.accounts.doctype.sales_invoice.mapper.make_sales_return',
-      {'source_name': normalizedName},
-    );
-    final mappedData = _decode(mapped.body);
-    if (mapped.statusCode < 200 || mapped.statusCode >= 300) {
-      throw Exception(_message(mappedData, 'تعذر تجهيز مرتجع المبيعات من ERPNext.'));
-    }
-    final rawReturn = mappedData['message'];
-    if (rawReturn is! Map<String, dynamic>) {
-      throw Exception('استجابة تجهيز المرتجع غير متوقعة.');
-    }
-    final returnDraft = Map<String, dynamic>.from(rawReturn);
-    if (returnDraft['doctype'] != 'Sales Invoice' ||
-        (returnDraft['is_return'] != 1 && returnDraft['is_return'] != true) ||
-        returnDraft['return_against'] != normalizedName) {
-      throw Exception('لم يؤكد ERPNext أن المستند الناتج مرتجع مرتبط بالفاتورة الأصلية.');
-    }
-    final returnItems = returnDraft['items'];
-    if (returnItems is! List || returnItems.isEmpty) {
-      throw const FormatException('لا توجد كميات متاحة للإرجاع في هذه الفاتورة.');
-    }
-
-    final inserted = await _sendJson('POST', '/api/resource/Sales%20Invoice', returnDraft);
-    final insertedData = _decode(inserted.body);
-    if (inserted.statusCode < 200 || inserted.statusCode >= 300) {
-      throw Exception(_message(insertedData, 'تعذر حفظ مسودة مرتجع المبيعات.'));
-    }
-    final created = insertedData['data'];
-    if (created is! Map<String, dynamic> ||
-        created['doctype'] != 'Sales Invoice' ||
-        created['name'] is! String ||
-        created['docstatus'] != 0 ||
-        (created['is_return'] != 1 && created['is_return'] != true) ||
-        created['return_against'] != normalizedName) {
-      throw Exception('لم يؤكد ERPNext إنشاء مسودة مرتجع مرتبطة بالفاتورة الأصلية؛ تحقق من فواتير المبيعات قبل إعادة المحاولة.');
-    }
-    return created;
+        'limit_page_length': '5', 'order_by': 'modified desc',
+      });
+      final pendingResponse = await _sendUri('GET', pendingUri);
+      final pendingData = _decode(pendingResponse.body);
+      if (pendingResponse.statusCode < 200 || pendingResponse.statusCode >= 300) {
+        throw Exception(_message(pendingData, 'تعذر التحقق من وجود مسودات مرتجع سابقة؛ أوقف الإنشاء لتجنب التكرار.'));
+      }
+      final pendingRows = pendingData['data'];
+      if (pendingRows is List && pendingRows.isNotEmpty) {
+        final pendingName = pendingRows.first is Map<String, dynamic>
+            ? (pendingRows.first as Map<String, dynamic>)['name']?.toString() : null;
+        throw FormatException('يوجد مرتجع غير مرحّل لهذه الفاتورة ${pendingName ?? ''}. راجع المسودة قبل إنشاء أخرى.');
+      }
+      final mapped = await _sendJson('POST',
+        '/api/method/erpnext.accounts.doctype.sales_invoice.mapper.make_sales_return',
+        {'source_name': normalizedName});
+      final mappedData = _decode(mapped.body);
+      if (mapped.statusCode < 200 || mapped.statusCode >= 300) {
+        throw Exception(_message(mappedData, 'تعذر تجهيز مرتجع المبيعات من ERPNext.'));
+      }
+      final raw = mappedData['message'];
+      if (raw is! Map<String, dynamic> || raw['doctype'] != 'Sales Invoice' ||
+          (raw['is_return'] != 1 && raw['is_return'] != true) ||
+          raw['return_against'] != normalizedName || raw['items'] is! List || (raw['items'] as List).isEmpty) {
+        throw Exception('لم يؤكد ERPNext بيانات مرتجع المبيعات.');
+      }
+      if (quantitiesBySourceItem != null) {
+        final mappedItems = (raw['items'] as List).whereType<Map<String, dynamic>>().toList();
+        final selected = <Map<String, dynamic>>[];
+        final matched = <String>{};
+        for (final row in mappedItems) {
+          final sourceRow = row['sales_invoice_item']?.toString();
+          final requested = sourceRow == null ? null : quantitiesBySourceItem[sourceRow];
+          if (requested == null || requested == 0) continue;
+          if (!requested.isFinite || requested < 0) {
+            throw const FormatException('أدخل كمية مرتجع موجبة أو اترك البند دون إرجاع.');
+          }
+          if (!matched.add(sourceRow!)) {
+            throw const FormatException('تكررت إحالة بند الفاتورة الأصلية؛ أوقف إنشاء المرتجع لتجنب تكرار الكمية.');
+          }
+          final available = double.tryParse(row['qty']?.toString() ?? '') ?? 0;
+          if (available == 0 || requested > available.abs() + 0.000001) {
+            throw FormatException('كمية المرتجع للصنف ${row['item_code'] ?? sourceRow} تتجاوز الكمية المتبقية المسموح بها.');
+          }
+          final copy = Map<String, dynamic>.from(row);
+          copy['qty'] = available.isNegative ? -requested : requested;
+          selected.add(copy);
+        }
+        final unmatched = quantitiesBySourceItem.entries.where((e) =>
+          e.value != null && e.value! > 0 && !matched.contains(e.key)).toList();
+        if (unmatched.isNotEmpty) {
+          throw FormatException('لم يعد بند الفاتورة ${unmatched.first.key} متاحاً للإرجاع وفق بيانات ERPNext الحالية.');
+        }
+        if (selected.isEmpty) throw const FormatException('حدد كمية مرتجع واحدة على الأقل.');
+        raw['items'] = selected;
+      }
+      final inserted = await _sendJson('POST', '/api/resource/Sales%20Invoice', Map<String, dynamic>.from(raw));
+      final insertedData = _decode(inserted.body);
+      if (inserted.statusCode < 200 || inserted.statusCode >= 300) {
+        throw Exception(_message(insertedData, 'تعذر حفظ مسودة مرتجع المبيعات.'));
+      }
+      final created = insertedData['data'];
+      if (created is! Map<String, dynamic> || created['doctype'] != 'Sales Invoice' ||
+          created['name'] is! String || created['docstatus'] != 0 ||
+          (created['is_return'] != 1 && created['is_return'] != true) ||
+          created['return_against'] != normalizedName) {
+        throw Exception('لم يؤكد ERPNext إنشاء مسودة مرتجع مرتبطة بالفاتورة الأصلية؛ تحقق من السجل قبل إعادة المحاولة.');
+      }
+      return created;
     } finally {
       _inFlightSalesActions.remove(actionKey);
     }
@@ -3017,6 +3121,36 @@ class FrappeApi {
     }
   }
 
+  Future<Map<String, dynamic>> cancelPurchaseReturn(String name) async {
+    final key = 'cancel-purchase-return:$name';
+    if (!_inFlightPurchaseActions.add(key)) {
+      throw const FormatException('إلغاء مرتجع المشتريات قيد التنفيذ بالفعل؛ انتظر النتيجة.');
+    }
+    try {
+      if (name.trim().isEmpty) throw const FormatException('رقم مرتجع المشتريات غير موجود.');
+      final current = await fetchInvoiceDocument('Purchase Invoice', name);
+      if (current['docstatus'] != 1 || current['is_return'] != 1 && current['is_return'] != true ||
+          (current['return_against']?.toString().trim().isEmpty ?? true)) {
+        throw const FormatException('إلغاء هذه العملية متاح للمرتجع المرحّل المرتبط بفاتورة أصلية فقط.');
+      }
+      final response = await _sendJson('POST', '/api/method/frappe.client.cancel', {
+        'doctype': 'Purchase Invoice', 'name': name,
+      });
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'رفض ERPNext إلغاء المرتجع. قد توجد مستندات أو قيود مرتبطة تمنع الإلغاء.'));
+      }
+      final canceled = data['message'];
+      if (canceled is! Map<String, dynamic> || canceled['doctype'] != 'Purchase Invoice' ||
+          canceled['name'] != name || canceled['docstatus'] != 2) {
+        throw Exception('لم يؤكد ERPNext إلغاء المرتجع. أعد تحميل المستند للتحقق.');
+      }
+      return canceled;
+    } finally {
+      _inFlightPurchaseActions.remove(key);
+    }
+  }
+
   Future<void> _validateWarehouseForCompany(String warehouseName, String company) async {
     final normalizedWarehouse = warehouseName.trim();
     final normalizedCompany = company.trim();
@@ -3369,6 +3503,44 @@ class FrappeApi {
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة سجل الحركات غير متوقعة.');
     return rows.whereType<Map<String, dynamic>>().toList(growable: false);
+  }
+
+  Future<Uint8List> downloadInvoicePdf({
+    required String documentType,
+    required String name,
+    String printFormat = '',
+  }) async {
+    if (documentType != 'Sales Invoice' && documentType != 'Purchase Invoice') {
+      throw ArgumentError.value(documentType, 'documentType', 'نوع الفاتورة غير مدعوم للطباعة.');
+    }
+    if (name.trim().isEmpty) throw const FormatException('رقم الفاتورة مطلوب للطباعة.');
+    final uri = Uri.parse('$_baseUrl/api/method/frappe.utils.print_format.download_pdf').replace(
+      queryParameters: {
+        'doctype': documentType,
+        'name': name.trim(),
+        if (printFormat.trim().isNotEmpty) 'format': printFormat.trim(),
+      },
+    );
+    final request = await _client.getUrl(uri).timeout(const Duration(seconds: 30));
+    request.followRedirects = false;
+    if (_cookies.isNotEmpty) {
+      request.headers.set(HttpHeaders.cookieHeader, _cookies.entries.map((e) => '${e.key}=${e.value}').join('; '));
+    }
+    request.headers.set(HttpHeaders.acceptHeader, 'application/pdf');
+    final response = await request.close().timeout(const Duration(seconds: 60));
+    final bytes = await response.fold<BytesBuilder>(BytesBuilder(), (builder, chunk) {
+      builder.add(chunk); return builder;
+    }).then((builder) => builder.takeBytes()).timeout(const Duration(seconds: 60));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final body = utf8.decode(bytes, allowMalformed: true);
+      final data = _decode(body);
+      throw Exception(_message(data, 'تعذر تنزيل PDF من قالب الطباعة في ERPNext.'));
+    }
+    if (bytes.length < 5 || bytes[0] != 0x25 || bytes[1] != 0x50 ||
+        bytes[2] != 0x44 || bytes[3] != 0x46 || bytes[4] != 0x2d) {
+      throw const FormatException('لم يُرجع ERPNext ملف PDF صالحاً. تحقق من قالب الطباعة والصلاحيات.');
+    }
+    return bytes;
   }
 
   Future<Map<String, dynamic>> fetchInvoiceDocument(String documentType, String name) async {
