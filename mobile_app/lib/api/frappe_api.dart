@@ -68,6 +68,9 @@ class FrappeApi {
   bool _guestMode = false;
 
   String get baseUrl => _baseUrl;
+  Map<String, String> get imageRequestHeaders => _cookies.isEmpty
+      ? const <String, String>{}
+      : <String, String>{'Cookie': _cookies.entries.map((e) => '${e.key}=${e.value}').join('; ')};
   int get sessionGeneration => _sessionGeneration;
   bool get isGuestMode => _guestMode;
 
