@@ -44,6 +44,8 @@ void main() {
             'total_sanctioned_amount': 100,
             'total_amount_reimbursed': 20,
           }}));
+        } else if (request.method == 'GET' && segments.last == 'Payment Entry') {
+          request.response.write(jsonEncode({'data': []}));
         } else if (request.method == 'POST' && path.endsWith('/get_payment_entry')) {
           request.response.write(jsonEncode({'message': {
             'doctype': 'Payment Entry',
