@@ -100,8 +100,8 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
   }
 
   double _amount(String value) => double.tryParse(value.trim()) ?? 0;
-  double get _debit => _lines.fold(0, (v, e) => v + _amount(e.debit.text) * (_amount(e.exchangeRate.text) > 0 ? _amount(e.exchangeRate.text) : 1));
-  double get _credit => _lines.fold(0, (v, e) => v + _amount(e.credit.text) * (_amount(e.exchangeRate.text) > 0 ? _amount(e.exchangeRate.text) : 1));
+  double get _debit => _lines.fold(0, (v, e) => v + _amount(e.debit.text) * _amount(e.exchangeRate.text));
+  double get _credit => _lines.fold(0, (v, e) => v + _amount(e.credit.text) * _amount(e.exchangeRate.text));
 
   Future<void> _load() async {
     final company = _company;
@@ -344,9 +344,21 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
               if (value == null) return;
               setState(() {
                 line.account.text = value;
-                // Never carry an exchange rate from a previously selected account.
-                // Foreign-currency lines must be reviewed and assigned their own rate.
-                line.exchangeRate.text = '1';
+                final selected = _accountOptions.firstWhere(
+                  (row) => row['name']?.toString() == value,
+                  orElse: () => <String, dynamic>{},
+                );
+                final accountCurrency = selected['account_currency']?.toString().trim() ?? '';
+                final companyCurrency = widget.companies
+                    .where((company) => company.name == _company)
+                    .map((company) => company.defaultCurrency)
+                    .firstOrNull;
+                // Local-currency accounts use 1; foreign-currency accounts
+                // require an explicit exchange rate instead of silently assuming 1.
+                line.exchangeRate.text = accountCurrency.isEmpty ||
+                        companyCurrency == null || accountCurrency == companyCurrency
+                    ? '1'
+                    : '';
               });
             },
             validator: (value) => value == null || value.trim().isEmpty ? 'اختر حساب حركة من دليل الشركة.' : null,
