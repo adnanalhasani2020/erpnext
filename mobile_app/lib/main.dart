@@ -870,7 +870,22 @@ class _MobileHomePageState extends State<MobileHomePage> {
       if (filtered.isEmpty && !_inventoryLoading)
         const Card(child: ListTile(leading: Icon(Icons.search_off), title: Text('لا توجد أصناف مطابقة'))),
       ...filtered.map((item) => Card(child: ListTile(
-        leading: CircleAvatar(child: Icon(item.isStockItem ? Icons.inventory_2_outlined : Icons.miscellaneous_services_outlined)),
+        leading: item.image == null
+            ? CircleAvatar(child: Icon(item.isStockItem ? Icons.inventory_2_outlined : Icons.miscellaneous_services_outlined))
+            : SizedBox(
+                width: 48,
+                height: 48,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    _api.resolveFileUrl(item.image!),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => CircleAvatar(
+                      child: Icon(item.isStockItem ? Icons.inventory_2_outlined : Icons.miscellaneous_services_outlined),
+                    ),
+                  ),
+                ),
+              ),
         title: Text(item.name),
         subtitle: Text([item.code, if (item.group != null) item.group!, if (item.stockUom != null) item.stockUom!].join(' • ')),
         trailing: const Icon(Icons.chevron_left),
