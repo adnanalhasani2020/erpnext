@@ -196,8 +196,7 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
       );
       if (!mounted) return;
       final preview = result['preview'] as core.Map<String, dynamic>;
-      final rows = preview['data'];
-      final rowCount = rows is List ? rows.length : 1;
+      final rowCount = int.tryParse(preview['total_number_of_rows']?.toString() ?? '') ?? 0;
       final warnings = result['warnings'] as List;
       final confirmed = await showDialog<bool>(
         context: context,
