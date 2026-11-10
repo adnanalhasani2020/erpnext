@@ -71,6 +71,15 @@ class FrappeApi {
   Map<String, String> get imageRequestHeaders => _cookies.isEmpty
       ? const <String, String>{}
       : <String, String>{'Cookie': _cookies.entries.map((e) => '${e.key}=${e.value}').join('; ')};
+  Map<String, String> imageRequestHeadersFor(String imageUrl) {
+    final base = Uri.tryParse(_baseUrl);
+    final target = Uri.tryParse(imageUrl);
+    if (base == null || target == null || target.scheme != base.scheme ||
+        target.host != base.host || target.port != base.port) {
+      return const <String, String>{};
+    }
+    return imageRequestHeaders;
+  }
   int get sessionGeneration => _sessionGeneration;
   bool get isGuestMode => _guestMode;
 
