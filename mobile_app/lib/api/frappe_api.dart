@@ -5163,8 +5163,8 @@ class FrappeApi {
           : currency;
       final requestedRate = row['exchange_rate'] is num
           ? (row['exchange_rate'] as num).toDouble()
-          : double.tryParse(row['exchange_rate']?.toString() ?? '') ?? (accountCurrency == currency ? 1.0 : 0.0);
-      if (accountCurrency == currency && requestedRate != 1.0 && requestedRate != 0.0) {
+          : double.tryParse(row['exchange_rate']?.toString() ?? '') ?? 0.0;
+      if (accountCurrency == currency && requestedRate != 1.0) {
         throw FormatException('سعر تحويل حساب العملة الأساسية يجب أن يساوي 1: $account');
       }
       final exchangeRate = accountCurrency == currency ? 1.0 : requestedRate;
