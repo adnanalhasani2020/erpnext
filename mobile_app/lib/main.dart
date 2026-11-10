@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:printing/printing.dart';
 
 import 'api/frappe_api.dart';
 import 'sales_invoice_composer.dart';
@@ -11,6 +12,7 @@ import 'sales_pricing_page.dart';
 import 'sales_commission_page.dart';
 import 'sales_dashboard_page.dart';
 import 'payment_reconciliation_page.dart';
+import 'customer_payment_history_page.dart';
 import 'master_data_page.dart';
 import 'chart_of_accounts_page.dart';
 import 'journal_entries_page.dart';
@@ -1455,6 +1457,100 @@ class _MobileHomePageState extends State<MobileHomePage> {
     );
   }
 
+  Future<void> _createPartialSalesReturn(String invoiceName, Map<String, dynamic> source) async {
+    final rawItems = source['items'];
+    if (rawItems is! List) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا توجد بنود قابلة للإرجاع في الفاتورة.')));
+      return;
+    }
+    try {
+      final available = await _api.fetchSalesReturnableQuantities(invoiceName);
+      if (!mounted) return;
+      final sourceRows = rawItems.whereType<Map<String, dynamic>>().where((row) {
+        final rowName = row['name']?.toString();
+        return rowName != null && available.containsKey(rowName);
+      }).toList(growable: false);
+      if (sourceRows.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا توجد كميات متبقية قابلة للإرجاع.')));
+        return;
+      }
+      final controllers = <String, TextEditingController>{};
+      for (final row in sourceRows) {
+        final key = row['name'].toString();
+        controllers[key] = TextEditingController(text: available[key]!.toString());
+      }
+      Map<String, double?>? selected;
+      try {
+        selected = await showDialog<Map<String, double?>>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('تحديد كميات مرتجع المبيعات'),
+            content: SizedBox(
+              width: 520,
+              child: SingleChildScrollView(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  const Text('أدخل الكمية المراد إرجاعها لكل صنف. اترك الصنف دون إرجاع بوضع صفر.'),
+                  const SizedBox(height: 12),
+                  ...sourceRows.map((row) {
+                    final key = row['name'].toString();
+                    final maxQty = available[key] ?? 0;
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(children: [
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text((row['item_name'] ?? row['item_code'] ?? key).toString(), style: const TextStyle(fontWeight: FontWeight.w600)),
+                          Text('المتاح للإرجاع: $maxQty ${row['uom'] ?? ''}', style: Theme.of(context).textTheme.bodySmall),
+                        ])),
+                        const SizedBox(width: 12),
+                        SizedBox(width: 112, child: TextField(
+                          controller: controllers[key],
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: const InputDecoration(labelText: 'الكمية'),
+                        )),
+                      ]),
+                    );
+                  }),
+                ]),
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+              FilledButton(onPressed: () {
+                final values = <String, double?>{};
+                for (final row in sourceRows) {
+                  final key = row['name'].toString();
+                  final value = double.tryParse(controllers[key]!.text.trim());
+                  final maxQty = available[key] ?? 0;
+                  if (value == null || !value.isFinite || value < 0 || value > maxQty + 0.000001) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(SnackBar(content: Text('تحقق من كمية الصنف ${row['item_code'] ?? key}. الحد المتاح $maxQty.')));
+                    return;
+                  }
+                  values[key] = value;
+                }
+                if (!values.values.any((value) => value != null && value! > 0)) {
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(const SnackBar(content: Text('حدد كمية واحدة على الأقل للإرجاع.')));
+                  return;
+                }
+                Navigator.pop(dialogContext, values);
+              }, child: const Text('إنشاء مسودة المرتجع')),
+            ],
+          ),
+        );
+      } finally {
+        for (final controller in controllers.values) { controller.dispose(); }
+      }
+      if (selected == null || !mounted) return;
+      final created = await _api.createSalesReturn(invoiceName, quantitiesBySourceItem: selected);
+      if (!mounted) return;
+      await _loadSales();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم إنشاء مسودة مرتجع جزئي ${created['name']}؛ راجعها قبل الترحيل.')));
+      _showInvoiceDetails('Sales Invoice', created['name'].toString());
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تعذر إنشاء المرتجع: ${error.toString().replaceFirst('Exception: ', '')}')));
+    }
+  }
+
   void _showInvoiceDetails(String documentType, String invoiceId) {
     showModalBottomSheet<void>(
       context: context, isScrollControlled: true, showDragHandle: true,
@@ -1508,6 +1604,18 @@ class _MobileHomePageState extends State<MobileHomePage> {
                   ListTile(title: const Text('المبلغ المتبقي'), trailing: Text(amount('outstanding_amount'))),
                   ListTile(title: const Text('تاريخ الفاتورة'), trailing: Text(document['posting_date']?.toString() ?? '—')),
                   ListTile(title: const Text('تاريخ الاستحقاق'), trailing: Text(document['due_date']?.toString() ?? '—')),
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      try {
+                        final bytes = await _api.downloadInvoicePdf(documentType: documentType, name: invoiceId);
+                        await Printing.sharePdf(bytes: bytes, filename: '${invoiceId.replaceAll('/', '-')}.pdf');
+                      } catch (error) {
+                        if (mounted) ScaffoldMessenger.of(this.context).showSnackBar(SnackBar(content: Text('تعذرت طباعة الفاتورة: ${error.toString().replaceFirst('Exception: ', '')}')));
+                      }
+                    },
+                    icon: const Icon(Icons.picture_as_pdf_outlined),
+                    label: const Text('طباعة / مشاركة PDF من ERPNext'),
+                  ),
                   const Divider(height: 24),
                   Text('بنود الفاتورة (${lines.length})', style: Theme.of(context).textTheme.titleMedium),
                   if (lines.isEmpty) const ListTile(title: Text('لا توجد بنود ظاهرة أو لا تتوفر صلاحية قراءتها.')),
@@ -1698,7 +1806,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
                       );
                       if (confirmed != true || !mounted || !sheetContext.mounted) return;
                       try {
-                        final returnDraft = await _api.createSalesReturn(invoiceId);
+                        await _createPartialSalesReturn(invoiceId, document);
                         if (!mounted || !sheetContext.mounted) return;
                         Navigator.of(sheetContext).pop();
                         await _loadSales();
@@ -1713,7 +1821,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
                       }
                     },
                     icon: const Icon(Icons.assignment_return_outlined),
-                    label: const Text('إنشاء مرتجع / إشعار دائن'),
+                    label: const Text('إنشاء مرتجع جزئي / إشعار دائن'),
                   ),
                   const Text('يمكن تعديل المسودات قبل الترحيل. المرتجعات تُنشأ كمسودات من مستند ERPNext الأصلي وتحتاج مراجعة قبل الترحيل.', textAlign: TextAlign.center),
                 ]),
@@ -1723,6 +1831,12 @@ class _MobileHomePageState extends State<MobileHomePage> {
         ),
       ),
     );
+  }
+
+  Future<void> _openCustomerPaymentHistory() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => CustomerPaymentHistoryPage(api: _api),
+    ));
   }
 
   Future<void> _openSalesInvoiceComposer({Map<String, dynamic>? initialDraft}) async {
@@ -1822,6 +1936,11 @@ class _MobileHomePageState extends State<MobileHomePage> {
             onPressed: _salesLoading ? null : _openSalesDashboard,
             icon: const Icon(Icons.insights_outlined),
             label: const Text('مؤشرات المبيعات'),
+          ),
+          OutlinedButton.icon(
+            onPressed: _salesLoading ? null : _openCustomerPaymentHistory,
+            icon: const Icon(Icons.account_balance_wallet_outlined),
+            label: const Text('سجل دفعات العملاء'),
           ),
           OutlinedButton.icon(
             onPressed: _salesLoading || _purchaseLoading ? null : _openPaymentReconciliation,
