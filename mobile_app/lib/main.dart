@@ -988,7 +988,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
                                   if (dialogContext.mounted) scannerController.start();
                                 });
                               },
-                              errorBuilder: (context, exception) => ColoredBox(
+                              errorBuilder: (context, exception, child) => ColoredBox(
                                 color: Theme.of(context).colorScheme.surfaceContainerHighest,
                                 child: Center(
                                   child: Padding(
@@ -1551,11 +1551,17 @@ class _MobileHomePageState extends State<MobileHomePage> {
       if (result == null || !mounted) return;
       final filters = result.containsKey('__reset__') ? <String, String>{} : result;
       setState(() {
-        if (sales) _salesInvoiceFilters = filters;
-        else _purchaseInvoiceFilters = filters;
+        if (sales) {
+          _salesInvoiceFilters = filters;
+        } else {
+          _purchaseInvoiceFilters = filters;
+        }
       });
-      if (sales) await _searchSalesInvoices(_salesInvoiceSearch);
-      else await _searchPurchaseInvoices(_purchaseInvoiceSearch);
+      if (sales) {
+        await _searchSalesInvoices(_salesInvoiceSearch);
+      } else {
+        await _searchPurchaseInvoices(_purchaseInvoiceSearch);
+      }
     } finally {
       from.dispose();
       to.dispose();
@@ -1632,7 +1638,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
                   }
                   values[key] = value;
                 }
-                if (!values.values.any((value) => value != null && value! > 0)) {
+                if (!values.values.any((value) => value != null && value > 0)) {
                   ScaffoldMessenger.of(dialogContext).showSnackBar(const SnackBar(content: Text('حدد كمية واحدة على الأقل للإرجاع.')));
                   return;
                 }
