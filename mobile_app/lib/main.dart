@@ -1232,6 +1232,17 @@ class _MobileHomePageState extends State<MobileHomePage> {
     );
   }
 
+  void _showSupplierLedger(ErpSupplier supplier) {
+    if (!_requireServerAccess('كشف حساب المورد')) return;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => _SupplierLedgerSheet(api: _api, supplier: supplier, companies: _companies),
+    );
+  }
+
   void _showInvoiceDetails(String documentType, String invoiceId) {
     if (!_requireServerAccess('تفاصيل الفاتورة')) return;
     showModalBottomSheet<void>(
@@ -1756,6 +1767,8 @@ class _MobileHomePageState extends State<MobileHomePage> {
         leading: const CircleAvatar(child: Icon(Icons.local_shipping_outlined)),
         title: Text(supplier.name),
         subtitle: Text([supplier.id, if (supplier.group != null) supplier.group!, if (supplier.type != null) supplier.type!].join(' • ')),
+        trailing: const Icon(Icons.receipt_long_outlined),
+        onTap: _isGuest ? null : () => _showSupplierLedger(supplier),
       ))),
       if (!_isGuest && (_suppliersHasMore || _loadingMoreSuppliers)) LoadMoreButton(_loadingMoreSuppliers, 'تحميل المزيد من الموردين', _loadMoreSuppliers),
       const SizedBox(height: 10),
@@ -2213,6 +2226,184 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
   }
 }
 
+
+class _SupplierLedgerSheet extends StatefulWidget {
+  const _SupplierLedgerSheet({
+    required this.api,
+    required this.supplier,
+    required this.companies,
+  });
+
+  final FrappeApi api;
+  final ErpSupplier supplier;
+  final List<ErpCompany> companies;
+
+  @override
+  State<_SupplierLedgerSheet> createState() => _SupplierLedgerSheetState();
+}
+
+class _SupplierLedgerSheetState extends State<_SupplierLedgerSheet> {
+  final List<core.Map<String, dynamic>> _rows = [];
+  bool _loading = true;
+  bool _loadingMore = false;
+  bool _hasMore = false;
+  String? _company;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load({bool more = false}) async {
+    if (_loading || _loadingMore || (more && !_hasMore)) return;
+    setState(() {
+      if (more) {
+        _loadingMore = true;
+      } else {
+        _loading = true;
+        _error = null;
+      }
+    });
+    try {
+      final page = await widget.api.fetchSupplierLedger(
+        supplier: widget.supplier.id,
+        company: _company,
+        start: more ? _rows.length : 0,
+      );
+      if (!mounted) return;
+      setState(() {
+        if (more) {
+          _rows.addAll(page);
+        } else {
+          _rows
+            ..clear()
+            ..addAll(page);
+        }
+        _hasMore = page.length == FrappeApi.pageSize;
+        _error = null;
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _loadingMore = false;
+        });
+      }
+    }
+  }
+
+  double _amount(core.Map<String, dynamic> row, String field) =>
+      double.tryParse(row[field]?.toString() ?? '') ?? 0;
+
+  @override
+  Widget build(BuildContext context) {
+    final debit = _rows.fold<double>(0, (sum, row) => sum + _amount(row, 'debit'));
+    final credit = _rows.fold<double>(0, (sum, row) => sum + _amount(row, 'credit'));
+    return SizedBox(
+      height: MediaQuery.of(context).size.height * .82,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('كشف حساب المورد', style: Theme.of(context).textTheme.titleLarge),
+                Text('${widget.supplier.name} • ${widget.supplier.id}'),
+                const SizedBox(height: 8),
+                DropdownButtonFormField<String>(
+                  initialValue: _company ?? '',
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'الشركة'),
+                  items: [
+                    const DropdownMenuItem(value: '', child: Text('جميع الشركات')),
+                    ...widget.companies.map((company) => DropdownMenuItem(
+                      value: company.name,
+                      child: Text(company.name),
+                    )),
+                  ],
+                  onChanged: (_loading || _loadingMore) ? null : (value) {
+                    setState(() => _company = value == null || value.isEmpty ? null : value);
+                    _load();
+                  },
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 6,
+                  children: [
+                    Text('مدين: ${debit.toStringAsFixed(2)}'),
+                    Text('دائن: ${credit.toStringAsFixed(2)}'),
+                    Text('صافي الحركات المحمّلة: ${(debit - credit).toStringAsFixed(2)}'),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          if (_loading) const LinearProgressIndicator(),
+          if (_error != null)
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(children: [
+                Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                TextButton.icon(
+                  onPressed: _loading ? null : () => _load(),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('إعادة المحاولة'),
+                ),
+              ]),
+            ),
+          Expanded(
+            child: _rows.isEmpty
+                ? Center(child: Text(_loading ? 'جارٍ تحميل كشف الحساب...' : 'لا توجد حركات حساب ظاهرة.'))
+                : ListView.separated(
+                    itemCount: _rows.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final row = _rows[index];
+                      final debitValue = _amount(row, 'debit');
+                      final creditValue = _amount(row, 'credit');
+                      return ListTile(
+                        dense: true,
+                        title: Text(row['voucher_no']?.toString() ?? row['name']?.toString() ?? 'قيد محاسبي'),
+                        subtitle: Text([
+                          row['posting_date']?.toString() ?? '',
+                          row['voucher_type']?.toString() ?? '',
+                          row['account']?.toString() ?? '',
+                          row['company']?.toString() ?? '',
+                          row['remarks']?.toString() ?? '',
+                        ].where((value) => value.isNotEmpty).join(' • ')),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            if (debitValue != 0) Text('مدين ${debitValue.toStringAsFixed(2)}'),
+                            if (creditValue != 0) Text('دائن ${creditValue.toStringAsFixed(2)}'),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          if (_hasMore || _loadingMore)
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: OutlinedButton(
+                onPressed: _loadingMore ? null : () => _load(more: true),
+                child: Text(_loadingMore ? 'جارٍ التحميل...' : 'تحميل المزيد'),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
 
 class _CustomerProfileEditorSheet extends StatefulWidget {
   const _CustomerProfileEditorSheet({
