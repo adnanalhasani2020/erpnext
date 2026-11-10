@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:excel/excel.dart';
 import 'package:file_picker/file_picker.dart';
@@ -380,7 +381,7 @@ class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
       refresh(() { busy=true; error=null; });
       try {
         final result=await widget.api.fetchMasterDataRows(doctype:doctype,search:search.text);
-        if(!mounted)return;
+        if(!sheetContext.mounted)return;
         refresh(() {
           rows=result.where((row) {
             if(row['disabled']==1||row['disabled']==true)return false;
@@ -390,8 +391,8 @@ class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
             return true;
           }).toList();
         });
-      } catch(e) { refresh(()=>error=e.toString().replaceFirst('Exception: ','')); }
-      finally { refresh(()=>busy=false); }
+      } catch(e) { if(sheetContext.mounted)refresh(()=>error=e.toString().replaceFirst('Exception: ','')); }
+      finally { if(sheetContext.mounted)refresh(()=>busy=false); }
     }
     final selected=await showModalBottomSheet<String>(context:context,isScrollControlled:true,useSafeArea:true,
       builder:(sheetContext)=>StatefulBuilder(builder:(context,refresh) {
