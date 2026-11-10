@@ -1562,7 +1562,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     }
   }
 
-  Future<void> _createPartialSalesReturn(String invoiceName, Map<String, dynamic> source) async {
+  Future<void> _createPartialSalesReturn(String invoiceName, Map<String, dynamic> source, BuildContext sheetContext) async {
     final rawItems = source['items'];
     if (rawItems is! List) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('لا توجد بنود قابلة للإرجاع في الفاتورة.')));
@@ -1647,6 +1647,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       if (selected == null || !mounted) return;
       final created = await _api.createSalesReturn(invoiceName, quantitiesBySourceItem: selected);
       if (!mounted) return;
+      if (sheetContext.mounted) Navigator.of(sheetContext).pop();
       await _loadSales();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('تم إنشاء مسودة مرتجع جزئي ${created['name']}؛ راجعها قبل الترحيل.')));
@@ -1911,12 +1912,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
                       );
                       if (confirmed != true || !mounted || !sheetContext.mounted) return;
                       try {
-                        await _createPartialSalesReturn(invoiceId, document);
-                        if (!mounted || !sheetContext.mounted) return;
-                        Navigator.of(sheetContext).pop();
-                        await _loadSales();
-                        if (!mounted) return;
-                        _showInvoiceDetails('Sales Invoice', returnDraft['name'].toString());
+                        await _createPartialSalesReturn(invoiceId, document, sheetContext);
                       } catch (error) {
                         if (mounted) {
                           ScaffoldMessenger.of(this.context).showSnackBar(
