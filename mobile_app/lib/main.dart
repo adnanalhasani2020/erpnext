@@ -1463,6 +1463,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     final current = sales ? _salesInvoiceFilters : _purchaseInvoiceFilters;
     final from = TextEditingController(text: current['from_date'] ?? '');
     final to = TextEditingController(text: current['to_date'] ?? '');
+    final partyController = TextEditingController(text: current['party'] ?? '');
     var status = current['status'] ?? 'all';
     var payment = current['payment'] ?? 'all';
     var company = current['company'] ?? '__all__';
@@ -1507,6 +1508,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
                 ],
                 onChanged: (value) => refresh(() => company = value ?? '__all__'),
               ),
+              TextField(
+                controller: partyController,
+                decoration: InputDecoration(labelText: sales ? 'العميل (الاسم أو الرمز)' : 'المورد (الاسم أو الرمز)'),
+              ),
               DropdownButtonFormField<String>(
                 initialValue: returnType,
                 decoration: const InputDecoration(labelText: 'نوع الفاتورة'),
@@ -1539,6 +1544,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
                   if (status != 'all') 'status': status,
                   if (payment != 'all') 'payment': payment,
                   if (company != '__all__') 'company': company,
+                  if (partyController.text.trim().isNotEmpty) 'party': partyController.text.trim(),
                   if (returnType != 'all') 'return': returnType,
                   if (fromValue.isNotEmpty) 'from_date': fromValue,
                   if (toValue.isNotEmpty) 'to_date': toValue,
@@ -1565,6 +1571,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     } finally {
       from.dispose();
       to.dispose();
+      partyController.dispose();
     }
   }
 
