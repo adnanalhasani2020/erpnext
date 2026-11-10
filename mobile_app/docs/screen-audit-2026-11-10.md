@@ -1,52 +1,56 @@
-# Mobile screen audit — 2026-11-10
+# Mobile screen and accounting audit — 2026-11-10
 
 Repository: `adnanalhasani2020/erpnext`  
-Branch: `feature/flutter-purchases-stock-workflows`  
-Pull request: #2 (Draft)
+Current integration branch: `feature/flutter-mobile-integration`  
+Advanced stock source PR: #8 — merged into this branch.
 
-This audit describes the screens and workflows present in `mobile_app/lib`. It distinguishes implemented UI/API paths from work that still requires a live ERPNext site or additional product scope.
+This audit reflects the unified Flutter branch after the advanced-stock merge and accounting/expense updates. It distinguishes code paths present in the repository from behavior that still requires a live ERPNext/HRMS site.
 
-## Screen inventory
+## Integration state
 
-| Screen / entry point | Current coverage | Remaining limitation |
+- PR #8 was merged into `feature/flutter-mobile-integration` using a merge commit. The repository default branch `develop` was not changed.
+- Advanced stock changes include ERPNext-native Pick Lists, actual picked quantities, Delivery Note drafts created through ERPNext's mapper, damage/wastage through Material Issue, batch ledger history, serial/batch bundle traceability, and warehouse hierarchy bulk actions.
+- Stock balances and movement history remain server-sourced. The app does not write Bin or Stock Ledger Entry directly.
+
+## Accounting coverage
+
+| Area | Implemented mobile workflow | Remaining dependency / limit |
 |---|---|---|
-| Login and session | Frappe login, HTTPS validation, in-memory session cookies, logout, session-generation guards | Requires a reachable ERPNext site and a user with the relevant permissions |
-| Guest mode | Local demo data for dashboard, items, stock, warehouses, transactions and a report summary; no server calls or writes | Read-only demonstration; demo data is not customer data and does not exercise ERPNext transactions |
-| Dashboard | Company list, item/warehouse counts, recent items, stock balances, links to transactions | Summary is based on the rows loaded for the dashboard, not a full-company analytics report |
-| Items | Server-side search, pagination, item detail access | Master-data changes are handled by the dedicated Master Data screen |
-| Stock balances | ERPNext Bin quantities, reserved/projected/available quantities and per-row valuation values | Current snapshot only; historical stock valuation belongs to ERPNext reports |
-| Warehouses | Search, pagination, company display and navigation to filtered stock balances | Warehouse hierarchy visualization and bulk hierarchy operations are not implemented |
-| Sales and purchase registers | Customer, supplier, sales invoice and purchase invoice lists; search and pagination | Customer/supplier ledger and document actions open their dedicated workflows |
-| Sales workflow | Quotation and Sales Order draft create/edit, submit/cancel, conversion to Sales Order, Delivery Note and Sales Invoice through ERPNext mappers | Live-site behavior and role permissions still need validation |
-| Sales invoice composer | Multi-line drafts, edit, submit/cancel safeguards, stock update choice, Sales Team allocation and serial/batch entry | Advanced tax/price behavior remains ERPNext-site dependent |
-| Sales returns and receipts | ERPNext-native return mapper; full/partial customer receipt through Payment Entry and company Cash/Bank account checks | Live-site allocation, tax and linked-document restrictions need verification |
-| Purchase workflow | Purchase Orders, Purchase Invoices, Purchase Receipts, partial PO receipts, debit-note returns, supplier payments, draft payment recovery, supplier payment history/details and supplier ledger | Purchase taxes, payment allocation and final ledger effects require live-site verification |
-| Stock workflow | Material Receipt/Issue/Transfer, Stock Reconciliation, draft review/submit/delete safeguards and Stock Ledger history | ERPNext remains authoritative for bundle generation, valuation and posting |
-| Serial and Batch tracking | Serial/batch fields and warehouse-scoped availability selection where applicable; expiry and quantity checks; native ERPNext bundle lifecycle | Must be validated against the exact ERPNext v15 site configuration and permissions |
-| Financial reports | Receivables/payables aging, currency-separated totals, inventory valuation, standard report runner and CSV copy | Aging and valuation are bounded snapshots; XLSX/PDF file export is not implemented |
-| Sales dashboard | Company/date filters, sales/outstanding KPIs and currency-separated totals | Bounded to 10,000 invoices; not a replacement for ERPNext's full analytics reports |
-| Sales pricing | Selling Item Price and supported transaction/item Pricing Rules, validity and scope | Advanced Pricing Rule types are outside the current editor |
-| Sales commissions | Sales Person directory and base commission-rate management | Commission calculations and detailed summaries remain ERPNext report/configuration dependent |
-| Payment reconciliation | Native ERPNext unreconciled entries, FIFO preview, explicit confirmation and stale-preview invalidation | Requires live validation against the target site's payment configuration |
-| Chart of Accounts | Company-scoped, read-only account hierarchy and posting/group details | No chart-of-accounts editing |
-| Journal Entries | Company-scoped balanced draft creation/editing and explicit submission | Draft workflow only; multi-currency rows and submitted-entry cancellation/reversal are not exposed |
-| Master Data | Item, Supplier, Warehouse, Item Group, Supplier Group, UOM and Price List create/edit with validation and bounded selectors | Advanced warehouse hierarchy and bulk operations remain outstanding |
+| Journal Entry | Company-scoped draft create/edit, posting-account validation, multiple lines, repeated account rows for separate allocations, Cost Center/Project, foreign account currency and explicit FX rates, base-currency balancing, submit, cancel, reversal draft | ERPNext permissions, exchange-rate rules, fiscal-period locks and live ledger confirmation |
+| Reversal | Reverse debit/credit sides while preserving account currency and exchange rate; create a separate reviewable draft | Reversal draft must be reviewed and submitted separately; cancellation can be blocked by linked documents or active reversal drafts |
+| Expense Claims | Multi-line claim draft, employee/company validation, submit and ERPNext workflow transitions | Requires HRMS configuration, expense types, payable/expense accounts and approver permissions |
+| Expense Claim payment | Full or partial payment for an approved submitted claim through ERPNext's native Payment Entry mapper; Employee party, company, remaining sanctioned amount, selected Cash/Bank account and source-claim allocation are checked | Requires Employee Payment Entry permissions, valid payable and Cash/Bank accounts, and live verification of the installed ERPNext/HRMS versions |
+| Bank reconciliation | Paginated submitted Bank Transactions, linked voucher candidates, partial/full allocations, server-side revalidation, and native ERPNext reconciliation method | Requires a configured Bank Account and bank-column mapping; candidate behavior and permissions require live verification |
+| Bank statement import | CSV/XLS/XLSX/MT940 upload to Bank Statement Import, ERPNext preview/warnings, confirmation before starting the import, and import-status refresh | Parsing is performed by ERPNext, not locally. Standard import permissions may require System Manager; scheduler/background jobs and bank mapping must be configured |
+| Statement closing balance | Persist a dated closing balance as an audit Comment attached to the Bank Account and retrieve the latest matching record for comparison with ERPNext's balance | This is an audit Comment, not a native bank-statement ledger or accounting posting; verify Comment permissions and retention policy |
+| Payment reconciliation | Native Payment Reconciliation document methods for Customer/Supplier, ERPNext allocation preview, explicit confirmation and reconciliation | Live verification required for currencies, receivable/payable accounts, payment limits and site-specific permissions |
+| Financial reports | ERPNext standard reports and currency-separated receivable/payable aging; XLSX/CSV/PDF export paths | Standard report names, columns, filters and permissions vary by ERPNext version and installed apps |
 
-## Cross-screen wiring review
+## Important accounting safeguards
 
-- The six primary navigation destinations resolve to dashboard, items, stock balances, warehouses, transactions and financial reports.
-- The transactions screen exposes the sales workflow, purchase workflow, stock workflow, sales dashboard, payment reconciliation, sales pricing, chart of accounts, journal entries, master data and sales commissions.
-- Sales and purchase document details route to the relevant editor or workflow rather than creating replacement documents.
-- Submission, cancellation, deletion, return and payment operations re-fetch canonical server documents and validate identity/status before writing.
-- Inventory balances and ledger history are read from ERPNext; the mobile app does not directly write Bin or Stock Ledger balances.
-- Guest navigation is isolated from live-server routes and displays a persistent read-only demo-data notice.
+- Foreign-currency Journal Entry lines require an explicit exchange rate. The editor no longer silently treats an empty rate as 1 for foreign accounts.
+- Journal Entry debit and credit totals are compared in the Company's base currency.
+- Repeated account rows are allowed so different Cost Centers, parties, references or allocation lines are not incorrectly rejected as duplicate accounts.
+- Reversal creation is separate from cancellation. The app does not automatically cancel the original entry when creating a reversal draft.
+- Expense Claim payments are created through ERPNext's Payment Entry mapper; the app does not manufacture General Ledger rows.
+- Bank reconciliation re-fetches the Bank Transaction and linked candidates immediately before submission. Payment reconciliation uses ERPNext's native methods rather than creating a new bank movement.
+- Uncertain Payment Entry submission outcomes are re-read from the same voucher; the app must not silently create a replacement payment.
 
-## Validation and outstanding work
+## Stock coverage after PR #8
 
-1. The latest observed Android workflow on commit `c62fc1a` passed `flutter analyze` but failed in widget tests: 123 passed and 43 failed. The failures showed Flutter's test binding intercepting the local HTTP fixture requests; the APK build was skipped.
-2. Commit `2c652eef` initializes the test binding before installing the local HTTP override. Commit `110a6a92` corrects the stock-reorder test's expected values to match the documented urgency ordering. A fresh Actions run for the current head has not yet been reported.
-3. No disposable live ERPNext site was available. Permissions, taxes, payment reconciliation, purchase returns, stock ledger effects, serial/batch bundles, valuation and company/warehouse isolation are therefore not certified.
-4. A signed release APK, release/deployment configuration and production security review remain outstanding.
-5. Additional product scope not present as completed screens: HR workflows, expense administration beyond current Payment Entry flows, advanced warehouse hierarchy/bulk operations, native XLSX/PDF export, multi-currency Journal Entries and submitted Journal Entry reversal/cancellation.
+- Pick List creation and submission through ERPNext; picked quantities are captured and validated.
+- Delivery Note drafts are created from submitted Pick Lists through ERPNext's mapper and remain drafts until reviewed/submitted.
+- Damage and wastage are recorded as Material Issue Stock Entries with a required reason.
+- Batch history reads Batch and Stock Ledger Entry records.
+- Serial history follows Serial and Batch Entry / Serial and Batch Bundle links to source vouchers.
+- Bulk stock entry and reconciliation documents support multiple rows, with documented per-document safety limits.
+- Warehouse hierarchy supports search, pagination, selection, bulk enable/disable and safe parent-group moves for selected loaded nodes.
 
-A green Flutter test run and APK build do not replace live ERPNext integration validation.
+## Validation still required
+
+1. No live ERPNext/HRMS site and test account were available in this work session. API integration, server-side permission checks, GL effects, payment allocation, bank import scheduler behavior, and stock ledger effects are therefore not certified.
+2. New focused tests were added for repeated Journal Entry account rows, foreign-currency reversal draft mapping, and Expense Claim Payment Entry creation/submission. They were not executed in this session.
+3. No fresh successful CI run or Android APK build was available to verify after the latest commits.
+4. A production-signed APK, release signing configuration, security review, and live-site acceptance test remain outstanding.
+
+A passing unit/widget test or APK build does not replace live ERPNext integration validation. Do not mark a workflow production-ready until a disposable, version-matched ERPNext + HRMS site confirms permissions, document lifecycle, payment allocation, currency conversion, and General Ledger results.
