@@ -394,7 +394,7 @@ class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
           }).toList();
         });
       } catch(e) { if(sheetContext?.mounted == true)refresh(()=>error=e.toString().replaceFirst('Exception: ','')); }
-      finally { if(sheetContext.mounted)refresh(()=>busy=false); }
+      finally { if(sheetContext?.mounted == true)refresh(()=>busy=false); }
     }
     final selected=await showModalBottomSheet<String>(context:context,isScrollControlled:true,useSafeArea:true,
       builder:(sheetCtx){ sheetContext=sheetCtx; return StatefulBuilder(builder:(context,refresh) {
