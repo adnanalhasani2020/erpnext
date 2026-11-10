@@ -200,6 +200,66 @@ class FrappeApi {
   }
 
 
+  /// Reads the complete standard ERPNext Item document. The server returns
+  /// only fields the authenticated user is permitted to read.
+  Future<Map<String, dynamic>> fetchItemDocument(String itemCode) async {
+    final code = itemCode.trim();
+    if (code.isEmpty) throw const FormatException('رمز الصنف مطلوب.');
+    final uri = Uri.parse(
+      '$_baseUrl/api/resource/Item/' + Uri.encodeComponent(code),
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل تفاصيل الصنف من ERPNext. تحقق من صلاحية قراءة Item.'));
+    }
+    final document = data['data'];
+    if (document is! Map<String, dynamic>) {
+      throw Exception('استجابة تفاصيل الصنف من ERPNext غير صحيحة.');
+    }
+    return Map<String, dynamic>.from(document);
+  }
+
+  /// Reads standard Item Price rows for one item, including selling and
+  /// buying entries. No price is calculated or invented on the client.
+  Future<List<Map<String, dynamic>>> fetchItemPriceEntries({
+    required String itemCode,
+    int start = 0,
+  }) async {
+    final code = itemCode.trim();
+    if (code.isEmpty) throw const FormatException('رمز الصنف مطلوب.');
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Item Price',
+      fields: const [
+        'name', 'item_code', 'price_list', 'price_list_rate', 'currency',
+        'uom', 'valid_from', 'valid_upto', 'min_qty', 'selling', 'buying',
+      ],
+      filters: [['item_code', '=', code]],
+      orderBy: 'price_list asc, selling desc, buying desc, valid_from desc',
+      start: start,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل أسعار البيع والشراء للصنف. تحقق من صلاحية قراءة Item Price.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة أسعار الصنف من ERPNext غير صحيحة.');
+    return rows.whereType<Map<String, dynamic>>()
+        .map((row) => Map<String, dynamic>.from(row))
+        .toList(growable: false);
+  }
+
+  /// Resolves ERPNext file paths without changing already absolute URLs.
+  String resolveFileUrl(String path) {
+    final value = path.trim();
+    if (value.isEmpty) return '';
+    final parsed = Uri.tryParse(value);
+    if (parsed != null && parsed.hasScheme) return value;
+    return Uri.parse(_baseUrl).resolve(value).toString();
+  }
+
   Future<List<ErpItem>> fetchItems({int start = 0, String? search}) async {
     final uri = buildResourcePageUri(
       baseUrl: _baseUrl,
