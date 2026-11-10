@@ -30,9 +30,10 @@ void main() {
       server.listen((request) async {
         final body = await utf8.decoder.bind(request).join();
         request.response.headers.contentType = ContentType.json;
-        final path = request.uri.path;
+        final segments = request.uri.pathSegments;
+        final path = segments.join('/');
         calls.add('${request.method} $path');
-        if (request.method == 'GET' && path.endsWith('/Expense%20Claim/EXP-001')) {
+        if (request.method == 'GET' && path.endsWith('Expense Claim/EXP-001')) {
           request.response.write(jsonEncode({'data': {
             'doctype': 'Expense Claim',
             'name': 'EXP-001',
@@ -59,7 +60,7 @@ void main() {
               'allocated_amount': 30,
             }],
           }}));
-        } else if (request.method == 'POST' && path.endsWith('/Payment%20Entry')) {
+        } else if (request.method == 'POST' && path.endsWith('Payment Entry')) {
           request.response.write(jsonEncode({'data': {
             'doctype': 'Payment Entry',
             'name': 'PE-001',
@@ -74,7 +75,7 @@ void main() {
               'allocated_amount': 30,
             }],
           }}));
-        } else if (request.method == 'GET' && path.endsWith('/Payment%20Entry/PE-001')) {
+        } else if (request.method == 'GET' && path.endsWith('Payment Entry/PE-001')) {
           request.response.write(jsonEncode({'data': {
             'doctype': 'Payment Entry',
             'name': 'PE-001',
