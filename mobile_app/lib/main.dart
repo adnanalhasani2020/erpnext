@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 import 'api/frappe_api.dart';
 import 'sales_invoice_composer.dart';
@@ -856,6 +857,12 @@ class _MobileHomePageState extends State<MobileHomePage> {
         onSubmitted: _searchItems,
       ),
       const SizedBox(height: 8),
+      OutlinedButton.icon(
+        onPressed: _inventoryLoading ? null : _showBarcodeDialog,
+        icon: const Icon(Icons.qr_code_scanner),
+        label: const Text('بحث بالباركود أو مسحه بالكاميرا'),
+      ),
+      const SizedBox(height: 8),
       FilledButton.tonalIcon(
         onPressed: _inventoryLoading || _loadingMoreItems
             ? null
@@ -893,6 +900,196 @@ class _MobileHomePageState extends State<MobileHomePage> {
       ))),
       if (_itemsHasMore || _loadingMoreItems) Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: FilledButton.tonal(onPressed: _loadingMoreItems ? null : _loadMoreItems, child: Text(_loadingMoreItems ? 'جارٍ تحميل المزيد...' : 'تحميل المزيد من الأصناف'))),
     ]);
+  }
+
+  Future<void> _showBarcodeDialog() async {
+    final barcodeController = TextEditingController();
+    final scannerController = MobileScannerController();
+    var searching = false;
+    var scanLocked = false;
+    String? error;
+    List<ErpItem> matches = const [];
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, update) {
+          Future<void> lookup(String value) async {
+            final code = value.trim();
+            if (code.isEmpty || searching) return;
+            update(() {
+              searching = true;
+              error = null;
+              matches = const [];
+            });
+            try {
+              final found = await _api.fetchItemsByBarcode(code);
+              if (!dialogContext.mounted) return;
+              update(() {
+                matches = found;
+                if (found.isEmpty) error = 'لا يوجد صنف نشط بهذا الباركود في ERPNext.';
+              });
+            } catch (exception) {
+              if (!dialogContext.mounted) return;
+              update(() => error = exception.toString().replaceFirst('Exception: ', ''));
+            } finally {
+              if (dialogContext.mounted) {
+                update(() {
+                  searching = false;
+                  scanLocked = false;
+                });
+              }
+            }
+          }
+
+          return AlertDialog(
+            title: const Text('البحث عن صنف بالباركود'),
+            content: SizedBox(
+              width: 460,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: barcodeController,
+                      autofocus: true,
+                      textInputAction: TextInputAction.search,
+                      decoration: const InputDecoration(
+                        labelText: 'أدخل رقم الباركود',
+                        prefixIcon: Icon(Icons.qr_code_2),
+                      ),
+                      onSubmitted: lookup,
+                    ),
+                    const SizedBox(height: 10),
+                    SizedBox(
+                      height: 220,
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            MobileScanner(
+                              controller: scannerController,
+                              onDetect: (capture) {
+                                if (scanLocked || searching) return;
+                                final value = capture.barcodes
+                                    .map((barcode) => barcode.rawValue?.trim() ?? '')
+                                    .firstWhere((value) => value.isNotEmpty, orElse: () => '');
+                                if (value.isEmpty) return;
+                                scanLocked = true;
+                                barcodeController.text = value;
+                                scannerController.stop();
+                                lookup(value).whenComplete(() {
+                                  if (dialogContext.mounted) scannerController.start();
+                                });
+                              },
+                              errorBuilder: (context, exception) => ColoredBox(
+                                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                child: Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12),
+                                    child: Text(
+                                      'تعذر تشغيل الكاميرا: ${exception.errorCode}. تحقق من إذن الكاميرا.',
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            IgnorePointer(
+                              child: Center(
+                                child: Container(
+                                  width: 230,
+                                  height: 92,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(color: Colors.greenAccent, width: 2),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'وجّه الكاميرا نحو الباركود أو أدخله يدوياً.',
+                      style: Theme.of(dialogContext).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              try {
+                                await scannerController.toggleTorch();
+                              } catch (_) {}
+                            },
+                            icon: const Icon(Icons.flash_on),
+                            label: const Text('الفلاش'),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: FilledButton.icon(
+                            onPressed: searching
+                                ? null
+                                : () => lookup(barcodeController.text),
+                            icon: const Icon(Icons.search),
+                            label: const Text('بحث'),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (searching) ...[
+                      const SizedBox(height: 12),
+                      const LinearProgressIndicator(),
+                    ],
+                    if (error != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        error!,
+                        style: TextStyle(color: Theme.of(dialogContext).colorScheme.error),
+                      ),
+                    ],
+                    if (matches.isNotEmpty) ...[
+                      const Divider(height: 22),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text('نتائج المطابقة: ${matches.length}',
+                            style: Theme.of(dialogContext).textTheme.titleSmall),
+                      ),
+                      ...matches.map((item) => ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.inventory_2_outlined),
+                        title: Text(item.name),
+                        subtitle: Text(item.code),
+                        trailing: const Icon(Icons.chevron_left),
+                        onTap: () {
+                          Navigator.of(dialogContext).pop();
+                          _showItemDetails(item);
+                        },
+                      )),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('إغلاق'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+    await scannerController.dispose();
+    barcodeController.dispose();
   }
 
   void _showItemDetails(ErpItem item) {
