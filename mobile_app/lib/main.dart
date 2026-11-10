@@ -1510,7 +1510,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
               ),
               TextField(
                 controller: partyController,
-                decoration: InputDecoration(labelText: sales ? 'العميل (الاسم أو الرمز)' : 'المورد (الاسم أو الرمز)'),
+                decoration: InputDecoration(labelText: sales ? 'رمز العميل' : 'رمز المورد'),
               ),
               DropdownButtonFormField<String>(
                 initialValue: returnType,
