@@ -5149,13 +5149,11 @@ class FrappeApi {
     final clean = <core.Map<String, dynamic>>[];
     var debitTotal = 0.0, creditTotal = 0.0;
     var hasForeignCurrency = false;
-    final seen = <String>{};
     for (final row in accounts) {
       final account = row['account']?.toString().trim() ?? '';
       final debit = row['debit'] is num ? (row['debit'] as num).toDouble() : double.tryParse(row['debit']?.toString() ?? '') ?? 0;
       final credit = row['credit'] is num ? (row['credit'] as num).toDouble() : double.tryParse(row['credit']?.toString() ?? '') ?? 0;
       if (account.isEmpty || !debit.isFinite || !credit.isFinite || debit < 0 || credit < 0 || (debit > 0 && credit > 0) || (debit == 0 && credit == 0)) throw const FormatException('كل سطر يجب أن يحتوي حساباً ومبلغاً مديناً أو دائناً واحداً فقط.');
-      if (!seen.add(account)) throw FormatException('الحساب مكرر في القيد: ' + account);
       final accountResponse = await _send('GET', '/api/resource/Account/' + Uri.encodeComponent(account));
       final accountData = _decode(accountResponse.body);
       final accountDoc = accountData['data'];
