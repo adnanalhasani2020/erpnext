@@ -5851,7 +5851,7 @@ class _ApiResponse {
     }
     final createdResponse = await _sendJson('POST', '/api/resource/Bank%20Statement%20Import', {
       'doctype': 'Bank Statement Import', 'company': cleanCompany,
-      'bank_account': account, 'reference_doctype': 'Bank Transaction',
+      'bank_account': account, 'bank': bankAccountDoc['bank'], 'reference_doctype': 'Bank Transaction',
       'import_type': 'Insert New Records', 'submit_after_import': 1, 'mute_emails': 1,
     });
     final createdData = _decode(createdResponse.body);
