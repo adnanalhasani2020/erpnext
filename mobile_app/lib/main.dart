@@ -2104,17 +2104,24 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
         start: more ? _rows.length : 0,
       );
       if (!more) {
-        final totals = await widget.api.fetchPartyLedgerTotals(
-          partyType: 'Customer', party: widget.customer.id,
-          company: _company, fromDate: _fromDate.text, toDate: _toDate.text,
-        );
-        final opening = _fromDate.text.trim().isEmpty
-            ? <String, dynamic>{'balance': 0.0}
-            : await widget.api.fetchPartyLedgerOpeningBalance(
-                partyType: 'Customer', party: widget.customer.id,
-                company: _company, beforeDate: _fromDate.text,
-              );
-        if (mounted) setState(() { _periodTotals = totals; _opening = opening; });
+        if (_company == null) {
+          if (mounted) setState(() {
+            _periodTotals = {'debit': 0.0, 'credit': 0.0, 'balance': 0.0};
+            _opening = {'balance': 0.0};
+          });
+        } else {
+          final totals = await widget.api.fetchPartyLedgerTotals(
+            partyType: 'Customer', party: widget.customer.id,
+            company: _company, fromDate: _fromDate.text, toDate: _toDate.text,
+          );
+          final opening = _fromDate.text.trim().isEmpty
+              ? <String, dynamic>{'balance': 0.0}
+              : await widget.api.fetchPartyLedgerOpeningBalance(
+                  partyType: 'Customer', party: widget.customer.id,
+                  company: _company, beforeDate: _fromDate.text,
+                );
+          if (mounted) setState(() { _periodTotals = totals; _opening = opening; });
+        }
       }
       if (!mounted) return;
       setState(() {
@@ -2198,10 +2205,14 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
                   spacing: 16,
                   runSpacing: 6,
                   children: [
-                    Text('مدين الفترة: ${(_periodTotals['debit'] ?? 0)}'),
-                    Text('دائن الفترة: ${(_periodTotals['credit'] ?? 0)}'),
-                    Text('الرصيد الافتتاحي: ${(_opening['balance'] ?? 0)}'),
-                    Text('الرصيد الختامي: ${((_opening['balance'] as num? ?? 0) + (_periodTotals['balance'] as num? ?? 0)).toStringAsFixed(2)}'),
+                    if (_company == null)
+                      const Text('اختر شركة لاحتساب الأرصدة؛ لا يتم جمع عملات شركات مختلفة.')
+                    else ...[
+                      Text('مدين الفترة: ${(_periodTotals['debit'] ?? 0)}'),
+                      Text('دائن الفترة: ${(_periodTotals['credit'] ?? 0)}'),
+                      Text('الرصيد الافتتاحي: ${(_opening['balance'] ?? 0)}'),
+                      Text('الرصيد الختامي: ${((_opening['balance'] as num? ?? 0) + (_periodTotals['balance'] as num? ?? 0)).toStringAsFixed(2)}'),
+                    ],
                   ],
                 ),
               ],
@@ -2315,17 +2326,24 @@ class _SupplierLedgerSheetState extends State<_SupplierLedgerSheet> {
         start: more ? _rows.length : 0,
       );
       if (!more) {
-        final totals = await widget.api.fetchPartyLedgerTotals(
-          partyType: 'Supplier', party: widget.supplier.id,
-          company: _company, fromDate: _fromDate.text, toDate: _toDate.text,
-        );
-        final opening = _fromDate.text.trim().isEmpty
-            ? <String, dynamic>{'balance': 0.0}
-            : await widget.api.fetchPartyLedgerOpeningBalance(
-                partyType: 'Supplier', party: widget.supplier.id,
-                company: _company, beforeDate: _fromDate.text,
-              );
-        if (mounted) setState(() { _periodTotals = totals; _opening = opening; });
+        if (_company == null) {
+          if (mounted) setState(() {
+            _periodTotals = {'debit': 0.0, 'credit': 0.0, 'balance': 0.0};
+            _opening = {'balance': 0.0};
+          });
+        } else {
+          final totals = await widget.api.fetchPartyLedgerTotals(
+            partyType: 'Supplier', party: widget.supplier.id,
+            company: _company, fromDate: _fromDate.text, toDate: _toDate.text,
+          );
+          final opening = _fromDate.text.trim().isEmpty
+              ? <String, dynamic>{'balance': 0.0}
+              : await widget.api.fetchPartyLedgerOpeningBalance(
+                  partyType: 'Supplier', party: widget.supplier.id,
+                  company: _company, beforeDate: _fromDate.text,
+                );
+          if (mounted) setState(() { _periodTotals = totals; _opening = opening; });
+        }
       }
       if (!mounted) return;
       setState(() {
@@ -2409,10 +2427,14 @@ class _SupplierLedgerSheetState extends State<_SupplierLedgerSheet> {
                   spacing: 16,
                   runSpacing: 6,
                   children: [
-                    Text('مدين الفترة: ${(_periodTotals['debit'] ?? 0)}'),
-                    Text('دائن الفترة: ${(_periodTotals['credit'] ?? 0)}'),
-                    Text('الرصيد الافتتاحي: ${(_opening['balance'] ?? 0)}'),
-                    Text('الرصيد الختامي: ${((_opening['balance'] as num? ?? 0) + (_periodTotals['balance'] as num? ?? 0)).toStringAsFixed(2)}'),
+                    if (_company == null)
+                      const Text('اختر شركة لاحتساب الأرصدة؛ لا يتم جمع عملات شركات مختلفة.')
+                    else ...[
+                      Text('مدين الفترة: ${(_periodTotals['debit'] ?? 0)}'),
+                      Text('دائن الفترة: ${(_periodTotals['credit'] ?? 0)}'),
+                      Text('الرصيد الافتتاحي: ${(_opening['balance'] ?? 0)}'),
+                      Text('الرصيد الختامي: ${((_opening['balance'] as num? ?? 0) + (_periodTotals['balance'] as num? ?? 0)).toStringAsFixed(2)}'),
+                    ],
                   ],
                 ),
               ],
