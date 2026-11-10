@@ -200,6 +200,43 @@ class FrappeApi {
   }
 
 
+  /// Finds items through ERPNext's standard Item Barcode child table.
+  Future<List<ErpItem>> fetchItemsByBarcode(String barcode) async {
+    final value = barcode.trim();
+    if (value.isEmpty) throw const FormatException('أدخل الباركود أو امسحه بالكاميرا.');
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Item Barcode',
+      fields: const ['parent', 'barcode', 'parenttype', 'parentfield'],
+      filters: [
+        ['barcode', '=', value],
+        ['parenttype', '=', 'Item'],
+        ['parentfield', '=', 'barcodes'],
+      ],
+      orderBy: 'parent asc',
+      pageLength: 50,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر البحث بالباركود. تحقق من صلاحية قراءة Item Barcode وItem.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة البحث بالباركود من ERPNext غير صحيحة.');
+    final parents = rows
+        .whereType<Map<String, dynamic>>()
+        .map((row) => row['parent']?.toString().trim() ?? '')
+        .where((parent) => parent.isNotEmpty)
+        .toSet();
+    final items = <ErpItem>[];
+    for (final parent in parents) {
+      final document = await fetchItemDocument(parent);
+      if (document['disabled'] == 1 || document['disabled'] == true) continue;
+      items.add(ErpItem.fromJson(document));
+    }
+    return items;
+  }
+
   /// Reads the complete standard ERPNext Item document. The server returns
   /// only fields the authenticated user is permitted to read.
   Future<Map<String, dynamic>> fetchItemDocument(String itemCode) async {
