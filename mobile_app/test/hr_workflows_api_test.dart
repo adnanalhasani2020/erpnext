@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:erpnext_mobile/api/frappe_api.dart';
 
@@ -7,6 +10,122 @@ void main() {
   setUp(() => api = FrappeApi());
   tearDown(() => api.dispose());
 
+
+
+  group('Expense Claim payment', () {
+    test('rejects blank claim and non-positive amounts before network access', () async {
+      await expectLater(
+        api.payExpenseClaim(claimName: ' ', amount: 10),
+        throwsA(isA<FormatException>()),
+      );
+      await expectLater(
+        api.payExpenseClaim(claimName: 'EXP-001', amount: 0),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('creates and submits an ERPNext Payment Entry for an approved employee claim', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final calls = <String>[];
+      server.listen((request) async {
+        final body = await utf8.decoder.bind(request).join();
+        request.response.headers.contentType = ContentType.json;
+        final path = request.uri.path;
+        calls.add('${request.method} $path');
+        if (request.method == 'GET' && path.endsWith('/Expense%20Claim/EXP-001')) {
+          request.response.write(jsonEncode({'data': {
+            'doctype': 'Expense Claim',
+            'name': 'EXP-001',
+            'company': 'Company A',
+            'employee': 'EMP-001',
+            'docstatus': 1,
+            'approval_status': 'Approved',
+            'total_sanctioned_amount': 100,
+            'total_amount_reimbursed': 20,
+          }}));
+        } else if (request.method == 'POST' && path.endsWith('/get_payment_entry')) {
+          request.response.write(jsonEncode({'message': {
+            'doctype': 'Payment Entry',
+            'name': 'PE-001',
+            'company': 'Company A',
+            'payment_type': 'Pay',
+            'party_type': 'Employee',
+            'party': 'EMP-001',
+            'paid_amount': 30,
+            'docstatus': 0,
+            'references': [{
+              'reference_doctype': 'Expense Claim',
+              'reference_name': 'EXP-001',
+              'allocated_amount': 30,
+            }],
+          }}));
+        } else if (request.method == 'POST' && path.endsWith('/Payment%20Entry')) {
+          request.response.write(jsonEncode({'data': {
+            'doctype': 'Payment Entry',
+            'name': 'PE-001',
+            'company': 'Company A',
+            'payment_type': 'Pay',
+            'party_type': 'Employee',
+            'party': 'EMP-001',
+            'docstatus': 0,
+            'references': [{
+              'reference_doctype': 'Expense Claim',
+              'reference_name': 'EXP-001',
+              'allocated_amount': 30,
+            }],
+          }}));
+        } else if (request.method == 'GET' && path.endsWith('/Payment%20Entry/PE-001')) {
+          request.response.write(jsonEncode({'data': {
+            'doctype': 'Payment Entry',
+            'name': 'PE-001',
+            'company': 'Company A',
+            'payment_type': 'Pay',
+            'party_type': 'Employee',
+            'party': 'EMP-001',
+            'docstatus': 0,
+            'references': [{
+              'reference_doctype': 'Expense Claim',
+              'reference_name': 'EXP-001',
+              'allocated_amount': 30,
+            }],
+          }}));
+        } else if (request.method == 'POST' && path.endsWith('/frappe.client.submit')) {
+          request.response.write(jsonEncode({'message': {
+            'doctype': 'Payment Entry',
+            'name': 'PE-001',
+            'company': 'Company A',
+            'payment_type': 'Pay',
+            'party_type': 'Employee',
+            'party': 'EMP-001',
+            'docstatus': 1,
+            'references': [{
+              'reference_doctype': 'Expense Claim',
+              'reference_name': 'EXP-001',
+              'allocated_amount': 30,
+            }],
+          }}));
+        } else {
+          request.response.statusCode = HttpStatus.notFound;
+          request.response.write(jsonEncode({'message': 'Not found'}));
+        }
+        await request.response.close();
+      });
+      final client = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+      try {
+        final result = await client.payExpenseClaim(
+          claimName: 'EXP-001',
+          amount: 30,
+        );
+        expect(result['name'], 'PE-001');
+        expect(result['docstatus'], 1);
+        expect(result['party_type'], 'Employee');
+        expect(calls.where((call) => call.contains('Payment%20Entry')).length, greaterThanOrEqualTo(2));
+      } finally {
+        client.dispose();
+        await server.close(force: true);
+      }
+    });
+  });
 
   group('Journal entry safety validation', () {
     test('rejects malformed journal dates before network access', () async {
