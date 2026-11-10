@@ -461,8 +461,8 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
         return;
       }
     }
-    final discountAmount = double.tryParse(_discountAmountController.text.trim()) ?? 0;
-    final discountPercent = double.tryParse(_discountPercentController.text.trim()) ?? 0;
+    final discountAmount = double.tryParse(_discountAmountController.text.trim()) ?? (_discountAmountController.text.trim().isEmpty ? 0 : double.nan);
+    final discountPercent = double.tryParse(_discountPercentController.text.trim()) ?? (_discountPercentController.text.trim().isEmpty ? 0 : double.nan);
     if (!discountAmount.isFinite || discountAmount < 0 ||
         !discountPercent.isFinite || discountPercent < 0 || discountPercent > 100 ||
         (discountAmount > 0 && discountPercent > 0)) {
@@ -470,8 +470,8 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
       return;
     }
     for (final line in _lines) {
-      final linePercent = double.tryParse(line.discountPercentage.text.trim()) ?? 0;
-      final lineDiscount = double.tryParse(line.discountAmount.text.trim()) ?? 0;
+      final linePercent = double.tryParse(line.discountPercentage.text.trim()) ?? (line.discountPercentage.text.trim().isEmpty ? 0 : double.nan);
+      final lineDiscount = double.tryParse(line.discountAmount.text.trim()) ?? (line.discountAmount.text.trim().isEmpty ? 0 : double.nan);
       if (!linePercent.isFinite || linePercent < 0 || linePercent > 100 ||
           !lineDiscount.isFinite || lineDiscount < 0 ||
           (linePercent > 0 && lineDiscount > 0)) {
