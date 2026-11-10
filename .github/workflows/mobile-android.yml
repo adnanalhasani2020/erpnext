@@ -14,6 +14,7 @@ on:
       - feature/flutter-purchases-stock-workflows
       - feature/flutter-hr-warehouse-workflows
       - feature/flutter-accounting-hr-operations
+      - feature/flutter-mobile-integration
     paths:
       - "mobile_app/lib/**"
       - "mobile_app/test/**"
@@ -26,6 +27,7 @@ on:
       - feature/flutter-purchases-stock-workflows
       - feature/flutter-hr-warehouse-workflows
       - feature/flutter-accounting-hr-operations
+      - feature/flutter-mobile-integration
     paths:
       - "mobile_app/lib/**"
       - "mobile_app/test/**"
