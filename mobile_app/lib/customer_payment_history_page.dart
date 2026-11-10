@@ -38,7 +38,9 @@ class _CustomerPaymentHistoryPageState extends State<CustomerPaymentHistoryPage>
         widget.api.fetchCustomerPayments(search: query, start: 0),
         widget.api.fetchDraftCustomerPayments(search: query, start: 0),
       ]);
-      if (!mounted) return;
+      if (!mounted) {
+        return;
+      }
       setState(() {
         _payments = results[0];
         _drafts = results[1];
@@ -55,10 +57,15 @@ class _CustomerPaymentHistoryPageState extends State<CustomerPaymentHistoryPage>
   }
 
   Future<void> _loadMorePayments({required bool drafts}) async {
-    if (_loading || (drafts ? _loadingMoreDrafts || !_hasMoreDrafts : _loadingMorePayments || !_hasMorePayments)) return;
+    if (_loading || (drafts ? _loadingMoreDrafts || !_hasMoreDrafts : _loadingMorePayments || !_hasMorePayments)) {
+      return;
+    }
     setState(() {
-      if (drafts) _loadingMoreDrafts = true;
-      else _loadingMorePayments = true;
+      if (drafts) {
+        _loadingMoreDrafts = true;
+      } else {
+        _loadingMorePayments = true;
+      }
     });
     try {
       final query = _search.text.trim().isEmpty ? null : _search.text.trim();
@@ -80,10 +87,15 @@ class _CustomerPaymentHistoryPageState extends State<CustomerPaymentHistoryPage>
     } catch (error) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))));
     } finally {
-      if (mounted) setState(() {
-        if (drafts) _loadingMoreDrafts = false;
-        else _loadingMorePayments = false;
-      });
+      if (mounted) {
+        setState(() {
+          if (drafts) {
+            _loadingMoreDrafts = false;
+          } else {
+            _loadingMorePayments = false;
+          }
+        });
+      }
     }
   }
 
