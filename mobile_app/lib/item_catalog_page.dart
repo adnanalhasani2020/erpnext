@@ -174,10 +174,11 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
         } catch(e) { failed++; if(errors.length<8) errors.add('$code: ${e.toString().replaceFirst('Exception: ','')}'); }
       }
       if (!mounted) return;
-      final report='الاستيراد: ${ok} ناجح، ${failed} فشل.${errors.isEmpty?'':'\n'+errors.join('\n')}';
+      final suffix = errors.isEmpty ? '' : '\n${errors.join('\n')}';
+      final report = 'الاستيراد: $ok ناجح، $failed فشل.$suffix';
       setState(()=>_message=report);
       await _load();
-      if(mounted)setState(()=>_message=report);
+      if (mounted) { setState(() => _message = report); }
     } catch(e) { if(mounted) setState(()=>_message='تعذر الاستيراد: ${e.toString()}'); }
   }
 
@@ -200,17 +201,17 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
         decoration:InputDecoration(labelText:'بحث بالرمز أو الاسم أو المجموعة أو العلامة',
           prefixIcon:const Icon(Icons.search),suffixIcon:IconButton(onPressed:_load,icon:const Icon(Icons.search))))),
       Padding(padding:const EdgeInsets.symmetric(horizontal:12),child:Wrap(spacing:8,runSpacing:8,children:[
-        SizedBox(width:165,child:DropdownButtonFormField<String?>(value:_group,isExpanded:true,
+        SizedBox(width:165,child:DropdownButtonFormField<String?>(initialValue:_group,isExpanded:true,
           decoration:const InputDecoration(labelText:'المجموعة'),
           items:[const DropdownMenuItem<String?>(value:null,child:Text('كل المجموعات')),
             ..._groups.map((v)=>DropdownMenuItem<String?>(value:v,child:Text(v,overflow:TextOverflow.ellipsis)))],
           onChanged:(v){setState(()=>_group=v);_load();})),
-        SizedBox(width:145,child:DropdownButtonFormField<String?>(value:_brand,isExpanded:true,
+        SizedBox(width:145,child:DropdownButtonFormField<String?>(initialValue:_brand,isExpanded:true,
           decoration:const InputDecoration(labelText:'العلامة التجارية'),
           items:[const DropdownMenuItem<String?>(value:null,child:Text('كل العلامات')),
             ..._brands.map((v)=>DropdownMenuItem<String?>(value:v,child:Text(v,overflow:TextOverflow.ellipsis)))],
           onChanged:(v){setState(()=>_brand=v);_load();})),
-        SizedBox(width:125,child:DropdownButtonFormField<String>(value:_status,
+        SizedBox(width:125,child:DropdownButtonFormField<String>(initialValue:_status,
           decoration:const InputDecoration(labelText:'الحالة'),
           items:const [DropdownMenuItem(value:'active',child:Text('النشطة')),
             DropdownMenuItem(value:'disabled',child:Text('المعطلة')),DropdownMenuItem(value:'all',child:Text('الكل'))],
@@ -375,13 +376,14 @@ class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
   Future<void> _chooseReference(String key, String label, String doctype) async {
     final search=TextEditingController();
     var rows=<Map<String,dynamic>>[];
+    BuildContext? sheetContext;
     var busy=false, started=false;
     String? error;
     Future<void> load(StateSetter refresh) async {
       refresh(() { busy=true; error=null; });
       try {
         final result=await widget.api.fetchMasterDataRows(doctype:doctype,search:search.text);
-        if(!sheetContext.mounted)return;
+        if(sheetContext?.mounted != true)return;
         refresh(() {
           rows=result.where((row) {
             if(row['disabled']==1||row['disabled']==true)return false;
@@ -391,12 +393,12 @@ class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
             return true;
           }).toList();
         });
-      } catch(e) { if(sheetContext.mounted)refresh(()=>error=e.toString().replaceFirst('Exception: ','')); }
+      } catch(e) { if(sheetContext?.mounted == true)refresh(()=>error=e.toString().replaceFirst('Exception: ','')); }
       finally { if(sheetContext.mounted)refresh(()=>busy=false); }
     }
     final selected=await showModalBottomSheet<String>(context:context,isScrollControlled:true,useSafeArea:true,
-      builder:(sheetContext)=>StatefulBuilder(builder:(context,refresh) {
-        if(!started){started=true;WidgetsBinding.instance.addPostFrameCallback((_) { if(sheetContext.mounted)load(refresh); });}
+      builder:(sheetCtx){ sheetContext=sheetCtx; return StatefulBuilder(builder:(context,refresh) {
+        if(!started){started=true;WidgetsBinding.instance.addPostFrameCallback((_) { if(sheetCtx.mounted)load(refresh); });}
         return Padding(padding:EdgeInsets.fromLTRB(16,12,16,MediaQuery.of(context).viewInsets.bottom+16),
           child:SizedBox(height:MediaQuery.of(context).size.height*.7,child:Column(children:[
             Text('اختيار $label',style:Theme.of(context).textTheme.titleLarge),
@@ -407,10 +409,10 @@ class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
             Expanded(child:ListView.builder(itemCount:rows.length,itemBuilder:(_,i){
               final row=rows[i]; final id=row['name']?.toString()??'';
               final title=(row['item_group_name']??row['uom_name']??row['warehouse_name']??row['supplier_name']??id).toString();
-              return ListTile(title:Text(title),subtitle:Text(id),onTap:()=>Navigator.pop(sheetContext,id));
+              return ListTile(title:Text(title),subtitle:Text(id),onTap:()=>Navigator.pop(sheetCtx,id));
             })),
           ])));
-      }));
+      }); });
     search.dispose();
     if(selected!=null&&mounted)setState(()=>_c[key]!.text=selected);
   }
