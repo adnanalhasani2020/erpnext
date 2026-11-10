@@ -5,6 +5,7 @@ Arabic-first Android companion app for an ERPNext instance.
 ## Implemented
 
 - Arabic right-to-left login using Frappe `/api/method/login`, with required-field validation, password visibility toggle, accessible error feedback, and HTTPS guidance.
+- Offline guest mode with clearly labeled local demo data across the dashboard, items, stock, warehouses, transactions and report summary; guest mode does not contact ERPNext or permit real transactions.
 - Session cookies are held in memory only; credentials and cookies are not written to disk.
 - Logged-in user verification and logout through Frappe API methods.
 - Company list on the dashboard.
