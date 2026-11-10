@@ -120,7 +120,7 @@ void main() {
         expect(result['name'], 'PE-001');
         expect(result['docstatus'], 1);
         expect(result['party_type'], 'Employee');
-        expect(calls.where((call) => call.contains('Payment%20Entry')).length, greaterThanOrEqualTo(2));
+        expect(calls.where((call) => call.contains('Payment Entry')).length, greaterThanOrEqualTo(2));
       } finally {
         client.dispose();
         await server.close(force: true);
