@@ -205,12 +205,12 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
           content: SizedBox(width: 520, child: SingleChildScrollView(child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min,
             children: [
-              Text('المستند: ' + result['name'].toString()),
+              Text('المستند: ${result['name']}'),
               Text('الصفوف التي قرأها ERPNext: $rowCount'),
-              Text('الأعمدة: ' + (result['columns'] as List).join('، ')),
+              Text('الأعمدة: ${(result['columns'] as List).join('، ')}'),
               if (warnings.isNotEmpty) ...[
-                Text('تحذيرات المعاينة (' + warnings.length.toString() + ')', style: const TextStyle(fontWeight: FontWeight.bold)),
-                ...warnings.take(12).map((warning) => Text('• ' + (warning is core.Map ? (warning['message'] ?? warning).toString() : warning.toString()))),
+                Text('تحذيرات المعاينة (${warnings.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
+                ...warnings.take(12).map((warning) => Text('• ${warning is core.Map ? (warning['message'] ?? warning) : warning}')),
               ],
               const SizedBox(height: 8),
               const Text('سيُنشئ ERPNext حركات Bank Transaction بعد التأكيد. يلزم إعداد مطابقة أعمدة البنك في سجل Bank.'),
@@ -227,7 +227,7 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
       if (!mounted) return;
       setState(() => _statementImportName = result['name'].toString());
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('تمت جدولة الاستيراد في ERPNext: ' + started['job_id'].toString())),
+        SnackBar(content: Text('تمت جدولة الاستيراد في ERPNext: ${started['job_id']}')),
       );
     } catch (error) {
       if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
@@ -242,10 +242,10 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
     try {
       final status = await widget.api.fetchBankStatementImportStatus(id);
       if (!mounted) return;
-      final message = 'حالة الاستيراد: ' + (status['status'] ?? 'غير معروفة').toString() +
-          ' • ناجح: ' + (status['success'] ?? 0).toString() +
-          ' • فاشل: ' + (status['failed'] ?? 0).toString() +
-          ' • الإجمالي: ' + (status['total_records'] ?? 0).toString();
+      final message = 'حالة الاستيراد: ${status['status'] ?? 'غير معروفة'}'
+          ' • ناجح: ${status['success'] ?? 0}'
+          ' • فاشل: ${status['failed'] ?? 0}'
+          ' • الإجمالي: ${status['total_records'] ?? 0}';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
       if (status['status'] == 'Success' || status['status'] == 'Partial Success') await _loadTransactions();
     } catch (error) {
@@ -593,8 +593,7 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
                     label: const Text('حفظ رصيد الكشف الختامي في ERPNext'),
                   ),
                   if (_savedStatementBalance != null)
-                    Text('آخر رصيد محفوظ: ' + (_savedStatementBalance!['statement_date'] ?? '').toString() +
-                      ' • ' + (_savedStatementBalance!['closing_balance'] ?? '').toString()),
+                    Text('آخر رصيد محفوظ: ${_savedStatementBalance!['statement_date']} • ${_savedStatementBalance!['closing_balance']}'),
                   const Text('يحفظ الرصيد كسجل تدقيقي في سجل الحساب البنكي، ولا ينشئ قيداً محاسبياً.', style: TextStyle(fontSize: 12)),
                 ],
               ),
