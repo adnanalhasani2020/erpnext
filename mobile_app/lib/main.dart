@@ -2154,8 +2154,6 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final debit = _rows.fold<double>(0, (sum, row) => sum + _amount(row, 'debit'));
-    final credit = _rows.fold<double>(0, (sum, row) => sum + _amount(row, 'credit'));
     return SizedBox(
       height: MediaQuery.of(context).size.height * .82,
       child: Column(
@@ -2367,8 +2365,6 @@ class _SupplierLedgerSheetState extends State<_SupplierLedgerSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final debit = _rows.fold<double>(0, (sum, row) => sum + _amount(row, 'debit'));
-    final credit = _rows.fold<double>(0, (sum, row) => sum + _amount(row, 'credit'));
     return SizedBox(
       height: MediaQuery.of(context).size.height * .82,
       child: Column(
