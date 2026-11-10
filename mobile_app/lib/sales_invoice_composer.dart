@@ -84,6 +84,8 @@ class _SalesInvoiceLineDraft {
   ErpWarehouse? warehouse;
   final quantity = TextEditingController(text: '1');
   final rate = TextEditingController(text: '0');
+  final discountPercentage = TextEditingController(text: '0');
+  final discountAmount = TextEditingController(text: '0');
   final serialNumbers = TextEditingController();
   final batchNumber = TextEditingController();
   bool replaceTrackingAllocation = false;
@@ -91,6 +93,8 @@ class _SalesInvoiceLineDraft {
   void dispose() {
     quantity.dispose();
     rate.dispose();
+    discountPercentage.dispose();
+    discountAmount.dispose();
     serialNumbers.dispose();
     batchNumber.dispose();
   }
@@ -221,6 +225,8 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
         line.sourceRow = Map<String, dynamic>.from(raw);
         line.quantity.text = raw['qty']?.toString() ?? '1';
         line.rate.text = raw['rate']?.toString() ?? '0';
+        line.discountPercentage.text = raw['discount_percentage']?.toString() ?? '0';
+        line.discountAmount.text = raw['discount_amount']?.toString() ?? '0';
         line.serialNumbers.text = raw['serial_no']?.toString() ?? '';
         line.batchNumber.text = raw['batch_no']?.toString() ?? '';
         final warehouseId = raw['warehouse']?.toString();
@@ -463,6 +469,16 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
       setState(() => _error = 'أدخل خصماً ثابتاً أو نسبة خصم فقط، ولا تجمع بينهما. النسبة من 0 إلى 100%.');
       return;
     }
+    for (final line in _lines) {
+      final linePercent = double.tryParse(line.discountPercentage.text.trim()) ?? 0;
+      final lineDiscount = double.tryParse(line.discountAmount.text.trim()) ?? 0;
+      if (!linePercent.isFinite || linePercent < 0 || linePercent > 100 ||
+          !lineDiscount.isFinite || lineDiscount < 0 ||
+          (linePercent > 0 && lineDiscount > 0)) {
+        setState(() => _error = 'تحقق من خصم كل بند: أدخل مبلغاً أو نسبة فقط، والنسبة لا تتجاوز 100%.');
+        return;
+      }
+    }
     if (_lines.any((line) => !line.total.isFinite)) {
       setState(() => _error = 'إجمالي أحد البنود تجاوز النطاق الرقمي المسموح؛ راجع الكمية والسعر.');
       return;
@@ -514,6 +530,8 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
               removeWarehouse: _updateStock && line.item!.isStockItem,
               replaceTrackingAllocation: line.replaceTrackingAllocation,
             );
+            linePayload['discount_percentage'] = double.tryParse(line.discountPercentage.text.trim()) ?? 0;
+            linePayload['discount_amount'] = double.tryParse(line.discountAmount.text.trim()) ?? 0;
             if (!_updateStock) {
               for (final field in const [
                 'serial_and_batch_bundle', 'rejected_serial_and_batch_bundle',
@@ -800,6 +818,21 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
               decoration: const InputDecoration(labelText: 'سعر الوحدة'),
               validator: (value) => _validatePositive(value, 'سعر', allowZero: true),
               onChanged: (_) => setState(() {}),
+            )),
+          ]),
+          Row(children: [
+            Expanded(child: TextFormField(
+              controller: line.discountPercentage,
+              enabled: !_saving && _pendingDraft == null,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'خصم البند (%)'),
+            )),
+            const SizedBox(width: 10),
+            Expanded(child: TextFormField(
+              controller: line.discountAmount,
+              enabled: !_saving && _pendingDraft == null,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(labelText: 'خصم البند (مبلغ)'),
             )),
           ]),
           if (_updateStock && line.item?.isStockItem == true) ...[
