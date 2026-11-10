@@ -307,6 +307,10 @@ class _ItemCatalogDetailsSheetState extends State<ItemCatalogDetailsSheet> {
           .map((e)=>ListTile(dense:true,title:Text(e.key),subtitle:Text(d[e.value].toString()))),
         if(barcodes.isNotEmpty)...[const Divider(),Text('الباركود',style:Theme.of(context).textTheme.titleMedium),
           ...barcodes.whereType<Map>().map((e)=>ListTile(leading:const Icon(Icons.qr_code_2),title:Text(e['barcode']?.toString()??''),subtitle:Text(e['barcode_type']?.toString()??'')))],
+        ExpansionTile(title:const Text('عرض جميع حقول سجل ERPNext'),
+          children:d.entries.where((e)=>!labels.values.contains(e.key)&&e.key!='doctype'&&e.key!='name')
+            .map((e)=>ListTile(dense:true,title:Text(e.key),subtitle:Text(e.value is Map||e.value is List
+              ?const JsonEncoder.withIndent('  ').convert(e.value):e.value.toString()))).toList()),
         const Divider(),Text('أسعار البيع والشراء',style:Theme.of(context).textTheme.titleMedium),
         if(_loading)const LinearProgressIndicator(),
         if(_prices.isEmpty&&!_loading)const Text('لا توجد أسعار مسجلة لهذا الصنف.'),
@@ -370,7 +374,7 @@ class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
   Future<void> _chooseReference(String key, String label, String doctype) async {
     final search=TextEditingController();
     var rows=<Map<String,dynamic>>[];
-    var busy=false;
+    var busy=false, started=false;
     String? error;
     Future<void> load(StateSetter refresh) async {
       refresh(() { busy=true; error=null; });
@@ -391,7 +395,7 @@ class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
     }
     final selected=await showModalBottomSheet<String>(context:context,isScrollControlled:true,useSafeArea:true,
       builder:(sheetContext)=>StatefulBuilder(builder:(context,refresh) {
-        if(rows.isEmpty&&!busy&&error==null)WidgetsBinding.instance.addPostFrameCallback((_) { if(sheetContext.mounted)load(refresh); });
+        if(!started){started=true;WidgetsBinding.instance.addPostFrameCallback((_) { if(sheetContext.mounted)load(refresh); });}
         return Padding(padding:EdgeInsets.fromLTRB(16,12,16,MediaQuery.of(context).viewInsets.bottom+16),
           child:SizedBox(height:MediaQuery.of(context).size.height*.7,child:Column(children:[
             Text('اختيار $label',style:Theme.of(context).textTheme.titleLarge),
@@ -433,15 +437,15 @@ class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
         Text(_editing?'تعديل الصنف':'إضافة صنف',style:Theme.of(context).textTheme.titleLarge),
         if(_error!=null)Text(_error!,style:TextStyle(color:Theme.of(context).colorScheme.error)),
         ...fields.entries.map((e)=>Padding(padding:const EdgeInsets.only(bottom:9),child:TextFormField(
-          controller:_c[e.key],readOnly:(_editing&&e.key=='item_code')||const {'item_group','stock_uom','weight_uom','default_item_manufacturer'}.contains(e.key),
-          onTap:const {'item_group','stock_uom','weight_uom','default_item_manufacturer'}.contains(e.key)?(){
+          controller:_c[e.key],readOnly:(_editing&&e.key=='item_code')||const {'item_group','stock_uom','weight_uom'}.contains(e.key),
+          onTap:const {'item_group','stock_uom','weight_uom'}.contains(e.key)?(){
             final refs={'item_group':('مجموعة الأصناف','Item Group'),'stock_uom':('وحدة المخزون','UOM'),
-              'weight_uom':('وحدة الوزن','UOM'),'default_item_manufacturer':('المصنع الافتراضي','Item Manufacturer')};
+              'weight_uom':('وحدة الوزن','UOM')};
             final ref=refs[e.key]!;
             _chooseReference(e.key,ref.$1,ref.$2);
           }:null,
           maxLines:e.key=='description'?3:1,
-          decoration:InputDecoration(labelText:e.value,suffixIcon:const {'item_group','stock_uom','weight_uom','default_warehouse','default_supplier'}.contains(e.key)?const Icon(Icons.search):null),
+          decoration:InputDecoration(labelText:e.value,suffixIcon:const {'item_group','stock_uom','weight_uom'}.contains(e.key)?const Icon(Icons.search):null),
           validator:const {'item_code','item_name','item_group','stock_uom'}.contains(e.key)
             ?(v)=>v==null||v.trim().isEmpty?'هذا الحقل مطلوب':null:null))),
         Padding(padding:const EdgeInsets.only(bottom:9),child:TextFormField(controller:_barcodeController,maxLines:3,decoration:const InputDecoration(labelText:'الباركود (باركود في كل سطر)'))),
