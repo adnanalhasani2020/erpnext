@@ -1604,72 +1604,110 @@ class FrappeApi {
 
   Future<List<core.Map<String, dynamic>>> fetchSupplierLedger({
     required String supplier, int start = 0, String? company,
-  }) async {
-    if (supplier.trim().isEmpty) {
-      throw const FormatException('حدد المورد لعرض كشف حسابه.');
-    }
-    final filters = <List<dynamic>>[
-      ['party_type', '=', 'Supplier'],
-      ['party', '=', supplier.trim()],
-      ['is_cancelled', '=', 0],
-    ];
-    if (company != null && company.trim().isNotEmpty) {
-      filters.add(['company', '=', company.trim()]);
-    }
-    final uri = buildResourcePageUri(
-      baseUrl: _baseUrl,
-      resource: 'GL Entry',
-      fields: const [
-        'name', 'posting_date', 'account', 'against', 'debit', 'credit',
-        'voucher_type', 'voucher_no', 'remarks', 'company', 'party',
-      ],
-      filters: filters,
-      orderBy: 'posting_date desc, creation desc, name desc',
-      start: start,
-    );
-    final response = await _sendUri('GET', uri);
-    final data = _decode(response.body);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(data, 'تعذر تحميل كشف حساب المورد. تحقق من صلاحية قراءة GL Entry.'));
-    }
-    final rows = data['data'];
-    if (rows is! List) throw Exception('استجابة كشف حساب المورد غير متوقعة.');
-    return rows.whereType<core.Map<String, dynamic>>().toList(growable: false);
-  }
+    String? fromDate, String? toDate,
+  }) => _fetchPartyLedger(
+    partyType: 'Supplier', party: supplier, start: start, company: company,
+    fromDate: fromDate, toDate: toDate,
+  );
 
   Future<List<core.Map<String, dynamic>>> fetchCustomerLedger({
     required String customer, int start = 0, String? company,
+    String? fromDate, String? toDate,
+  }) => _fetchPartyLedger(
+    partyType: 'Customer', party: customer, start: start, company: company,
+    fromDate: fromDate, toDate: toDate,
+  );
+
+  String? _validateLedgerDate(String? raw, String label) {
+    final value = raw?.trim() ?? '';
+    if (value.isEmpty) return null;
+    final parsed = DateTime.tryParse(value);
+    if (parsed == null || parsed.toIso8601String().substring(0, 10) != value) {
+      throw FormatException('$label غير صحيح. استخدم YYYY-MM-DD.');
+    }
+    return value;
+  }
+
+  Future<List<core.Map<String, dynamic>>> _fetchPartyLedger({
+    required String partyType, required String party, int start = 0,
+    String? company, String? fromDate, String? toDate,
   }) async {
-    if (customer.trim().isEmpty) {
-      throw const FormatException('حدد العميل لعرض كشف حسابه.');
+    final cleanParty = party.trim();
+    final cleanCompany = company?.trim() ?? '';
+    final from = _validateLedgerDate(fromDate, 'تاريخ البداية');
+    final to = _validateLedgerDate(toDate, 'تاريخ النهاية');
+    if (cleanParty.isEmpty || start < 0 ||
+        !{'Customer', 'Supplier'}.contains(partyType) ||
+        (from != null && to != null && from.compareTo(to) > 0)) {
+      throw const FormatException('حدد الطرف ونطاق تاريخ صحيحاً.');
     }
     final filters = <List<dynamic>>[
-      ['party_type', '=', 'Customer'],
-      ['party', '=', customer.trim()],
+      ['party_type', '=', partyType], ['party', '=', cleanParty],
       ['is_cancelled', '=', 0],
+      if (cleanCompany.isNotEmpty) ['company', '=', cleanCompany],
+      if (from != null) ['posting_date', '>=', from],
+      if (to != null) ['posting_date', '<=', to],
     ];
-    if (company != null && company.trim().isNotEmpty) {
-      filters.add(['company', '=', company.trim()]);
-    }
     final uri = buildResourcePageUri(
-      baseUrl: _baseUrl,
-      resource: 'GL Entry',
+      baseUrl: _baseUrl, resource: 'GL Entry',
       fields: const [
         'name', 'posting_date', 'account', 'against', 'debit', 'credit',
         'voucher_type', 'voucher_no', 'remarks', 'company', 'party',
+        'account_currency',
       ],
-      filters: filters,
-      orderBy: 'posting_date desc, creation desc, name desc',
-      start: start,
+      filters: filters, orderBy: 'posting_date asc, creation asc, name asc',
+      start: start, pageLength: 100,
     );
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(data, 'تعذر تحميل كشف حساب العميل. تحقق من صلاحية قراءة GL Entry.'));
+      throw Exception(_message(data, 'تعذر تحميل كشف حساب الطرف من GL Entry.'));
     }
     final rows = data['data'];
-    if (rows is! List) throw Exception('استجابة كشف حساب العميل غير متوقعة.');
-    return rows.whereType<core.Map<String, dynamic>>().toList(growable: false);
+    if (rows is! List) throw const FormatException('استجابة كشف الحساب غير متوقعة.');
+    return rows.whereType<core.Map<String, dynamic>>()
+        .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+  }
+
+  Future<core.Map<String, dynamic>> fetchPartyLedgerOpeningBalance({
+    required String partyType, required String party, required String beforeDate,
+    String? company,
+  }) async {
+    final cleanParty = party.trim();
+    final before = _validateLedgerDate(beforeDate, 'تاريخ بداية الكشف');
+    if (cleanParty.isEmpty || before == null ||
+        !{'Customer', 'Supplier'}.contains(partyType)) {
+      throw const FormatException('بيانات رصيد افتتاح كشف الحساب غير صحيحة.');
+    }
+    final filters = <List<dynamic>>[
+      ['party_type', '=', partyType], ['party', '=', cleanParty],
+      ['is_cancelled', '=', 0], ['posting_date', '<', before],
+      if (company?.trim().isNotEmpty == true) ['company', '=', company!.trim()],
+    ];
+    final uri = Uri.parse('$_baseUrl/api/method/frappe.client.get_list').replace(
+      queryParameters: {
+        'doctype': 'GL Entry',
+        'fields': jsonEncode(['sum(debit) as debit', 'sum(credit) as credit']),
+        'filters': jsonEncode(filters),
+        'limit_page_length': '1',
+      },
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر حساب الرصيد الافتتاحي من دفتر الأستاذ.'));
+    }
+    final rows = data['message'];
+    if (rows is! List || rows.isEmpty || rows.first is! core.Map<String, dynamic>) {
+      return {'debit': 0.0, 'credit': 0.0, 'balance': 0.0};
+    }
+    final row = rows.first as core.Map<String, dynamic>;
+    final debit = double.tryParse(row['debit']?.toString() ?? '') ?? 0.0;
+    final credit = double.tryParse(row['credit']?.toString() ?? '') ?? 0.0;
+    if (!debit.isFinite || !credit.isFinite) {
+      throw const FormatException('أعاد ERPNext إجماليات غير صالحة للرصيد الافتتاحي.');
+    }
+    return {'debit': debit, 'credit': credit, 'balance': debit - credit};
   }
 
   Future<List<core.Map<String, dynamic>>> fetchReconciliationAccounts({
