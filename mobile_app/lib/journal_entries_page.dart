@@ -349,10 +349,11 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
                   orElse: () => <String, dynamic>{},
                 );
                 final accountCurrency = selected['account_currency']?.toString().trim() ?? '';
-                final companyCurrency = widget.companies
-                    .where((company) => company.name == _company)
-                    .map((company) => company.defaultCurrency)
-                    .firstOrNull;
+                final matchingCompanies = widget.companies
+                    .where((company) => company.name == _company);
+                final companyCurrency = matchingCompanies.isEmpty
+                    ? null
+                    : matchingCompanies.first.defaultCurrency;
                 // Local-currency accounts use 1; foreign-currency accounts
                 // require an explicit exchange rate instead of silently assuming 1.
                 line.exchangeRate.text = accountCurrency.isEmpty ||
