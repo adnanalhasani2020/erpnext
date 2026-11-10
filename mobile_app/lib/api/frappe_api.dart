@@ -6099,7 +6099,7 @@ class FrappeApi {
       final outstanding = sanctioned - reimbursed;
       if (!sanctioned.isFinite || !reimbursed.isFinite || !outstanding.isFinite ||
           outstanding <= 0 || amount > outstanding + 0.000001) {
-        throw FormatException('مبلغ السداد يتجاوز المتبقي المعتمد للمطالبة (\${outstanding.toStringAsFixed(2)}).');
+        throw FormatException('مبلغ السداد يتجاوز المتبقي المعتمد للمطالبة (${outstanding.toStringAsFixed(2)}).');
       }
       final selectedAccount = bankAccount?.trim() ?? '';
       if (selectedAccount.isNotEmpty) {
@@ -6151,7 +6151,7 @@ class FrappeApi {
         allocated += double.tryParse(raw['allocated_amount']?.toString() ?? '') ?? 0;
       }
       if ((allocated - amount).abs() > 0.01) {
-        throw FormatException('تخصيص سند الدفع للمطالبة (\${allocated.toStringAsFixed(2)}) لا يطابق مبلغ السداد المطلوب (\${amount.toStringAsFixed(2)}).');
+        throw FormatException('تخصيص سند الدفع للمطالبة (${allocated.toStringAsFixed(2)}) لا يطابق مبلغ السداد المطلوب (${amount.toStringAsFixed(2)}).');
       }
       final insert = await _sendJson('POST', '/api/resource/Payment%20Entry', rawDraft);
       final insertData = _decode(insert.body);
@@ -6189,7 +6189,7 @@ class FrappeApi {
         } catch (_) {
           // Preserve the original uncertain result and never create another payment.
         }
-        throw Exception('تم إنشاء سند الدفع \${created['name']} لكن لم يتأكد ترحيله. راجع السند في ERPNext قبل أي محاولة أخرى. \${error.toString().replaceFirst('Exception: ', '')}');
+        throw Exception('تم إنشاء سند الدفع ${created['name']} لكن لم يتأكد ترحيله. راجع السند في ERPNext قبل أي محاولة أخرى. ${error.toString().replaceFirst('Exception: ', '')}');
       }
     } finally {
       _inFlightPaymentActions.remove(actionKey);
