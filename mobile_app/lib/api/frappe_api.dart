@@ -4417,8 +4417,185 @@ class FrappeApi {
     return rows.whereType<core.Map<String, dynamic>>().map((row) => <String, dynamic>{...row, 'doctype': doctype}).toList(growable: false);
   }
 
+
+  Future<List<core.Map<String, dynamic>>> fetchBatchTraceRecords({int start = 0, String? search, String? itemCode}) async {
+    final query = search?.trim();
+    final uri = buildResourcePageUri(baseUrl: _baseUrl, resource: 'Batch',
+      fields: const ['name', 'batch_id', 'item', 'expiry_date', 'manufacturing_date', 'disabled', 'creation', 'modified'],
+      filters: [if (itemCode != null && itemCode.trim().isNotEmpty) ['item', '=', itemCode.trim()]],
+      orFilters: query == null || query.isEmpty ? null : [
+        ['name', 'like', '%$query%'], ['batch_id', 'like', '%$query%'], ['item', 'like', '%$query%'],
+      ], orderBy: 'modified desc, name desc', start: start);
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تحميل سجل الدفعات.'));
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة سجل الدفعات غير متوقعة.');
+    return rows.whereType<core.Map<String, dynamic>>().map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+  }
+
+  Future<List<core.Map<String, dynamic>>> fetchSerialTraceRecords({int start = 0, String? search, String? itemCode}) async {
+    final query = search?.trim();
+    final uri = buildResourcePageUri(baseUrl: _baseUrl, resource: 'Serial No',
+      fields: const ['name', 'item_code', 'warehouse', 'batch_no', 'status', 'purchase_document_no', 'delivery_document_no', 'purchase_date', 'delivery_date', 'creation', 'modified'],
+      filters: [if (itemCode != null && itemCode.trim().isNotEmpty) ['item_code', '=', itemCode.trim()]],
+      orFilters: query == null || query.isEmpty ? null : [
+        ['name', 'like', '%$query%'], ['item_code', 'like', '%$query%'], ['batch_no', 'like', '%$query%'],
+      ], orderBy: 'modified desc, name desc', start: start);
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تحميل سجل الأرقام التسلسلية.'));
+    final rows = data['data'];
+    if (rows is! List) throw Exception('استجابة سجل الأرقام التسلسلية غير متوقعة.');
+    return rows.whereType<core.Map<String, dynamic>>().map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+  }
+
+  Future<core.Map<String, dynamic>> createPickListFromSalesOrder(String salesOrderName) async {
+    final id = salesOrderName.trim();
+    if (id.isEmpty) throw const FormatException('حدد أمر البيع أولاً.');
+    final order = await fetchSalesWorkflowDocument('Sales Order', id);
+    if (order['docstatus'] != 1) throw const FormatException('يمكن إنشاء قائمة الالتقاط من أمر بيع مرحّل فقط.');
+    final locations = <core.Map<String, dynamic>>[];
+    for (final row in (order['items'] as List? ?? []).whereType<core.Map<String, dynamic>>()) {
+      final qty = double.tryParse(row['qty']?.toString() ?? '') ?? 0;
+      final delivered = double.tryParse(row['delivered_qty']?.toString() ?? '') ?? 0;
+      final remaining = qty - delivered;
+      final itemCode = row['item_code']?.toString().trim() ?? '';
+      final sourceRow = row['name']?.toString().trim() ?? '';
+      if (remaining <= 0.000001) continue;
+      if (itemCode.isEmpty || sourceRow.isEmpty || !remaining.isFinite) throw const FormatException('أمر البيع يحتوي بنداً لا يمكن ربطه بقائمة الالتقاط.');
+      final factor = double.tryParse(row['conversion_factor']?.toString() ?? '') ?? 1;
+      locations.add({'item_code': itemCode, 'qty': remaining, 'stock_qty': remaining * factor,
+        'conversion_factor': factor, 'uom': row['uom'] ?? row['stock_uom'], 'sales_order': id,
+        'sales_order_item': sourceRow, if (row['warehouse'] is String) 'warehouse': row['warehouse'], 'picked_qty': 0});
+    }
+    if (locations.isEmpty) throw const FormatException('لا توجد كميات متبقية للالتقاط في أمر البيع.');
+    if (locations.length > 500) throw const FormatException('أمر البيع يتجاوز 500 بند؛ قسّمه إلى قوائم التقاط أصغر حتى تبقى مراجعة الكميات والتتبع موثوقة.');
+    final payload = <String, dynamic>{'doctype': 'Pick List', 'company': order['company'],
+      'customer': order['customer'], 'purpose': 'Delivery', 'items_based_on': 'Sales Order',
+      'pick_manually': 1, 'locations': locations};
+    final response = await _sendJson('POST', '/api/resource/Pick%20List', payload);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر إنشاء قائمة الالتقاط.'));
+    final created = data['data'];
+    if (created is! core.Map<String, dynamic> || created['doctype'] != 'Pick List' || created['name'] is! String || created['docstatus'] != 0) throw Exception('لم يؤكد ERPNext إنشاء مسودة قائمة الالتقاط.');
+    final allocated = await _sendJson('POST', '/api/method/run_doc_method', {
+      'docs': jsonEncode(created), 'method': 'set_item_locations', 'args': {'save': true},
+    });
+    final allocatedData = _decode(allocated.body);
+    if (allocated.statusCode < 200 || allocated.statusCode >= 300) throw Exception(_message(allocatedData, 'أُنشئت المسودة لكن تعذر توزيع مواقع الالتقاط. راجع المسودة قبل المتابعة.'));
+    final docs = allocatedData['docs'];
+    if (docs is! List || docs.isEmpty || docs.first is! core.Map<String, dynamic>) throw Exception('لم يؤكد ERPNext حفظ مواقع الالتقاط.');
+    final saved = core.Map<String, dynamic>.from(docs.first as core.Map);
+    if (saved['doctype'] != 'Pick List' || saved['name'] != created['name'] || saved['docstatus'] != 0 || saved['locations'] is! List || (saved['locations'] as List).isEmpty) throw Exception('لم يؤكد ERPNext اكتمال توزيع مواقع الالتقاط.');
+    return saved;
+  }
+
+  Future<core.Map<String, dynamic>> saveStockPickList(String name, List<core.Map<String, dynamic>> locations) async {
+    final id = name.trim();
+    if (id.isEmpty || locations.isEmpty || locations.length > 500) throw const FormatException('قائمة الالتقاط فارغة أو تجاوزت الحد الآمن البالغ 500 بند.');
+    final current = await fetchStockDocument('Pick List', id);
+    if (current['docstatus'] != 0 || current['purpose'] != 'Delivery') throw const FormatException('يمكن تعديل قائمة الالتقاط غير المرحلة فقط.');
+    for (final row in locations) {
+      final item = row['item_code']?.toString().trim() ?? '';
+      final warehouse = row['warehouse']?.toString().trim() ?? '';
+      final requiredQty = double.tryParse((row['stock_qty'] ?? row['qty'] ?? '').toString());
+      final pickedQty = double.tryParse((row['picked_qty'] ?? '').toString());
+      if (item.isEmpty || warehouse.isEmpty || requiredQty == null || pickedQty == null || !requiredQty.isFinite || !pickedQty.isFinite || requiredQty < 0 || pickedQty < 0 || pickedQty > requiredQty + 0.000001) {
+        throw const FormatException('تحقق من الصنف والمستودع والكمية المطلوبة والملتَقطة في كل بند.');
+      }
+    }
+    final payload = core.Map<String, dynamic>.from(current)..['locations'] = locations;
+    final response = await _sendJson('POST', '/api/method/frappe.client.save', {'doc': payload});
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر حفظ كميات الالتقاط.'));
+    final saved = data['message'];
+    if (saved is! core.Map<String, dynamic> || saved['doctype'] != 'Pick List' || saved['name'] != id || saved['docstatus'] != 0 || saved['locations'] is! List) throw Exception('لم يؤكد ERPNext حفظ قائمة الالتقاط؛ حدّث المستند قبل إعادة المحاولة.');
+    return saved;
+  }
+
+  Future<core.Map<String, dynamic>> submitPickList(core.Map<String, dynamic> doc) => _submitMobileDocument(doc, 'Pick List');
+
+  Future<List<core.Map<String, dynamic>>> createDeliveryNotesFromPickList(String pickListName) async {
+    final id = pickListName.trim();
+    if (id.isEmpty) throw const FormatException('رقم قائمة الالتقاط مطلوب.');
+    final current = await fetchStockDocument('Pick List', id);
+    if (current['docstatus'] != 1 || current['purpose'] != 'Delivery') throw const FormatException('يجب ترحيل قائمة التقاط تسليم قبل إنشاء أذونات التسليم.');
+    final response = await _sendJson('POST', '/api/method/erpnext.stock.doctype.pick_list.mapper.create_delivery_note', {'source_name': id});
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تم ترحيل قائمة الالتقاط لكن تعذر إنشاء إذن التسليم. راجع القائمة قبل إعادة المحاولة.'));
+    final message = data['message'];
+    final candidates = message is List ? message : message is core.Map ? [message] : const [];
+    final notes = candidates.whereType<core.Map<String, dynamic>>().map((row) => core.Map<String, dynamic>.from(row))
+      .where((row) => row['doctype'] == 'Delivery Note' && row['name'] is String).toList(growable: false);
+    if (notes.isEmpty) throw Exception('لم يُرجع ERPNext أرقام أذونات تسليم مؤكدة. افحص المستندات المرتبطة بقائمة الالتقاط قبل إعادة المحاولة.');
+    return notes;
+  }
+
+
+  Future<List<core.Map<String, dynamic>>> fetchBatchLedgerEntries(String batchNo, {int start = 0}) async {
+    final batch = batchNo.trim();
+    if (batch.isEmpty) throw const FormatException('أدخل رقم الدفعة.');
+    final entryUri = buildResourcePageUri(baseUrl: _baseUrl, resource: 'Serial and Batch Entry',
+      fields: const ['parent', 'serial_no', 'batch_no', 'qty'],
+      filters: [['batch_no', '=', batch], ['parenttype', '=', 'Serial and Batch Bundle']],
+      orderBy: 'creation asc', start: start, pageLength: 500);
+    final entryResponse = await _sendUri('GET', entryUri);
+    final entryData = _decode(entryResponse.body);
+    if (entryResponse.statusCode < 200 || entryResponse.statusCode >= 300) throw Exception(_message(entryData, 'تعذر تحميل قيود الدفعة.'));
+    final entryRows = entryData['data'];
+    if (entryRows is! List) throw Exception('استجابة قيود الدفعة غير متوقعة.');
+    final entries = entryRows.whereType<core.Map<String, dynamic>>().toList(growable: false);
+    final parents = entries.map((row) => row['parent']?.toString() ?? '').where((v) => v.isNotEmpty).toSet().toList(growable: false);
+    if (parents.isEmpty) return const [];
+    final bundleUri = buildResourcePageUri(baseUrl: _baseUrl, resource: 'Serial and Batch Bundle',
+      fields: const ['name', 'item_code', 'warehouse', 'type_of_transaction', 'voucher_type', 'voucher_no', 'posting_date', 'company', 'docstatus'],
+      filters: [['name', 'in', parents]], orderBy: 'posting_date asc, creation asc', start: 0, pageLength: 500);
+    final bundleResponse = await _sendUri('GET', bundleUri);
+    final bundleData = _decode(bundleResponse.body);
+    if (bundleResponse.statusCode < 200 || bundleResponse.statusCode >= 300) throw Exception(_message(bundleData, 'تعذر تحميل مستندات حركة الدفعة.'));
+    final bundleRows = bundleData['data'];
+    if (bundleRows is! List) throw Exception('استجابة مستندات حركة الدفعة غير متوقعة.');
+    final byName = <String, core.Map<String, dynamic>>{
+      for (final row in bundleRows.whereType<core.Map<String, dynamic>>()) row['name'].toString(): row,
+    };
+    return entries.map((entry) => <String, dynamic>{...entry, 'bundle': byName[entry['parent']?.toString()] ?? const <String, dynamic>{}}).toList(growable: false);
+  }
+
+  Future<List<core.Map<String, dynamic>>> fetchSerialLedgerEntries(String serialNo, {int start = 0}) async {
+    final serial = serialNo.trim();
+    if (serial.isEmpty) throw const FormatException('أدخل الرقم التسلسلي.');
+    final entryUri = buildResourcePageUri(baseUrl: _baseUrl, resource: 'Serial and Batch Entry',
+      fields: const ['parent', 'serial_no', 'batch_no', 'qty'],
+      filters: [['serial_no', '=', serial], ['parenttype', '=', 'Serial and Batch Bundle']],
+      orderBy: 'creation asc', start: start, pageLength: 500);
+    final entryResponse = await _sendUri('GET', entryUri);
+    final entryData = _decode(entryResponse.body);
+    if (entryResponse.statusCode < 200 || entryResponse.statusCode >= 300) throw Exception(_message(entryData, 'تعذر تحميل قيود الرقم التسلسلي.'));
+    final entryRows = entryData['data'];
+    if (entryRows is! List) throw Exception('استجابة قيود الرقم التسلسلي غير متوقعة.');
+    final entries = entryRows.whereType<core.Map<String, dynamic>>().toList(growable: false);
+    final parents = entries.map((row) => row['parent']?.toString() ?? '').where((v) => v.isNotEmpty).toSet().toList(growable: false);
+    if (parents.isEmpty) return const [];
+    final bundleUri = buildResourcePageUri(baseUrl: _baseUrl, resource: 'Serial and Batch Bundle',
+      fields: const ['name', 'item_code', 'warehouse', 'type_of_transaction', 'voucher_type', 'voucher_no', 'posting_date', 'company', 'docstatus'],
+      filters: [['name', 'in', parents]], orderBy: 'posting_date asc, creation asc', start: 0, pageLength: 500);
+    final bundleResponse = await _sendUri('GET', bundleUri);
+    final bundleData = _decode(bundleResponse.body);
+    if (bundleResponse.statusCode < 200 || bundleResponse.statusCode >= 300) throw Exception(_message(bundleData, 'تعذر تحميل مستندات حركة الرقم التسلسلي.'));
+    final bundleRows = bundleData['data'];
+    if (bundleRows is! List) throw Exception('استجابة مستندات حركة الرقم التسلسلي غير متوقعة.');
+    final byName = <String, core.Map<String, dynamic>>{
+      for (final row in bundleRows.whereType<core.Map<String, dynamic>>()) row['name'].toString(): row,
+    };
+    return entries.map((entry) => <String, dynamic>{
+      ...entry,
+      'bundle': byName[entry['parent']?.toString()] ?? const <String, dynamic>{},
+    }).toList(growable: false);
+  }
+
   Future<core.Map<String, dynamic>> fetchStockDocument(String doctype, String name) async {
-    const allowed = {'Stock Entry', 'Purchase Receipt', 'Stock Reconciliation'};
+    const allowed = {'Stock Entry', 'Purchase Receipt', 'Stock Reconciliation', 'Pick List'};
     if (!allowed.contains(doctype) || name.trim().isEmpty) throw ArgumentError('نوع أو رقم مستند المخزون غير صحيح.');
     final response = await _send('GET', '/api/resource/' + Uri.encodeComponent(doctype) + '/' + Uri.encodeComponent(name));
     final data = _decode(response.body);
@@ -4435,6 +4612,7 @@ class FrappeApi {
     String? company,
     DateTime? fromDate,
     DateTime? toDate,
+    String? batchNo,
   }) async {
     DateTime? dateOnly(DateTime? value) =>
         value == null ? null : DateTime(value.year, value.month, value.day);
@@ -4455,8 +4633,8 @@ class FrappeApi {
     if (to != null) filters.add(['posting_date', '<=', dateString(to)]);
     final uri = buildResourcePageUri(
       baseUrl: _baseUrl, resource: 'Stock Ledger Entry',
-      fields: const ['name', 'posting_date', 'posting_time', 'item_code', 'warehouse', 'actual_qty', 'qty_after_transaction', 'voucher_type', 'voucher_no', 'company'],
-      filters: filters, orderBy: 'posting_date desc, posting_time desc, creation desc', start: start);
+      fields: const ['name', 'posting_date', 'posting_time', 'item_code', 'warehouse', 'actual_qty', 'qty_after_transaction', 'voucher_type', 'voucher_no', 'company', 'batch_no', 'serial_and_batch_bundle'],
+      filters: [...filters, if (batchNo != null && batchNo.trim().isNotEmpty) ['batch_no', '=', batchNo.trim()]], orderBy: 'posting_date desc, posting_time desc, creation desc', start: start);
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تحميل سجل حركات المخزون.'));
