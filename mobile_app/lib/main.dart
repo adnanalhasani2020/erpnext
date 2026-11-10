@@ -75,6 +75,8 @@ class _MobileHomePageState extends State<MobileHomePage> {
   String _salesInvoiceSearch = '';
   String _supplierSearch = '';
   String _purchaseInvoiceSearch = '';
+  Map<String, String> _salesInvoiceFilters = const {};
+  Map<String, String> _purchaseInvoiceFilters = const {};
   bool _searchingWarehouses = false;
   bool _searchingCustomers = false;
   bool _searchingSalesInvoices = false;
@@ -402,7 +404,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     }
     if (!_isCurrentSession(sessionGeneration)) return;
     try {
-      final invoices = await _api.fetchSalesInvoices(search: _salesInvoiceSearch.isEmpty ? null : _salesInvoiceSearch);
+      final invoices = await _api.fetchSalesInvoices(search: _salesInvoiceSearch.isEmpty ? null : _salesInvoiceSearch, filters: _salesInvoiceFilters);
       if (!_isCurrentSession(sessionGeneration)) return;
       setState(() { _salesInvoices = invoices; _salesInvoicesOffset = invoices.length; _salesInvoicesHasMore = invoices.length == FrappeApi.pageSize; });
     } catch (error) {
@@ -426,7 +428,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     }
     if (!_isCurrentSession(sessionGeneration)) return;
     try {
-      final invoices = await _api.fetchPurchaseInvoices(search: _purchaseInvoiceSearch.isEmpty ? null : _purchaseInvoiceSearch);
+      final invoices = await _api.fetchPurchaseInvoices(search: _purchaseInvoiceSearch.isEmpty ? null : _purchaseInvoiceSearch, filters: _purchaseInvoiceFilters);
       if (!_isCurrentSession(sessionGeneration)) return;
       setState(() { _purchaseInvoices = invoices; _purchaseInvoicesOffset = invoices.length; _purchaseInvoicesHasMore = invoices.length == FrappeApi.pageSize; });
     } catch (error) {
@@ -589,7 +591,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     final sessionGeneration = _api.sessionGeneration;
     setState(() => _loadingMoreSalesInvoices = true);
     try {
-      final page = await _api.fetchSalesInvoices(start: _salesInvoicesOffset, search: _salesInvoiceSearch.isEmpty ? null : _salesInvoiceSearch);
+      final page = await _api.fetchSalesInvoices(start: _salesInvoicesOffset, search: _salesInvoiceSearch.isEmpty ? null : _salesInvoiceSearch, filters: _salesInvoiceFilters);
       if (!_isCurrentSession(sessionGeneration)) return;
       setState(() {
         _salesInvoices = [..._salesInvoices, ...page];
@@ -627,7 +629,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     final sessionGeneration = _api.sessionGeneration;
     setState(() => _loadingMorePurchaseInvoices = true);
     try {
-      final page = await _api.fetchPurchaseInvoices(start: _purchaseInvoicesOffset, search: _purchaseInvoiceSearch.isEmpty ? null : _purchaseInvoiceSearch);
+      final page = await _api.fetchPurchaseInvoices(start: _purchaseInvoicesOffset, search: _purchaseInvoiceSearch.isEmpty ? null : _purchaseInvoiceSearch, filters: _purchaseInvoiceFilters);
       if (!_isCurrentSession(sessionGeneration)) return;
       setState(() {
         _purchaseInvoices = [..._purchaseInvoices, ...page];
@@ -1457,6 +1459,109 @@ class _MobileHomePageState extends State<MobileHomePage> {
     );
   }
 
+  Future<void> _editInvoiceFilters({required bool sales}) async {
+    final current = sales ? _salesInvoiceFilters : _purchaseInvoiceFilters;
+    final from = TextEditingController(text: current['from_date'] ?? '');
+    final to = TextEditingController(text: current['to_date'] ?? '');
+    var status = current['status'] ?? 'all';
+    var payment = current['payment'] ?? 'all';
+    var company = current['company'] ?? '__all__';
+    var returnType = current['return'] ?? 'all';
+    final companies = _companies.map((row) => row.name).toSet().toList()..sort();
+    if (company != '__all__' && !companies.contains(company)) company = '__all__';
+    try {
+      final result = await showDialog<Map<String, String>>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(builder: (dialogContext, refresh) {
+          return AlertDialog(
+            title: Text(sales ? 'فلاتر فواتير المبيعات' : 'فلاتر فواتير المشتريات'),
+            content: SizedBox(width: 480, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+              DropdownButtonFormField<String>(
+                initialValue: status,
+                decoration: const InputDecoration(labelText: 'حالة المستند'),
+                items: const [
+                  DropdownMenuItem(value: 'all', child: Text('كل الحالات')),
+                  DropdownMenuItem(value: 'draft', child: Text('مسودة')),
+                  DropdownMenuItem(value: 'submitted', child: Text('مرحّل')),
+                  DropdownMenuItem(value: 'cancelled', child: Text('ملغي')),
+                ],
+                onChanged: (value) => refresh(() => status = value ?? 'all'),
+              ),
+              DropdownButtonFormField<String>(
+                initialValue: payment,
+                decoration: const InputDecoration(labelText: 'حالة السداد'),
+                items: const [
+                  DropdownMenuItem(value: 'all', child: Text('كل حالات السداد')),
+                  DropdownMenuItem(value: 'unpaid', child: Text('غير مدفوعة / بها متبقي')),
+                  DropdownMenuItem(value: 'paid', child: Text('مدفوعة بالكامل')),
+                ],
+                onChanged: (value) => refresh(() => payment = value ?? 'all'),
+              ),
+              DropdownButtonFormField<String>(
+                initialValue: company,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'الشركة'),
+                items: [
+                  const DropdownMenuItem(value: '__all__', child: Text('كل الشركات')),
+                  ...companies.map((value) => DropdownMenuItem(value: value, child: Text(value, overflow: TextOverflow.ellipsis))),
+                ],
+                onChanged: (value) => refresh(() => company = value ?? '__all__'),
+              ),
+              DropdownButtonFormField<String>(
+                initialValue: returnType,
+                decoration: const InputDecoration(labelText: 'نوع الفاتورة'),
+                items: const [
+                  DropdownMenuItem(value: 'all', child: Text('فواتير ومرتجعات')),
+                  DropdownMenuItem(value: 'normal', child: Text('الفواتير الأصلية فقط')),
+                  DropdownMenuItem(value: 'return', child: Text('المرتجعات فقط')),
+                ],
+                onChanged: (value) => refresh(() => returnType = value ?? 'all'),
+              ),
+              const SizedBox(height: 10),
+              TextField(controller: from, decoration: const InputDecoration(labelText: 'من تاريخ (YYYY-MM-DD)')),
+              const SizedBox(height: 8),
+              TextField(controller: to, decoration: const InputDecoration(labelText: 'إلى تاريخ (YYYY-MM-DD)')),
+            ]))),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogContext, <String, String>{'__reset__': '1'}), child: const Text('مسح الفلاتر')),
+              TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+              FilledButton(onPressed: () {
+                final fromValue = from.text.trim();
+                final toValue = to.text.trim();
+                final datePattern = RegExp(r'^\d{4}-\d{2}-\d{2}$');
+                if ((fromValue.isNotEmpty && !datePattern.hasMatch(fromValue)) ||
+                    (toValue.isNotEmpty && !datePattern.hasMatch(toValue)) ||
+                    (fromValue.isNotEmpty && toValue.isNotEmpty && fromValue.compareTo(toValue) > 0)) {
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(const SnackBar(content: Text('تحقق من التاريخين واستخدم YYYY-MM-DD، واجعل تاريخ البداية قبل النهاية.')));
+                  return;
+                }
+                Navigator.pop(dialogContext, {
+                  if (status != 'all') 'status': status,
+                  if (payment != 'all') 'payment': payment,
+                  if (company != '__all__') 'company': company,
+                  if (returnType != 'all') 'return': returnType,
+                  if (fromValue.isNotEmpty) 'from_date': fromValue,
+                  if (toValue.isNotEmpty) 'to_date': toValue,
+                });
+              }, child: const Text('تطبيق الفلاتر')),
+            ],
+          );
+        }),
+      );
+      if (result == null || !mounted) return;
+      final filters = result.containsKey('__reset__') ? <String, String>{} : result;
+      setState(() {
+        if (sales) _salesInvoiceFilters = filters;
+        else _purchaseInvoiceFilters = filters;
+      });
+      if (sales) await _searchSalesInvoices(_salesInvoiceSearch);
+      else await _searchPurchaseInvoices(_purchaseInvoiceSearch);
+    } finally {
+      from.dispose();
+      to.dispose();
+    }
+  }
+
   Future<void> _createPartialSalesReturn(String invoiceName, Map<String, dynamic> source) async {
     final rawItems = source['items'];
     if (rawItems is! List) {
@@ -1992,6 +2097,11 @@ class _MobileHomePageState extends State<MobileHomePage> {
         onSearch: _searchSalesInvoices,
         loading: _searchingSalesInvoices,
       ),
+      Align(alignment: AlignmentDirectional.centerStart, child: OutlinedButton.icon(
+        onPressed: _salesLoading || _searchingSalesInvoices ? null : () => _editInvoiceFilters(sales: true),
+        icon: const Icon(Icons.filter_alt_outlined),
+        label: Text(_salesInvoiceFilters.isEmpty ? 'فلاتر متقدمة للمبيعات' : 'تعديل فلاتر المبيعات (${_salesInvoiceFilters.length})'),
+      )),
       Text('فواتير المبيعات (${_salesInvoices.length})', style: Theme.of(context).textTheme.titleMedium),
       if (_salesInvoices.isEmpty && !_salesLoading) const Card(child: ListTile(title: Text('لا توجد فواتير ظاهرة أو تعذر تحميلها'))),
       ..._salesInvoices.map((invoice) => Card(child: ListTile(
@@ -2033,6 +2143,11 @@ class _MobileHomePageState extends State<MobileHomePage> {
         onSearch: _searchPurchaseInvoices,
         loading: _searchingPurchaseInvoices,
       ),
+      Align(alignment: AlignmentDirectional.centerStart, child: OutlinedButton.icon(
+        onPressed: _purchaseLoading || _searchingPurchaseInvoices ? null : () => _editInvoiceFilters(sales: false),
+        icon: const Icon(Icons.filter_alt_outlined),
+        label: Text(_purchaseInvoiceFilters.isEmpty ? 'فلاتر متقدمة للمشتريات' : 'تعديل فلاتر المشتريات (${_purchaseInvoiceFilters.length})'),
+      )),
       Text('فواتير المشتريات (${_purchaseInvoices.length})', style: Theme.of(context).textTheme.titleMedium),
       if (_purchaseInvoices.isEmpty && !_purchaseLoading) const Card(child: ListTile(title: Text('لا توجد فواتير مشتريات ظاهرة'))),
       ..._purchaseInvoices.map((invoice) => Card(child: ListTile(
