@@ -345,6 +345,8 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
         bankAccount: account,
         company: company,
         vouchers: result,
+        fromDate: _fromDate.text,
+        toDate: _toDate.text,
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
