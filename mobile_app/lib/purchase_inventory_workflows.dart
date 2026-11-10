@@ -626,8 +626,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                   notice('الشركة أو المورد الموجود في المسودة غير موجود ضمن البيانات المحمّلة. حدّث القوائم قبل الحفظ.');
                   return;
                 }
-                final fixedDiscount = double.tryParse(discountAmount.text.trim()) ?? 0;
-                final percentDiscount = double.tryParse(discountPercent.text.trim()) ?? 0;
+                final fixedDiscount = double.tryParse(discountAmount.text.trim()) ?? (discountAmount.text.trim().isEmpty ? 0 : double.nan);
+                final percentDiscount = double.tryParse(discountPercent.text.trim()) ?? (discountPercent.text.trim().isEmpty ? 0 : double.nan);
                 if (!fixedDiscount.isFinite || fixedDiscount < 0 || !percentDiscount.isFinite ||
                     percentDiscount < 0 || percentDiscount > 100 || (fixedDiscount > 0 && percentDiscount > 0)) {
                   notice('أدخل خصماً ثابتاً أو نسبة خصم فقط، ولا تجمع بينهما. النسبة من 0 إلى 100%.');
@@ -644,8 +644,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                     return;
                   }
                   final selectedItem = matchingItems.first;
-                  final lineDiscountPercent = double.tryParse((row['discount_percentage'] as TextEditingController).text.trim()) ?? 0;
-                  final lineDiscountAmount = double.tryParse((row['discount_amount'] as TextEditingController).text.trim()) ?? 0;
+                  final lineDiscountPercent = double.tryParse((row['discount_percentage'] as TextEditingController).text.trim()) ?? ((row['discount_percentage'] as TextEditingController).text.trim().isEmpty ? 0 : double.nan);
+                  final lineDiscountAmount = double.tryParse((row['discount_amount'] as TextEditingController).text.trim()) ?? ((row['discount_amount'] as TextEditingController).text.trim().isEmpty ? 0 : double.nan);
                   if (code.isEmpty || qty == null || !qty.isFinite || qty <= 0 ||
                       rate == null || !rate.isFinite || rate < 0 ||
                       !lineDiscountPercent.isFinite || lineDiscountPercent < 0 || lineDiscountPercent > 100 ||
