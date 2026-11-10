@@ -67,7 +67,7 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
     if (path.isEmpty) return null;
     if (path.startsWith('http://') || path.startsWith('https://')) return path;
     if (widget.api.baseUrl.isEmpty) return null;
-    return '§{widget.api.baseUrl}/§{path.replaceFirst(RegExp(r'^/+'), '')}';
+    return '${widget.api.baseUrl}/${path.replaceFirst(RegExp(r'^/+'), '')}';
   }
 
   Widget _image(Map<String, dynamic> row, {double size = 72}) {
@@ -132,9 +132,9 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
       if (bytes == null) throw const FormatException('تعذر إنشاء ملف Excel.');
       await Share.shareXFiles([XFile.fromData(Uint8List.fromList(bytes), name: 'erpnext_items.xlsx',
         mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')],
-        text: 'دليل الأصناف من ERPNext: §{rows.length} صنف');
-      if (mounted) setState(() => _message = 'تم تجهيز §{rows.length} صنفاً للمشاركة.');
-    } catch (e) { if (mounted) setState(() => _message = 'فشل التصدير: §{e.toString()}'); }
+        text: 'دليل الأصناف من ERPNext: ${rows.length} صنف');
+      if (mounted) setState(() => _message = 'تم تجهيز ${rows.length} صنفاً للمشاركة.');
+    } catch (e) { if (mounted) setState(() => _message = 'فشل التصدير: ${e.toString()}'); }
   }
 
   String _str(dynamic v) => v?.toString().trim() ?? '';
@@ -168,12 +168,12 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
             'disabled': val(row,'disabled')=='1'||val(row,'disabled').toLowerCase()=='true',
           });
           ok++;
-        } catch(e) { failed++; if(errors.length<8) errors.add('$code: §{e.toString().replaceFirst('Exception: ','')}'); }
+        } catch(e) { failed++; if(errors.length<8) errors.add('$code: ${e.toString().replaceFirst('Exception: ','')}'); }
       }
       if (!mounted) return;
-      setState(()=>_message='الاستيراد: §{ok} ناجح، §{failed} فشل.§{errors.isEmpty?'':'\n'+errors.join('\n')}');
+      setState(()=>_message='الاستيراد: ${ok} ناجح، ${failed} فشل.${errors.isEmpty?'':'\n'+errors.join('\n')}');
       await _load();
-    } catch(e) { if(mounted) setState(()=>_message='تعذر الاستيراد: §{e.toString()}'); }
+    } catch(e) { if(mounted) setState(()=>_message='تعذر الاستيراد: ${e.toString()}'); }
   }
 
   @override
@@ -226,14 +226,14 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
               child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
                 Center(child:_image(_items[i],size:82)),const SizedBox(height:8),
                 Text(_title(_items[i]),maxLines:2,overflow:TextOverflow.ellipsis,style:const TextStyle(fontWeight:FontWeight.bold)),
-                Text('§{_items[i]['name']} • §{_items[i]['stock_uom']??''}',maxLines:1,overflow:TextOverflow.ellipsis),
+                Text('${_items[i]['name']} • ${_items[i]['stock_uom']??''}',maxLines:1,overflow:TextOverflow.ellipsis),
                 Text(_items[i]['item_group']?.toString()??'',maxLines:1,overflow:TextOverflow.ellipsis),
                 const Spacer(),Row(children:[Expanded(child:Text(_items[i]['brand']?.toString()??'بدون علامة',maxLines:1,overflow:TextOverflow.ellipsis)),
                   IconButton(onPressed:()=>_edit(_items[i]['name'].toString()),icon:const Icon(Icons.edit_outlined))]),
               ]))))):
         ListView.builder(padding:const EdgeInsets.all(10),itemCount:_items.length,itemBuilder:(_,i)=>Card(child:ListTile(
           leading:_image(_items[i]),title:Text(_title(_items[i])),
-          subtitle:Text('§{_items[i]['name']} • §{_items[i]['item_group']??''}\n§{_items[i]['brand']??''} • §{_items[i]['stock_uom']??''}'),
+          subtitle:Text('${_items[i]['name']} • ${_items[i]['item_group']??''}\n${_items[i]['brand']??''} • ${_items[i]['stock_uom']??''}'),
           isThreeLine:true,onTap:()=>_details(_items[i]['name'].toString()),
           trailing:IconButton(onPressed:()=>_edit(_items[i]['name'].toString()),icon:const Icon(Icons.edit_outlined)))))),
       if(_hasMore||_more) Padding(padding:const EdgeInsets.all(10),child:OutlinedButton.icon(
@@ -270,7 +270,7 @@ class _ItemCatalogDetailsSheetState extends State<ItemCatalogDetailsSheet> {
     }catch(e){if(mounted)setState(()=>_error=e.toString());}
     finally{if(mounted)setState(()=>_loading=false);}
   }
-  String _img(String p)=>p.startsWith('http')?p:'§{widget.api.baseUrl}/§{p.replaceFirst(RegExp(r'^/+'),'')}';
+  String _img(String p)=>p.startsWith('http')?p:'${widget.api.baseUrl}/${p.replaceFirst(RegExp(r'^/+'),'')}';
   @override
   Widget build(BuildContext context)=>SizedBox(height:MediaQuery.of(context).size.height*.92,
     child:FutureBuilder<Map<String,dynamic>>(future:_doc,builder:(context,s){
@@ -308,12 +308,12 @@ class _ItemCatalogDetailsSheetState extends State<ItemCatalogDetailsSheet> {
         if(_prices.isEmpty&&!_loading)const Text('لا توجد أسعار مسجلة لهذا الصنف.'),
         ..._prices.map((p)=>ListTile(
           leading:Icon(p['selling']==1||p['selling']==true?Icons.sell_outlined:Icons.shopping_cart_outlined),
-          title:Text('§{p['price_list']??''} • §{p['price_list_rate']??'—'} §{p['currency']??''}'),
-          subtitle:Text('§{p['selling']==1||p['selling']==true?'بيع':'شراء'} • §{p['uom']??'الوحدة الأساسية'} • §{p['valid_from']??'دون بداية'} إلى §{p['valid_upto']??'مفتوح'}'))),
+          title:Text('${p['price_list']??''} • ${p['price_list_rate']??'—'} ${p['currency']??''}'),
+          subtitle:Text('${p['selling']==1||p['selling']==true?'بيع':'شراء'} • ${p['uom']??'الوحدة الأساسية'} • ${p['valid_from']??'دون بداية'} إلى ${p['valid_upto']??'مفتوح'}'))),
         const Divider(),Text('الأرصدة في جميع المستودعات',style:Theme.of(context).textTheme.titleMedium),
         if(_bins.isEmpty&&!_loading)const Text('لا توجد أرصدة ظاهرة.'),
         ..._bins.map((b)=>Card(child:ListTile(title:Text(b['warehouse'].toString()),
-          subtitle:Text('محجوز §{b['reserved_qty']} • متوقع §{b['projected_qty']} §{b['stock_uom']??''}'),
+          subtitle:Text('محجوز ${b['reserved_qty']} • متوقع ${b['projected_qty']} ${b['stock_uom']??''}'),
           trailing:Text(b['actual_qty'].toString(),style:const TextStyle(fontWeight:FontWeight.bold))))),
         if(_error!=null)Text(_error!,style:TextStyle(color:Theme.of(context).colorScheme.error)),
       ]);
@@ -388,8 +388,8 @@ class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
             ?(v)=>v==null||v.trim().isEmpty?'هذا الحقل مطلوب':null:null))),
         const Divider(),
         SwitchListTile(title:const Text('صنف مخزني'),value:_stock,onChanged:(v)=>setState(()=>_stock=v)),
-        SwitchListTile(title:const Text('تتبع تسلسلي'),value:_serial,onChanged:(v)=>setState(()=>{_serial=v;if(v)_batch=false;})),
-        SwitchListTile(title:const Text('تتبع بالدفعات'),value:_batch,onChanged:(v)=>setState(()=>{_batch=v;if(v)_serial=false;})),
+        SwitchListTile(title:const Text('تتبع تسلسلي'),value:_serial,onChanged:(v){setState(()=>{_serial=v;if(v)_batch=false;});}),
+        SwitchListTile(title:const Text('تتبع بالدفعات'),value:_batch,onChanged:(v){setState(()=>{_batch=v;if(v)_serial=false;});}),
         SwitchListTile(title:const Text('تاريخ انتهاء'),value:_expiry,onChanged:(v)=>setState(()=>_expiry=v)),
         SwitchListTile(title:const Text('تعطيل الصنف'),value:_disabled,onChanged:(v)=>setState(()=>_disabled=v)),
         FilledButton.icon(onPressed:_saving?null:_save,icon:const Icon(Icons.save),label:Text(_saving?'جارٍ الحفظ...':'حفظ في ERPNext')),
@@ -411,5 +411,5 @@ class _BarcodeScannerPageState extends State<_BarcodeScannerPage> {
         final value=code.rawValue?.trim()??'';
         if(value.isNotEmpty){_handled=true;Navigator.pop(context,value);break;}
       }
-    },errorBuilder:(context,error)=>Center(child:Text('تعذر تشغيل الكاميرا: §{error.errorCode.name}'))));
+    },errorBuilder:(context,error)=>Center(child:Text('تعذر تشغيل الكاميرا: ${error.errorCode.name}'))));
 }
