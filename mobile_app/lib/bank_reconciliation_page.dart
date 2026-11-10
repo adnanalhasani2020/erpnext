@@ -197,7 +197,7 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
       if (!mounted) return;
       final preview = result['preview'] as core.Map<String, dynamic>;
       final rows = preview['data'];
-      final rowCount = rows is List ? rows.length : 0;
+      final rowCount = rows is List ? rows.length : 1;
       final warnings = result['warnings'] as List;
       final confirmed = await showDialog<bool>(
         context: context,
@@ -524,7 +524,7 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
               ),
             )).toList(),
             onChanged: _loadingAccounts || _matching ? null : (value) {
-              setState(() { _bankAccount = value; _balances = null; });
+              setState(() { _bankAccount = value; _balances = null; _savedStatementBalance = null; _statementBalance.clear(); _statementImportName = null; });
               _loadTransactions();
               _loadBalances();
             },
