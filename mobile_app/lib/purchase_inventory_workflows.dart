@@ -697,14 +697,14 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
         'doctype': 'Purchase Invoice', 'company': values['company'], 'supplier': values['supplier'],
         'posting_date': draft?['posting_date'] ?? DateTime.now().toIso8601String().substring(0, 10),
         'update_stock': values['update_stock'] == true ? 1 : 0, 'items': values['items'],
-        if ((values['due_date'] as String).isNotEmpty) 'due_date': values['due_date'],
-        if ((values['discount_amount'] as num) > 0) 'discount_amount': values['discount_amount'],
-        if ((values['additional_discount_percentage'] as num) > 0) 'additional_discount_percentage': values['additional_discount_percentage'],
-        if ((values['discount_amount'] as num) > 0 || (values['additional_discount_percentage'] as num) > 0) 'apply_discount_on': values['apply_discount_on'],
-        if ((values['taxes_and_charges'] as String).isNotEmpty) 'taxes_and_charges': values['taxes_and_charges'],
-        if ((values['payment_terms_template'] as String).isNotEmpty) 'payment_terms_template': values['payment_terms_template'],
-        if ((values['bill_no'] as String).isNotEmpty) 'bill_no': values['bill_no'],
-        if ((values['bill_date'] as String).isNotEmpty) 'bill_date': values['bill_date'],
+        if ((values['due_date'] as String).isNotEmpty || draft != null) 'due_date': values['due_date'],
+        if ((values['discount_amount'] as num) > 0 || draft != null) 'discount_amount': values['discount_amount'],
+        if ((values['additional_discount_percentage'] as num) > 0 || draft != null) 'additional_discount_percentage': values['additional_discount_percentage'],
+        if ((values['discount_amount'] as num) > 0 || (values['additional_discount_percentage'] as num) > 0 || draft != null) 'apply_discount_on': values['apply_discount_on'],
+        if ((values['taxes_and_charges'] as String).isNotEmpty || draft != null) 'taxes_and_charges': values['taxes_and_charges'],
+        if ((values['payment_terms_template'] as String).isNotEmpty || draft != null) 'payment_terms_template': values['payment_terms_template'],
+        if ((values['bill_no'] as String).isNotEmpty || draft != null) 'bill_no': values['bill_no'],
+        if ((values['bill_date'] as String).isNotEmpty || draft != null) 'bill_date': values['bill_date'],
       };
       final saved = draft == null
           ? await widget.api.createPurchaseInvoice(payload)
