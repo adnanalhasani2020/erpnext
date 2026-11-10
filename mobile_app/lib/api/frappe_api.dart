@@ -2611,7 +2611,7 @@ class FrappeApi {
       final qty = rawItem['qty'];
       final rate = rawItem['rate'];
       if (qty is! num || !qty.isFinite || qty <= 0 ||
-          rate is! num || !rate.isFinite || rate <= 0 || !(qty * rate).isFinite) {
+          rate is! num || !rate.isFinite || rate < 0 || !(qty * rate).isFinite) {
         throw const FormatException('تحقق من كمية وسعر كل بند في الفاتورة.');
       }
     }
@@ -2631,6 +2631,13 @@ class FrappeApi {
     payload['update_stock'] = changes['update_stock'] == true || changes['update_stock'] == 1 ? 1 : 0;
     payload['items'] = changes['items'];
     payload['sales_team'] = changes['sales_team'] ?? const <Map<String, dynamic>>[];
+    for (final field in const [
+      'due_date', 'discount_amount', 'additional_discount_percentage',
+      'apply_discount_on', 'taxes_and_charges', 'payment_terms_template',
+      'po_no', 'po_date',
+    ]) {
+      if (changes.containsKey(field)) payload[field] = changes[field];
+    }
 
     final response = await _sendJson('POST', '/api/method/frappe.client.save', {'doc': payload});
     final data = _decode(response.body);
@@ -2862,7 +2869,15 @@ class FrappeApi {
       ..['company'] = changes['company']
       ..['posting_date'] = changes['posting_date'] ?? current['posting_date']
       ..['update_stock'] = changes['update_stock'] == true || changes['update_stock'] == 1 ? 1 : 0
-      ..['items'] = changes['items'];
+      ..['items'] = changes['items']
+      ..['due_date'] = changes['due_date'] ?? current['due_date']
+      ..['discount_amount'] = changes['discount_amount'] ?? current['discount_amount']
+      ..['additional_discount_percentage'] = changes['additional_discount_percentage'] ?? current['additional_discount_percentage']
+      ..['apply_discount_on'] = changes['apply_discount_on'] ?? current['apply_discount_on']
+      ..['taxes_and_charges'] = changes['taxes_and_charges'] ?? current['taxes_and_charges']
+      ..['payment_terms_template'] = changes['payment_terms_template'] ?? current['payment_terms_template']
+      ..['bill_no'] = changes['bill_no'] ?? current['bill_no']
+      ..['bill_date'] = changes['bill_date'] ?? current['bill_date'];
     final response = await _sendJson('POST', '/api/method/frappe.client.save', {'doc': payload});
     final data = _decode(response.body);
     if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تعديل مسودة المشتريات.'));
@@ -3189,7 +3204,7 @@ class FrappeApi {
         throw const FormatException('إلغاء هذه العملية متاح للمرتجع المرحّل المرتبط بفاتورة أصلية فقط.');
       }
       final response = await _sendJson('POST', '/api/method/frappe.client.cancel', {
-        'doctype': 'Purchase Invoice', 'name': name,
+        'doc': current,
       });
       final data = _decode(response.body);
       if (response.statusCode < 200 || response.statusCode >= 300) {
