@@ -352,7 +352,7 @@ class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
       if(!mounted)return;
       for(final e in _c.entries){e.value.text=d[e.key]?.toString()??'';}
       final codes=d['barcodes'];
-      if(codes is List){_barcodeController.text=codes.whereType<Map>().map((e)=>e['barcode']?.toString()??'').where((e)=>e.isNotEmpty).join('\\n');}
+      if(codes is List){_barcodeController.text=codes.whereType<Map>().map((e)=>e['barcode']?.toString()??'').where((e)=>e.isNotEmpty).join('\n');}
       setState((){
         _stock=d['is_stock_item']==1||d['is_stock_item']==true;
         _serial=d['has_serial_no']==1||d['has_serial_no']==true;
@@ -372,7 +372,7 @@ class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
         for(final e in _c.entries)e.key:e.value.text.trim(),
         'is_stock_item':_stock,'has_serial_no':_serial,'has_batch_no':_batch,
         'has_expiry_date':_expiry,'disabled':_disabled,
-        'barcodes':_barcodeController.text.split(RegExp(r'[\\r\\n,;]+')).map((v)=>v.trim()).where((v)=>v.isNotEmpty).map((v)=>{'barcode':v}).toList(),
+        'barcodes':_barcodeController.text.split(RegExp(r'[\r\n,;]+')).map((v)=>v.trim()).where((v)=>v.isNotEmpty).map((v)=>{'barcode':v}).toList(),
       });
       if(mounted)Navigator.pop(context,true);
     }catch(e){if(mounted)setState(()=>_error=e.toString().replaceFirst('Exception: ',''));}
@@ -393,8 +393,8 @@ class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
         Padding(padding:const EdgeInsets.only(bottom:9),child:TextFormField(controller:_barcodeController,maxLines:3,decoration:const InputDecoration(labelText:'الباركود (باركود في كل سطر)'))),
         const Divider(),
         SwitchListTile(title:const Text('صنف مخزني'),value:_stock,onChanged:(v)=>setState(()=>_stock=v)),
-        SwitchListTile(title:const Text('تتبع تسلسلي'),value:_serial,onChanged:(v){setState(()=>{_serial=v;if(v)_batch=false;});}),
-        SwitchListTile(title:const Text('تتبع بالدفعات'),value:_batch,onChanged:(v){setState(()=>{_batch=v;if(v)_serial=false;});}),
+        SwitchListTile(title:const Text('تتبع تسلسلي'),value:_serial,onChanged:(v){setState(() {_serial=v;if(v)_batch=false;});}),
+        SwitchListTile(title:const Text('تتبع بالدفعات'),value:_batch,onChanged:(v){setState(() {_batch=v;if(v)_serial=false;});}),
         SwitchListTile(title:const Text('تاريخ انتهاء'),value:_expiry,onChanged:(v)=>setState(()=>_expiry=v)),
         SwitchListTile(title:const Text('تعطيل الصنف'),value:_disabled,onChanged:(v)=>setState(()=>_disabled=v)),
         FilledButton.icon(onPressed:_saving?null:_save,icon:const Icon(Icons.save),label:Text(_saving?'جارٍ الحفظ...':'حفظ في ERPNext')),
