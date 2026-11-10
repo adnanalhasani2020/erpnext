@@ -13,6 +13,8 @@ import 'payment_reconciliation_page.dart';
 import 'master_data_page.dart';
 import 'chart_of_accounts_page.dart';
 import 'journal_entries_page.dart';
+import 'hr_workflows_page.dart';
+import 'warehouse_hierarchy_page.dart';
 import 'models/erp_models.dart';
 import 'widgets/count_card.dart';
 import 'widgets/load_more_button.dart';
@@ -992,6 +994,14 @@ class _MobileHomePageState extends State<MobileHomePage> {
         loading: _searchingWarehouses,
       ),
       const SizedBox(height: 10),
+      Align(
+        alignment: AlignmentDirectional.centerStart,
+        child: OutlinedButton.icon(
+          onPressed: _inventoryLoading ? null : _openWarehouseHierarchy,
+          icon: const Icon(Icons.account_tree_outlined),
+          label: const Text('عرض شجرة المستودعات'),
+        ),
+      ),
       Text('${filtered.length} مستودع من ${_warehouses.length} مستودع محمّل'),
       if (_inventoryLoading) const LinearProgressIndicator(),
       if (_inventoryError != null) _errorCard(_inventoryError!),
@@ -1048,6 +1058,18 @@ class _MobileHomePageState extends State<MobileHomePage> {
   void _openJournalEntries() {
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => JournalEntriesPage(api: _api, companies: _companies),
+    ));
+  }
+
+  void _openHrWorkflows() {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => HrWorkflowsPage(api: _api, companies: _companies),
+    ));
+  }
+
+  void _openWarehouseHierarchy() {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => WarehouseHierarchyPage(api: _api),
     ));
   }
 
@@ -1488,6 +1510,11 @@ class _MobileHomePageState extends State<MobileHomePage> {
             onPressed: _salesLoading ? null : _openSalesCommissions,
             icon: const Icon(Icons.percent_outlined),
             label: const Text('العمولات'),
+          ),
+          OutlinedButton.icon(
+            onPressed: _companies.isEmpty ? null : _openHrWorkflows,
+            icon: const Icon(Icons.groups_outlined),
+            label: const Text('الموارد البشرية'),
           ),
         ],
       ),

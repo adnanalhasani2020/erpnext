@@ -1,0 +1,553 @@
+import 'package:flutter/material.dart';
+
+import 'api/frappe_api.dart';
+import 'models/erp_models.dart';
+
+class HrWorkflowsPage extends StatefulWidget {
+  const HrWorkflowsPage({super.key, required this.api, required this.companies});
+  final FrappeApi api;
+  final List<ErpCompany> companies;
+
+  @override
+  State<HrWorkflowsPage> createState() => _HrWorkflowsPageState();
+}
+
+class _HrWorkflowsPageState extends State<HrWorkflowsPage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs;
+  String? _company;
+  final _search = TextEditingController();
+  bool _loading = false;
+  bool _saving = false;
+  int _loadGeneration = 0;
+  int _offset = 0;
+  bool _hasMore = false;
+  bool _loadingMore = false;
+  String? _error;
+  List<Map<String, dynamic>> _employees = [];
+  List<Map<String, dynamic>> _attendance = [];
+  List<Map<String, dynamic>> _leaveApplications = [];
+  List<Map<String, dynamic>> _expenseClaims = [];
+  List<Map<String, dynamic>> _salarySlips = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabs = TabController(length: 5, vsync: this)..addListener(_onTabChanged);
+    _company = widget.companies.isEmpty ? null : widget.companies.first.name;
+    _load();
+  }
+
+  @override
+  void dispose() {
+    _tabs.removeListener(_onTabChanged);
+    _tabs.dispose();
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _onTabChanged() {
+    if (!_tabs.indexIsChanging && mounted) _load();
+  }
+
+  String get _activeDoctype => switch (_tabs.index) {
+    0 => 'Employee',
+    1 => 'Attendance',
+    2 => 'Leave Application',
+    3 => 'Expense Claim',
+    _ => 'Salary Slip',
+  };
+
+  Future<void> _load() async {
+    if (!mounted) return;
+    final loadGeneration = ++_loadGeneration;
+    final doctype = _activeDoctype;
+    final company = _company;
+    final search = _search.text.trim();
+    setState(() { _loading = true; _error = null; });
+    final sessionGeneration = widget.api.sessionGeneration;
+    try {
+      final rows = await widget.api.fetchHrRecords(
+        doctype: doctype,
+        company: company,
+        search: search,
+      );
+      if (!mounted || loadGeneration != _loadGeneration || sessionGeneration != widget.api.sessionGeneration) return;
+      setState(() {
+        _offset = rows.length;
+        _hasMore = rows.length == 50;
+        switch (doctype) {
+          case 'Employee': _employees = rows;
+          case 'Attendance': _attendance = rows;
+          case 'Leave Application': _leaveApplications = rows;
+          case 'Expense Claim': _expenseClaims = rows;
+          case 'Salary Slip': _salarySlips = rows;
+        }
+      });
+    } catch (error) {
+      if (mounted && loadGeneration == _loadGeneration && sessionGeneration == widget.api.sessionGeneration) {
+        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted && loadGeneration == _loadGeneration && sessionGeneration == widget.api.sessionGeneration) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore || !mounted) return;
+    final doctype = _activeDoctype;
+    final company = _company;
+    final search = _search.text.trim();
+    final offset = _offset;
+    final sessionGeneration = widget.api.sessionGeneration;
+    setState(() => _loadingMore = true);
+    try {
+      final rows = await widget.api.fetchHrRecords(
+        doctype: doctype, company: company, search: search, start: offset,
+      );
+      if (!mounted || doctype != _activeDoctype || sessionGeneration != widget.api.sessionGeneration) return;
+      setState(() {
+        switch (doctype) {
+          case 'Employee': _employees = [..._employees, ...rows];
+          case 'Attendance': _attendance = [..._attendance, ...rows];
+          case 'Leave Application': _leaveApplications = [..._leaveApplications, ...rows];
+          case 'Expense Claim': _expenseClaims = [..._expenseClaims, ...rows];
+          case 'Salary Slip': _salarySlips = [..._salarySlips, ...rows];
+        }
+        _offset += rows.length;
+        _hasMore = rows.length == 50;
+      });
+    } catch (error) {
+      if (mounted && sessionGeneration == widget.api.sessionGeneration) {
+        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted && sessionGeneration == widget.api.sessionGeneration) {
+        setState(() => _loadingMore = false);
+      }
+    }
+  }
+
+  Future<void> _createAttendance() async {
+    final employee = TextEditingController();
+    final date = TextEditingController(text: DateTime.now().toIso8601String().substring(0, 10));
+    String status = 'Present';
+    String leaveType = '';
+    final formKey = GlobalKey<FormState>();
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(builder: (context, refresh) =>
+        AlertDialog(
+          title: const Text('تسجيل حضور أو انصراف'),
+          content: Form(key: formKey, child: SingleChildScrollView(child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(controller: employee, decoration: const InputDecoration(labelText: 'رقم الموظف'), validator: _required),
+              TextFormField(controller: date, decoration: const InputDecoration(labelText: 'تاريخ الحضور YYYY-MM-DD'), validator: _dateRequired),
+              DropdownButtonFormField<String>(
+                initialValue: status,
+                decoration: const InputDecoration(labelText: 'الحالة'),
+                items: const [
+                  DropdownMenuItem(value: 'Present', child: Text('حاضر')),
+                  DropdownMenuItem(value: 'Absent', child: Text('غائب')),
+                  DropdownMenuItem(value: 'On Leave', child: Text('في إجازة')),
+                  DropdownMenuItem(value: 'Half Day', child: Text('نصف يوم')),
+                  DropdownMenuItem(value: 'Work From Home', child: Text('عمل من المنزل')),
+                ],
+                onChanged: (value) => refresh(() => status = value ?? 'Present'),
+              ),
+              if (status == 'On Leave')
+                TextFormField(initialValue: leaveType,
+                  decoration: const InputDecoration(labelText: 'نوع الإجازة'),
+                  onChanged: (value) => leaveType = value),
+              const SizedBox(height: 8),
+              const Text('سيُنشأ السجل كمسودة، ثم يمكنك مراجعته وترحيله.'),
+            ],
+          ))),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('إلغاء')),
+            FilledButton(onPressed: () {
+              if (formKey.currentState?.validate() ?? false) Navigator.pop(dialogContext, true);
+            }, child: const Text('حفظ المسودة')),
+          ],
+        ),
+      ),
+    );
+    if (created == true && mounted) {
+      await _runSave(() async {
+        final row = await widget.api.createAttendanceDraft(
+          employee: employee.text, company: _company ?? '',
+          attendanceDate: date.text, status: status, leaveType: leaveType,
+        );
+        if (!mounted) return;
+        _showMessage('تم إنشاء مسودة الحضور: ${row['name']}');
+        _tabs.animateTo(1);
+        await _load();
+      });
+    }
+    employee.dispose();
+    date.dispose();
+  }
+
+  Future<void> _createLeaveApplication() async {
+    final employee = TextEditingController();
+    final leaveType = TextEditingController();
+    final fromDate = TextEditingController(text: DateTime.now().toIso8601String().substring(0, 10));
+    final toDate = TextEditingController(text: DateTime.now().toIso8601String().substring(0, 10));
+    final description = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('طلب إجازة جديد'),
+        content: Form(key: formKey, child: SingleChildScrollView(child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(controller: employee, decoration: const InputDecoration(labelText: 'رقم الموظف'), validator: _required),
+            TextFormField(controller: leaveType, decoration: const InputDecoration(labelText: 'نوع الإجازة في ERPNext'), validator: _required),
+            TextFormField(controller: fromDate, decoration: const InputDecoration(labelText: 'من تاريخ YYYY-MM-DD'), validator: _dateRequired),
+            TextFormField(controller: toDate, decoration: const InputDecoration(labelText: 'إلى تاريخ YYYY-MM-DD'), validator: _dateRequired),
+            TextFormField(controller: description, maxLines: 2, decoration: const InputDecoration(labelText: 'السبب / ملاحظات')),
+            const SizedBox(height: 8),
+            const Text('يُحفظ الطلب كمسودة؛ اعتماد الإجازة يخضع لمسار الموافقات في ERPNext.'),
+          ],
+        ))),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('إلغاء')),
+          FilledButton(onPressed: () {
+            if (formKey.currentState?.validate() ?? false) Navigator.pop(dialogContext, true);
+          }, child: const Text('حفظ المسودة')),
+        ],
+      ),
+    );
+    if (created == true && mounted) {
+      await _runSave(() async {
+        final row = await widget.api.createLeaveApplicationDraft(
+          employee: employee.text, company: _company ?? '',
+          leaveType: leaveType.text, fromDate: fromDate.text,
+          toDate: toDate.text, description: description.text,
+        );
+        if (!mounted) return;
+        _showMessage('تم إنشاء طلب الإجازة: ${row['name']}');
+        _tabs.animateTo(2);
+        await _load();
+      });
+    }
+    employee.dispose(); leaveType.dispose(); fromDate.dispose();
+    toDate.dispose(); description.dispose();
+  }
+
+  Future<void> _createExpenseClaim() async {
+    final employee = TextEditingController();
+    final date = TextEditingController(text: DateTime.now().toIso8601String().substring(0, 10));
+    final amount = TextEditingController();
+    final account = TextEditingController();
+    final description = TextEditingController();
+    final costCenter = TextEditingController();
+    List<Map<String, dynamic>> types = [];
+    try {
+      types = await widget.api.fetchExpenseClaimTypes();
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      employee.dispose(); date.dispose(); amount.dispose(); account.dispose();
+      description.dispose(); costCenter.dispose();
+      return;
+    }
+    if (!mounted) {
+      employee.dispose(); date.dispose(); amount.dispose(); account.dispose();
+      description.dispose(); costCenter.dispose();
+      return;
+    }
+    String? selectedType = types.isEmpty ? null : types.first['name']?.toString();
+    final formKey = GlobalKey<FormState>();
+    final created = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(builder: (context, refresh) =>
+        AlertDialog(
+          title: const Text('مطالبة مصروفات جديدة'),
+          content: Form(key: formKey, child: SingleChildScrollView(child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(controller: employee, decoration: const InputDecoration(labelText: 'رقم الموظف'), validator: _required),
+              TextFormField(controller: date, decoration: const InputDecoration(labelText: 'تاريخ المطالبة YYYY-MM-DD'), validator: _dateRequired),
+              DropdownButtonFormField<String>(
+                initialValue: selectedType,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'نوع المصروف'),
+                items: types.map((row) => DropdownMenuItem(
+                  value: row['name']?.toString(),
+                  child: Text((row['name'] ?? '').toString(), overflow: TextOverflow.ellipsis),
+                )).toList(),
+                onChanged: (value) => refresh(() => selectedType = value),
+                validator: (value) => value == null || value.isEmpty ? 'لا توجد أنواع مصروفات مفعلة' : null,
+              ),
+              TextFormField(controller: amount, keyboardType: const TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'المبلغ'), validator: (value) {
+                final parsed = double.tryParse(value?.trim() ?? '');
+                return parsed == null || !parsed.isFinite || parsed <= 0 ? 'أدخل مبلغاً أكبر من صفر' : null;
+              }),
+              TextFormField(controller: account, decoration: const InputDecoration(labelText: 'حساب المصروف (إذا لم يحدد النوع حساباً افتراضياً)')),
+              TextFormField(controller: costCenter, decoration: const InputDecoration(labelText: 'مركز التكلفة (اختياري)')),
+              TextFormField(controller: description, maxLines: 2, decoration: const InputDecoration(labelText: 'وصف المصروف')),
+              const SizedBox(height: 8),
+              const Text('سيُحفظ الطلب كمسودة. قد يرفض ERPNext الترحيل حتى اكتمال الموافقات والسياسات الداخلية.'),
+            ],
+          ))),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('إلغاء')),
+            FilledButton(onPressed: () {
+              if (formKey.currentState?.validate() ?? false) Navigator.pop(dialogContext, true);
+            }, child: const Text('حفظ المسودة')),
+          ],
+        ),
+      ),
+    );
+    if (created == true && mounted) {
+      await _runSave(() async {
+        final row = await widget.api.createExpenseClaimDraft(
+          employee: employee.text,
+          company: _company ?? '',
+          postingDate: date.text,
+          expenseType: selectedType ?? '',
+          amount: amount.text,
+          account: account.text,
+          description: description.text,
+          costCenter: costCenter.text,
+        );
+        if (!mounted) return;
+        _showMessage('تم إنشاء مسودة المطالبة: ${row['name']}');
+        _tabs.animateTo(3);
+        await _load();
+      });
+    }
+    employee.dispose(); date.dispose(); amount.dispose(); account.dispose();
+    description.dispose(); costCenter.dispose();
+  }
+
+  Future<void> _submit(String doctype, Map<String, dynamic> row) async {
+    final name = row['name']?.toString() ?? '';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('تأكيد الترحيل'),
+        content: Text('هل تريد ترحيل المستند $name؟ سيطبق ERPNext صلاحياته والتحقق المحاسبي والإداري.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('رجوع')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('ترحيل')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    await _runSave(() async {
+      await widget.api.submitHrDraft(doctype: doctype, name: name, company: _company ?? '');
+      if (!mounted) return;
+      _showMessage('تم ترحيل $name بنجاح.');
+      await _load();
+    });
+  }
+
+  Future<void> _runSave(Future<void> Function() action) async {
+    if (_saving || !mounted) return;
+    setState(() { _saving = true; _error = null; });
+    try {
+      await action();
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  String? _required(String? value) =>
+      value == null || value.trim().isEmpty ? 'هذا الحقل مطلوب' : null;
+
+  String? _dateRequired(String? value) {
+    if (_required(value) != null) return 'أدخل التاريخ';
+    final date = DateTime.tryParse(value!.trim());
+    return date == null || date.toIso8601String().substring(0, 10) != value.trim()
+        ? 'استخدم الصيغة YYYY-MM-DD' : null;
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final canCreate = _tabs.index == 1 || _tabs.index == 2 || _tabs.index == 3;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('الموارد البشرية'),
+        actions: [
+          IconButton(onPressed: _loading ? null : _load, tooltip: 'تحديث', icon: const Icon(Icons.refresh)),
+          if (canCreate)
+            IconButton(
+              onPressed: _saving ? null : (_tabs.index == 1 ? _createAttendance : _tabs.index == 2 ? _createLeaveApplication : _createExpenseClaim),
+              tooltip: 'إضافة سجل',
+              icon: const Icon(Icons.add_circle_outline),
+            ),
+        ],
+        bottom: TabBar(controller: _tabs, isScrollable: true, tabs: const [
+          Tab(text: 'الموظفون'),
+          Tab(text: 'الحضور'),
+          Tab(text: 'الإجازات'),
+          Tab(text: 'المطالبات'),
+          Tab(text: 'الرواتب'),
+        ]),
+      ),
+      body: Column(children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 4),
+          child: Column(children: [
+            DropdownButtonFormField<String>(
+              initialValue: _company,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'الشركة'),
+              items: widget.companies.map((c) => DropdownMenuItem(value: c.name, child: Text(c.name))).toList(),
+              onChanged: (value) { setState(() => _company = value); _load(); },
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _search,
+              textInputAction: TextInputAction.search,
+              decoration: InputDecoration(
+                labelText: 'بحث في سجلات القسم الحالي',
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: IconButton(icon: const Icon(Icons.clear), onPressed: () { _search.clear(); _load(); }),
+              ),
+              onSubmitted: (_) => _load(),
+            ),
+          ]),
+        ),
+        if (_loading || _saving) const LinearProgressIndicator(),
+        if (_error != null)
+          MaterialBanner(
+            content: Text(_error!),
+            actions: [TextButton(onPressed: () => setState(() => _error = null), child: const Text('إغلاق'))],
+          ),
+        Expanded(child: TabBarView(controller: _tabs, children: [
+          _employeeList(),
+          _documentList(_attendance, 'Attendance'),
+          _documentList(_leaveApplications, 'Leave Application'),
+          _expenseList(),
+          _salaryList(),
+        ])),
+      ]),
+    );
+  }
+
+  Widget _employeeList() {
+    if (_employees.isEmpty && !_loading) return const Center(child: Text('لا توجد سجلات موظفين أو لا تتوفر صلاحية القراءة.'));
+    return ListView.builder(
+      itemCount: _employees.length + (_hasMore ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index == _employees.length) return _loadMoreTile();
+        final row = _employees[index];
+        return Card(child: ListTile(
+          leading: const CircleAvatar(child: Icon(Icons.badge_outlined)),
+          title: Text((row['employee_name'] ?? row['name'] ?? '—').toString()),
+          subtitle: Text([
+            row['name'], row['department'], row['designation'], row['status'],
+          ].where((value) => value != null && value.toString().isNotEmpty).join(' • ')),
+          isThreeLine: true,
+        ));
+      },
+    );
+  }
+
+  Widget _documentList(List<Map<String, dynamic>> rows, String doctype) {
+    if (rows.isEmpty && !_loading) return Center(child: Text('لا توجد سجلات ${doctype == 'Attendance' ? 'حضور' : 'إجازات'} أو لا تتوفر صلاحية القراءة.'));
+    return ListView.builder(
+      itemCount: rows.length + (_hasMore ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index == rows.length) return _loadMoreTile();
+        final row = rows[index];
+        final name = row['name']?.toString() ?? '';
+        final draft = row['docstatus'] == 0 || row['docstatus'] == '0';
+        final title = doctype == 'Attendance'
+            ? '${row['employee_name'] ?? row['employee'] ?? 'موظف'} • ${row['status'] ?? '—'}'
+            : '${row['employee_name'] ?? row['employee'] ?? 'موظف'} • ${row['leave_type'] ?? 'إجازة'}';
+        final detail = doctype == 'Attendance'
+            ? row['attendance_date']?.toString() ?? ''
+            : '${row['from_date'] ?? ''} — ${row['to_date'] ?? ''} • ${row['status'] ?? 'مسودة'}';
+        return Card(child: ListTile(
+          leading: CircleAvatar(child: Icon(draft ? Icons.edit_note : Icons.check_circle_outline)),
+          title: Text(title),
+          subtitle: Text('$name\n$detail'),
+          isThreeLine: true,
+          trailing: draft ? IconButton(
+            tooltip: 'ترحيل',
+            onPressed: _saving ? null : () => _submit(doctype, row),
+            icon: const Icon(Icons.send_outlined),
+          ) : Text(row['docstatus'] == 1 ? 'مرحّل' : '—'),
+        ));
+      },
+    );
+  }
+
+
+  Widget _loadMoreTile() => Padding(
+    padding: const EdgeInsets.all(12),
+    child: Center(child: OutlinedButton.icon(
+      onPressed: _loadingMore ? null : _loadMore,
+      icon: _loadingMore
+        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+        : const Icon(Icons.expand_more),
+      label: Text(_loadingMore ? 'جارٍ تحميل المزيد...' : 'تحميل المزيد'),
+    )),
+  );
+
+
+  Widget _salaryList() {
+    if (_salarySlips.isEmpty && !_loading) {
+      return const Center(child: Text('لا توجد كشوف رواتب ظاهرة أو لا تتوفر صلاحية القراءة.'));
+    }
+    return ListView.builder(
+      itemCount: _salarySlips.length + (_hasMore ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index == _salarySlips.length) return _loadMoreTile();
+        final row = _salarySlips[index];
+        final currency = row['currency']?.toString() ?? '';
+        String money(String key) {
+          final value = row[key];
+          if (value is num) return '${value.toStringAsFixed(2)} $currency';
+          return '${value ?? '—'} $currency';
+        }
+        return Card(child: ListTile(
+          leading: const CircleAvatar(child: Icon(Icons.payments_outlined)),
+          title: Text((row['employee_name'] ?? row['employee'] ?? row['name'] ?? 'موظف').toString()),
+          subtitle: Text('${row['name']} • ${row['start_date'] ?? ''} — ${row['end_date'] ?? ''}\nالإجمالي: ${money('gross_pay')} • الاستقطاعات: ${money('total_deduction')}'),
+          isThreeLine: true,
+          trailing: Text(money('net_pay'), textAlign: TextAlign.end),
+        ));
+      },
+    );
+  }
+
+  Widget _expenseList() {
+    if (_expenseClaims.isEmpty && !_loading) {
+      return const Center(child: Text('لا توجد مطالبات مصروفات أو لا تتوفر صلاحية القراءة. إنشاء المطالبات واعتمادها يتطلب إعداد أنواع المصروفات والحسابات ومراكز التكلفة في ERPNext.'));
+    }
+    return ListView.builder(
+      itemCount: _expenseClaims.length + (_hasMore ? 1 : 0),
+      itemBuilder: (context, index) {
+        if (index == _expenseClaims.length) return _loadMoreTile();
+        final row = _expenseClaims[index];
+        return Card(child: ListTile(
+          leading: const CircleAvatar(child: Icon(Icons.receipt_long_outlined)),
+          title: Text((row['employee_name'] ?? row['employee'] ?? row['name'] ?? 'مطالبة').toString()),
+          subtitle: Text('${row['name']} • ${row['posting_date'] ?? ''}\n${row['approval_status'] ?? row['status'] ?? '—'}'),
+          isThreeLine: true,
+          trailing: (row['docstatus'] == 0 || row['docstatus'] == '0')
+            ? IconButton(
+                tooltip: 'ترحيل إلى مسار الموافقات',
+                onPressed: _saving ? null : () => _submit('Expense Claim', row),
+                icon: const Icon(Icons.send_outlined),
+              )
+            : Text((row['total_claimed_amount'] ?? '—').toString()),
+        ));
+      },
+    );
+  }
+}
