@@ -1784,17 +1784,139 @@ class FrappeApi {
   }
 
   Future<core.Map<String, dynamic>> createBankStatementImportPreview({
-    required String bankAccount, required String company,
-    required String fileName, required List<int> fileBytes,
-  }) async {
-    final account = bankAccount.trim(), cleanCompany = company.trim();
-    final lowerName = fileName.toLowerCase();
-    if (account.isEmpty || cleanCompany.isEmpty || fileBytes.isEmpty ||
-        !RegExp(r'\.(csv|xlsx|xls|txt)
     required String bankAccount,
     required String company,
-    required String date,
+    required String fileName,
+    required List<int> fileBytes,
   }) async {
+    final account = bankAccount.trim();
+    final cleanCompany = company.trim();
+    final lowerName = fileName.toLowerCase();
+    final supported = lowerName.endsWith('.csv') ||
+        lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls') ||
+        lowerName.endsWith('.txt');
+    if (account.isEmpty || cleanCompany.isEmpty || fileBytes.isEmpty ||
+        !supported || fileBytes.length > 15 * 1024 * 1024) {
+      throw const FormatException('اختر ملف CSV أو Excel أو MT940 صالحاً، بحجم لا يتجاوز 15 ميجابايت.');
+    }
+    final accountResponse = await _send('GET',
+      '/api/resource/Bank%20Account/' + Uri.encodeComponent(account));
+    final accountData = _decode(accountResponse.body);
+    if (accountResponse.statusCode < 200 || accountResponse.statusCode >= 300) {
+      throw Exception(_message(accountData, 'تعذر التحقق من الحساب البنكي.'));
+    }
+    final bankAccountDoc = accountData['data'];
+    if (bankAccountDoc is! core.Map<String, dynamic> ||
+        bankAccountDoc['name'] != account || bankAccountDoc['company'] != cleanCompany ||
+        (bankAccountDoc['bank']?.toString().trim().isNotEmpty ?? false) == false) {
+      throw const FormatException('الحساب البنكي لا يتبع الشركة أو لا يرتبط ببنك مهيأ.');
+    }
+    final createdResponse = await _sendJson('POST', '/api/resource/Bank%20Statement%20Import', {
+      'doctype': 'Bank Statement Import',
+      'company': cleanCompany,
+      'bank_account': account,
+      'bank': bankAccountDoc['bank'],
+      'reference_doctype': 'Bank Transaction',
+      'import_type': 'Insert New Records',
+      'submit_after_import': 1,
+      'mute_emails': 1,
+      'use_csv_sniffer': 1,
+      'import_mt940_fromat': lowerName.endsWith('.txt') ? 1 : 0,
+    });
+    final createdData = _decode(createdResponse.body);
+    if (createdResponse.statusCode < 200 || createdResponse.statusCode >= 300) {
+      throw Exception(_message(createdData, 'تعذر إنشاء مستند استيراد كشف البنك. تحقق من صلاحية Bank Statement Import.'));
+    }
+    final created = createdData['data'];
+    if (created is! core.Map<String, dynamic> ||
+        created['doctype'] != 'Bank Statement Import' ||
+        (created['name']?.toString().isEmpty ?? true) ||
+        created['company'] != cleanCompany || created['bank_account'] != account) {
+      throw const FormatException('لم يؤكد ERPNext إنشاء مستند استيراد كشف البنك.');
+    }
+    final importId = created['name'].toString();
+    final boundary = '----ERPNextMobile' + DateTime.now().microsecondsSinceEpoch.toString();
+    final request = await _client.postUrl(Uri.parse('$_baseUrl/api/method/upload_file'));
+    request.followRedirects = false;
+    request.headers.set(HttpHeaders.contentTypeHeader, 'multipart/form-data; boundary=$boundary');
+    if (_cookies.isNotEmpty) {
+      request.headers.set(HttpHeaders.cookieHeader,
+        _cookies.entries.map((entry) => entry.key + '=' + entry.value).join('; '));
+      final csrf = _cookies['csrf_token'];
+      if (csrf != null && csrf.isNotEmpty) request.headers.set('X-Frappe-CSRF-Token', csrf);
+    }
+    void field(String name, String value) {
+      request.add(utf8.encode('--$boundary\r\nContent-Disposition: form-data; name="$name"\r\n\r\n$value\r\n'));
+    }
+    field('is_private', '1');
+    field('doctype', 'Bank Statement Import');
+    field('docname', importId);
+    field('fieldname', 'import_file');
+    request.add(utf8.encode('--$boundary\r\nContent-Disposition: form-data; name="file"; filename="$fileName"\r\nContent-Type: application/octet-stream\r\n\r\n'));
+    request.add(fileBytes);
+    request.add(utf8.encode('\r\n--$boundary--\r\n'));
+    final uploadResponse = await request.close().timeout(const Duration(seconds: 90));
+    final uploadBody = await utf8.decoder.bind(uploadResponse).join().timeout(const Duration(seconds: 90));
+    final uploadData = _decode(uploadBody);
+    _captureCookies(uploadResponse);
+    if (uploadResponse.statusCode < 200 || uploadResponse.statusCode >= 300) {
+      throw Exception(_message(uploadData, 'فشل رفع ملف كشف البنك إلى ERPNext.'));
+    }
+    final uploaded = uploadData['message'];
+    final fileUrl = uploaded is core.Map<String, dynamic> ? uploaded['file_url']?.toString() : null;
+    if (fileUrl == null || fileUrl.isEmpty) {
+      throw const FormatException('رفع الملف لم يُرجع رابط ملف صالحاً.');
+    }
+    final attachResponse = await _sendJson('PUT',
+      '/api/resource/Bank%20Statement%20Import/' + Uri.encodeComponent(importId),
+      {'import_file': fileUrl});
+    final attachData = _decode(attachResponse.body);
+    if (attachResponse.statusCode < 200 || attachResponse.statusCode >= 300) {
+      throw Exception(_message(attachData, 'تم رفع الملف لكن تعذر ربطه بمستند الاستيراد.'));
+    }
+    var effectiveFileUrl = fileUrl;
+    if (lowerName.endsWith('.txt')) {
+      final conversionResponse = await _sendJson('POST',
+        '/api/method/erpnext.accounts.doctype.bank_statement_import.bank_statement_import.convert_mt940_to_csv',
+        {'data_import': importId, 'mt940_file_path': fileUrl});
+      final conversionData = _decode(conversionResponse.body);
+      final converted = conversionData['message'];
+      if (conversionResponse.statusCode < 200 || conversionResponse.statusCode >= 300 ||
+          converted is! String || converted.isEmpty) {
+        throw Exception(_message(conversionData, 'تعذر تحويل ملف MT940 إلى CSV داخل ERPNext.'));
+      }
+      effectiveFileUrl = converted;
+    }
+    final previewResponse = await _sendJson('POST',
+      '/api/method/erpnext.accounts.doctype.bank_statement_import.bank_statement_import.get_preview_from_template',
+      {'data_import': importId, 'import_file': effectiveFileUrl});
+    final previewData = _decode(previewResponse.body);
+    if (previewResponse.statusCode < 200 || previewResponse.statusCode >= 300) {
+      throw Exception(_message(previewData, 'رفع الملف ناجح، لكن ERPNext لم يتمكن من قراءة المعاينة. راجع إعداد مطابقة أعمدة البنك.'));
+    }
+    final preview = previewData['message'];
+    if (preview is! core.Map<String, dynamic>) {
+      throw const FormatException('لم يُرجع ERPNext معاينة صالحة لملف كشف البنك.');
+    }
+    final columns = preview['columns'];
+    final columnNames = columns is List
+        ? columns.map((column) => column is core.Map
+            ? (column['content'] ?? column['header_title'] ?? column['fieldname'])?.toString().toLowerCase().trim() ?? ''
+            : '').toList()
+        : <String>[];
+    if (!columnNames.contains('bank account') && !columnNames.contains('bank_account')) {
+      throw const FormatException('الملف لا يحتوي عمود Bank Account؛ لم يبدأ الاستيراد.');
+    }
+    return {
+      'name': importId,
+      'file_url': effectiveFileUrl,
+      'preview': preview,
+      'warnings': preview['warnings'] is List ? preview['warnings'] : const [],
+      'columns': columnNames,
+    };
+  }
+
+  Future<core.Map<String, dynamic>> fetchBankReconciliationBalances({
     final account = bankAccount.trim(), normalizedCompany = company.trim();
     final parsed = DateTime.tryParse(date.trim());
     if (account.isEmpty || normalizedCompany.isEmpty || parsed == null ||
