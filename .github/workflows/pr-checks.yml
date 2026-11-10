@@ -29,7 +29,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 200
+          fetch-depth: 0
           filter: blob:none
 
       - name: Install and Run Pre-commit
