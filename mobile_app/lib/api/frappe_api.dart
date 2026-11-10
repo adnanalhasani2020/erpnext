@@ -783,7 +783,8 @@ class FrappeApi {
       throw Exception(_message(data, 'تعذر تحميل تفاصيل الصنف.'));
     }
     final doc = data['data'];
-    if (doc is! core.Map<String, dynamic> || doc['doctype'] != 'Item' || doc['name'] != id) {
+    if (doc is! core.Map<String, dynamic> || doc['name'] != id ||
+        (doc['doctype'] != null && doc['doctype'] != 'Item')) {
       throw const FormatException('لم يؤكد ERPNext هوية الصنف المطلوب.');
     }
     return core.Map<String, dynamic>.from(doc);
