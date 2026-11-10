@@ -173,8 +173,10 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
         } catch(e) { failed++; if(errors.length<8) errors.add('$code: ${e.toString().replaceFirst('Exception: ','')}'); }
       }
       if (!mounted) return;
-      setState(()=>_message='الاستيراد: ${ok} ناجح، ${failed} فشل.${errors.isEmpty?'':'\n'+errors.join('\n')}');
+      final report='الاستيراد: ${ok} ناجح، ${failed} فشل.${errors.isEmpty?'':'\n'+errors.join('\n')}';
+      setState(()=>_message=report);
       await _load();
+      if(mounted)setState(()=>_message=report);
     } catch(e) { if(mounted) setState(()=>_message='تعذر الاستيراد: ${e.toString()}'); }
   }
 
@@ -365,6 +367,49 @@ class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
     }catch(e){if(mounted)setState(()=>_error=e.toString());}
     finally{if(mounted)setState(()=>_loading=false);}
   }
+  Future<void> _chooseReference(String key, String label, String doctype) async {
+    final search=TextEditingController();
+    var rows=<Map<String,dynamic>>[];
+    var busy=false;
+    String? error;
+    Future<void> load(StateSetter refresh) async {
+      refresh(() { busy=true; error=null; });
+      try {
+        final result=await widget.api.fetchMasterDataRows(doctype:doctype,search:search.text);
+        if(!mounted)return;
+        refresh(() {
+          rows=result.where((row) {
+            if(row['disabled']==1||row['disabled']==true)return false;
+            if(doctype=='UOM'&&(row['enabled']==0||row['enabled']==false))return false;
+            if(doctype=='Item Group'&&(row['is_group']==1||row['is_group']==true))return false;
+            if(doctype=='Warehouse'&&(row['is_group']==1||row['is_group']==true))return false;
+            return true;
+          }).toList();
+        });
+      } catch(e) { refresh(()=>error=e.toString().replaceFirst('Exception: ','')); }
+      finally { refresh(()=>busy=false); }
+    }
+    final selected=await showModalBottomSheet<String>(context:context,isScrollControlled:true,useSafeArea:true,
+      builder:(sheetContext)=>StatefulBuilder(builder:(context,refresh) {
+        if(rows.isEmpty&&!busy&&error==null)WidgetsBinding.instance.addPostFrameCallback((_) { if(sheetContext.mounted)load(refresh); });
+        return Padding(padding:EdgeInsets.fromLTRB(16,12,16,MediaQuery.of(context).viewInsets.bottom+16),
+          child:SizedBox(height:MediaQuery.of(context).size.height*.7,child:Column(children:[
+            Text('اختيار $label',style:Theme.of(context).textTheme.titleLarge),
+            TextField(controller:search,textInputAction:TextInputAction.search,onSubmitted:(_)=>load(refresh),
+              decoration:InputDecoration(labelText:'بحث $label',suffixIcon:IconButton(onPressed:()=>load(refresh),icon:const Icon(Icons.search)))),
+            if(busy)const LinearProgressIndicator(),
+            if(error!=null)Text(error!),
+            Expanded(child:ListView.builder(itemCount:rows.length,itemBuilder:(_,i){
+              final row=rows[i]; final id=row['name']?.toString()??'';
+              final title=(row['item_group_name']??row['uom_name']??row['warehouse_name']??row['supplier_name']??id).toString();
+              return ListTile(title:Text(title),subtitle:Text(id),onTap:()=>Navigator.pop(sheetContext,id));
+            })),
+          ])));
+      }));
+    search.dispose();
+    if(selected!=null&&mounted)setState(()=>_c[key]!.text=selected);
+  }
+
   Future<void> _save() async {
     if(_saving||!(_form.currentState?.validate()??false))return;
     if(_serial&&_batch){setState(()=>_error='لا يمكن تفعيل التتبع التسلسلي والدفعات معاً.');return;}
@@ -388,8 +433,16 @@ class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
         Text(_editing?'تعديل الصنف':'إضافة صنف',style:Theme.of(context).textTheme.titleLarge),
         if(_error!=null)Text(_error!,style:TextStyle(color:Theme.of(context).colorScheme.error)),
         ...fields.entries.map((e)=>Padding(padding:const EdgeInsets.only(bottom:9),child:TextFormField(
-          controller:_c[e.key],readOnly:_editing&&e.key=='item_code',maxLines:e.key=='description'?3:1,
-          decoration:InputDecoration(labelText:e.value),
+          controller:_c[e.key],readOnly:(_editing&&e.key=='item_code')||const {'item_group','stock_uom','weight_uom','default_warehouse','default_supplier'}.contains(e.key),
+          onTap:const {'item_group','stock_uom','weight_uom','default_warehouse','default_supplier'}.contains(e.key)?(){
+            final refs={'item_group':('مجموعة الأصناف','Item Group'),'stock_uom':('وحدة المخزون','UOM'),
+              'weight_uom':('وحدة الوزن','UOM'),'default_warehouse':('المستودع الافتراضي','Warehouse'),
+              'default_supplier':('المورد الافتراضي','Supplier')};
+            final ref=refs[e.key]!;
+            _chooseReference(e.key,ref.$1,ref.$2);
+          }:null,
+          maxLines:e.key=='description'?3:1,
+          decoration:InputDecoration(labelText:e.value,suffixIcon:const {'item_group','stock_uom','weight_uom','default_warehouse','default_supplier'}.contains(e.key)?const Icon(Icons.search):null),
           validator:const {'item_code','item_name','item_group','stock_uom'}.contains(e.key)
             ?(v)=>v==null||v.trim().isEmpty?'هذا الحقل مطلوب':null:null))),
         Padding(padding:const EdgeInsets.only(bottom:9),child:TextFormField(controller:_barcodeController,maxLines:3,decoration:const InputDecoration(labelText:'الباركود (باركود في كل سطر)'))),
