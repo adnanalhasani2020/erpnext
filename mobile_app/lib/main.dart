@@ -2105,10 +2105,12 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
       );
       if (!more) {
         if (_company == null) {
-          if (mounted) setState(() {
-            _periodTotals = {'debit': 0.0, 'credit': 0.0, 'balance': 0.0};
-            _opening = {'balance': 0.0};
-          });
+          if (mounted) {
+            setState(() {
+              _periodTotals = {'debit': 0.0, 'credit': 0.0, 'balance': 0.0};
+              _opening = {'balance': 0.0};
+            });
+          }
         } else {
           final totals = await widget.api.fetchPartyLedgerTotals(
             partyType: 'Customer', party: widget.customer.id,
@@ -2327,10 +2329,12 @@ class _SupplierLedgerSheetState extends State<_SupplierLedgerSheet> {
       );
       if (!more) {
         if (_company == null) {
-          if (mounted) setState(() {
-            _periodTotals = {'debit': 0.0, 'credit': 0.0, 'balance': 0.0};
-            _opening = {'balance': 0.0};
-          });
+          if (mounted) {
+            setState(() {
+              _periodTotals = {'debit': 0.0, 'credit': 0.0, 'balance': 0.0};
+              _opening = {'balance': 0.0};
+            });
+          }
         } else {
           final totals = await widget.api.fetchPartyLedgerTotals(
             partyType: 'Supplier', party: widget.supplier.id,
