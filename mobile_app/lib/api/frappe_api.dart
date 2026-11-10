@@ -67,6 +67,7 @@ class FrappeApi {
   int _sessionGeneration = 0;
   bool _guestMode = false;
 
+  String get baseUrl => _baseUrl;
   int get sessionGeneration => _sessionGeneration;
   bool get isGuestMode => _guestMode;
 
