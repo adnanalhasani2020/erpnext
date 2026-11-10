@@ -6,10 +6,12 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:share_plus/share_plus.dart';
 import 'api/frappe_api.dart';
 import 'master_data_page.dart';
+import 'models/erp_models.dart';
 
 class ItemCatalogPage extends StatefulWidget {
-  const ItemCatalogPage({super.key, required this.api});
+  const ItemCatalogPage({super.key, required this.api, this.companies = const []});
   final FrappeApi api;
+  final List<ErpCompany> companies;
   @override
   State<ItemCatalogPage> createState() => _ItemCatalogPageState();
 }
@@ -182,7 +184,7 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
       IconButton(tooltip:'مسح باركود', onPressed:_loading?null:_scan, icon:const Icon(Icons.qr_code_scanner)),
       IconButton(tooltip:'تصدير Excel', onPressed:_loading?null:_export, icon:const Icon(Icons.file_download_outlined)),
       PopupMenuButton<String>(onSelected:(v){ if(v=='import') _import(); if(v=='other') Navigator.push(context,MaterialPageRoute<void>(
-        builder:(_)=>MasterDataPage(api:widget.api,companies:const [],initialType:'Item Group'))); },
+        builder:(_)=>MasterDataPage(api:widget.api,companies:widget.companies,initialType:'Item Group'))); },
         itemBuilder:(_)=>const [
           PopupMenuItem(value:'import',child:Text('استيراد Excel')),
           PopupMenuItem(value:'other',child:Text('بيانات أساسية أخرى')),
