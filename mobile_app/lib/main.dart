@@ -2257,7 +2257,7 @@ class _SupplierLedgerSheetState extends State<_SupplierLedgerSheet> {
   }
 
   Future<void> _load({bool more = false}) async {
-    if (_loading || _loadingMore || (more && !_hasMore)) return;
+    if (_loadingMore || (more && !_hasMore)) return;
     setState(() {
       if (more) {
         _loadingMore = true;
