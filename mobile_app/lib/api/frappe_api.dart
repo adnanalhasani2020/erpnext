@@ -1917,6 +1917,10 @@ class FrappeApi {
   }
 
   Future<core.Map<String, dynamic>> fetchBankReconciliationBalances({
+    required String bankAccount,
+    required String company,
+    required String date,
+  }) async {
     final account = bankAccount.trim(), normalizedCompany = company.trim();
     final parsed = DateTime.tryParse(date.trim());
     if (account.isEmpty || normalizedCompany.isEmpty || parsed == null ||
