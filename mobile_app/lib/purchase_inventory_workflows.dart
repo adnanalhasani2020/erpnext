@@ -1,5 +1,6 @@
 // ignore_for_file: prefer_interpolation_to_compose_strings, curly_braces_in_flow_control_structures
 import 'package:flutter/material.dart';
+import 'package:printing/printing.dart';
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
 import 'models/serial_batch_tracking.dart';
@@ -970,6 +971,16 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
           Text('الحالة: ' + (doc['docstatus'] == 0 ? 'مسودة' : doc['docstatus'] == 1 ? 'مرحّل' : 'ملغي')),
           Text('الإجمالي: ' + (doc['grand_total'] ?? '—').toString() + ' ' + (doc['currency'] ?? '').toString()),
           Text('المتبقي: ' + (doc['outstanding_amount'] ?? '—').toString()),
+          OutlinedButton.icon(
+            onPressed: () async {
+              try {
+                final bytes = await widget.api.downloadInvoicePdf(documentType: 'Purchase Invoice', name: name);
+                await Printing.sharePdf(bytes: bytes, filename: '${name.replaceAll('/', '-')}.pdf');
+              } catch (error) { notice('تعذرت طباعة الفاتورة: ' + error.toString().replaceFirst('Exception: ', '')); }
+            },
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            label: const Text('طباعة / مشاركة PDF من ERPNext'),
+          ),
           const Divider(),
           ...((doc['items'] as List? ?? []).whereType<Map<String, dynamic>>().map((x) => ListTile(title: Text((x['item_name'] ?? x['item_code']).toString()), subtitle: Text('الكمية: ' + (x['qty'] ?? '').toString() + ' • المستودع: ' + (x['warehouse'] ?? '—').toString())))),
           if (doc['docstatus'] == 0) ...[
@@ -1026,7 +1037,20 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
             }, child: const Text('إنشاء مرتجع / إرجاع جزئي')),
           ],
           if (doc['docstatus'] == 1 && (doc['is_return'] == 1 || doc['is_return'] == true))
-            const ListTile(leading: Icon(Icons.check_circle_outline), title: Text('المرتجع مرحّل بالفعل')),
+            OutlinedButton.icon(
+              onPressed: () async {
+                if (!await confirm('إلغاء مرتجع المشتريات', 'سيطلب التطبيق من ERPNext إلغاء إشعار الخصم. قد يرفض ERPNext الإلغاء إذا ارتبط المرتجع بتسويات أو مستندات لاحقة. هل تريد المتابعة؟')) return;
+                try {
+                  final canceled = await widget.api.cancelPurchaseReturn(name);
+                  if (sheet.mounted) Navigator.pop(sheet);
+                  notice('أكد ERPNext إلغاء مرتجع المشتريات ' + (canceled['name'] ?? name).toString());
+                  await load();
+                  widget.onChanged?.call();
+                } catch (error) { notice(error.toString().replaceFirst('Exception: ', '')); }
+              },
+              icon: const Icon(Icons.cancel_outlined),
+              label: const Text('إلغاء المرتجع المرحّل'),
+            ),
           if (doc['docstatus'] == 1 && doc['is_return'] != 1 && doc['is_return'] != true)
             OutlinedButton.icon(
               onPressed: () async {
