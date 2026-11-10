@@ -737,6 +737,117 @@ class FrappeApi {
         .toList(growable: false);
   }
 
+  /// Server-filtered catalog rows; the mobile catalog never downloads the full Item table.
+  Future<List<core.Map<String, dynamic>>> fetchItemCatalogRows({
+    int start = 0, String? search, String? itemGroup, String? brand, String? status,
+  }) async {
+    final query = search?.trim() ?? '';
+    final filters = <List<dynamic>>[
+      if (itemGroup?.trim().isNotEmpty == true) ['item_group', '=', itemGroup!.trim()],
+      if (brand?.trim().isNotEmpty == true) ['brand', '=', brand!.trim()],
+      if (status == 'active') ['disabled', '=', 0],
+      if (status == 'disabled') ['disabled', '=', 1],
+    ];
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl, resource: 'Item',
+      fields: const ['name', 'item_code', 'item_name', 'item_group', 'stock_uom', 'brand',
+        'image', 'description', 'disabled', 'is_stock_item', 'has_serial_no', 'has_batch_no'],
+      filters: filters,
+      orFilters: query.isEmpty ? null : [
+        ['name', 'like', '%$query%'], ['item_name', 'like', '%$query%'],
+        ['item_group', 'like', '%$query%'], ['brand', 'like', '%$query%'],
+      ],
+      orderBy: 'modified desc, item_code asc', start: start,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل دليل الأصناف. تحقق من صلاحية قراءة Item.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw const FormatException('استجابة دليل الأصناف غير صحيحة.');
+    return rows.whereType<core.Map<String, dynamic>>()
+        .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+  }
+
+  Future<core.Map<String, dynamic>> fetchItemCatalogDocument(String itemCode) async {
+    final id = itemCode.trim();
+    if (id.isEmpty) throw const FormatException('رمز الصنف مطلوب.');
+    final response = await _send('GET', '/api/resource/Item/' + Uri.encodeComponent(id));
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل تفاصيل الصنف.'));
+    }
+    final doc = data['data'];
+    if (doc is! core.Map<String, dynamic> || doc['doctype'] != 'Item' || doc['name'] != id) {
+      throw const FormatException('لم يؤكد ERPNext هوية الصنف المطلوب.');
+    }
+    return core.Map<String, dynamic>.from(doc);
+  }
+
+  Future<List<core.Map<String, dynamic>>> fetchItemCatalogPrices(String itemCode) async {
+    final id = itemCode.trim();
+    if (id.isEmpty) throw const FormatException('رمز الصنف مطلوب لتحميل الأسعار.');
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl, resource: 'Item Price',
+      fields: const ['name', 'item_code', 'price_list', 'price_list_rate', 'currency',
+        'uom', 'valid_from', 'valid_upto', 'min_qty', 'selling', 'buying'],
+      filters: [['item_code', '=', id]],
+      orderBy: 'price_list asc, valid_from desc, name asc',
+      pageLength: 200,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل أسعار البيع والشراء للصنف.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw const FormatException('استجابة أسعار الصنف غير صحيحة.');
+    return rows.whereType<core.Map<String, dynamic>>()
+        .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+  }
+
+  Future<core.Map<String, dynamic>?> fetchItemByBarcode(String barcode) async {
+    final code = barcode.trim();
+    if (code.isEmpty) return null;
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl, resource: 'Item Barcode',
+      fields: const ['name', 'parent', 'barcode', 'barcode_type'],
+      filters: [['barcode', '=', code], ['parenttype', '=', 'Item']],
+      orderBy: 'modified desc, name asc', pageLength: 5,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر البحث عن الباركود. تحقق من صلاحية قراءة Item Barcode.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw const FormatException('استجابة البحث بالباركود غير صحيحة.');
+    for (final row in rows.whereType<core.Map<String, dynamic>>()) {
+      final parent = row['parent']?.toString() ?? '';
+      if (parent.isNotEmpty) return fetchItemCatalogDocument(parent);
+    }
+    return null;
+  }
+
+  Future<List<String>> fetchItemBrands() async {
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl, resource: 'Brand',
+      fields: const ['name'], filters: const [],
+      orderBy: 'name asc', pageLength: 500,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل العلامات التجارية.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw const FormatException('استجابة العلامات التجارية غير صحيحة.');
+    return rows.whereType<core.Map<String, dynamic>>()
+        .map((row) => row['name']?.toString() ?? '')
+        .where((value) => value.isNotEmpty).toList(growable: false);
+  }
+
   Future<List<core.Map<String, dynamic>>> fetchItemPrices({
     required String priceList,
     String? search,
@@ -4395,7 +4506,11 @@ class FrappeApi {
   // Allow-listed mobile master-data access; ERPNext remains authoritative.
   static const core.Map<String, List<String>> _masterDataFields = {
     'Item': ['name', 'item_code', 'item_name', 'item_group', 'stock_uom',
-      'is_stock_item', 'has_serial_no', 'has_batch_no', 'has_expiry_date', 'disabled', 'uoms'],
+      'is_stock_item', 'has_serial_no', 'has_batch_no', 'has_expiry_date', 'disabled', 'uoms',
+      'image', 'description', 'brand', 'country_of_origin', 'manufacturer', 'manufacturer_part_no',
+      'weight_per_unit', 'weight_uom', 'end_of_life', 'shelf_life_in_days', 'default_warehouse',
+      'default_supplier', 'valuation_method', 'standard_rate', 'is_sales_item', 'is_purchase_item',
+      'allow_alternative_item', 'barcodes'],
     'Supplier': ['name', 'supplier_name', 'supplier_type', 'supplier_group',
       'country', 'tax_id', 'mobile_no', 'email_id', 'website', 'disabled'],
     'Customer': ['name', 'customer_name', 'customer_type', 'customer_group', 'territory',
@@ -4412,7 +4527,11 @@ class FrappeApi {
 
   static const core.Map<String, Set<String>> _masterDataWritableFields = {
     'Item': {'item_code', 'item_name', 'item_group', 'stock_uom',
-      'is_stock_item', 'has_serial_no', 'has_batch_no', 'has_expiry_date', 'disabled', 'uoms'},
+      'is_stock_item', 'has_serial_no', 'has_batch_no', 'has_expiry_date', 'disabled', 'uoms',
+      'image', 'description', 'brand', 'country_of_origin', 'manufacturer', 'manufacturer_part_no',
+      'weight_per_unit', 'weight_uom', 'end_of_life', 'shelf_life_in_days', 'default_warehouse',
+      'default_supplier', 'valuation_method', 'standard_rate', 'is_sales_item', 'is_purchase_item',
+      'allow_alternative_item', 'barcodes'},
     'Supplier': {'supplier_name', 'supplier_type', 'supplier_group',
       'country', 'tax_id', 'mobile_no', 'email_id', 'website', 'disabled'},
     'Customer': {'customer_name', 'customer_type', 'customer_group', 'territory',
@@ -4523,6 +4642,20 @@ class FrappeApi {
             ? (entry.value as String).trim()
             : entry.value;
       }
+    }
+    if (doctype == 'Item' && payload['barcodes'] is List) {
+      final seen = <String>{};
+      final raw = payload['barcodes'] as List;
+      payload['barcodes'] = raw.map((entry) {
+        if (entry is! core.Map) throw const FormatException('جدول الباركود غير صالح.');
+        final barcode = entry['barcode']?.toString().trim() ?? '';
+        final type = entry['barcode_type']?.toString().trim() ?? '';
+        if (barcode.isEmpty || !seen.add(barcode)) {
+          throw const FormatException('كل باركود يجب أن يكون غير فارغ وغير مكرر.');
+        }
+        return {'doctype': 'Item Barcode', 'barcode': barcode,
+          if (type.isNotEmpty) 'barcode_type': type};
+      }).toList();
     }
     String requiredValue(String key) => payload[key]?.toString().trim() ?? '';
     switch (doctype) {
