@@ -1121,20 +1121,48 @@ class FrappeApi {
     );
   }
 
-  Future<List<ErpSalesInvoice>> fetchSalesInvoices({int start = 0, String? search}) async {
-    final uri = Uri.parse('$_baseUrl/api/resource/Sales%20Invoice').replace(queryParameters: {
-      'fields': jsonEncode(['name', 'customer', 'customer_name', 'posting_date', 'due_date', 'currency', 'grand_total', 'outstanding_amount', 'status', 'is_return', 'return_against']),
-      'limit_page_length': pageSize.toString(),
-      if (search != null && search.trim().isNotEmpty) 'or_filters': jsonEncode(["name","customer","customer_name"].map((field) => [field, 'like', '%${search.trim()}%']).toList()),
-      'limit_start': (start < 0 ? 0 : start).toString(), 'order_by': 'posting_date desc, name desc',
-    });
+  Future<List<ErpSalesInvoice>> fetchSalesInvoices({
+    int start = 0,
+    String? search,
+    Map<String, String>? filters,
+  }) async {
+    final queryFilters = <List<dynamic>>[];
+    final status = filters?['status'];
+    if (status == 'draft') queryFilters.add(['docstatus', '=', 0]);
+    if (status == 'submitted') queryFilters.add(['docstatus', '=', 1]);
+    if (status == 'cancelled') queryFilters.add(['docstatus', '=', 2]);
+    final payment = filters?['payment'];
+    if (payment == 'unpaid') queryFilters.add(['outstanding_amount', '>', 0]);
+    if (payment == 'paid') queryFilters.add(['outstanding_amount', '=', 0]);
+    if (filters?['company']?.isNotEmpty == true) queryFilters.add(['company', '=', filters!['company']]);
+    if (filters?['from_date']?.isNotEmpty == true) queryFilters.add(['posting_date', '>=', filters!['from_date']]);
+    if (filters?['to_date']?.isNotEmpty == true) queryFilters.add(['posting_date', '<=', filters!['to_date']]);
+    if (filters?['return'] == 'normal') queryFilters.add(['is_return', '=', 0]);
+    if (filters?['return'] == 'return') queryFilters.add(['is_return', '=', 1]);
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Sales Invoice',
+      fields: const ['name', 'customer', 'customer_name', 'company', 'posting_date', 'due_date',
+        'currency', 'grand_total', 'outstanding_amount', 'status', 'docstatus', 'is_return', 'return_against'],
+      filters: queryFilters,
+      orFilters: search == null || search.trim().isEmpty ? null : [
+        ['name', 'like', '%${search.trim()}%'],
+        ['customer', 'like', '%${search.trim()}%'],
+        ['customer_name', 'like', '%${search.trim()}%'],
+      ],
+      orderBy: 'posting_date desc, name desc',
+      start: start,
+    );
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);
-    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر جلب فواتير المبيعات. تحقق من صلاحية قراءة Sales Invoice.'));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر جلب فواتير المبيعات. تحقق من صلاحية قراءة Sales Invoice.'));
+    }
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة فواتير المبيعات من ERPNext غير متوقعة.');
     return rows.whereType<Map<String, dynamic>>().map(ErpSalesInvoice.fromJson).toList(growable: false);
   }
+
   Future<List<Map<String, dynamic>>> fetchSalesPersons({
     int start = 0,
     String? search,
@@ -1796,16 +1824,43 @@ class FrappeApi {
     return document;
   }
 
-  Future<List<ErpPurchaseInvoice>> fetchPurchaseInvoices({int start = 0, String? search}) async {
-    final uri = Uri.parse('$_baseUrl/api/resource/Purchase%20Invoice').replace(queryParameters: {
-      'fields': jsonEncode(['name', 'supplier', 'supplier_name', 'posting_date', 'due_date', 'currency', 'grand_total', 'outstanding_amount', 'status', 'is_return', 'return_against']),
-      'limit_page_length': pageSize.toString(),
-      if (search != null && search.trim().isNotEmpty) 'or_filters': jsonEncode(["name","supplier","supplier_name"].map((field) => [field, 'like', '%${search.trim()}%']).toList()),
-      'limit_start': (start < 0 ? 0 : start).toString(), 'order_by': 'posting_date desc, name desc',
-    });
+  Future<List<ErpPurchaseInvoice>> fetchPurchaseInvoices({
+    int start = 0,
+    String? search,
+    Map<String, String>? filters,
+  }) async {
+    final queryFilters = <List<dynamic>>[];
+    final status = filters?['status'];
+    if (status == 'draft') queryFilters.add(['docstatus', '=', 0]);
+    if (status == 'submitted') queryFilters.add(['docstatus', '=', 1]);
+    if (status == 'cancelled') queryFilters.add(['docstatus', '=', 2]);
+    final payment = filters?['payment'];
+    if (payment == 'unpaid') queryFilters.add(['outstanding_amount', '>', 0]);
+    if (payment == 'paid') queryFilters.add(['outstanding_amount', '=', 0]);
+    if (filters?['company']?.isNotEmpty == true) queryFilters.add(['company', '=', filters!['company']]);
+    if (filters?['from_date']?.isNotEmpty == true) queryFilters.add(['posting_date', '>=', filters!['from_date']]);
+    if (filters?['to_date']?.isNotEmpty == true) queryFilters.add(['posting_date', '<=', filters!['to_date']]);
+    if (filters?['return'] == 'normal') queryFilters.add(['is_return', '=', 0]);
+    if (filters?['return'] == 'return') queryFilters.add(['is_return', '=', 1]);
+    final uri = buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Purchase Invoice',
+      fields: const ['name', 'supplier', 'supplier_name', 'company', 'posting_date', 'due_date',
+        'currency', 'grand_total', 'outstanding_amount', 'status', 'docstatus', 'is_return', 'return_against'],
+      filters: queryFilters,
+      orFilters: search == null || search.trim().isEmpty ? null : [
+        ['name', 'like', '%${search.trim()}%'],
+        ['supplier', 'like', '%${search.trim()}%'],
+        ['supplier_name', 'like', '%${search.trim()}%'],
+      ],
+      orderBy: 'posting_date desc, name desc',
+      start: start,
+    );
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);
-    if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر جلب فواتير المشتريات. تحقق من صلاحية قراءة Purchase Invoice.'));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر جلب فواتير المشتريات. تحقق من صلاحية قراءة Purchase Invoice.'));
+    }
     final rows = data['data'];
     if (rows is! List) throw Exception('استجابة فواتير المشتريات من ERPNext غير متوقعة.');
     return rows.whereType<Map<String, dynamic>>().map(ErpPurchaseInvoice.fromJson).toList(growable: false);
