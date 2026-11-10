@@ -75,7 +75,7 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
     return ClipRRect(borderRadius: BorderRadius.circular(9), child: Container(
       width: size, height: size, color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: url == null ? const Icon(Icons.inventory_2_outlined, size: 30)
-          : Image.network(url, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined)),
+          : Image.network(url, headers: widget.api.imageRequestHeaders, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined)),
     ));
   }
 
@@ -291,7 +291,7 @@ class _ItemCatalogDetailsSheetState extends State<ItemCatalogDetailsSheet> {
       return ListView(padding:const EdgeInsets.all(16),children:[
         Row(children:[
           image.isEmpty?const SizedBox(width:100,height:100,child:Icon(Icons.inventory_2_outlined,size:48)):
-            ClipRRect(borderRadius:BorderRadius.circular(10),child:Image.network(_img(image),width:100,height:100,fit:BoxFit.cover,
+            ClipRRect(borderRadius:BorderRadius.circular(10),child:Image.network(_img(image),headers:widget.api.imageRequestHeaders,width:100,height:100,fit:BoxFit.cover,
               errorBuilder:(_,__,___)=>const SizedBox(width:100,height:100,child:Icon(Icons.broken_image_outlined)))),
           const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
             Text(d['item_name']?.toString()??widget.itemCode,style:Theme.of(context).textTheme.titleLarge),
@@ -329,6 +329,7 @@ class _ItemCatalogEditor extends StatefulWidget {
 class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
   final _form=GlobalKey<FormState>();
   final Map<String,TextEditingController> _c={};
+  final _barcodeController=TextEditingController();
   bool _loading=false,_saving=false,_stock=true,_serial=false,_batch=false,_expiry=false,_disabled=false;
   String? _error;
   bool get _editing=>widget.itemCode!=null;
@@ -343,13 +344,15 @@ class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
   @override
   void initState(){super.initState();for(final k in fields.keys){_c[k]=TextEditingController();}if(_editing)_load();}
   @override
-  void dispose(){for(final c in _c.values){c.dispose();}super.dispose();}
+  void dispose(){for(final c in _c.values){c.dispose();}_barcodeController.dispose();super.dispose();}
   Future<void> _load() async {
     setState(()=>_loading=true);
     try{
       final d=await widget.api.fetchItemCatalogDocument(widget.itemCode!);
       if(!mounted)return;
       for(final e in _c.entries){e.value.text=d[e.key]?.toString()??'';}
+      final codes=d['barcodes'];
+      if(codes is List){_barcodeController.text=codes.whereType<Map>().map((e)=>e['barcode']?.toString()??'').where((e)=>e.isNotEmpty).join('\\n');}
       setState((){
         _stock=d['is_stock_item']==1||d['is_stock_item']==true;
         _serial=d['has_serial_no']==1||d['has_serial_no']==true;
@@ -369,6 +372,7 @@ class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
         for(final e in _c.entries)e.key:e.value.text.trim(),
         'is_stock_item':_stock,'has_serial_no':_serial,'has_batch_no':_batch,
         'has_expiry_date':_expiry,'disabled':_disabled,
+        'barcodes':_barcodeController.text.split(RegExp(r'[\\r\\n,;]+')).map((v)=>v.trim()).where((v)=>v.isNotEmpty).map((v)=>{'barcode':v}).toList(),
       });
       if(mounted)Navigator.pop(context,true);
     }catch(e){if(mounted)setState(()=>_error=e.toString().replaceFirst('Exception: ',''));}
@@ -386,6 +390,7 @@ class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
           decoration:InputDecoration(labelText:e.value),
           validator:const {'item_code','item_name','item_group','stock_uom'}.contains(e.key)
             ?(v)=>v==null||v.trim().isEmpty?'هذا الحقل مطلوب':null:null))),
+        Padding(padding:const EdgeInsets.only(bottom:9),child:TextFormField(controller:_barcodeController,maxLines:3,decoration:const InputDecoration(labelText:'الباركود (باركود في كل سطر)'))),
         const Divider(),
         SwitchListTile(title:const Text('صنف مخزني'),value:_stock,onChanged:(v)=>setState(()=>_stock=v)),
         SwitchListTile(title:const Text('تتبع تسلسلي'),value:_serial,onChanged:(v){setState(()=>{_serial=v;if(v)_batch=false;});}),
