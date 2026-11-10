@@ -685,6 +685,107 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
     employee.dispose(); date.dispose();
   }
 
+
+  Future<void> _payExpenseClaim(core.Map<String, dynamic> row) async {
+    final name = row['name']?.toString().trim() ?? '';
+    final company = _company ?? '';
+    if (name.isEmpty || company.isEmpty) return;
+    final sanctioned = double.tryParse(row['total_sanctioned_amount']?.toString() ?? '') ?? 0;
+    final reimbursed = double.tryParse(row['total_amount_reimbursed']?.toString() ?? '') ?? 0;
+    final outstanding = sanctioned - reimbursed;
+    if (!outstanding.isFinite || outstanding <= 0) {
+      _showMessage('لا يوجد مبلغ معتمد متبقٍ لسداد هذه المطالبة.');
+      return;
+    }
+    List<ErpPaymentAccount> accounts;
+    try {
+      accounts = await widget.api.fetchPaymentAccounts(company);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      return;
+    }
+    if (!mounted) return;
+    if (accounts.isEmpty) {
+      _showMessage('لا توجد حسابات صندوق أو بنك مفعّلة لهذه الشركة.');
+      return;
+    }
+    final amount = TextEditingController(text: outstanding.toStringAsFixed(2));
+    String? selectedAccount = accounts.first.name;
+    final formKey = GlobalKey<FormState>();
+    final payment = await showDialog<core.Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, refresh) => AlertDialog(
+          title: Text('سداد مطالبة المصروف $name'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('المتبقي من المبلغ المعتمد: ${outstanding.toStringAsFixed(2)}'),
+                  TextFormField(
+                    controller: amount,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(labelText: 'مبلغ السداد'),
+                    validator: (value) {
+                      final parsed = double.tryParse(value?.trim() ?? '');
+                      if (parsed == null || !parsed.isFinite || parsed <= 0 || parsed > outstanding + 0.000001) {
+                        return 'أدخل مبلغاً موجباً لا يتجاوز المتبقي المعتمد';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedAccount,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'الدفع من حساب الصندوق أو البنك'),
+                    items: accounts.map((account) => DropdownMenuItem(
+                      value: account.name,
+                      child: Text('${account.accountName} • ${account.currency ?? ''}', overflow: TextOverflow.ellipsis),
+                    )).toList(),
+                    onChanged: (value) => refresh(() => selectedAccount = value),
+                    validator: (value) => value == null || value.isEmpty ? 'اختر حساب الدفع' : null,
+                  ),
+                  const SizedBox(height: 8),
+                  const Text('سيُنشئ التطبيق سند Payment Entry من نوع Pay للطرف Employee، ويربطه بالمطالبة الأصلية عبر ERPNext.'),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+            FilledButton(
+              onPressed: () {
+                if ((formKey.currentState?.validate() ?? false) && selectedAccount != null) {
+                  Navigator.pop(dialogContext, {
+                    'amount': double.parse(amount.text.trim()),
+                    'account': selectedAccount,
+                  });
+                }
+              },
+              child: const Text('إنشاء سند السداد وترحيله'),
+            ),
+          ],
+        ),
+      ),
+    );
+    amount.dispose();
+    if (payment == null || !mounted) return;
+    await _runSave(() async {
+      final result = await widget.api.payExpenseClaim(
+        claimName: name,
+        amount: payment['amount'] as double,
+        bankAccount: payment['account'] as String,
+      );
+      if (!mounted) return;
+      _showMessage('أكد ERPNext سداد المطالبة عبر سند ${result['name']}.');
+      await _load();
+    });
+  }
+
   Future<void> _runWorkflowAction(String doctype, core.Map<String, dynamic> row) async {
     final name = row['name']?.toString() ?? '';
     final company = _company ?? '';
@@ -1063,6 +1164,14 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
                   tooltip: 'إرسال المسودة',
                   onPressed: _saving ? null : () => _submit('Expense Claim', row),
                   icon: const Icon(Icons.send_outlined),
+                ),
+              if ((row['docstatus'] == 1 || row['docstatus'] == '1') &&
+                  row['approval_status'] == 'Approved' &&
+                  row['status'] != 'Paid')
+                IconButton(
+                  tooltip: 'سداد المطالبة',
+                  onPressed: _saving ? null : () => _payExpenseClaim(row),
+                  icon: const Icon(Icons.payments_outlined),
                 ),
               IconButton(
                 tooltip: 'إجراءات سير العمل حسب صلاحيات ERPNext',
