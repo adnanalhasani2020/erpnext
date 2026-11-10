@@ -1135,6 +1135,7 @@ class FrappeApi {
     if (payment == 'unpaid') queryFilters.add(['outstanding_amount', '>', 0]);
     if (payment == 'paid') queryFilters.add(['outstanding_amount', '=', 0]);
     if (filters?['company']?.isNotEmpty == true) queryFilters.add(['company', '=', filters!['company']]);
+    if (filters?['party']?.isNotEmpty == true) queryFilters.add(['customer', '=', filters!['party']]);
     if (filters?['from_date']?.isNotEmpty == true) queryFilters.add(['posting_date', '>=', filters!['from_date']]);
     if (filters?['to_date']?.isNotEmpty == true) queryFilters.add(['posting_date', '<=', filters!['to_date']]);
     if (filters?['return'] == 'normal') queryFilters.add(['is_return', '=', 0]);
@@ -1838,6 +1839,7 @@ class FrappeApi {
     if (payment == 'unpaid') queryFilters.add(['outstanding_amount', '>', 0]);
     if (payment == 'paid') queryFilters.add(['outstanding_amount', '=', 0]);
     if (filters?['company']?.isNotEmpty == true) queryFilters.add(['company', '=', filters!['company']]);
+    if (filters?['party']?.isNotEmpty == true) queryFilters.add(['supplier', '=', filters!['party']]);
     if (filters?['from_date']?.isNotEmpty == true) queryFilters.add(['posting_date', '>=', filters!['from_date']]);
     if (filters?['to_date']?.isNotEmpty == true) queryFilters.add(['posting_date', '<=', filters!['to_date']]);
     if (filters?['return'] == 'normal') queryFilters.add(['is_return', '=', 0]);
