@@ -1790,9 +1790,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
       5 => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text('ملخص تقارير تجريبي', style: Theme.of(context).textTheme.titleLarge),
         const SizedBox(height: 8),
-        Card(child: ListTile(leading: const Icon(Icons.trending_up), title: const Text('إجمالي المبيعات التجريبي'), trailing: Text('225,000 YER'))),
-        Card(child: ListTile(leading: const Icon(Icons.account_balance_wallet_outlined), title: const Text('المبالغ المستحقة التجريبية'), trailing: Text('60,000 YER'))),
-        Card(child: ListTile(leading: const Icon(Icons.inventory_2_outlined), title: const Text('قيمة المخزون التجريبية'), trailing: Text('443,000 YER'))),
+        const Card(child: ListTile(leading: Icon(Icons.trending_up), title: Text('إجمالي المبيعات التجريبي'), trailing: Text('225,000 YER'))),
+        const Card(child: ListTile(leading: Icon(Icons.account_balance_wallet_outlined), title: Text('المبالغ المستحقة التجريبية'), trailing: Text('60,000 YER'))),
+        const Card(child: ListTile(leading: Icon(Icons.inventory_2_outlined), title: Text('قيمة المخزون التجريبية'), trailing: Text('443,000 YER'))),
       ]),
       _ => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Text('لوحة تحكم تجريبية', style: Theme.of(context).textTheme.titleLarge),
@@ -1804,7 +1804,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
           CountCard(label: 'فواتير الشراء', count: _purchaseInvoices.length, icon: Icons.shopping_cart_outlined),
         ]),
         const SizedBox(height: 12),
-        Card(child: ListTile(leading: const Icon(Icons.business_outlined), title: const Text('شركة العرض التجريبي'), subtitle: const Text('العملة: YER'))),
+        const Card(child: ListTile(leading: Icon(Icons.business_outlined), title: Text('شركة العرض التجريبي'), subtitle: Text('العملة: YER'))),
         Card(child: ListTile(leading: const Icon(Icons.people_outline), title: const Text('العملاء والموردون'), subtitle: Text('${_customers.length} عميل • ${_suppliers.length} مورد'))),
       ]),
     };
