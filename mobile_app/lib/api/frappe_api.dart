@@ -1863,6 +1863,20 @@ class FrappeApi {
     if (id.isEmpty || account.isEmpty || normalizedCompany.isEmpty) {
       throw const FormatException('بيانات حركة البنك والشركة غير مكتملة.');
     }
+    String? normalizeDate(String? raw, String label) {
+      final value = raw?.trim() ?? '';
+      if (value.isEmpty) return null;
+      final parsed = DateTime.tryParse(value);
+      if (parsed == null || parsed.toIso8601String().substring(0, 10) != value) {
+        throw FormatException('$label غير صحيح. استخدم YYYY-MM-DD.');
+      }
+      return value;
+    }
+    final from = normalizeDate(fromDate, 'تاريخ البداية');
+    final to = normalizeDate(toDate, 'تاريخ النهاية');
+    if (from != null && to != null && from.compareTo(to) > 0) {
+      throw const FormatException('تاريخ البداية يجب ألا يتجاوز تاريخ النهاية.');
+    }
     final transactionResponse = await _send(
       'GET', '/api/resource/Bank%20Transaction/' + Uri.encodeComponent(id),
     );
@@ -1880,8 +1894,8 @@ class FrappeApi {
         .replace(queryParameters: {
       'bank_transaction_name': id,
       'document_types': jsonEncode(['payment_entry', 'journal_entry', 'sales_invoice', 'purchase_invoice']),
-      if (fromDate?.trim().isNotEmpty == true) 'from_date': fromDate!.trim(),
-      if (toDate?.trim().isNotEmpty == true) 'to_date': toDate!.trim(),
+      if (from != null) 'from_date': from,
+      if (to != null) 'to_date': to,
     });
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);
