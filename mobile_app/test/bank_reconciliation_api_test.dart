@@ -58,6 +58,54 @@ void main() {
       );
     });
 
+    test('rejects unsupported bank statement file types before network access', () async {
+      await expectLater(
+        api.createBankStatementImportPreview(
+          bankAccount: 'BANK-001', company: 'Company A',
+          fileName: 'statement.pdf', fileBytes: const [1, 2, 3],
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('rejects empty bank statement file before network access', () async {
+      await expectLater(
+        api.createBankStatementImportPreview(
+          bankAccount: 'BANK-001', company: 'Company A',
+          fileName: 'statement.csv', fileBytes: const [],
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('rejects reversed customer ledger date range before network access', () async {
+      await expectLater(
+        api.fetchCustomerLedger(
+          customer: 'CUST-001', fromDate: '2026-11-30', toDate: '2026-11-01',
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('rejects reversed supplier ledger date range before network access', () async {
+      await expectLater(
+        api.fetchSupplierLedger(
+          supplier: 'SUP-001', fromDate: '2026-11-30', toDate: '2026-11-01',
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('rejects invalid party ledger totals date range before network access', () async {
+      await expectLater(
+        api.fetchPartyLedgerTotals(
+          partyType: 'Customer', party: 'CUST-001',
+          fromDate: '2026-11-30', toDate: '2026-11-01',
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
     test('requires vouchers before reconciling a bank transaction', () async {
       await expectLater(
         api.reconcileBankTransaction(
