@@ -83,6 +83,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   String? _selectedWarehouse;
   int _selectedTab = 0;
   bool _busy = false;
+  bool _isGuest = false;
   int _loginAttempt = 0;
   String? _error;
   String? _user;
@@ -637,6 +638,68 @@ class _MobileHomePageState extends State<MobileHomePage> {
     }
   }
 
+  void _enterGuestMode() {
+    if (_busy || !mounted) return;
+    setState(() {
+      _isGuest = true;
+      _user = 'ضيف • وضع تجريبي';
+      _selectedTab = 0;
+      _error = null;
+      _companies = const [
+        ErpCompany(name: 'شركة العرض التجريبي', abbr: 'DEMO', defaultCurrency: 'YER'),
+      ];
+      _items = const [
+        ErpItem(code: 'ITEM-001', name: 'صنف تجريبي - هاتف', group: 'إلكترونيات', stockUom: 'قطعة', isStockItem: true),
+        ErpItem(code: 'ITEM-002', name: 'صنف تجريبي - ملحقات', group: 'إكسسوارات', stockUom: 'قطعة', isStockItem: true, hasBatchNo: true),
+        ErpItem(code: 'ITEM-003', name: 'صنف تجريبي - جهاز', group: 'أجهزة', stockUom: 'قطعة', isStockItem: true, hasSerialNo: true),
+      ];
+      _warehouses = const [
+        ErpWarehouse(id: 'المستودع الرئيسي - DEMO', name: 'المستودع الرئيسي', company: 'شركة العرض التجريبي'),
+        ErpWarehouse(id: 'مستودع الفرع - DEMO', name: 'مستودع الفرع', company: 'شركة العرض التجريبي'),
+      ];
+      _stockBalances = const [
+        ErpStockBalance(itemCode: 'ITEM-001', warehouse: 'المستودع الرئيسي - DEMO', actualQty: 24, reservedQty: 4, projectedQty: 20, stockUom: 'قطعة', valuationRate: 12000, stockValue: 288000),
+        ErpStockBalance(itemCode: 'ITEM-002', warehouse: 'المستودع الرئيسي - DEMO', actualQty: 8, reservedQty: 2, projectedQty: 6, stockUom: 'قطعة', valuationRate: 2500, stockValue: 20000),
+        ErpStockBalance(itemCode: 'ITEM-003', warehouse: 'مستودع الفرع - DEMO', actualQty: 3, reservedQty: 0, projectedQty: 3, stockUom: 'قطعة', valuationRate: 45000, stockValue: 135000),
+      ];
+      _customers = const [
+        ErpCustomer(id: 'CUS-DEMO-001', name: 'عميل تجريبي', type: 'Company', group: 'تجاري', territory: 'اليمن'),
+      ];
+      _salesInvoices = const [
+        ErpSalesInvoice(id: 'SINV-DEMO-001', customer: 'CUS-DEMO-001', customerName: 'عميل تجريبي', postingDate: '2026-11-01', currency: 'YER', grandTotal: 180000, outstandingAmount: 60000, status: 'غير مدفوعة جزئياً'),
+        ErpSalesInvoice(id: 'SINV-DEMO-002', customer: 'CUS-DEMO-001', customerName: 'عميل تجريبي', postingDate: '2026-11-05', currency: 'YER', grandTotal: 45000, outstandingAmount: 0, status: 'مدفوعة'),
+      ];
+      _suppliers = const [
+        ErpSupplier(id: 'SUP-DEMO-001', name: 'مورد تجريبي', group: 'محلي', type: 'Company'),
+      ];
+      _purchaseInvoices = const [
+        ErpPurchaseInvoice(id: 'PINV-DEMO-001', supplier: 'SUP-DEMO-001', supplierName: 'مورد تجريبي', postingDate: '2026-11-03', currency: 'YER', grandTotal: 95000, outstandingAmount: 35000, status: 'غير مدفوعة جزئياً'),
+      ];
+      _itemsOffset = _items.length;
+      _warehousesOffset = _warehouses.length;
+      _stockOffset = _stockBalances.length;
+      _customersOffset = _customers.length;
+      _salesInvoicesOffset = _salesInvoices.length;
+      _suppliersOffset = _suppliers.length;
+      _purchaseInvoicesOffset = _purchaseInvoices.length;
+      _itemsHasMore = false;
+      _warehousesHasMore = false;
+      _stockHasMore = false;
+      _customersHasMore = false;
+      _salesInvoicesHasMore = false;
+      _suppliersHasMore = false;
+      _purchaseInvoicesHasMore = false;
+      _companyError = null;
+      _inventoryError = null;
+      _salesError = null;
+      _purchaseError = null;
+      _companiesLoading = false;
+      _inventoryLoading = false;
+      _salesLoading = false;
+      _purchaseLoading = false;
+    });
+  }
+
   Future<void> _logout() async {
     _loginAttempt++;
     final logoutRequest = _api.logout();
@@ -646,6 +709,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     }
     setState(() {
       _user = null;
+      _isGuest = false;
       _selectedTab = 0;
       _selectedWarehouse = null;
       _itemSearch = '';
@@ -737,6 +801,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
 
 
   Widget _buildSelectedPage() {
+    if (_isGuest) return _buildGuestPage();
     switch (_selectedTab) {
       case 1: return _buildItemsPage();
       case 2: return _buildStockPage();
@@ -1631,6 +1696,16 @@ class _MobileHomePageState extends State<MobileHomePage> {
                       : const Icon(Icons.login),
                   label: Text(_busy ? 'جارٍ الاتصال بالخادم...' : 'تسجيل الدخول'),
                 ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : _enterGuestMode,
+                  icon: const Icon(Icons.visibility_outlined),
+                  label: const Text('الدخول كضيف • بدون خادم أو حساب'),
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: Text('يفتح بيانات تجريبية محلية للعرض فقط، دون اتصال بالإنترنت أو تنفيذ معاملات.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12)),
+                ),
                 const SizedBox(height: 16),
                 Card(
                   child: Padding(
@@ -1655,6 +1730,109 @@ class _MobileHomePageState extends State<MobileHomePage> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildGuestPage() {
+    final scheme = Theme.of(context).colorScheme;
+    final Widget content = switch (_selectedTab) {
+      1 => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('الأصناف التجريبية', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 8),
+        ..._items.map((item) => Card(child: ListTile(
+          leading: const Icon(Icons.inventory_2_outlined),
+          title: Text(item.name),
+          subtitle: Text('${item.code} • ${item.group} • ${item.stockUom}'),
+          trailing: const Icon(Icons.visibility_outlined),
+        ))),
+      ]),
+      2 => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('أرصدة المخزون التجريبية', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 8),
+        ..._stockBalances.map((balance) => Card(child: ListTile(
+          leading: const Icon(Icons.inventory_outlined),
+          title: Text(balance.itemCode),
+          subtitle: Text('${balance.warehouse}\nمتاح: ${balance.availableQty} • متوقع: ${balance.projectedQty} ${balance.stockUom ?? ''}'),
+          isThreeLine: true,
+          trailing: Text(balance.stockValue?.toStringAsFixed(0) ?? '—'),
+        ))),
+      ]),
+      3 => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('المستودعات التجريبية', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 8),
+        ..._warehouses.map((warehouse) => Card(child: ListTile(
+          leading: const Icon(Icons.warehouse_outlined),
+          title: Text(warehouse.name),
+          subtitle: Text(warehouse.company ?? ''),
+        ))),
+      ]),
+      4 => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('المعاملات التجريبية', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 8),
+        Text('فواتير المبيعات', style: Theme.of(context).textTheme.titleMedium),
+        ..._salesInvoices.map((invoice) => Card(child: ListTile(
+          leading: const Icon(Icons.receipt_long_outlined),
+          title: Text(invoice.id),
+          subtitle: Text('${invoice.customerName} • ${invoice.status} • متبقٍ ${invoice.outstandingAmount.toStringAsFixed(0)} ${invoice.currency}'),
+          trailing: Text(invoice.grandTotal.toStringAsFixed(0)),
+        ))),
+        const SizedBox(height: 12),
+        Text('فواتير المشتريات', style: Theme.of(context).textTheme.titleMedium),
+        ..._purchaseInvoices.map((invoice) => Card(child: ListTile(
+          leading: const Icon(Icons.shopping_cart_outlined),
+          title: Text(invoice.id),
+          subtitle: Text('${invoice.supplierName} • ${invoice.status} • متبقٍ ${invoice.outstandingAmount.toStringAsFixed(0)} ${invoice.currency}'),
+          trailing: Text(invoice.grandTotal.toStringAsFixed(0)),
+        ))),
+        const SizedBox(height: 8),
+        Text('العملاء: ${_customers.length} • الموردون: ${_suppliers.length}'),
+      ]),
+      5 => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('ملخص تقارير تجريبي', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 8),
+        Card(child: ListTile(leading: const Icon(Icons.trending_up), title: const Text('إجمالي المبيعات التجريبي'), trailing: Text('225,000 YER'))),
+        Card(child: ListTile(leading: const Icon(Icons.account_balance_wallet_outlined), title: const Text('المبالغ المستحقة التجريبية'), trailing: Text('60,000 YER'))),
+        Card(child: ListTile(leading: const Icon(Icons.inventory_2_outlined), title: const Text('قيمة المخزون التجريبية'), trailing: Text('443,000 YER'))),
+      ]),
+      _ => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('لوحة تحكم تجريبية', style: Theme.of(context).textTheme.titleLarge),
+        const SizedBox(height: 12),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          CountCard(label: 'الأصناف', count: _items.length, icon: Icons.inventory_2_outlined),
+          CountCard(label: 'المستودعات', count: _warehouses.length, icon: Icons.warehouse_outlined),
+          CountCard(label: 'فواتير البيع', count: _salesInvoices.length, icon: Icons.receipt_long_outlined),
+          CountCard(label: 'فواتير الشراء', count: _purchaseInvoices.length, icon: Icons.shopping_cart_outlined),
+        ]),
+        const SizedBox(height: 12),
+        Card(child: ListTile(leading: const Icon(Icons.business_outlined), title: const Text('شركة العرض التجريبي'), subtitle: const Text('العملة: YER'))),
+        Card(child: ListTile(leading: const Icon(Icons.people_outline), title: const Text('العملاء والموردون'), subtitle: Text('${_customers.length} عميل • ${_suppliers.length} مورد'))),
+      ]),
+    };
+    return ListView(
+      key: const ValueKey('guest-demo'),
+      padding: const EdgeInsets.all(18),
+      children: [
+        Row(children: [
+          const CircleAvatar(child: Icon(Icons.person_outline)),
+          const SizedBox(width: 10),
+          const Expanded(child: Text('وضع الضيف', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
+          IconButton(tooltip: 'الخروج من وضع الضيف', onPressed: _logout, icon: const Icon(Icons.logout)),
+        ]),
+        const SizedBox(height: 12),
+        Card(
+          color: scheme.tertiaryContainer,
+          child: const Padding(
+            padding: EdgeInsets.all(12),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Icon(Icons.info_outline),
+              SizedBox(width: 10),
+              Expanded(child: Text('هذه بيانات تجريبية محلية للعرض فقط. لا يوجد اتصال بخادم ERPNext، ولا تُرسل أو تُحفظ أي معاملات. استخدم تسجيل الدخول للوصول إلى بيانات شركتك الحقيقية.')),
+            ]),
+          ),
+        ),
+        const SizedBox(height: 16),
+        content,
+      ],
     );
   }
 
