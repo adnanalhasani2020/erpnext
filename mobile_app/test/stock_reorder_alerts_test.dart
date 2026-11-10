@@ -59,11 +59,13 @@ void main() {
       expect(alerts, hasLength(2));
       // The most urgent warehouse (lowest projected quantity) is listed first.
       expect(alerts.map((x) => x.itemCode), ['ITEM-ZERO', 'ITEM-LOW']);
-      expect(alerts.first.actualQty, 3);
-      expect(alerts.first.projectedQty, 7);
-      expect(alerts.first.reorderLevel, 10);
-      expect(alerts.last.actualQty, 0);
-      expect(alerts.last.projectedQty, 0);
+      // The missing Bin row is treated as zero stock and ranks first.
+      expect(alerts.first.actualQty, 0);
+      expect(alerts.first.projectedQty, 0);
+      expect(alerts.first.reorderLevel, 2);
+      expect(alerts.last.actualQty, 3);
+      expect(alerts.last.projectedQty, 7);
+      expect(alerts.last.reorderLevel, 10);
       expect(requests, contains('/api/resource/Item%20Reorder'));
       expect(requests, contains('/api/resource/Bin'));
     } finally {

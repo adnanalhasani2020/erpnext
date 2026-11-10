@@ -1,3 +1,5 @@
+import 'dart:core';
+import 'dart:core' as core;
 import 'dart:convert';
 import 'dart:io';
 
@@ -186,7 +188,7 @@ void main() {
           'doctype': 'Stock Entry', 'name': 'STE-1', 'docstatus': 0,
         }}));
       } else {
-        final body = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+        final body = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
         expect(body['doc']['name'], 'STE-1');
         request.response.write(jsonEncode({'message': {
           'doctype': 'Stock Entry', 'name': 'STE-1', 'docstatus': 1,
@@ -271,7 +273,7 @@ void main() {
   test('purchase invoice API accepts multiple validated item rows', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) async {
-      final payload = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+      final payload = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
       expect((payload['items'] as List).length, 2);
       request.response.headers.contentType = ContentType.json;
       request.response.write(jsonEncode({'data': {
@@ -298,7 +300,7 @@ void main() {
   test('purchase receipt API accepts multiple item rows with warehouse per row', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) async {
-      final payload = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+      final payload = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
       final rows = payload['items'] as List;
       expect(rows.length, 2);
       expect(rows.every((row) => row['warehouse'] == 'WH-1'), isTrue);
@@ -327,8 +329,8 @@ void main() {
   test('material receipt maps entered valuation rate to ERPNext basic_rate', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) async {
-      final payload = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
-      final row = (payload['items'] as List).single as Map<String, dynamic>;
+      final payload = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
+      final row = (payload['items'] as List).single as core.Map<String, dynamic>;
       expect(row['basic_rate'], 12.5);
       expect(row.containsKey('valuation_rate'), isFalse);
       expect(row['t_warehouse'], 'WH-RECEIVE');
@@ -370,8 +372,8 @@ void main() {
           'items': [{'item_code': 'ITEM-1', 'qty': -5, 'purchase_invoice_item': 'PINV-ITEM-1'}],
         }}));
       } else if (request.method == 'POST' && request.uri.pathSegments.contains('Purchase Invoice') && request.uri.pathSegments.length == 3) {
-        final payload = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
-        final row = (payload['items'] as List).single as Map<String, dynamic>;
+        final payload = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
+        final row = (payload['items'] as List).single as core.Map<String, dynamic>;
         expect(row['qty'], -2.0);
         expect(row['purchase_invoice_item'], 'PINV-ITEM-1');
         request.response.write(jsonEncode({'data': {
@@ -431,7 +433,7 @@ void main() {
   test('stock entry API accepts multiple transfer rows with source and target warehouses', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) async {
-      final payload = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+      final payload = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
       final rows = payload['items'] as List;
       expect(rows.length, 2);
       expect(rows.every((row) => row['s_warehouse'] == 'WH-FROM'), isTrue);
@@ -464,7 +466,7 @@ void main() {
   test('stock reconciliation API accepts multiple distinct items including zero count', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) async {
-      final payload = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+      final payload = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
       final rows = payload['items'] as List;
       expect(rows.length, 2);
       expect(rows.any((row) => row['item_code'] == 'ITEM-1' && row['qty'] == 0), isTrue);
@@ -552,8 +554,8 @@ void main() {
   test('purchase receipt preserves purchase order and source item references', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) async {
-      final payload = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
-      final row = (payload['items'] as List).single as Map<String, dynamic>;
+      final payload = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
+      final row = (payload['items'] as List).single as core.Map<String, dynamic>;
       expect(row['purchase_order'], 'PO-1');
       expect(row['purchase_order_item'], 'PO-ITEM-1');
       request.response.headers.contentType = ContentType.json;
@@ -665,7 +667,7 @@ void main() {
           'party': 'SUP-1', 'references': [],
         }}));
       } else if (request.method == 'POST' && request.uri.path.endsWith('get_payment_entry')) {
-        final payload = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+        final payload = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
         expect(payload['dt'], 'Purchase Invoice');
         expect(payload['dn'], 'PINV-1');
         expect(payload['party_amount'], 40.0);
@@ -767,8 +769,8 @@ void main() {
           'items': [{'name': 'OLD-ROW', 'item_code': 'OLD', 'qty': 1, 'rate': 1}],
         }}));
       } else if (request.method == 'POST' && request.uri.path.endsWith('frappe.client.save')) {
-        final body = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
-        final doc = body['doc'] as Map<String, dynamic>;
+        final body = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
+        final doc = body['doc'] as core.Map<String, dynamic>;
         expect(doc['name'], 'PINV-DRAFT');
         expect(doc['docstatus'], 0);
         expect(doc['taxes_and_charges'], 'VAT-15');
@@ -810,7 +812,7 @@ void main() {
         }}));
       } else if (request.method == 'POST' && request.uri.path.endsWith('frappe.client.cancel')) {
         cancelRequests++;
-        final payload = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+        final payload = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
         expect(payload['doctype'], 'Purchase Invoice');
         expect(payload['name'], 'PINV-1');
         request.response.write(jsonEncode({'message': {
@@ -1057,7 +1059,7 @@ void main() {
           'doctype': 'Purchase Invoice', 'name': 'PINV-DRAFT', 'docstatus': 0,
         }}));
       } else if (request.method == 'POST' && request.uri.path.endsWith('frappe.client.delete')) {
-        final body = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+        final body = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
         expect(body, {'doctype': 'Purchase Invoice', 'name': 'PINV-DRAFT'});
         deleted = true;
         request.response.write(jsonEncode({'message': 'Successfully deleted'}));
@@ -1368,7 +1370,7 @@ void main() {
     server.listen((request) async {
       request.response.headers.contentType = ContentType.json;
       if (request.method == 'POST' && request.uri.pathSegments.contains('Purchase Order')) {
-        final payload = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+        final payload = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
         expect(payload['doctype'], 'Purchase Order');
         expect(payload['supplier'], 'SUP-1');
         expect(payload['company'], 'COMP-1');

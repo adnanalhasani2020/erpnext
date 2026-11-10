@@ -1,3 +1,5 @@
+import 'dart:core';
+import 'dart:core' as core;
 import 'dart:convert';
 import 'dart:io';
 
@@ -13,10 +15,10 @@ void main() {
     server.listen((request) async {
       expect(request.method, 'POST');
       expect(request.uri.pathSegments, ['api', 'method', 'run_doc_method']);
-      final body = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+      final body = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
       final method = body['method'] as String;
       calls.add(method);
-      final document = jsonDecode(body['docs'] as String) as Map<String, dynamic>;
+      final document = jsonDecode(body['docs'] as String) as core.Map<String, dynamic>;
       expect(document['doctype'], 'Payment Reconciliation');
       expect(document['company'], 'COMP-1');
       expect(document['party_type'], 'Customer');
@@ -36,7 +38,7 @@ void main() {
           'currency': 'YER',
         }];
       } else if (method == 'allocate_entries') {
-        final args = body['args'] as Map<String, dynamic>;
+        final args = body['args'] as core.Map<String, dynamic>;
         expect(args['invoices'], isA<List>());
         expect(args['payments'], isA<List>());
         document['allocation'] = [{

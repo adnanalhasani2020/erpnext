@@ -20,6 +20,85 @@ void main() {
     expect(find.text('جارٍ الاتصال بالخادم...'), findsNothing);
   });
 
+  testWidgets('guest mode opens offline with clearly labeled sample data and screen navigation', (tester) async {
+    await tester.pumpWidget(const ErpNextMobileApp());
+
+    await tester.tap(find.text('الدخول كضيف دون خادم أو حساب'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('وضع الضيف المحلي — بيانات تجريبية فقط'), findsOneWidget);
+    expect(find.text('شركة العرض التجريبي'), findsWidgets);
+
+    await tester.tap(find.descendant(
+      of: find.byType(NavigationBar),
+      matching: find.text('الأصناف'),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('هاتف ذكي - عينة'), findsOneWidget);
+    expect(find.textContaining('DEMO-001'), findsOneWidget);
+
+    await tester.tap(find.descendant(
+      of: find.byType(NavigationBar),
+      matching: find.text('المعاملات'),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.scrollUntilVisible(
+      find.text('DEMO-SINV-001'),
+      400,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('DEMO-SINV-001'), findsOneWidget);
+    await tester.scrollUntilVisible(
+      find.text('مورد تجريبي للإلكترونيات'),
+      400,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('مورد تجريبي للإلكترونيات'), findsOneWidget);
+  });
+
+  testWidgets('guest reports stay local and server-only workflows are disabled', (tester) async {
+    await tester.pumpWidget(const ErpNextMobileApp());
+    await tester.tap(find.text('الدخول كضيف دون خادم أو حساب'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.descendant(
+      of: find.byType(NavigationBar),
+      matching: find.text('التقارير'),
+    ));
+    await tester.pumpAndSettle();
+    expect(find.text('ملخصات مالية تجريبية محلية'), findsOneWidget);
+    expect(find.textContaining('لا يمثل بيانات محاسبية حقيقية'), findsOneWidget);
+
+    await tester.tap(find.descendant(
+      of: find.byType(NavigationBar),
+      matching: find.text('المعاملات'),
+    ));
+    await tester.pumpAndSettle();
+    final salesWorkflowButton = tester.widget<OutlinedButton>(
+      find.ancestor(
+        of: find.text('دورة المبيعات'),
+        matching: find.byType(OutlinedButton),
+      ),
+    );
+    expect(salesWorkflowButton.onPressed, isNull);
+    expect(find.text('دورة المبيعات'), findsOneWidget);
+  });
+
+  test('guest mode blocks API access locally without attempting a network connection', () async {
+    final api = FrappeApi();
+    api.enableGuestMode();
+    expect(api.isGuestMode, isTrue);
+    await expectLater(
+      api.fetchCompanies(),
+      throwsA(predicate((error) =>
+          error.toString().contains('وضع الضيف المحلي دون خادم'))),
+    );
+    api.dispose();
+  });
+
   testWidgets('login screen can show and hide the password', (tester) async {
     await tester.pumpWidget(const ErpNextMobileApp());
 

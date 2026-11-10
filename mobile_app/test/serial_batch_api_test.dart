@@ -1,3 +1,5 @@
+import 'dart:core';
+import 'dart:core' as core;
 import 'dart:convert';
 import 'dart:io';
 
@@ -44,9 +46,9 @@ void main() {
 
     test('fetches serials with batch restriction and deduplicates the response', () async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
-      Map<String, dynamic>? body;
+      core.Map<String, dynamic>? body;
       server.listen((request) async {
-        body = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+        body = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
         request.response.headers.contentType = ContentType.json;
         request.response.write(jsonEncode({'message': ['SN-1', 'SN-2', 'SN-1', '  ']}));
         await request.response.close();
@@ -68,13 +70,46 @@ void main() {
       }
     });
 
+    test('loads more than 200 serials in separate excluded batches', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final requests = <core.Map<String, dynamic>>[];
+      server.listen((request) async {
+        final body = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
+        requests.add(body);
+        final excluded = body['exclude_sr_nos'] is String
+            ? (jsonDecode(body['exclude_sr_nos'] as String) as List).cast<String>()
+            : <String>[];
+        final rows = excluded.isEmpty
+            ? List.generate(200, (index) => 'SN-${index + 1}')
+            : ['SN-201'];
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(jsonEncode({'message': rows}));
+        await request.response.close();
+      });
+      final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+      try {
+        final serials = await api.fetchAvailableSerialNumbers(
+          itemCode: 'ITEM-LARGE', warehouse: 'WH-LARGE', quantity: 201,
+        );
+        expect(serials, hasLength(201));
+        expect(serials.last, 'SN-201');
+        expect(requests, hasLength(2));
+        expect(requests.first['qty'], 200);
+        expect(requests.last['qty'], 1);
+        expect(jsonDecode(requests.last['exclude_sr_nos'] as String), hasLength(200));
+      } finally {
+        api.dispose();
+        await server.close(force: true);
+      }
+    });
+
     test('rejects invalid lookup arguments without a request', () async {
       final api = FrappeApi();
       await expectLater(api.fetchAvailableSerialNumbers(
         itemCode: 'ITEM-1', warehouse: 'WH-1', quantity: 0,
       ), throwsFormatException);
       await expectLater(api.fetchAvailableSerialNumbers(
-        itemCode: 'ITEM-1', warehouse: 'WH-1', quantity: 201,
+        itemCode: 'ITEM-1', warehouse: 'WH-1', quantity: 5001,
       ), throwsFormatException);
       await expectLater(api.fetchAvailableBatches(
         itemCode: '', warehouse: 'WH-1',

@@ -1,3 +1,5 @@
+import 'dart:core';
+import 'dart:core' as core;
 import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
@@ -13,7 +15,7 @@ class ChartOfAccountsPage extends StatefulWidget {
 class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
   String? company;
   final search = TextEditingController();
-  List<Map<String, dynamic>> rows = [];
+  List<core.Map<String, dynamic>> rows = [];
   bool loading = false, loadingMore = false, hasMore = false;
   int offset = 0;
   String? error;
@@ -50,7 +52,7 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
     }
   }
 
-  void showDetails(Map<String, dynamic> row) {
+  void showDetails(core.Map<String, dynamic> row) {
     showModalBottomSheet<void>(
       context: context, showDragHandle: true, useSafeArea: true,
       builder: (context) => Padding(
@@ -86,12 +88,12 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
         },
       )),
       Padding(padding: const EdgeInsets.fromLTRB(12, 0, 12, 8), child: TextField(
-        controller: search, textInputAction: TextInputAction.search,
+        controller: search, enabled: !loading && !loadingMore, textInputAction: TextInputAction.search,
         onSubmitted: (_) => load(),
         decoration: InputDecoration(
           labelText: 'بحث باسم الحساب أو رمزه أو نوعه',
           prefixIcon: const Icon(Icons.search),
-          suffixIcon: IconButton(onPressed: loading ? null : () => load(), icon: const Icon(Icons.arrow_forward)),
+          suffixIcon: IconButton(onPressed: loading || loadingMore ? null : () => load(), icon: const Icon(Icons.arrow_forward)),
         ),
       )),
       if (loading) const LinearProgressIndicator(),

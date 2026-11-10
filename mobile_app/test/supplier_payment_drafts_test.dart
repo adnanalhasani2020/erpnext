@@ -1,3 +1,5 @@
+import 'dart:core';
+import 'dart:core' as core;
 import 'dart:convert';
 import 'dart:io';
 
@@ -52,8 +54,8 @@ void main() {
         request.response.write(jsonEncode({'data': draft}));
       } else if (request.method == 'POST' &&
           request.uri.pathSegments.length == 4 && request.uri.pathSegments[2] == 'method' && request.uri.pathSegments[3] == 'frappe.client.submit') {
-        final body = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
-        final submittedDoc = body['doc'] as Map<String, dynamic>;
+        final body = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
+        final submittedDoc = body['doc'] as core.Map<String, dynamic>;
         expect(submittedDoc['name'], 'PAY-DRAFT-1');
         expect(submittedDoc['docstatus'], 0);
         request.response.write(jsonEncode({'message': {

@@ -1,18 +1,20 @@
+import 'dart:core';
+import 'dart:core' as core;
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
 import 'models/serial_batch_tracking.dart';
 
-Map<String, dynamic> buildSalesWorkflowLinePayload({
-  required Map<String, dynamic>? sourceRow,
+core.Map<String, dynamic> buildSalesWorkflowLinePayload({
+  required core.Map<String, dynamic>? sourceRow,
   required String itemCode,
   required double quantity,
   required double rate,
   String? warehouse,
   String? deliveryDate,
 }) {
-  final row = Map<String, dynamic>.from(sourceRow ?? const <String, dynamic>{});
+  final row = core.Map<String, dynamic>.from(sourceRow ?? const <String, dynamic>{});
   if (row['item_code'] != null && row['item_code'] != itemCode) {
     for (final field in const [
       'prevdoc_docname', 'prevdoc_doctype', 'quotation', 'quotation_item',
@@ -49,7 +51,7 @@ class SalesWorkflowPage extends StatefulWidget {
   final List<ErpItem> items;
   final List<ErpWarehouse> warehouses;
   final VoidCallback onChanged;
-  final ValueChanged<Map<String, dynamic>> onSalesInvoiceDraftCreated;
+  final ValueChanged<core.Map<String, dynamic>> onSalesInvoiceDraftCreated;
 
   @override
   State<SalesWorkflowPage> createState() => _SalesWorkflowPageState();
@@ -65,7 +67,7 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
   int _loadGeneration = 0;
   String _search = '';
   final _searchController = TextEditingController();
-  List<Map<String, dynamic>> _rows = [];
+  List<core.Map<String, dynamic>> _rows = [];
   String? _error;
 
   String get _doctype => _types[_tab];
@@ -123,7 +125,7 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
     _load(reset: true);
   }
 
-  Future<void> _createOrEdit({Map<String, dynamic>? draft}) async {
+  Future<void> _createOrEdit({core.Map<String, dynamic>? draft}) async {
     if (widget.companies.isEmpty || widget.customers.isEmpty || widget.items.isEmpty) {
       _notice('يلزم تحميل الشركات والعملاء والأصناف أولاً مع توفر صلاحيات القراءة.');
       return;
@@ -147,12 +149,12 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _openDetails(Map<String, dynamic> row) async {
+  Future<void> _openDetails(core.Map<String, dynamic> row) async {
     final name = row['name']?.toString() ?? '';
     if (name.isEmpty) return;
     showModalBottomSheet<void>(
       context: context, isScrollControlled: true, useSafeArea: true,
-      builder: (sheetContext) => FutureBuilder<Map<String, dynamic>>(
+      builder: (sheetContext) => FutureBuilder<core.Map<String, dynamic>>(
         future: widget.api.fetchSalesWorkflowDocument(_doctype, name),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -166,7 +168,7 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
           }
           final doc = snapshot.data!;
           final status = (doc['docstatus'] as num?)?.toInt() ?? 0;
-          final items = doc['items'] is List ? (doc['items'] as List).whereType<Map<String, dynamic>>().toList() : <Map<String, dynamic>>[];
+          final items = doc['items'] is List ? (doc['items'] as List).whereType<core.Map<String, dynamic>>().toList() : <core.Map<String, dynamic>>[];
           final total = double.tryParse(doc['grand_total']?.toString() ?? '') ?? 0;
           final currency = doc['currency']?.toString() ?? '';
           return Padding(
@@ -250,9 +252,9 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
   }
 
 
-  Future<bool?> _assignDeliveryNoteTracking(Map<String, dynamic> document) async {
+  Future<bool?> _assignDeliveryNoteTracking(core.Map<String, dynamic> document) async {
     final rows = (document['items'] as List? ?? [])
-        .whereType<Map<String, dynamic>>()
+        .whereType<core.Map<String, dynamic>>()
         .where((row) {
           final item = _firstOrNull(widget.items.where((x) => x.code == row['item_code']));
           return item?.hasSerialNo == true || item?.hasBatchNo == true;
@@ -261,7 +263,7 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
       _notice('لا توجد بنود تتطلب أرقاماً تسلسلية أو دفعات.');
       return false;
     }
-    final controllers = <String, Map<String, TextEditingController>>{};
+    final controllers = <String, core.Map<String, TextEditingController>>{};
     for (final row in rows) {
       final key = row['name'].toString();
       controllers[key] = {
@@ -270,7 +272,7 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
       };
     }
     try {
-      final tracking = await showDialog<List<Map<String, dynamic>>>(
+      final tracking = await showDialog<List<core.Map<String, dynamic>>>(
         context: context,
         builder: (dialogContext) => StatefulBuilder(builder: (context, refresh) => AlertDialog(
           title: const Text('تخصيص أرقام إذن التسليم'),
@@ -324,7 +326,7 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
           actions: [
             TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
             FilledButton(onPressed: () {
-              final result = <Map<String, dynamic>>[];
+              final result = <core.Map<String, dynamic>>[];
               try {
                 for (final row in rows) {
                   final item = widget.items.firstWhere((x) => x.code == row['item_code']);
@@ -468,7 +470,7 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
 
 class _SalesLineDraft {
   ErpItem? item;
-  Map<String, dynamic>? sourceRow;
+  core.Map<String, dynamic>? sourceRow;
   ErpWarehouse? warehouse;
   final qty = TextEditingController(text: '1');
   final rate = TextEditingController(text: '0');
@@ -487,7 +489,7 @@ class _SalesDraftEditor extends StatefulWidget {
   final List<ErpCustomer> customers;
   final List<ErpItem> items;
   final List<ErpWarehouse> warehouses;
-  final Map<String, dynamic>? initialDraft;
+  final core.Map<String, dynamic>? initialDraft;
 
   @override
   State<_SalesDraftEditor> createState() => _SalesDraftEditorState();
@@ -527,8 +529,8 @@ class _SalesDraftEditorState extends State<_SalesDraftEditor> {
     }
     final rawItems = draft?['items'];
     if (rawItems is List) {
-      for (final raw in rawItems.whereType<Map<String, dynamic>>()) {
-        final line = _SalesLineDraft()..sourceRow = Map<String, dynamic>.from(raw);
+      for (final raw in rawItems.whereType<core.Map<String, dynamic>>()) {
+        final line = _SalesLineDraft()..sourceRow = core.Map<String, dynamic>.from(raw);
         final code = raw['item_code']?.toString();
         line.item = _firstOrNull(_availableItems.where((x) => x.code == code));
         if (line.item == null && code != null) {
