@@ -20,6 +20,22 @@ void main() {
     expect(find.text('جارٍ الاتصال بالخادم...'), findsNothing);
   });
 
+  testWidgets('guest mode opens local demo data without requiring a server', (tester) async {
+    await tester.pumpWidget(const ErpNextMobileApp());
+
+    await tester.tap(find.text('الدخول كضيف • بدون خادم أو حساب'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('وضع الضيف'), findsOneWidget);
+    expect(find.textContaining('لا يوجد اتصال بخادم ERPNext'), findsOneWidget);
+    expect(find.text('شركة العرض التجريبي'), findsOneWidget);
+
+    await tester.tap(find.text('الأصناف'));
+    await tester.pumpAndSettle();
+    expect(find.text('الأصناف التجريبية'), findsOneWidget);
+    expect(find.text('صنف تجريبي - هاتف'), findsOneWidget);
+  });
+
   testWidgets('login screen can show and hide the password', (tester) async {
     await tester.pumpWidget(const ErpNextMobileApp());
 
