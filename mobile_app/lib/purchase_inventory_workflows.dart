@@ -452,6 +452,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
         'source': source == null ? null : Map<String, dynamic>.from(source),
         'qty': TextEditingController(text: (source?['qty'] ?? 1).toString()),
         'rate': TextEditingController(text: (source?['rate'] ?? 0).toString()),
+        'discount_percentage': TextEditingController(text: (source?['discount_percentage'] ?? 0).toString()),
+        'discount_amount': TextEditingController(text: (source?['discount_amount'] ?? 0).toString()),
         'serial_no': TextEditingController(text: source?['serial_no']?.toString() ?? ''),
         'batch_no': TextEditingController(text: source?['batch_no']?.toString() ?? ''),
         'expiry_date': TextEditingController(text: source?['expiry_date']?.toString() ?? ''),
@@ -526,6 +528,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                           final removed = lineRows.removeAt(index);
                           (removed['qty'] as TextEditingController).dispose();
                           (removed['rate'] as TextEditingController).dispose();
+                          (removed['discount_percentage'] as TextEditingController).dispose();
+                          (removed['discount_amount'] as TextEditingController).dispose();
                           (removed['serial_no'] as TextEditingController).dispose();
                           (removed['batch_no'] as TextEditingController).dispose();
                           (removed['expiry_date'] as TextEditingController).dispose();
@@ -555,6 +559,11 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                       Expanded(child: _field(row['qty'] as TextEditingController, 'الكمية', number: true)),
                       const SizedBox(width: 8),
                       Expanded(child: _field(row['rate'] as TextEditingController, 'سعر الوحدة', number: true)),
+                    ]),
+                    Row(children: [
+                      Expanded(child: _field(row['discount_percentage'] as TextEditingController, 'خصم البند (%)', number: true)),
+                      const SizedBox(width: 8),
+                      Expanded(child: _field(row['discount_amount'] as TextEditingController, 'خصم البند (مبلغ)', number: true)),
                     ]),
                     if (item?.hasSerialNo == true)
                       TextField(controller: row['serial_no'] as TextEditingController, minLines: 2, maxLines: 4,
@@ -635,8 +644,16 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                     return;
                   }
                   final selectedItem = matchingItems.first;
+                  final lineDiscountPercent = double.tryParse((row['discount_percentage'] as TextEditingController).text.trim()) ?? 0;
+                  final lineDiscountAmount = double.tryParse((row['discount_amount'] as TextEditingController).text.trim()) ?? 0;
                   if (code.isEmpty || qty == null || !qty.isFinite || qty <= 0 ||
-                      rate == null || !rate.isFinite || rate < 0) return;
+                      rate == null || !rate.isFinite || rate < 0 ||
+                      !lineDiscountPercent.isFinite || lineDiscountPercent < 0 || lineDiscountPercent > 100 ||
+                      !lineDiscountAmount.isFinite || lineDiscountAmount < 0 ||
+                      (lineDiscountPercent > 0 && lineDiscountAmount > 0)) {
+                    notice('تحقق من كمية وسعر وخصم الصنف $code. استخدم خصماً ثابتاً أو نسبة فقط، والنسبة حتى 100%.');
+                    return;
+                  }
                   final itemRow = row['source'] is Map<String, dynamic>
                       ? Map<String, dynamic>.from(row['source'] as Map<String, dynamic>)
                       : <String, dynamic>{};
@@ -648,6 +665,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                   itemRow['item_code'] = code;
                   itemRow['qty'] = qty;
                   itemRow['rate'] = rate;
+                  itemRow['discount_percentage'] = lineDiscountPercent;
+                  itemRow['discount_amount'] = lineDiscountAmount;
                   try {
                     if (!updateStock.value) {
                       for (final field in const [
@@ -728,6 +747,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       for (final row in lineRows) {
         (row['qty'] as TextEditingController).dispose();
         (row['rate'] as TextEditingController).dispose();
+        (row['discount_percentage'] as TextEditingController).dispose();
+        (row['discount_amount'] as TextEditingController).dispose();
         (row['serial_no'] as TextEditingController).dispose();
         (row['batch_no'] as TextEditingController).dispose();
         (row['expiry_date'] as TextEditingController).dispose();
