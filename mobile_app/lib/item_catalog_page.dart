@@ -340,9 +340,9 @@ class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
   static const fields={
     'item_code':'رمز الصنف','item_name':'اسم الصنف','item_group':'مجموعة الأصناف','stock_uom':'وحدة المخزون',
     'brand':'العلامة التجارية','description':'الوصف','image':'رابط/مسار الصورة','country_of_origin':'بلد المنشأ',
-    'manufacturer':'الشركة المصنعة','manufacturer_part_no':'رقم قطعة الشركة المصنعة','weight_per_unit':'وزن الوحدة',
+    'default_item_manufacturer':'المصنع الافتراضي','default_manufacturer_part_no':'رقم قطعة المصنع','weight_per_unit':'وزن الوحدة',
     'weight_uom':'وحدة الوزن','end_of_life':'تاريخ نهاية الصلاحية','shelf_life_in_days':'مدة الصلاحية بالأيام',
-    'default_warehouse':'المستودع الافتراضي','default_supplier':'المورد الافتراضي','valuation_method':'طريقة التقييم',
+    'default_material_request_type':'نوع طلب المواد الافتراضي','valuation_method':'طريقة التقييم',
     'standard_rate':'السعر القياسي',
   };
   @override
@@ -433,11 +433,10 @@ class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
         Text(_editing?'تعديل الصنف':'إضافة صنف',style:Theme.of(context).textTheme.titleLarge),
         if(_error!=null)Text(_error!,style:TextStyle(color:Theme.of(context).colorScheme.error)),
         ...fields.entries.map((e)=>Padding(padding:const EdgeInsets.only(bottom:9),child:TextFormField(
-          controller:_c[e.key],readOnly:(_editing&&e.key=='item_code')||const {'item_group','stock_uom','weight_uom','default_warehouse','default_supplier'}.contains(e.key),
-          onTap:const {'item_group','stock_uom','weight_uom','default_warehouse','default_supplier'}.contains(e.key)?(){
+          controller:_c[e.key],readOnly:(_editing&&e.key=='item_code')||const {'item_group','stock_uom','weight_uom','default_item_manufacturer'}.contains(e.key),
+          onTap:const {'item_group','stock_uom','weight_uom','default_item_manufacturer'}.contains(e.key)?(){
             final refs={'item_group':('مجموعة الأصناف','Item Group'),'stock_uom':('وحدة المخزون','UOM'),
-              'weight_uom':('وحدة الوزن','UOM'),'default_warehouse':('المستودع الافتراضي','Warehouse'),
-              'default_supplier':('المورد الافتراضي','Supplier')};
+              'weight_uom':('وحدة الوزن','UOM'),'default_item_manufacturer':('المصنع الافتراضي','Item Manufacturer')};
             final ref=refs[e.key]!;
             _chooseReference(e.key,ref.$1,ref.$2);
           }:null,
