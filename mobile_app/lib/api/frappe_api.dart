@@ -5952,7 +5952,9 @@ class _ApiResponse {
       throw Exception(_message(data, 'رفض ERPNext بدء استيراد كشف البنك.'));
     }
     final job = data['message'];
-    if (job is! String || job.isEmpty) throw const FormatException('لم يؤكد ERPNext جدولة مهمة استيراد كشف البنك.');
+    if (job != null && (job is! String || job.isEmpty)) {
+      throw const FormatException('أعاد ERPNext معرف مهمة استيراد غير صالح.');
+    }
     return {'name': id, 'job_id': job, 'status': 'Queued'};
   }
 
