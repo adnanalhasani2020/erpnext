@@ -60,6 +60,8 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
     final company = _company;
     if (company == null || company.isEmpty) return;
     final generation = ++_accountGeneration;
+    // Invalidate any transaction request from the previously selected account.
+    ++_generation;
     setState(() {
       _loadingAccounts = true;
       _loadingTransactions = false;
@@ -84,7 +86,7 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
         setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
       }
     } finally {
-      if (mounted && generation == _generation) {
+      if (mounted && generation == _accountGeneration) {
         setState(() => _loadingAccounts = false);
       }
     }
