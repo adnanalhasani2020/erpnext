@@ -78,7 +78,7 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
     return ClipRRect(borderRadius: BorderRadius.circular(9), child: Container(
       width: size, height: size, color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: url == null ? const Icon(Icons.inventory_2_outlined, size: 30)
-          : Image.network(url, headers: widget.api.imageRequestHeaders, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined)),
+          : Image.network(url, headers: widget.api.imageRequestHeadersFor(url), fit: BoxFit.cover, errorBuilder: (_, __, ___) => const Icon(Icons.broken_image_outlined)),
     ));
   }
 
@@ -299,7 +299,7 @@ class _ItemCatalogDetailsSheetState extends State<ItemCatalogDetailsSheet> {
       return ListView(padding:const EdgeInsets.all(16),children:[
         Row(children:[
           image.isEmpty?const SizedBox(width:100,height:100,child:Icon(Icons.inventory_2_outlined,size:48)):
-            ClipRRect(borderRadius:BorderRadius.circular(10),child:Image.network(_img(image),headers:widget.api.imageRequestHeaders,width:100,height:100,fit:BoxFit.cover,
+            ClipRRect(borderRadius:BorderRadius.circular(10),child:Image.network(_img(image),headers:widget.api.imageRequestHeadersFor(_img(image)),width:100,height:100,fit:BoxFit.cover,
               errorBuilder:(_,__,___)=>const SizedBox(width:100,height:100,child:Icon(Icons.broken_image_outlined)))),
           const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[
             Text(d['item_name']?.toString()??widget.itemCode,style:Theme.of(context).textTheme.titleLarge),
