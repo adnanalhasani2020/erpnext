@@ -5853,6 +5853,7 @@ class _ApiResponse {
       'doctype': 'Bank Statement Import', 'company': cleanCompany,
       'bank_account': account, 'bank': bankAccountDoc['bank'], 'reference_doctype': 'Bank Transaction',
       'import_type': 'Insert New Records', 'submit_after_import': 1, 'mute_emails': 1,
+      'import_mt940_fromat': lowerName.endsWith('.txt') ? 1 : 0,
     });
     final createdData = _decode(createdResponse.body);
     if (createdResponse.statusCode < 200 || createdResponse.statusCode >= 300) {
@@ -5905,9 +5906,21 @@ class _ApiResponse {
     if (attachResponse.statusCode < 200 || attachResponse.statusCode >= 300) {
       throw Exception(_message(attachData, 'تم رفع الملف لكن تعذر ربطه بمستند الاستيراد.'));
     }
+    var effectiveFileUrl = fileUrl;
+    if (lowerName.endsWith('.txt')) {
+      final conversionResponse = await _sendJson('POST',
+        '/api/method/erpnext.accounts.doctype.bank_statement_import.bank_statement_import.convert_mt940_to_csv',
+        {'data_import': importId, 'mt940_file_path': fileUrl});
+      final conversionData = _decode(conversionResponse.body);
+      if (conversionResponse.statusCode < 200 || conversionResponse.statusCode >= 300 ||
+          conversionData['message'] is! String || (conversionData['message'] as String).isEmpty) {
+        throw Exception(_message(conversionData, 'تعذر تحويل ملف MT940 إلى CSV داخل ERPNext.'));
+      }
+      effectiveFileUrl = conversionData['message'] as String;
+    }
     final previewResponse = await _sendJson('POST',
       '/api/method/erpnext.accounts.doctype.bank_statement_import.bank_statement_import.get_preview_from_template',
-      {'data_import': importId, 'import_file': fileUrl});
+      {'data_import': importId, 'import_file': effectiveFileUrl});
     final previewData = _decode(previewResponse.body);
     if (previewResponse.statusCode < 200 || previewResponse.statusCode >= 300) {
       throw Exception(_message(previewData, 'رفع الملف ناجح، لكن ERPNext لم يتمكن من قراءة المعاينة. راجع إعداد مطابقة أعمدة البنك.'));
@@ -5923,7 +5936,7 @@ class _ApiResponse {
     if (!columnNames.contains('bank account') && !columnNames.contains('bank_account')) {
       throw const FormatException('الملف لا يحتوي عمود Bank Account؛ لم يبدأ الاستيراد.');
     }
-    return {'name': importId, 'file_url': fileUrl, 'preview': preview,
+    return {'name': importId, 'file_url': effectiveFileUrl, 'preview': preview,
       'warnings': preview['warnings'] is List ? preview['warnings'] : const [],
       'columns': columnNames};
   }
