@@ -31,15 +31,15 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
   void dispose() { _search.dispose(); super.dispose(); }
 
   Future<void> _loadFilters() async {
-    try {
-      final groups = await widget.api.fetchMasterDataRows(doctype: 'Item Group');
-      final brands = await widget.api.fetchItemBrands();
-      if (!mounted) return;
-      setState(() {
-        _groups = groups.map((e) => e['name']?.toString() ?? '').where((e) => e.isNotEmpty).toList();
-        _brands = brands;
-      });
-    } catch (_) {}
+    List<Map<String, dynamic>> groups = [];
+    List<String> brands = [];
+    try { groups = await widget.api.fetchMasterDataRows(doctype: 'Item Group'); } catch (_) {}
+    try { brands = await widget.api.fetchItemBrands(); } catch (_) {}
+    if (!mounted) return;
+    setState(() {
+      _groups = groups.map((e) => e['name']?.toString() ?? '').where((e) => e.isNotEmpty).toList();
+      _brands = brands;
+    });
   }
 
   Future<void> _load({bool more = false}) async {
@@ -183,7 +183,9 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
   }
 
   @override
-  Widget build(BuildContext context) => Scaffold(
+  Widget build(BuildContext context) => Directionality(
+    textDirection: TextDirection.rtl,
+    child: Scaffold(
     appBar: AppBar(title: const Text('دليل الأصناف'), actions: [
       IconButton(tooltip:'مسح باركود', onPressed:_loading?null:_scan, icon:const Icon(Icons.qr_code_scanner)),
       IconButton(tooltip:'تصدير Excel', onPressed:_loading?null:_export, icon:const Icon(Icons.file_download_outlined)),
@@ -245,7 +247,7 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
       if(_hasMore||_more) Padding(padding:const EdgeInsets.all(10),child:OutlinedButton.icon(
         onPressed:_more?null:()=>_load(more:true),icon:const Icon(Icons.expand_more),label:Text(_more?'جارٍ التحميل...':'تحميل المزيد'))),
     ]),
-  );
+  ));
 }
 
 class ItemCatalogDetailsSheet extends StatefulWidget {
@@ -286,9 +288,9 @@ class _ItemCatalogDetailsSheetState extends State<ItemCatalogDetailsSheet> {
       const labels={
         'رمز الصنف':'item_code','الاسم':'item_name','المجموعة':'item_group','العلامة التجارية':'brand',
         'الوصف':'description','وحدة المخزون':'stock_uom','بلد المنشأ':'country_of_origin',
-        'الشركة المصنعة':'manufacturer','رقم القطعة':'manufacturer_part_no','وزن الوحدة':'weight_per_unit',
+        'المصنع الافتراضي':'default_item_manufacturer','رقم القطعة':'default_manufacturer_part_no','وزن الوحدة':'weight_per_unit',
         'وحدة الوزن':'weight_uom','نهاية الصلاحية':'end_of_life','مدة الصلاحية':'shelf_life_in_days',
-        'المستودع الافتراضي':'default_warehouse','المورد الافتراضي':'default_supplier',
+        'نوع طلب المواد الافتراضي':'default_material_request_type',
         'طريقة التقييم':'valuation_method','السعر القياسي':'standard_rate','صنف مخزني':'is_stock_item',
         'صنف بيع':'is_sales_item','صنف شراء':'is_purchase_item','تتبع تسلسلي':'has_serial_no',
         'تتبع دفعات':'has_batch_no','يتطلب انتهاء':'has_expiry_date','معطل':'disabled',
@@ -470,12 +472,12 @@ class _BarcodeScannerPage extends StatefulWidget {
 class _BarcodeScannerPageState extends State<_BarcodeScannerPage> {
   bool _handled=false;
   @override
-  Widget build(BuildContext context)=>Scaffold(appBar:AppBar(title:const Text('مسح باركود الصنف')),
+  Widget build(BuildContext context)=>Directionality(textDirection:TextDirection.rtl,child:Scaffold(appBar:AppBar(title:const Text('مسح باركود الصنف')),
     body:MobileScanner(onDetect:(capture){
       if(_handled)return;
       for(final code in capture.barcodes){
         final value=code.rawValue?.trim()??'';
         if(value.isNotEmpty){_handled=true;Navigator.pop(context,value);break;}
       }
-    },errorBuilder:(context,error)=>Center(child:Text('تعذر تشغيل الكاميرا: ${error.errorCode.name}'))));
+    },errorBuilder:(context,error)=>Center(child:Text('تعذر تشغيل الكاميرا: ${error.errorCode.name}')))));
 }
