@@ -116,6 +116,14 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
   late final List<ErpWarehouse> _availableWarehouses;
   Map<String, dynamic>? _existingDraft;
   String? _postingDate;
+  final _dueDateController = TextEditingController();
+  final _discountAmountController = TextEditingController();
+  final _discountPercentController = TextEditingController();
+  final _taxTemplateController = TextEditingController();
+  final _paymentTermsController = TextEditingController();
+  final _customerPoController = TextEditingController();
+  final _customerPoDateController = TextEditingController();
+  String _applyDiscountOn = 'Grand Total';
   ErpCustomer? _customer;
   ErpCompany? _company;
   bool _updateStock = true;
@@ -140,6 +148,14 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
         : Map<String, dynamic>.from(widget.initialDraft!);
     _postingDate = _existingDraft?['posting_date']?.toString();
     if (_postingDate == null || _postingDate!.isEmpty) _postingDate = _today();
+    _dueDateController.text = _existingDraft?['due_date']?.toString() ?? '';
+    _discountAmountController.text = _existingDraft?['discount_amount']?.toString() ?? '';
+    _discountPercentController.text = _existingDraft?['additional_discount_percentage']?.toString() ?? '';
+    _taxTemplateController.text = _existingDraft?['taxes_and_charges']?.toString() ?? '';
+    _paymentTermsController.text = _existingDraft?['payment_terms_template']?.toString() ?? '';
+    _customerPoController.text = _existingDraft?['po_no']?.toString() ?? '';
+    _customerPoDateController.text = _existingDraft?['po_date']?.toString() ?? '';
+    _applyDiscountOn = _existingDraft?['apply_discount_on']?.toString() ?? 'Grand Total';
 
     if (_existingDraft == null) {
       if (widget.customers.length == 1) _customer = widget.customers.first;
@@ -230,9 +246,14 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
 
   @override
   void dispose() {
-    for (final line in _lines) {
-      line.dispose();
-    }
+    for (final line in _lines) { line.dispose(); }
+    _dueDateController.dispose();
+    _discountAmountController.dispose();
+    _discountPercentController.dispose();
+    _taxTemplateController.dispose();
+    _paymentTermsController.dispose();
+    _customerPoController.dispose();
+    _customerPoDateController.dispose();
     super.dispose();
   }
 
@@ -432,6 +453,14 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
         return;
       }
     }
+    final discountAmount = double.tryParse(_discountAmountController.text.trim()) ?? 0;
+    final discountPercent = double.tryParse(_discountPercentController.text.trim()) ?? 0;
+    if (!discountAmount.isFinite || discountAmount < 0 ||
+        !discountPercent.isFinite || discountPercent < 0 || discountPercent > 100 ||
+        (discountAmount > 0 && discountPercent > 0)) {
+      setState(() => _error = 'أدخل خصماً ثابتاً أو نسبة خصم فقط، ولا تجمع بينهما. النسبة من 0 إلى 100%.');
+      return;
+    }
     if (_lines.any((line) => !line.total.isFinite)) {
       setState(() => _error = 'إجمالي أحد البنود تجاوز النطاق الرقمي المسموح؛ راجع الكمية والسعر.');
       return;
@@ -464,6 +493,14 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
           'company': _company!.name,
           'posting_date': _postingDate ?? _today(),
           'update_stock': _updateStock ? 1 : 0,
+          if (_dueDateController.text.trim().isNotEmpty) 'due_date': _dueDateController.text.trim(),
+          if (discountAmount > 0) 'discount_amount': discountAmount,
+          if (discountPercent > 0) 'additional_discount_percentage': discountPercent,
+          if (discountAmount > 0 || discountPercent > 0) 'apply_discount_on': _applyDiscountOn,
+          if (_taxTemplateController.text.trim().isNotEmpty) 'taxes_and_charges': _taxTemplateController.text.trim(),
+          if (_paymentTermsController.text.trim().isNotEmpty) 'payment_terms_template': _paymentTermsController.text.trim(),
+          if (_customerPoController.text.trim().isNotEmpty) 'po_no': _customerPoController.text.trim(),
+          if (_customerPoDateController.text.trim().isNotEmpty) 'po_date': _customerPoDateController.text.trim(),
           if (_salesTeam.isNotEmpty) 'sales_team': _salesTeam.map((row) => Map<String, dynamic>.from(row)).toList(growable: false),
           'items': _lines.map((line) {
             final linePayload = buildSalesInvoiceLinePayload(
@@ -576,6 +613,40 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
                       leading: const Icon(Icons.calendar_today_outlined),
                       title: const Text('تاريخ الفاتورة'),
                       trailing: Text(_postingDate ?? _today()),
+                    ),
+                    ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      title: const Text('الحقول المالية وشروط الفاتورة'),
+                      subtitle: const Text('حقول ERPNext القياسية؛ يتحقق الخادم من القوالب والحسابات والتواريخ.'),
+                      children: [
+                        TextFormField(controller: _dueDateController, enabled: !_saving && _pendingDraft == null,
+                          decoration: const InputDecoration(labelText: 'تاريخ الاستحقاق (YYYY-MM-DD)')),
+                        TextFormField(controller: _taxTemplateController, enabled: !_saving && _pendingDraft == null,
+                          decoration: const InputDecoration(labelText: 'قالب الضرائب والرسوم (اسم ERPNext)')),
+                        TextFormField(controller: _paymentTermsController, enabled: !_saving && _pendingDraft == null,
+                          decoration: const InputDecoration(labelText: 'قالب شروط الدفع (اسم ERPNext)')),
+                        TextFormField(controller: _discountAmountController, enabled: !_saving && _pendingDraft == null,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: const InputDecoration(labelText: 'خصم ثابت على الفاتورة')),
+                        TextFormField(controller: _discountPercentController, enabled: !_saving && _pendingDraft == null,
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          decoration: const InputDecoration(labelText: 'نسبة الخصم الإضافي (%)')),
+                        DropdownButtonFormField<String>(
+                          initialValue: _applyDiscountOn,
+                          decoration: const InputDecoration(labelText: 'تطبيق الخصم على'),
+                          items: const [
+                            DropdownMenuItem(value: 'Grand Total', child: Text('الإجمالي النهائي')),
+                            DropdownMenuItem(value: 'Net Total', child: Text('الإجمالي الصافي')),
+                          ],
+                          onChanged: _saving || _pendingDraft != null ? null : (value) {
+                            if (value != null) setState(() => _applyDiscountOn = value);
+                          },
+                        ),
+                        TextFormField(controller: _customerPoController, enabled: !_saving && _pendingDraft == null,
+                          decoration: const InputDecoration(labelText: 'رقم أمر شراء العميل (PO No)')),
+                        TextFormField(controller: _customerPoDateController, enabled: !_saving && _pendingDraft == null,
+                          decoration: const InputDecoration(labelText: 'تاريخ أمر شراء العميل (YYYY-MM-DD)')),
+                      ],
                     ),
                     const Divider(),
                     Row(
