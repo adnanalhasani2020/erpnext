@@ -13,7 +13,6 @@ import 'sales_commission_page.dart';
 import 'sales_dashboard_page.dart';
 import 'payment_reconciliation_page.dart';
 import 'bank_reconciliation_page.dart';
-import 'master_data_page.dart';
 import 'item_catalog_page.dart';
 import 'chart_of_accounts_page.dart';
 import 'journal_entries_page.dart';
@@ -1192,7 +1191,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   void _openMasterData() {
     if (!_requireServerAccess('إدارة البيانات الأساسية')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => ItemCatalogPage(api: _api),
+      builder: (_) => ItemCatalogPage(api: _api, companies: _companies),
     ));
   }
 
