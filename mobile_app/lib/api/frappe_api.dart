@@ -1902,6 +1902,8 @@ class FrappeApi {
     required String bankAccount,
     required String company,
     required List<core.Map<String, dynamic>> vouchers,
+    String? fromDate,
+    String? toDate,
   }) async {
     final id = transactionName.trim(), account = bankAccount.trim();
     final normalizedCompany = company.trim();
@@ -1926,6 +1928,8 @@ class FrappeApi {
       transactionName: id,
       bankAccount: account,
       company: normalizedCompany,
+      fromDate: fromDate,
+      toDate: toDate,
     );
     final candidateByKey = <String, core.Map<String, dynamic>>{
       for (final row in freshCandidates)
@@ -1934,7 +1938,12 @@ class FrappeApi {
     final selected = <core.Map<String, dynamic>>[];
     final seen = <String>{};
     var total = 0.0;
-    const allowed = {'Payment Entry', 'Journal Entry', 'Sales Invoice'};
+    const allowed = {
+      'Payment Entry',
+      'Journal Entry',
+      'Sales Invoice',
+      'Purchase Invoice',
+    };
     for (final row in vouchers) {
       final doctype = row['payment_doctype']?.toString() ?? '';
       final name = row['payment_name']?.toString().trim() ?? '';
