@@ -424,9 +424,11 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
     });
   }
 
-  String? _validatePositive(String? value, String label) {
+  String? _validatePositive(String? value, String label, {bool allowZero = false}) {
     final parsed = double.tryParse((value ?? '').trim());
-    if (parsed == null || !parsed.isFinite || parsed <= 0) return 'أدخل $label أكبر من صفر.';
+    if (parsed == null || !parsed.isFinite || parsed < 0 || (!allowZero && parsed == 0)) {
+      return allowZero ? 'أدخل $label صفراً أو أكثر.' : 'أدخل $label أكبر من صفر.';
+    }
     return null;
   }
 
@@ -796,7 +798,7 @@ class _SalesInvoiceComposerState extends State<SalesInvoiceComposer> {
               enabled: !_saving && _pendingDraft == null,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               decoration: const InputDecoration(labelText: 'سعر الوحدة'),
-              validator: (value) => _validatePositive(value, 'سعر'),
+              validator: (value) => _validatePositive(value, 'سعر', allowZero: true),
               onChanged: (_) => setState(() {}),
             )),
           ]),
