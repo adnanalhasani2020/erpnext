@@ -12,6 +12,10 @@ on:
       - feature/flutter-mobile-foundation
       - feature/flutter-sales-invoice-workflow
       - feature/flutter-purchases-stock-workflows
+      - feature/flutter-hr-warehouse-workflows
+      - feature/flutter-accounting-hr-operations
+      - feature/flutter-hr-warehouse-workflows
+      - feature/flutter-accounting-hr-operations
     paths:
       - "mobile_app/lib/**"
       - "mobile_app/test/**"
