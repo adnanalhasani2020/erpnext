@@ -1,6 +1,7 @@
 import 'dart:core';
 import 'dart:core' as core;
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
@@ -35,6 +36,10 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
   int _transactionOffset = 0;
   bool _matching = false;
   bool _loadingBalances = false;
+  bool _importingStatement = false;
+  bool _savingStatementBalance = false;
+  String? _statementImportName;
+  core.Map<String, dynamic>? _savedStatementBalance;
   core.Map<String, dynamic>? _balances;
   String? _error;
   int _generation = 0;
@@ -156,7 +161,15 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
         date: _balanceDate.text,
       );
       if (!mounted || account != _bankAccount || company != _company) return;
-      setState(() => _balances = result);
+      final saved = await widget.api.fetchLatestBankStatementClosingBalance(
+        bankAccount: account, company: company,
+      );
+      if (!mounted || account != _bankAccount || company != _company) return;
+      setState(() {
+        _balances = result;
+        _savedStatementBalance = saved;
+        if (saved != null) _statementBalance.text = saved['closing_balance']?.toString() ?? '';
+      });
     } catch (error) {
       if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
     } finally {
@@ -164,6 +177,109 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
     }
   }
 
+
+  Future<void> _importBankStatement() async {
+    if (_importingStatement || _company == null || _bankAccount == null) return;
+    try {
+      final picked = await FilePicker.platform.pickFiles(
+        type: FileType.custom, allowedExtensions: const ['csv', 'xlsx', 'xls', 'txt'],
+        withData: true, allowMultiple: false,
+      );
+      if (picked == null || picked.files.isEmpty) return;
+      final file = picked.files.single;
+      final bytes = file.bytes;
+      if (bytes == null || bytes.isEmpty) throw const FormatException('تعذر قراءة محتوى الملف المختار.');
+      setState(() { _importingStatement = true; _error = null; });
+      final result = await widget.api.createBankStatementImportPreview(
+        bankAccount: _bankAccount!, company: _company!,
+        fileName: file.name, fileBytes: bytes,
+      );
+      if (!mounted) return;
+      final preview = result['preview'] as core.Map<String, dynamic>;
+      final rows = preview['data'];
+      final rowCount = rows is List ? rows.length : 0;
+      final warnings = result['warnings'] as List;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('معاينة كشف البنك'),
+          content: SizedBox(width: 520, child: SingleChildScrollView(child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('المستند: ' + result['name'].toString()),
+              Text('الصفوف التي قرأها ERPNext: $rowCount'),
+              Text('الأعمدة: ' + (result['columns'] as List).join('، ')),
+              if (warnings.isNotEmpty) ...[
+                Text('تحذيرات المعاينة (' + warnings.length.toString() + ')', style: const TextStyle(fontWeight: FontWeight.bold)),
+                ...warnings.take(12).map((warning) => Text('• ' + (warning is core.Map ? (warning['message'] ?? warning).toString() : warning.toString()))),
+              ],
+              const SizedBox(height: 8),
+              const Text('سيُنشئ ERPNext حركات Bank Transaction بعد التأكيد. يلزم إعداد مطابقة أعمدة البنك في سجل Bank.'),
+            ],
+          ))),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('إلغاء')),
+            FilledButton(onPressed: rowCount == 0 ? null : () => Navigator.pop(dialogContext, true), child: const Text('ابدأ الاستيراد')),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+      final started = await widget.api.startBankStatementImport(result['name'].toString());
+      if (!mounted) return;
+      setState(() => _statementImportName = result['name'].toString());
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تمت جدولة الاستيراد في ERPNext: ' + started['job_id'].toString())),
+      );
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _importingStatement = false);
+    }
+  }
+
+  Future<void> _checkStatementImport() async {
+    final id = _statementImportName;
+    if (id == null || id.isEmpty) return;
+    try {
+      final status = await widget.api.fetchBankStatementImportStatus(id);
+      if (!mounted) return;
+      final message = 'حالة الاستيراد: ' + (status['status'] ?? 'غير معروفة').toString() +
+          ' • ناجح: ' + (status['success'] ?? 0).toString() +
+          ' • فاشل: ' + (status['failed'] ?? 0).toString() +
+          ' • الإجمالي: ' + (status['total_records'] ?? 0).toString();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      if (status['status'] == 'Success' || status['status'] == 'Partial Success') await _loadTransactions();
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<void> _saveClosingBalance() async {
+    if (_savingStatementBalance || _company == null || _bankAccount == null) return;
+    final value = double.tryParse(_statementBalance.text.trim());
+    if (value == null || !value.isFinite) {
+      setState(() => _error = 'أدخل رصيد كشف ختامياً رقمياً صحيحاً قبل الحفظ.');
+      return;
+    }
+    setState(() { _savingStatementBalance = true; _error = null; });
+    try {
+      await widget.api.saveBankStatementClosingBalance(
+        bankAccount: _bankAccount!, company: _company!,
+        statementDate: _balanceDate.text, closingBalance: value,
+        importName: _statementImportName,
+      );
+      final saved = await widget.api.fetchLatestBankStatementClosingBalance(
+        bankAccount: _bankAccount!, company: _company!,
+      );
+      if (!mounted) return;
+      setState(() => _savedStatementBalance = saved);
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم حفظ رصيد كشف البنك في سجل الحساب على ERPNext.')));
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _savingStatementBalance = false);
+    }
+  }
 
   double get _balanceDifference => _statementBalance.text.trim().isEmpty || _balances == null
       ? 0
@@ -417,6 +533,26 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                const Text('استيراد كشف البنك', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 6),
+                OutlinedButton.icon(
+                  onPressed: _importingStatement || _loadingAccounts ? null : _importBankStatement,
+                  icon: _importingStatement
+                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                      : const Icon(Icons.upload_file),
+                  label: Text(_importingStatement ? 'جارٍ رفع ومعاينة الملف…' : 'اختيار ملف كشف (CSV / Excel / MT940)'),
+                ),
+                if (_statementImportName != null) ...[
+                  Text('مستند الاستيراد: $_statementImportName'),
+                  TextButton.icon(onPressed: _checkStatementImport, icon: const Icon(Icons.sync), label: const Text('تحديث حالة الاستيراد')),
+                ],
+              ]),
+            ),
+          ),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -450,7 +586,17 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
                     decoration: const InputDecoration(labelText: 'رصيد كشف الحساب الختامي (للمقارنة اليدوية)'),
                     onChanged: (_) => setState(() {}),
                   ),
-                  const Text('يُستخدم الرصيد المدخل للمقارنة على هذه الشاشة فقط؛ لا يتم حفظه في ERPNext ولا ينشئ قيداً محاسبياً.', style: TextStyle(fontSize: 12)),
+                  FilledButton.icon(
+                    onPressed: _savingStatementBalance || _loadingBalances ? null : _saveClosingBalance,
+                    icon: _savingStatementBalance
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.save_outlined),
+                    label: const Text('حفظ رصيد الكشف الختامي في ERPNext'),
+                  ),
+                  if (_savedStatementBalance != null)
+                    Text('آخر رصيد محفوظ: ' + (_savedStatementBalance!['statement_date'] ?? '').toString() +
+                      ' • ' + (_savedStatementBalance!['closing_balance'] ?? '').toString()),
+                  const Text('يحفظ الرصيد كسجل تدقيقي في سجل الحساب البنكي، ولا ينشئ قيداً محاسبياً.', style: TextStyle(fontSize: 12)),
                 ],
               ),
             ),
