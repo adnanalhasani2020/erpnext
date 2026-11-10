@@ -2074,6 +2074,10 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
   bool _hasMore = false;
   String? _company;
   String? _error;
+  final _fromDate = TextEditingController();
+  final _toDate = TextEditingController();
+  core.Map<String, dynamic> _opening = {'balance': 0.0};
+  core.Map<String, dynamic> _periodTotals = {'debit': 0.0, 'credit': 0.0, 'balance': 0.0};
 
   @override
   void initState() {
@@ -2095,8 +2099,23 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
       final page = await widget.api.fetchCustomerLedger(
         customer: widget.customer.id,
         company: _company,
+        fromDate: _fromDate.text,
+        toDate: _toDate.text,
         start: more ? _rows.length : 0,
       );
+      if (!more) {
+        final totals = await widget.api.fetchPartyLedgerTotals(
+          partyType: 'Customer', party: widget.customer.id,
+          company: _company, fromDate: _fromDate.text, toDate: _toDate.text,
+        );
+        final opening = _fromDate.text.trim().isEmpty
+            ? <String, dynamic>{'balance': 0.0}
+            : await widget.api.fetchPartyLedgerOpeningBalance(
+                partyType: 'Customer', party: widget.customer.id,
+                company: _company, beforeDate: _fromDate.text,
+              );
+        if (mounted) setState(() { _periodTotals = totals; _opening = opening; });
+      }
       if (!mounted) return;
       setState(() {
         if (more) {
@@ -2121,6 +2140,13 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
         });
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _fromDate.dispose();
+    _toDate.dispose();
+    super.dispose();
   }
 
   double _amount(core.Map<String, dynamic> row, String field) =>
@@ -2159,13 +2185,25 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
                   },
                 ),
                 const SizedBox(height: 8),
+                Row(children: [
+                  Expanded(child: TextField(controller: _fromDate, keyboardType: TextInputType.datetime,
+                    decoration: const InputDecoration(labelText: 'من تاريخ YYYY-MM-DD'))),
+                  const SizedBox(width: 8),
+                  Expanded(child: TextField(controller: _toDate, keyboardType: TextInputType.datetime,
+                    decoration: const InputDecoration(labelText: 'إلى تاريخ YYYY-MM-DD'))),
+                ]),
+                Align(alignment: AlignmentDirectional.centerEnd, child: TextButton.icon(
+                  onPressed: _loading || _loadingMore ? null : () => _load(),
+                  icon: const Icon(Icons.filter_alt_outlined), label: const Text('تطبيق فترة الكشف'),
+                )),
                 Wrap(
                   spacing: 16,
                   runSpacing: 6,
                   children: [
-                    Text('مدين: ${debit.toStringAsFixed(2)}'),
-                    Text('دائن: ${credit.toStringAsFixed(2)}'),
-                    Text('صافي الحركات المحمّلة: ${(debit - credit).toStringAsFixed(2)}'),
+                    Text('مدين الفترة: ${(_periodTotals['debit'] ?? 0)}'),
+                    Text('دائن الفترة: ${(_periodTotals['credit'] ?? 0)}'),
+                    Text('الرصيد الافتتاحي: ${(_opening['balance'] ?? 0)}'),
+                    Text('الرصيد الختامي: ${((_opening['balance'] as num? ?? 0) + (_periodTotals['balance'] as num? ?? 0)).toStringAsFixed(2)}'),
                   ],
                 ),
               ],
@@ -2249,6 +2287,10 @@ class _SupplierLedgerSheetState extends State<_SupplierLedgerSheet> {
   bool _hasMore = false;
   String? _company;
   String? _error;
+  final _fromDate = TextEditingController();
+  final _toDate = TextEditingController();
+  core.Map<String, dynamic> _opening = {'balance': 0.0};
+  core.Map<String, dynamic> _periodTotals = {'debit': 0.0, 'credit': 0.0, 'balance': 0.0};
 
   @override
   void initState() {
@@ -2270,8 +2312,23 @@ class _SupplierLedgerSheetState extends State<_SupplierLedgerSheet> {
       final page = await widget.api.fetchSupplierLedger(
         supplier: widget.supplier.id,
         company: _company,
+        fromDate: _fromDate.text,
+        toDate: _toDate.text,
         start: more ? _rows.length : 0,
       );
+      if (!more) {
+        final totals = await widget.api.fetchPartyLedgerTotals(
+          partyType: 'Supplier', party: widget.supplier.id,
+          company: _company, fromDate: _fromDate.text, toDate: _toDate.text,
+        );
+        final opening = _fromDate.text.trim().isEmpty
+            ? <String, dynamic>{'balance': 0.0}
+            : await widget.api.fetchPartyLedgerOpeningBalance(
+                partyType: 'Supplier', party: widget.supplier.id,
+                company: _company, beforeDate: _fromDate.text,
+              );
+        if (mounted) setState(() { _periodTotals = totals; _opening = opening; });
+      }
       if (!mounted) return;
       setState(() {
         if (more) {
@@ -2296,6 +2353,13 @@ class _SupplierLedgerSheetState extends State<_SupplierLedgerSheet> {
         });
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _fromDate.dispose();
+    _toDate.dispose();
+    super.dispose();
   }
 
   double _amount(core.Map<String, dynamic> row, String field) =>
@@ -2334,13 +2398,25 @@ class _SupplierLedgerSheetState extends State<_SupplierLedgerSheet> {
                   },
                 ),
                 const SizedBox(height: 8),
+                Row(children: [
+                  Expanded(child: TextField(controller: _fromDate, keyboardType: TextInputType.datetime,
+                    decoration: const InputDecoration(labelText: 'من تاريخ YYYY-MM-DD'))),
+                  const SizedBox(width: 8),
+                  Expanded(child: TextField(controller: _toDate, keyboardType: TextInputType.datetime,
+                    decoration: const InputDecoration(labelText: 'إلى تاريخ YYYY-MM-DD'))),
+                ]),
+                Align(alignment: AlignmentDirectional.centerEnd, child: TextButton.icon(
+                  onPressed: _loading || _loadingMore ? null : () => _load(),
+                  icon: const Icon(Icons.filter_alt_outlined), label: const Text('تطبيق فترة الكشف'),
+                )),
                 Wrap(
                   spacing: 16,
                   runSpacing: 6,
                   children: [
-                    Text('مدين: ${debit.toStringAsFixed(2)}'),
-                    Text('دائن: ${credit.toStringAsFixed(2)}'),
-                    Text('صافي الحركات المحمّلة: ${(debit - credit).toStringAsFixed(2)}'),
+                    Text('مدين الفترة: ${(_periodTotals['debit'] ?? 0)}'),
+                    Text('دائن الفترة: ${(_periodTotals['credit'] ?? 0)}'),
+                    Text('الرصيد الافتتاحي: ${(_opening['balance'] ?? 0)}'),
+                    Text('الرصيد الختامي: ${((_opening['balance'] as num? ?? 0) + (_periodTotals['balance'] as num? ?? 0)).toStringAsFixed(2)}'),
                   ],
                 ),
               ],
