@@ -425,6 +425,14 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
     var selectedCompany = draft?['company']?.toString() ?? widget.companies.first.name;
     var selectedSupplier = draft?['supplier']?.toString() ?? widget.suppliers.first.id;
     final updateStock = ValueNotifier<bool>(draft?['update_stock'] == 1 || draft?['update_stock'] == true);
+    final dueDate = TextEditingController(text: draft?['due_date']?.toString() ?? '');
+    final discountAmount = TextEditingController(text: draft?['discount_amount']?.toString() ?? '');
+    final discountPercent = TextEditingController(text: draft?['additional_discount_percentage']?.toString() ?? '');
+    final taxTemplate = TextEditingController(text: draft?['taxes_and_charges']?.toString() ?? '');
+    final paymentTerms = TextEditingController(text: draft?['payment_terms_template']?.toString() ?? '');
+    final supplierInvoiceNo = TextEditingController(text: draft?['bill_no']?.toString() ?? '');
+    final supplierInvoiceDate = TextEditingController(text: draft?['bill_date']?.toString() ?? '');
+    var applyDiscountOn = draft?['apply_discount_on']?.toString() ?? 'Grand Total';
     final lineRows = <Map<String, dynamic>>[];
     final sourceLines = draft?['items'] is List
         ? (draft!['items'] as List).whereType<Map<String, dynamic>>().toList()
@@ -569,6 +577,31 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                   ]),
                 ));
               }),
+              ExpansionTile(
+                tilePadding: EdgeInsets.zero,
+                title: const Text('الحقول المالية وشروط الفاتورة'),
+                subtitle: const Text('أدخل أسماء قوالب ERPNext القياسية؛ يتحقق الخادم من صلاحيتها.'),
+                children: [
+                  TextField(controller: dueDate, decoration: const InputDecoration(labelText: 'تاريخ الاستحقاق (YYYY-MM-DD)')),
+                  TextField(controller: taxTemplate, decoration: const InputDecoration(labelText: 'قالب الضرائب والرسوم (اسم ERPNext)')),
+                  TextField(controller: paymentTerms, decoration: const InputDecoration(labelText: 'قالب شروط الدفع (اسم ERPNext)')),
+                  TextField(controller: discountAmount, keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(labelText: 'خصم ثابت على الفاتورة')),
+                  TextField(controller: discountPercent, keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(labelText: 'نسبة الخصم الإضافي (%)')),
+                  DropdownButtonFormField<String>(
+                    initialValue: applyDiscountOn,
+                    decoration: const InputDecoration(labelText: 'تطبيق الخصم على'),
+                    items: const [
+                      DropdownMenuItem(value: 'Grand Total', child: Text('الإجمالي النهائي')),
+                      DropdownMenuItem(value: 'Net Total', child: Text('الإجمالي الصافي')),
+                    ],
+                    onChanged: (value) { if (value != null) refreshDialog(() => applyDiscountOn = value); },
+                  ),
+                  TextField(controller: supplierInvoiceNo, decoration: const InputDecoration(labelText: 'رقم فاتورة المورد الخارجية (Bill No)')),
+                  TextField(controller: supplierInvoiceDate, decoration: const InputDecoration(labelText: 'تاريخ فاتورة المورد (YYYY-MM-DD)')),
+                ],
+              ),
               ValueListenableBuilder<bool>(valueListenable: updateStock, builder: (_, value, __) =>
                 SwitchListTile(value: value, onChanged: (v) => updateStock.value = v,
                   title: const Text('تحديث المخزون عند ترحيل الفاتورة'))),
@@ -582,6 +615,13 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                 if (!widget.companies.any((x) => x.name == selectedCompany) ||
                     !widget.suppliers.any((x) => x.id == selectedSupplier)) {
                   notice('الشركة أو المورد الموجود في المسودة غير موجود ضمن البيانات المحمّلة. حدّث القوائم قبل الحفظ.');
+                  return;
+                }
+                final fixedDiscount = double.tryParse(discountAmount.text.trim()) ?? 0;
+                final percentDiscount = double.tryParse(discountPercent.text.trim()) ?? 0;
+                if (!fixedDiscount.isFinite || fixedDiscount < 0 || !percentDiscount.isFinite ||
+                    percentDiscount < 0 || percentDiscount > 100 || (fixedDiscount > 0 && percentDiscount > 0)) {
+                  notice('أدخل خصماً ثابتاً أو نسبة خصم فقط، ولا تجمع بينهما. النسبة من 0 إلى 100%.');
                   return;
                 }
                 final items = <Map<String, dynamic>>[];
@@ -638,6 +678,14 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
                 Navigator.pop(dialogContext, {
                   'company': selectedCompany, 'supplier': selectedSupplier,
                   'items': items, 'update_stock': updateStock.value,
+                  'due_date': dueDate.text.trim(),
+                  'discount_amount': fixedDiscount,
+                  'additional_discount_percentage': percentDiscount,
+                  'apply_discount_on': applyDiscountOn,
+                  'taxes_and_charges': taxTemplate.text.trim(),
+                  'payment_terms_template': paymentTerms.text.trim(),
+                  'bill_no': supplierInvoiceNo.text.trim(),
+                  'bill_date': supplierInvoiceDate.text.trim(),
                 });
               }, child: const Text('حفظ ومتابعة')),
             ],
@@ -649,6 +697,14 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
         'doctype': 'Purchase Invoice', 'company': values['company'], 'supplier': values['supplier'],
         'posting_date': draft?['posting_date'] ?? DateTime.now().toIso8601String().substring(0, 10),
         'update_stock': values['update_stock'] == true ? 1 : 0, 'items': values['items'],
+        if ((values['due_date'] as String).isNotEmpty) 'due_date': values['due_date'],
+        if ((values['discount_amount'] as num) > 0) 'discount_amount': values['discount_amount'],
+        if ((values['additional_discount_percentage'] as num) > 0) 'additional_discount_percentage': values['additional_discount_percentage'],
+        if ((values['discount_amount'] as num) > 0 || (values['additional_discount_percentage'] as num) > 0) 'apply_discount_on': values['apply_discount_on'],
+        if ((values['taxes_and_charges'] as String).isNotEmpty) 'taxes_and_charges': values['taxes_and_charges'],
+        if ((values['payment_terms_template'] as String).isNotEmpty) 'payment_terms_template': values['payment_terms_template'],
+        if ((values['bill_no'] as String).isNotEmpty) 'bill_no': values['bill_no'],
+        if ((values['bill_date'] as String).isNotEmpty) 'bill_date': values['bill_date'],
       };
       final saved = draft == null
           ? await widget.api.createPurchaseInvoice(payload)
@@ -677,6 +733,13 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
         (row['expiry_date'] as TextEditingController).dispose();
       }
       updateStock.dispose();
+      dueDate.dispose();
+      discountAmount.dispose();
+      discountPercent.dispose();
+      taxTemplate.dispose();
+      paymentTerms.dispose();
+      supplierInvoiceNo.dispose();
+      supplierInvoiceDate.dispose();
     }
   }
 
