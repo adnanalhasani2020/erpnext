@@ -29,6 +29,8 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
   String? _company;
   String _partyType = 'Customer';
   String? _account;
+  int _invoiceLimit = 50;
+  int _paymentLimit = 50;
   List<core.Map<String, dynamic>> _accounts = const [];
   core.Map<String, dynamic>? _document;
   bool _loadingAccounts = false;
@@ -180,6 +182,7 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
       setState(() => _error = dateError);
       return;
     }
+    final generation = ++_requestGeneration;
     setState(() {
       _loadingEntries = true;
       _error = null;
@@ -195,13 +198,19 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
         toInvoiceDate: _invoiceToController.text.trim(),
         fromPaymentDate: _paymentFromController.text.trim(),
         toPaymentDate: _paymentToController.text.trim(),
+        invoiceLimit: _invoiceLimit,
+        paymentLimit: _paymentLimit,
       );
-      if (!mounted) return;
+      if (!mounted || generation != _requestGeneration) return;
       setState(() => _document = document);
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      if (mounted && generation == _requestGeneration) {
+        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      }
     } finally {
-      if (mounted) setState(() => _loadingEntries = false);
+      if (mounted && generation == _requestGeneration) {
+        setState(() => _loadingEntries = false);
+      }
     }
   }
 
@@ -434,6 +443,40 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
                   _document = null;
                 });
               },
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    initialValue: _invoiceLimit,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'حد الفواتير'),
+                    items: const [50, 100, 250, 500].map((value) =>
+                      DropdownMenuItem(value: value, child: Text('$value'))
+                    ).toList(),
+                    onChanged: _busy ? null : (value) {
+                      if (value == null) return;
+                      setState(() { _invoiceLimit = value; _document = null; });
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    initialValue: _paymentLimit,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'حد المدفوعات'),
+                    items: const [50, 100, 250, 500].map((value) =>
+                      DropdownMenuItem(value: value, child: Text('$value'))
+                    ).toList(),
+                    onChanged: _busy ? null : (value) {
+                      if (value == null) return;
+                      setState(() { _paymentLimit = value; _document = null; });
+                    },
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             ExpansionTile(
