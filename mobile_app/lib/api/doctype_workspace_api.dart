@@ -10,6 +10,7 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
         resource: 'Workspace',
         fields: const ['name','title','label','module','is_hidden'],
         filters: const [['is_hidden', '=', 0]],
+        orderBy: 'title asc, name asc',
         start: start,
         pageLength: 100,
       );
@@ -117,7 +118,7 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
   }) async {
     final editing = name != null && name.trim().isNotEmpty;
     final payload = editing
-      ? <String, dynamic>{...await fetchDocTypeDocument(doctype: doctype, name: name!.trim()), ...values}
+      ? <String, dynamic>{...await fetchDocTypeDocument(doctype: doctype, name: name.trim()), ...values}
       : <String, dynamic>{'doctype': doctype, ...values};
     if (editing && payload['docstatus'] != 0) {
       throw const FormatException('لا يمكن تعديل مستند مرحّل أو ملغى.');
@@ -131,7 +132,7 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
     }
     final saved = data['message'];
     if (saved is! core.Map<String, dynamic> || saved['doctype'] != doctype ||
-        saved['name'] is! String || (editing && saved['name'] != name!.trim())) {
+        saved['name'] is! String || (editing && saved['name'] != name.trim())) {
       throw const FormatException('لم يؤكد ERPNext حفظ المستند.');
     }
     return core.Map<String, dynamic>.from(saved);
