@@ -197,6 +197,54 @@ void main() {
       );
     });
 
+    test('submits the reviewed payroll employee list without refilling it', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final calls = <String>[];
+      List<dynamic>? submittedEmployees;
+      server.listen((request) async {
+        final body = await utf8.decoder.bind(request).join();
+        final path = request.uri.pathSegments.join('/');
+        calls.add('${request.method} $path');
+        request.response.headers.contentType = ContentType.json;
+        if (request.method == 'GET' && path.endsWith('Payroll Entry/PE-001')) {
+          request.response.write(jsonEncode({'data': {
+            'doctype': 'Payroll Entry',
+            'name': 'PE-001',
+            'company': 'Company A',
+            'docstatus': 0,
+            'employees': [
+              {'employee': 'EMP-REVIEWED', 'salary_structure': 'Reviewed Structure'},
+            ],
+          }}));
+        } else if (request.method == 'POST' && path.endsWith('/frappe.client.submit')) {
+          final payload = jsonDecode(body) as Map<String, dynamic>;
+          final doc = payload['doc'] as Map<String, dynamic>;
+          submittedEmployees = doc['employees'] as List<dynamic>;
+          request.response.write(jsonEncode({'message': {
+            ...doc,
+            'docstatus': 1,
+          }}));
+        } else {
+          request.response.statusCode = HttpStatus.notFound;
+          request.response.write(jsonEncode({'message': 'Not found'}));
+        }
+        await request.response.close();
+      });
+      final client = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+      try {
+        final result = await client.submitPayrollEntry(
+          name: 'PE-001', company: 'Company A',
+        );
+        expect(result['docstatus'], 1);
+        expect(submittedEmployees, hasLength(1));
+        expect((submittedEmployees!.single as Map<String, dynamic>)['employee'], 'EMP-REVIEWED');
+        expect(calls.where((call) => call.contains('run_doc_method')), isEmpty);
+      } finally {
+        client.dispose();
+        await server.close(force: true);
+      }
+    });
+
     test('rejects malformed payroll dates before network access', () async {
       await expectLater(
         api.createPayrollEntryDraft(
