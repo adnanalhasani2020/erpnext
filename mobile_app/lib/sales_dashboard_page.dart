@@ -228,9 +228,12 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                         children: [
                           Text(currency, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                           const SizedBox(height: 8),
-                          _line('إجمالي المبيعات', _number(data['total']).toStringAsFixed(2)),
-                          _line('المبالغ المستحقة', _number(data['outstanding']).toStringAsFixed(2)),
-                          _line('عدد الفواتير', data['invoice_count']?.toString() ?? '0'),
+                          _line('إجمالي فواتير البيع', _number(data['total']).toStringAsFixed(2)),
+                          _line('المرتجعات / الإشعارات الدائنة', _number(data['return_total']).toStringAsFixed(2)),
+                          _line('صافي المبيعات بعد المرتجعات', _number(data['net_total']).toStringAsFixed(2)),
+                          _line('المبالغ المستحقة على فواتير البيع', _number(data['outstanding']).toStringAsFixed(2)),
+                          _line('فواتير البيع', data['invoice_count']?.toString() ?? '0'),
+                          _line('فواتير المرتجعات', data['return_invoice_count']?.toString() ?? '0'),
                         ],
                       ),
                     ),
@@ -261,7 +264,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
               const Padding(
                 padding: EdgeInsets.only(top: 8),
                 child: Text(
-                  'المصدر: تجميعات خادمية من فواتير المبيعات المرحلة في ERPNext. لا تشمل المرتجعات، ولا يتم جمع عملات مختلفة معاً.',
+                  'المصدر: تجميعات خادمية من فواتير البيع والمرتجعات المرحلة في ERPNext. صافي المبيعات = إجمالي البيع ناقص قيمة المرتجعات. تبقى كل عملة مستقلة، وترتيب أعلى العملاء مبني على فواتير البيع قبل المرتجعات.',
                   style: TextStyle(fontSize: 12),
                 ),
               ),
