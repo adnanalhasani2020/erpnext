@@ -1587,7 +1587,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ));
   }
 
-  Future<void> _openStockWorkflow({String? initialItemCode}) async {
+  Future<void> _openStockWorkflow({String? initialItemCode, String? section}) async {
     if (!_requireServerAccess('عمليات المخزون')) return;
     await Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => StockWorkflowPage(
@@ -1597,6 +1597,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         items: _items,
         warehouses: _warehouses,
         initialItemCode: initialItemCode,
+        initialSection: section ?? (initialItemCode != null ? 'Stock Entry' : null),
         onChanged: _loadInventory,
       ),
     ));
@@ -1651,11 +1652,20 @@ class _MobileHomePageState extends State<MobileHomePage> {
               onPressed: _isGuest || _purchaseLoading ? null : () => _openPurchaseWorkflow(section: item.$1),
               icon: const Icon(Icons.open_in_new), label: Text(item.$2),
             ),
-          OutlinedButton.icon(
-            onPressed: _isGuest || _inventoryLoading ? null : _openStockWorkflow,
-            icon: const Icon(Icons.warehouse_outlined),
-            label: const Text('عمليات المخزون'),
-          ),
+
+          for (final item in const [
+            ('Stock Entry', 'حركات المخزون'),
+            ('Purchase Receipt', 'إيصالات الشراء'),
+            ('Stock Reconciliation', 'الجرد والتسوية'),
+            ('Pick List', 'قوائم الالتقاط'),
+            ('Batch', 'تتبع الدفعات'),
+            ('Serial No', 'تتبع الأرقام التسلسلية'),
+            ('Item Reorder', 'تنبيهات إعادة الطلب'),
+          ])
+            OutlinedButton.icon(
+              onPressed: _isGuest || _inventoryLoading ? null : () => _openStockWorkflow(section: item.$1),
+              icon: const Icon(Icons.open_in_new), label: Text(item.$2),
+            ),
           OutlinedButton.icon(
             onPressed: _isGuest || _salesLoading ? null : _openSalesDashboard,
             icon: const Icon(Icons.insights_outlined),

@@ -22,6 +22,7 @@ class PurchaseWorkflowPage extends StatefulWidget {
 class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
   bool _actionInProgress = false;
 
+
   Future<void> _runExclusive(Future<void> Function() action) async {
     if (_actionInProgress || !mounted) return;
     setState(() => _actionInProgress = true);
@@ -1333,9 +1334,10 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
 }
 
 class StockWorkflowPage extends StatefulWidget {
-  const StockWorkflowPage({super.key, required this.api, required this.companies, required this.suppliers, required this.items, required this.warehouses, this.initialItemCode, this.onChanged});
+  const StockWorkflowPage({super.key, required this.api, required this.companies, required this.suppliers, required this.items, required this.warehouses, this.initialItemCode, this.onChanged, this.initialSection});
   final FrappeApi api;
   final String? initialItemCode;
+  final String? initialSection;
   final List<ErpCompany> companies;
   final List<ErpSupplier> suppliers;
   final List<ErpItem> items;
@@ -1345,6 +1347,8 @@ class StockWorkflowPage extends StatefulWidget {
 }
 
 class _StockWorkflowPageState extends State<StockWorkflowPage> {
+  bool _showStockSection(String section) => widget.initialSection == null || widget.initialSection == section;
+
   bool _actionInProgress = false;
 
   Future<void> _runExclusive(Future<void> Function() action) async {
@@ -2871,10 +2875,11 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
 
   Widget _field(TextEditingController c, String label, {bool number = false}) => Padding(padding: const EdgeInsets.only(bottom: 8), child: TextField(controller: c, keyboardType: number ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text, decoration: InputDecoration(labelText: label)));
   @override Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('عمليات المخزون'), actions: [IconButton(onPressed: load, icon: const Icon(Icons.refresh))]),
+    appBar: AppBar(title: Text(widget.initialSection ?? 'عمليات المخزون'), actions: [IconButton(onPressed: load, icon: const Icon(Icons.refresh))]),
     body: ListView(padding: const EdgeInsets.all(16), children: [
       const Text('الاستلام والصرف والتحويل والجرد تُنفّذ بمستندات ERPNext الرسمية. لا يتم تعديل Bin مباشرة.'),
       const SizedBox(height: 12),
+      if (_showStockSection('Item Reorder')) ...[
       OutlinedButton.icon(
         onPressed: loadingReorderAlerts ? null : loadReorderAlerts,
         icon: loadingReorderAlerts
@@ -2895,23 +2900,27 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       ] else if (!loadingReorderAlerts && reorderAlertError == null)
         const Text('اضغط فحص الأصناف لعرض الأصناف التي وصلت كميتها المتوقعة إلى حد إعادة الطلب أو أقل.'),
 
+      ],
+      if (widget.initialSection == null || const {'Stock Entry','Purchase Receipt','Pick List','Batch','Serial No','Stock Reconciliation'}.contains(widget.initialSection)) ...[
       Wrap(spacing: 8, runSpacing: 8, children: [
-        FilledButton.tonal(onPressed: () => movement('Material Receipt'), child: const Text('استلام مخزون')),
-        FilledButton.tonal(onPressed: purchaseReceipt, child: const Text('استلام مشتريات مباشر')),
-        FilledButton.tonal(onPressed: purchaseReceiptFromOrder, child: const Text('استلام من أمر شراء')),
-        FilledButton.tonal(onPressed: () => movement('Material Issue'), child: const Text('صرف / تسليم')),
-        FilledButton.tonal(onPressed: () => _runExclusive(() => _movement('Material Issue', damage: true)), child: const Text('تسجيل تلف وهالك')),
-        FilledButton.tonal(onPressed: pickPackShip, child: const Text('التقاط وتجهيز وشحن')),
-        FilledButton.tonal(onPressed: showBatchTrace, child: const Text('تتبع الدفعات')),
-        FilledButton.tonal(onPressed: showSerialTrace, child: const Text('تتبع الأرقام التسلسلية')),
-        FilledButton.tonal(onPressed: () => movement('Material Transfer'), child: const Text('تحويل')),
-        FilledButton.icon(onPressed: reconcile, icon: const Icon(Icons.fact_check_outlined), label: const Text('جرد وتسوية')),
+        if (_showStockSection('Stock Entry')) FilledButton.tonal(onPressed: () => movement('Material Receipt'), child: const Text('استلام مخزون')),
+        if (_showStockSection('Purchase Receipt')) FilledButton.tonal(onPressed: purchaseReceipt, child: const Text('استلام مشتريات مباشر')),
+        if (_showStockSection('Purchase Receipt')) FilledButton.tonal(onPressed: purchaseReceiptFromOrder, child: const Text('استلام من أمر شراء')),
+        if (_showStockSection('Stock Entry')) FilledButton.tonal(onPressed: () => movement('Material Issue'), child: const Text('صرف / تسليم')),
+        if (_showStockSection('Stock Entry')) FilledButton.tonal(onPressed: () => _runExclusive(() => _movement('Material Issue', damage: true)), child: const Text('تسجيل تلف وهالك')),
+        if (_showStockSection('Pick List')) FilledButton.tonal(onPressed: pickPackShip, child: const Text('التقاط وتجهيز وشحن')),
+        if (_showStockSection('Batch')) FilledButton.tonal(onPressed: showBatchTrace, child: const Text('تتبع الدفعات')),
+        if (_showStockSection('Serial No')) FilledButton.tonal(onPressed: showSerialTrace, child: const Text('تتبع الأرقام التسلسلية')),
+        if (_showStockSection('Stock Entry')) FilledButton.tonal(onPressed: () => movement('Material Transfer'), child: const Text('تحويل')),
+        if (_showStockSection('Stock Reconciliation')) FilledButton.icon(onPressed: reconcile, icon: const Icon(Icons.fact_check_outlined), label: const Text('جرد وتسوية')),
       ]),
+      ],
+      if (widget.initialSection == null || const {'Stock Entry','Purchase Receipt','Stock Reconciliation'}.contains(widget.initialSection)) ...[
       const Divider(height: 28),
-      Text('المسودات غير المرحلة (' + drafts.length.toString() + ')', style: Theme.of(context).textTheme.titleMedium),
+      Text('المسودات غير المرحلة (' + drafts.where((d) => widget.initialSection == null || d['doctype'] == widget.initialSection).length.toString() + ')', style: Theme.of(context).textTheme.titleMedium),
       if (draftError != null) Text(draftError!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 12)),
       if (drafts.isEmpty && !loading) const ListTile(title: Text('لا توجد مسودات مخزون ظاهرة.')),
-      ...drafts.map((draft) => Card(child: ListTile(
+      ...drafts.where((draft) => widget.initialSection == null || draft['doctype'] == widget.initialSection).map((draft) => Card(child: ListTile(
         leading: const Icon(Icons.pending_actions_outlined),
         title: Text((draft['doctype'] ?? '').toString() + ' • ' + (draft['name'] ?? '').toString()),
         subtitle: Text((draft['company'] ?? '').toString() + ' • ' + (draft['posting_date'] ?? '').toString()),
@@ -2926,6 +2935,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
               : const Icon(Icons.expand_more),
           label: const Text('تحميل مسودات مخزون إضافية'),
         )),
+      ],
+      if (_showStockSection('Stock Entry')) ...[
       const Divider(height: 28), Text('سجل الحركات', style: Theme.of(context).textTheme.titleMedium),
       Wrap(
         spacing: 8,
@@ -2997,6 +3008,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
         trailing: Text((x['actual_qty'] ?? 0).toString()),
         onTap: () => showMovementDetails(x)))),
       if (hasMore || loadingMore) Center(child: TextButton.icon(onPressed: loadingMore ? null : loadMoreMovements, icon: loadingMore ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.expand_more), label: const Text('تحميل حركات إضافية'))),
+      ],
     ]),
   );
 }
