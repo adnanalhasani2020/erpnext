@@ -113,6 +113,15 @@ void main() {
       await tester.tap(find.text('معاينة التوزيع التلقائي حسب الأقدمية'));
       await tester.pumpAndSettle();
       expect(find.text('معاينة التخصيصات (1)'), findsOneWidget);
+      expect(find.text('100.00'), findsOneWidget);
+      expect(find.text('75.00'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('حذف هذا التخصيص من المعاينة'));
+      await tester.pumpAndSettle();
+      expect(find.text('معاينة التخصيصات (1)'), findsNothing);
+      await tester.tap(find.text('معاينة التوزيع التلقائي حسب الأقدمية'));
+      await tester.pumpAndSettle();
+      expect(find.text('معاينة التخصيصات (1)'), findsOneWidget);
 
       await tester.enterText(partyField, 'CUS-2');
       await tester.pumpAndSettle();
@@ -126,7 +135,7 @@ void main() {
       await tester.tap(find.byTooltip('تعديل مبلغ التخصيص'));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextFormField).first, '50');
-      await tester.tap(find.text('حفظ المبلغ'));
+      await tester.tap(find.text('حفظ التخصيص'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('تأكيد التخصيص وترحيل التسوية'));
       await tester.pumpAndSettle();
