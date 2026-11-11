@@ -223,6 +223,68 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
     }
   }
 
+  Future<void> _editAllocation(int index) async {
+    final document = _document;
+    final raw = document?['allocation'];
+    if (document == null || raw is! List || index < 0 || index >= raw.length || _busy) return;
+    final current = raw[index];
+    if (current is! core.Map) return;
+    final controller = TextEditingController(
+      text: current['allocated_amount']?.toString() ?? '',
+    );
+    final formKey = GlobalKey<FormState>();
+    final amount = await showDialog<double>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('تعديل مبلغ التخصيص'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: controller,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'المبلغ المخصص',
+              helperText: 'سيعيد ERPNext التحقق من الرصيد المتاح عند التسوية.',
+            ),
+            validator: (value) {
+              final parsed = double.tryParse(value?.trim() ?? '');
+              if (parsed == null || !parsed.isFinite || parsed <= 0) {
+                return 'أدخل مبلغاً أكبر من صفر.';
+              }
+              return null;
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text('إلغاء'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (!(formKey.currentState?.validate() ?? false)) return;
+              Navigator.pop(dialogContext, double.parse(controller.text.trim()));
+            },
+            child: const Text('حفظ المبلغ'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (amount == null || !mounted || _document != document) return;
+    final updatedDocument = core.Map<String, dynamic>.from(document);
+    final updatedAllocations = raw.map((row) =>
+      core.Map<String, dynamic>.from(row as core.Map)
+    ).toList(growable: true);
+    updatedAllocations[index]['allocated_amount'] = amount;
+    updatedDocument['allocation'] = updatedAllocations;
+    setState(() {
+      _document = updatedDocument;
+      _error = null;
+    });
+  }
+
   Future<void> _confirmReconciliation() async {
     final document = _document;
     final allocations = document?['allocation'];
@@ -431,12 +493,31 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
                 ),
               ] else ...[
                 _sectionTitle('معاينة التخصيصات (${allocations.length})'),
-                ...allocations.map((row) => _entryCard(
-                  title: '${row['reference_type'] ?? ''} • ${row['reference_name'] ?? ''}',
-                  subtitle: 'إلى ${row['invoice_type'] ?? ''} • ${row['invoice_number'] ?? ''}',
-                  amount: _number(row['allocated_amount']).toStringAsFixed(2),
-                  icon: Icons.compare_arrows_outlined,
-                )),
+                ...allocations.asMap().entries.map((entry) {
+                  final row = entry.value;
+                  return Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.compare_arrows_outlined),
+                      title: Text('${row['reference_type'] ?? ''} • ${row['reference_name'] ?? ''}'),
+                      subtitle: Text('إلى ${row['invoice_type'] ?? ''} • ${row['invoice_number'] ?? ''}'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(_number(row['allocated_amount']).toStringAsFixed(2)),
+                          IconButton(
+                            tooltip: 'تعديل مبلغ التخصيص',
+                            onPressed: _busy ? null : () => _editAllocation(entry.key),
+                            icon: const Icon(Icons.edit_outlined),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+                const Padding(
+                  padding: EdgeInsets.only(top: 4),
+                  child: Text('يمكن تعديل مبلغ كل تخصيص قبل التأكيد. يتحقق ERPNext من الأرصدة والحدود النهائية عند تنفيذ التسوية.', style: TextStyle(fontSize: 12)),
+                ),
                 const SizedBox(height: 12),
                 FilledButton.icon(
                   onPressed: _busy ? null : _confirmReconciliation,
