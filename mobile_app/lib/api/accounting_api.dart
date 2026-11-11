@@ -239,7 +239,7 @@ mixin AccountingApiMixin on _FrappeApiCore {
       final query = search?.trim() ?? '';
       final uri = FrappeApi.buildResourcePageUri(baseUrl: _baseUrl, resource: 'Journal Entry',
         fields: const ['name', 'posting_date', 'company', 'total_debit', 'total_credit', 'user_remark', 'docstatus'],
-        filters: [['company', '=', normalized], if (docStatus == null) ['docstatus', 'in', [0, 1]] else ['docstatus', '=', docStatus],],
+        filters: [['company', '=', normalized], if (docStatus == null) ['docstatus', 'in', [0, 1, 2]] else ['docstatus', '=', docStatus],],
         orFilters: query.isEmpty ? null : [['name', 'like', '%$query%'], ['user_remark', 'like', '%$query%']],
         orderBy: 'modified desc, name desc', start: start, pageLength: 50);
       final response = await _sendUri('GET', uri);
@@ -247,7 +247,7 @@ mixin AccountingApiMixin on _FrappeApiCore {
       if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تحميل سجل القيود اليومية.'));
       final rows = data['data'];
       if (rows is! List) throw Exception('استجابة القيود اليومية غير متوقعة.');
-      return rows.whereType<core.Map<String, dynamic>>().where((row) => row['company'] == normalized && (docStatus == null ? (row['docstatus'] == 0 || row['docstatus'] == 1) : row['docstatus'] == docStatus))
+      return rows.whereType<core.Map<String, dynamic>>().where((row) => row['company'] == normalized && (docStatus == null ? (row['docstatus'] == 0 || row['docstatus'] == 1 || row['docstatus'] == 2) : row['docstatus'] == docStatus))
         .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
     }
 
