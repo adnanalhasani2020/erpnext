@@ -19,6 +19,7 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
   bool loading = false, loadingMore = false, hasMore = false;
   bool includeDisabled = false;
   String? _rootType;
+  final Set<String> _collapsedGroups = <String>{};
   int offset = 0;
   String? error;
 
@@ -145,6 +146,29 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
         );
       }
     }
+  }
+
+  List<core.Map<String, dynamic>> get _visibleAccounts {
+    final byName = <String, core.Map<String, dynamic>>{
+      for (final row in rows)
+        if (row['name']?.toString().isNotEmpty == true)
+          row['name'].toString(): row,
+    };
+    return rows.where((row) {
+      var parent = row['parent_account']?.toString() ?? '';
+      final visited = <String>{};
+      while (parent.isNotEmpty && visited.add(parent)) {
+        if (_collapsedGroups.contains(parent)) return false;
+        parent = byName[parent]?['parent_account']?.toString() ?? '';
+      }
+      return true;
+    }).toList(growable: false);
+  }
+
+  void _toggleGroup(String name) {
+    setState(() {
+      if (!_collapsedGroups.add(name)) _collapsedGroups.remove(name);
+    });
   }
 
   int _accountDepth(core.Map<String, dynamic> row) {
@@ -310,11 +334,13 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
       Expanded(child: rows.isEmpty && !loading
         ? Center(child: Text(company == null ? 'لا توجد شركة متاحة للمستخدم.' : 'لا توجد حسابات ظاهرة أو لا تتوفر صلاحية القراءة.'))
         : ListView.separated(
-          itemCount: rows.length,
+          itemCount: _visibleAccounts.length,
           separatorBuilder: (_, __) => const Divider(height: 1),
           itemBuilder: (context, index) {
-            final row = rows[index];
+            final row = _visibleAccounts[index];
             final isGroup = row['is_group'] == 1 || row['is_group'] == true;
+            final accountName = row['name']?.toString() ?? '';
+            final isCollapsed = _collapsedGroups.contains(accountName);
             return Padding(
               padding: EdgeInsetsDirectional.only(start: _accountDepth(row) * 16.0),
               child: ListTile(
@@ -325,10 +351,19 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
                   row['account_type']?.toString() ?? row['root_type']?.toString() ?? '',
                   row['parent_account']?.toString() ?? '',
                 ].where((v) => v.isNotEmpty).join(' • ')),
-                trailing: Column(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  Text(row['account_currency']?.toString() ?? ''),
-                  if (row['disabled'] == 1 || row['disabled'] == true)
-                    const Text('معطل', style: TextStyle(fontSize: 11, color: Colors.red)),
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Column(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    Text(row['account_currency']?.toString() ?? ''),
+                    if (row['disabled'] == 1 || row['disabled'] == true)
+                      const Text('معطل', style: TextStyle(fontSize: 11, color: Colors.red)),
+                  ]),
+                  if (isGroup)
+                    IconButton(
+                      tooltip: isCollapsed ? 'توسيع المجموعة' : 'طي المجموعة',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: accountName.isEmpty ? null : () => _toggleGroup(accountName),
+                      icon: Icon(isCollapsed ? Icons.chevron_right : Icons.expand_more),
+                    ),
                 ]),
                 onTap: () => showDetails(row),
               ),
