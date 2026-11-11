@@ -541,7 +541,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                   final current = selections[key];
                   final items = <String>{...options, if (current != null && current.isNotEmpty) current}.toList();
                   return DropdownButtonFormField<String>(
-                    value: current != null && current.isNotEmpty ? current : null,
+                    initialValue: current != null && current.isNotEmpty ? current : null,
                     isExpanded: true,
                     decoration: InputDecoration(labelText: label),
                     items: items.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
@@ -721,7 +721,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: DropdownButtonFormField<String>(
-                      value: current != null && current.isNotEmpty ? current : null,
+                      initialValue: current != null && current.isNotEmpty ? current : null,
                       isExpanded: true,
                       decoration: InputDecoration(labelText: label),
                       items: items.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
@@ -1018,7 +1018,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                         SizedBox(
                           width: 112,
                           child: DropdownButtonFormField<String>(
-                            value: _filterOperators[field['fieldname'].toString()] ??
+                            initialValue: _filterOperators[field['fieldname'].toString()] ??
                               ((field['fieldtype'] == 'Data' || field['fieldtype'] == 'Link') ? 'like' : '='),
                             isExpanded: true,
                             decoration: const InputDecoration(labelText: 'المعامل', isDense: true),
