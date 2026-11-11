@@ -211,7 +211,12 @@ void main() {
           path == 'api/resource/Business Unit') {
         final filters = jsonDecode(request.uri.queryParameters['filters']!) as List;
         expect(filters, contains(['company', '=', 'COMP-1']));
-        expect(filters, contains(['name', '=', 'BU-1']));
+        if (request.uri.queryParameters['or_filters'] != null) {
+          final searchFilters = jsonDecode(request.uri.queryParameters['or_filters']!) as List;
+          expect(searchFilters, contains(['name', 'like', '%BU%']));
+        } else {
+          expect(filters, contains(['name', '=', 'BU-1']));
+        }
         request.response.write(jsonEncode({'data': [{'name': 'BU-1'}]}));
       } else if (request.method == 'POST' &&
           path == 'api/method/run_doc_method') {
@@ -232,6 +237,12 @@ void main() {
       final definitions = await api.fetchPaymentReconciliationDimensions('COMP-1');
       expect(definitions.single['fieldname'], 'business_unit');
       expect(definitions.single['options'], 'Business Unit');
+      final options = await api.searchPaymentReconciliationDimensionValues(
+        company: 'COMP-1',
+        fieldname: 'business_unit',
+        search: 'BU',
+      );
+      expect(options, ['BU-1']);
       final document = await api.fetchUnreconciledPaymentEntries(
         company: 'COMP-1',
         partyType: 'Customer',
