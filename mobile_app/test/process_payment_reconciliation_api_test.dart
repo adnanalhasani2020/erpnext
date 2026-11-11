@@ -54,6 +54,14 @@ void main() {
           'doctype': 'Customer', 'name': 'CUS-1', 'customer_name': 'Customer One',
         }}));
       } else if (request.method == 'POST' &&
+          path == 'api/method/erpnext.accounts.party.get_party_account') {
+        final body = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
+        expect(body['company'], 'COMP-1');
+        expect(body['party_type'], 'Customer');
+        expect(body['party'], 'CUS-1');
+        expect(body['include_advance'], 1);
+        request.response.write(jsonEncode({'message': ['Debtors - COMP-1', 'Advances - COMP-1']}));
+      } else if (request.method == 'POST' &&
           path == 'api/resource/Process Payment Reconciliation') {
         final body = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
         document = {...body, 'name': 'ACC-PPR-00001', 'docstatus': 0, 'status': ''};
@@ -133,6 +141,14 @@ void main() {
         partyType: 'Customer',
       );
       expect(filteredJobs.single['name'], 'ACC-PPR-00001');
+
+      final defaults = await api.fetchProcessPaymentReconciliationPartyAccounts(
+        company: 'COMP-1',
+        partyType: 'Customer',
+        party: 'CUS-1',
+      );
+      expect(defaults['receivable_payable_account'], 'Debtors - COMP-1');
+      expect(defaults['default_advance_account'], 'Advances - COMP-1');
 
       final draft = await api.saveProcessPaymentReconciliationDraft(
         company: 'COMP-1',
