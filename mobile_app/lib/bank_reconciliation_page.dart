@@ -211,6 +211,41 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
               if (warnings.isNotEmpty) ...[
                 Text('تحذيرات المعاينة (${warnings.length})', style: const TextStyle(fontWeight: FontWeight.bold)),
                 ...warnings.take(12).map((warning) => Text('• ${warning is core.Map ? (warning['message'] ?? warning) : warning}')),
+                if (warnings.length > 12)
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: TextButton.icon(
+                      onPressed: () => showDialog<void>(
+                        context: dialogContext,
+                        builder: (warningsContext) => AlertDialog(
+                          title: Text('كل تحذيرات المعاينة (${warnings.length})'),
+                          content: SizedBox(
+                            width: 520,
+                            height: 420,
+                            child: ListView.separated(
+                              itemCount: warnings.length,
+                              separatorBuilder: (_, __) => const Divider(height: 1),
+                              itemBuilder: (_, index) {
+                                final warning = warnings[index];
+                                return Padding(
+                                  padding: const EdgeInsets.symmetric(vertical: 6),
+                                  child: Text('• ${warning is core.Map ? (warning['message'] ?? warning) : warning}'),
+                                );
+                              },
+                            ),
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(warningsContext),
+                              child: const Text('إغلاق'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      icon: const Icon(Icons.list_alt),
+                      label: Text('عرض جميع التحذيرات (${warnings.length})'),
+                    ),
+                  ),
               ],
               const SizedBox(height: 8),
               const Text('سيُنشئ ERPNext حركات Bank Transaction بعد التأكيد. يلزم إعداد مطابقة أعمدة البنك في سجل Bank.'),

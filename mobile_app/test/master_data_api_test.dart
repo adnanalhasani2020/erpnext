@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -48,6 +49,69 @@ void main() {
         api.fetchAccountingAccounts(company: '  '),
         throwsA(isA<FormatException>()),
       );
+    });
+
+    test('rejects an incomplete chart account before network access', () async {
+      await expectLater(
+        api.saveAccountingAccount(
+          accountName: ' ',
+          company: 'Company A',
+          parentAccount: 'Assets - A',
+          isGroup: false,
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('creates an account only after validating company and parent group', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      server.listen((request) async {
+        request.response.headers.contentType = ContentType.json;
+        if (request.method == 'GET' && request.uri.pathSegments.contains('Company')) {
+          request.response.write(jsonEncode({
+            'data': {'name': 'Company A', 'default_currency': 'YER'},
+          }));
+        } else if (request.method == 'GET' && request.uri.pathSegments.contains('Account')) {
+          request.response.write(jsonEncode({
+            'data': {
+              'name': 'Assets - A', 'company': 'Company A',
+              'is_group': 1, 'root_type': 'Asset', 'report_type': 'Balance Sheet', 'account_currency': 'YER', 'disabled': 0,
+            },
+          }));
+        } else if (request.method == 'POST' && request.uri.path.endsWith('/api/resource/Account')) {
+          final payload = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+          expect(payload['account_name'], 'Cash');
+          expect(payload['company'], 'Company A');
+          expect(payload['parent_account'], 'Assets - A');
+          expect(payload['root_type'], 'Asset');
+          expect(payload['report_type'], 'Balance Sheet');
+          request.response.write(jsonEncode({
+            'data': {
+              'doctype': 'Account', 'name': 'Cash - A', 'account_name': 'Cash', 'company': 'Company A',
+              'parent_account': 'Assets - A', 'root_type': 'Asset',
+            },
+          }));
+        } else {
+          request.response.statusCode = HttpStatus.notFound;
+          request.response.write(jsonEncode({'message': 'Unexpected request'}));
+        }
+        await request.response.close();
+      });
+      api.configure('http://127.0.0.1:${server.port}');
+      try {
+        final saved = await api.saveAccountingAccount(
+          accountName: 'Cash',
+          company: 'Company A',
+          parentAccount: 'Assets - A',
+          accountCurrency: 'YER',
+          isGroup: false,
+          accountType: 'Cash',
+        );
+        expect(saved['name'], 'Cash - A');
+        expect(saved['company'], 'Company A');
+      } finally {
+        await server.close(force: true);
+      }
     });
 
     test('rejects unsupported reference option doctypes before sending a request', () async {

@@ -435,5 +435,64 @@ void main() {
         throwsA(isA<FormatException>()),
       );
     });
+
+    test('accepts exactly 10,000 salary slips and checks the next row', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final pageLengths = <int>[];
+      server.listen((request) async {
+        final start = int.tryParse(request.uri.queryParameters['limit_start'] ?? '') ?? 0;
+        final pageLength = int.tryParse(request.uri.queryParameters['limit_page_length'] ?? '') ?? 0;
+        pageLengths.add(pageLength);
+        final count = start < 10000 ? pageLength : 0;
+        final rows = List.generate(count, (index) => {
+          'name': 'SAL-' + (start + index).toString(),
+          'company': 'Company A',
+          'payroll_entry': 'PE-001',
+          'employee': 'EMP-' + (start + index).toString(),
+          'employee_name': 'Employee ' + (start + index).toString(),
+        });
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(jsonEncode({'data': rows}));
+        await request.response.close();
+      });
+      api.configure('http://127.0.0.1:' + server.port.toString());
+      try {
+        final slips = await api.fetchPayrollSalarySlips(
+          payrollEntry: 'PE-001',
+          company: 'Company A',
+        );
+        expect(slips, hasLength(10000));
+        expect(pageLengths, hasLength(21));
+        expect(pageLengths.last, 1);
+      } finally {
+        await server.close(force: true);
+      }
+    });
+
+    test('rejects the 10,001st salary slip rather than silently truncating', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      server.listen((request) async {
+        final start = int.tryParse(request.uri.queryParameters['limit_start'] ?? '') ?? 0;
+        final pageLength = int.tryParse(request.uri.queryParameters['limit_page_length'] ?? '') ?? 0;
+        final count = start < 10000 ? pageLength : 1;
+        final rows = List.generate(count, (index) => {
+          'name': 'SAL-' + (start + index).toString(),
+          'company': 'Company A',
+          'payroll_entry': 'PE-001',
+        });
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(jsonEncode({'data': rows}));
+        await request.response.close();
+      });
+      api.configure('http://127.0.0.1:' + server.port.toString());
+      try {
+        await expectLater(
+          api.fetchPayrollSalarySlips(payrollEntry: 'PE-001', company: 'Company A'),
+          throwsA(isA<FormatException>()),
+        );
+      } finally {
+        await server.close(force: true);
+      }
+    });
   });
 }

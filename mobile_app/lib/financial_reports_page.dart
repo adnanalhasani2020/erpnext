@@ -48,6 +48,7 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
   List<core.Map<String, dynamic>> _rows = const [];
   List<ErpStockBalance> _stockBalances = const [];
   List<ErpWarehouse> _warehouses = const [];
+  final Map<String, int> _stockVisibleCounts = {};
   int _requestGeneration = 0;
   int _stockRequestGeneration = 0;
 
@@ -95,6 +96,7 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
     setState(() {
       _stockLoading = true;
       _stockError = null;
+      _stockVisibleCounts.clear();
     });
     try {
       final warehouses = <ErpWarehouse>[];
@@ -593,6 +595,7 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
             0, (sum, row) => sum + row.stockValue!,
           );
           final missingValues = entry.value.where((row) => row.stockValue == null).length;
+          final visibleCount = _stockVisibleCounts[entry.key] ?? 60;
           return Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -607,15 +610,25 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
                     Text('تنبيه: قيمة التقييم غير متاحة لـ $missingValues رصيد؛ الإجمالي جزئي.',
                       style: TextStyle(color: Theme.of(context).colorScheme.error)),
                   const Divider(),
-                  ...entry.value.take(60).map((row) => ListTile(
+                  ...entry.value.take(visibleCount).map((row) => ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                     title: Text(row.itemCode),
                     subtitle: Text('${row.warehouse} • الكمية: ${row.actualQty.toStringAsFixed(2)} ${row.stockUom ?? ''} • معدل التقييم: ${row.valuationRate?.toStringAsFixed(2) ?? '—'}'),
                     trailing: Text(row.stockValue?.toStringAsFixed(2) ?? '—'),
                   )),
-                  if (entry.value.length > 60)
-                    Text('يُعرض أول 60 رصيداً من أصل ${entry.value.length}. راجع شاشة المخزون للتصفية التفصيلية.'),
+                  if (entry.value.length > visibleCount)
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: OutlinedButton.icon(
+                        onPressed: () => setState(() {
+                          _stockVisibleCounts[entry.key] =
+                              (visibleCount + 60).clamp(0, entry.value.length).toInt();
+                        }),
+                        icon: const Icon(Icons.expand_more),
+                        label: Text('عرض ${(entry.value.length - visibleCount) > 60 ? 60 : entry.value.length - visibleCount} أرصدة إضافية'),
+                      ),
+                    ),
                 ],
               ),
             ),

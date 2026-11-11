@@ -23,7 +23,9 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
   String? _company;
   DateTime _from = DateTime(DateTime.now().year, DateTime.now().month, 1);
   DateTime _to = DateTime.now();
-  List<core.Map<String, dynamic>> _invoices = const [];
+  List<core.Map<String, dynamic>> _currencyTotals = const [];
+  Map<String, List<core.Map<String, dynamic>>> _topCustomersByCurrency = const {};
+  int _totalInvoices = 0;
   bool _loading = false;
   String? _error;
   int _requestGeneration = 0;
@@ -58,17 +60,40 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
       _error = null;
     });
     try {
-      final rows = await widget.api.fetchSalesDashboardInvoices(
+      final summary = await widget.api.fetchSalesDashboardSummary(
         company: company,
         fromDate: _date(_from),
         toDate: _date(_to),
       );
       if (!mounted || generation != _requestGeneration) return;
-      setState(() => _invoices = rows);
+      final rawTotals = summary['currency_totals'];
+      final rawTop = summary['top_customers_by_currency'];
+      final top = <String, List<core.Map<String, dynamic>>>{};
+      if (rawTop is core.Map) {
+        for (final entry in rawTop.entries) {
+          if (entry.value is List) {
+            top[entry.key.toString()] = (entry.value as List)
+                .whereType<core.Map<String, dynamic>>()
+                .map((row) => core.Map<String, dynamic>.from(row))
+                .toList(growable: false);
+          }
+        }
+      }
+      setState(() {
+        _currencyTotals = rawTotals is List
+            ? rawTotals.whereType<core.Map<String, dynamic>>()
+                .map((row) => core.Map<String, dynamic>.from(row))
+                .toList(growable: false)
+            : const [];
+        _topCustomersByCurrency = top;
+        _totalInvoices = int.tryParse(summary['total_invoices']?.toString() ?? '') ?? 0;
+      });
     } catch (error) {
       if (!mounted || generation != _requestGeneration) return;
       setState(() {
-        _invoices = const [];
+        _currencyTotals = const [];
+        _topCustomersByCurrency = const {};
+        _totalInvoices = 0;
         _error = error.toString().replaceFirst('Exception: ', '');
       });
     } finally {
@@ -99,40 +124,6 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
     await _load();
   }
 
-  core.Map<String, core.Map<String, dynamic>> get _currencyTotals {
-    final result = <String, core.Map<String, dynamic>>{};
-    for (final invoice in _invoices) {
-      final currency = invoice['currency']?.toString() ?? '';
-      final total = result.putIfAbsent(currency, () => {
-        'total': 0.0,
-        'outstanding': 0.0,
-        'count': 0,
-      });
-      total['total'] = (total['total'] as double) + _number(invoice['grand_total']);
-      total['outstanding'] = (total['outstanding'] as double) + _number(invoice['outstanding_amount']);
-      total['count'] = (total['count'] as int) + 1;
-    }
-    return result;
-  }
-
-  core.Map<String, List<MapEntry<String, double>>> get _topCustomersByCurrency {
-    final grouped = <String, core.Map<String, double>>{};
-    for (final invoice in _invoices) {
-      final customer = invoice['customer_name']?.toString().trim().isNotEmpty == true
-          ? invoice['customer_name'].toString()
-          : invoice['customer']?.toString() ?? 'غير محدد';
-      final currency = invoice['currency']?.toString() ?? '';
-      final totals = grouped.putIfAbsent(currency, () => <String, double>{});
-      totals[customer] = (totals[customer] ?? 0) + _number(invoice['grand_total']);
-    }
-    return {
-      for (final group in grouped.entries)
-        group.key: (group.value.entries.toList()
-          ..sort((a, b) => b.value.compareTo(a.value)))
-            .take(5).toList(growable: false),
-    };
-  }
-
   Widget _metric(String title, String value, IconData icon) {
     return Card(
       child: Padding(
@@ -160,7 +151,6 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
   @override
   Widget build(BuildContext context) {
     final totals = _currencyTotals;
-    final totalInvoices = _invoices.length;
     return Scaffold(
       appBar: AppBar(
         title: const Text('لوحة مؤشرات المبيعات'),
@@ -221,15 +211,15 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                 ),
               ),
             if (!_loading && _error == null) ...[
-              _metric('عدد فواتير المبيعات', totalInvoices.toString(), Icons.receipt_long_outlined),
+              _metric('عدد فواتير المبيعات', _totalInvoices.toString(), Icons.receipt_long_outlined),
               const SizedBox(height: 8),
               Text('ملخص المبيعات حسب العملة', style: Theme.of(context).textTheme.titleMedium),
               if (totals.isEmpty)
                 const Card(child: ListTile(title: Text('لا توجد فواتير مرحلة خلال الفترة المحددة.')))
               else
-                ...totals.entries.map((entry) {
-                  final currency = entry.key.isEmpty ? 'عملة غير محددة' : entry.key;
-                  final data = entry.value;
+                ...totals.map((data) {
+                  final rawCurrency = data['currency']?.toString() ?? '';
+                  final currency = rawCurrency.isEmpty ? 'عملة غير محددة' : rawCurrency;
                   return Card(
                     child: Padding(
                       padding: const EdgeInsets.all(14),
@@ -240,7 +230,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                           const SizedBox(height: 8),
                           _line('إجمالي المبيعات', _number(data['total']).toStringAsFixed(2)),
                           _line('المبالغ المستحقة', _number(data['outstanding']).toStringAsFixed(2)),
-                          _line('عدد الفواتير', data['count'].toString()),
+                          _line('عدد الفواتير', data['invoice_count']?.toString() ?? '0'),
                         ],
                       ),
                     ),
@@ -262,8 +252,8 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                     ...group.value.asMap().entries.map((entry) => Card(
                       child: ListTile(
                         leading: CircleAvatar(child: Text('${entry.key + 1}')),
-                        title: Text(entry.value.key),
-                        trailing: Text(entry.value.value.toStringAsFixed(2)),
+                        title: Text(entry.value['customer_name']?.toString() ?? entry.value['customer']?.toString() ?? 'غير محدد'),
+                        trailing: Text(_number(entry.value['total']).toStringAsFixed(2)),
                       ),
                     )),
                   ],
@@ -271,7 +261,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
               const Padding(
                 padding: EdgeInsets.only(top: 8),
                 child: Text(
-                  'المصدر: فواتير المبيعات المرحلة في ERPNext. لا تشمل المرتجعات، ولا يتم جمع عملات مختلفة معاً.',
+                  'المصدر: تجميعات خادمية من فواتير المبيعات المرحلة في ERPNext. لا تشمل المرتجعات، ولا يتم جمع عملات مختلفة معاً.',
                   style: TextStyle(fontSize: 12),
                 ),
               ),
