@@ -552,6 +552,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
             onPressed: () {
               try {
                 final values = <String, dynamic>{...?source};
+                values['doctype'] ??= meta['name']?.toString();
                 for (final field in fields) {
                   final key = field['fieldname'].toString();
                   final type = field['fieldtype']?.toString() ?? '';
