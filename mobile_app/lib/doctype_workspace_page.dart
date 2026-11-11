@@ -395,7 +395,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 final key = f['fieldname'].toString();
                 final type = f['fieldtype']?.toString() ?? '';
                 final label = f['label']?.toString() ?? key;
-                final options = (f['options']?.toString() ?? '').split('\\n').where((v) => v.trim().isNotEmpty).toList();
+                final options = (f['options']?.toString() ?? '').split('\n').where((v) => v.trim().isNotEmpty).toList();
                 if (type == 'Check') {
                   return CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
