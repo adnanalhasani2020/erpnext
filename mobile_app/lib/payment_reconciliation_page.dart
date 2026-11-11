@@ -44,6 +44,8 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
   List<core.Map<String, dynamic>> _accounts = const [];
   List<core.Map<String, dynamic>> _dimensionDefinitions = const [];
   final Map<String, TextEditingController> _dimensionControllers = {};
+  final Map<String, List<String>> _dimensionOptions = {};
+  final Set<String> _searchingDimensionOptions = <String>{};
   int _dimensionGeneration = 0;
   bool _loadingDimensions = false;
   core.Map<String, dynamic>? _document;
@@ -89,10 +91,11 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
       controller.dispose();
     }
     _dimensionControllers.clear();
+    _dimensionOptions.clear();
     super.dispose();
   }
 
-  bool get _busy => _loadingAccounts || _loadingDimensions || _loadingEntries || _allocating || _reconciling;
+  bool get _busy => _loadingAccounts || _loadingDimensions || _searchingDimensionOptions.isNotEmpty || _loadingEntries || _allocating || _reconciling;
 
   double _number(dynamic value) =>
       value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '') ?? 0;
@@ -194,6 +197,7 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
           ..clear()
           ..addAll(next);
         _dimensionDefinitions = definitions;
+        _dimensionOptions.clear();
         _document = null;
       });
     } catch (error) {
@@ -204,6 +208,31 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
       if (mounted && generation == _dimensionGeneration) {
         setState(() => _loadingDimensions = false);
       }
+    }
+  }
+
+  Future<void> _searchDimensionOptions(String fieldname) async {
+    final company = _company;
+    final controller = _dimensionControllers[fieldname];
+    if (company == null || controller == null || !_searchingDimensionOptions.add(fieldname)) return;
+    setState(() => _error = null);
+    try {
+      final options = await widget.api.searchPaymentReconciliationDimensionValues(
+        company: company,
+        fieldname: fieldname,
+        search: controller.text,
+      );
+      if (!mounted || company != _company) return;
+      setState(() => _dimensionOptions[fieldname] = options);
+      if (options.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('لم يعثر ERPNext على قيم مطابقة لهذا البعد.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _searchingDimensionOptions.remove(fieldname));
     }
   }
 
@@ -836,28 +865,69 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
                     final fieldname = definition['fieldname']?.toString() ?? '';
                     final controller = _dimensionControllers[fieldname];
                     if (controller == null) return const SizedBox.shrink();
+                    final options = _dimensionOptions[fieldname] ?? const <String>[];
+                    final searching = _searchingDimensionOptions.contains(fieldname);
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: TextField(
-                        controller: controller,
-                        enabled: !_busy,
-                        decoration: InputDecoration(
-                          labelText: definition['label']?.toString() ?? fieldname,
-                          helperText: 'نوع البيانات: ${definition['options'] ?? ''}',
-                          suffixIcon: controller.text.isEmpty
-                              ? null
-                              : IconButton(
-                                  tooltip: 'مسح البعد',
-                                  onPressed: _busy ? null : () {
-                                    controller.clear();
-                                    setState(() => _document = null);
-                                  },
-                                  icon: const Icon(Icons.clear),
-                                ),
-                        ),
-                        onChanged: (_) {
-                          if (_document != null) setState(() => _document = null);
-                        },
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          TextField(
+                            controller: controller,
+                            enabled: !_busy,
+                            decoration: InputDecoration(
+                              labelText: definition['label']?.toString() ?? fieldname,
+                              helperText: 'ابحث في ${definition['options'] ?? 'السجلات المرتبطة'} ثم اختر قيمة',
+                              suffixIcon: controller.text.isEmpty
+                                  ? null
+                                  : IconButton(
+                                      tooltip: 'مسح البعد',
+                                      onPressed: _busy ? null : () {
+                                        controller.clear();
+                                        setState(() {
+                                          _document = null;
+                                          _dimensionOptions.remove(fieldname);
+                                        });
+                                      },
+                                      icon: const Icon(Icons.clear),
+                                    ),
+                            ),
+                            onChanged: (_) {
+                              setState(() {
+                                _document = null;
+                                _dimensionOptions.remove(fieldname);
+                              });
+                            },
+                            onSubmitted: (_) => _searchDimensionOptions(fieldname),
+                          ),
+                          Align(
+                            alignment: AlignmentDirectional.centerEnd,
+                            child: TextButton.icon(
+                              onPressed: _busy ? null : () => _searchDimensionOptions(fieldname),
+                              icon: searching
+                                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                  : const Icon(Icons.search),
+                              label: Text(searching ? 'جارٍ البحث...' : 'بحث في القيم'),
+                            ),
+                          ),
+                          if (options.isNotEmpty)
+                            DropdownButtonFormField<String>(
+                              initialValue: options.contains(controller.text) ? controller.text : null,
+                              isExpanded: true,
+                              decoration: const InputDecoration(labelText: 'اختر قيمة البعد'),
+                              items: options.map((value) => DropdownMenuItem(
+                                value: value,
+                                child: Text(value, overflow: TextOverflow.ellipsis),
+                              )).toList(),
+                              onChanged: _busy ? null : (value) {
+                                if (value == null) return;
+                                setState(() {
+                                  controller.text = value;
+                                  _document = null;
+                                });
+                              },
+                            ),
+                        ],
                       ),
                     );
                   }),
