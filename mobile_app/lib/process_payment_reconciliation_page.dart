@@ -34,6 +34,7 @@ class _ProcessPaymentReconciliationPageState
   final _paymentTo = TextEditingController();
 
   String? _company;
+  String? _editingJobName;
   String _partyType = 'Customer';
   String? _statusFilter;
   List<core.Map<String, dynamic>> _jobs = [];
@@ -189,6 +190,7 @@ class _ProcessPaymentReconciliationPageState
     });
     try {
       final saved = await widget.api.saveProcessPaymentReconciliationDraft(
+        name: _editingJobName,
         company: company,
         partyType: _partyType,
         party: _party.text,
@@ -202,6 +204,7 @@ class _ProcessPaymentReconciliationPageState
         toPaymentDate: _paymentTo.text,
       );
       if (!mounted) return;
+      _editingJobName = null;
       _party.clear();
       _receivableAccount.clear();
       _advanceAccount.clear();
@@ -219,6 +222,40 @@ class _ProcessPaymentReconciliationPageState
       if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _loadDraftForEdit(String name) async {
+    if (_busyJobs.contains(name)) return;
+    setState(() {
+      _busyJobs.add(name);
+      _error = null;
+    });
+    try {
+      final document = await widget.api.fetchProcessPaymentReconciliationJob(name);
+      if (!mounted) return;
+      if (document['docstatus'] != 0) {
+        throw const FormatException('لم تعد هذه المهمة مسودة قابلة للتعديل.');
+      }
+      setState(() {
+        _editingJobName = name;
+        _company = document['company']?.toString();
+        _partyType = document['party_type']?.toString() ?? 'Customer';
+        _party.text = document['party']?.toString() ?? '';
+        _receivableAccount.text = document['receivable_payable_account']?.toString() ?? '';
+        _advanceAccount.text = document['default_advance_account']?.toString() ?? '';
+        _bankCashAccount.text = document['bank_cash_account']?.toString() ?? '';
+        _costCenter.text = document['cost_center']?.toString() ?? '';
+        _invoiceFrom.text = document['from_invoice_date']?.toString() ?? '';
+        _invoiceTo.text = document['to_invoice_date']?.toString() ?? '';
+        _paymentFrom.text = document['from_payment_date']?.toString() ?? '';
+        _paymentTo.text = document['to_payment_date']?.toString() ?? '';
+      });
+      await _load();
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _busyJobs.remove(name));
     }
   }
 
@@ -353,11 +390,17 @@ class _ProcessPaymentReconciliationPageState
               spacing: 8,
               runSpacing: 8,
               children: [
-                if (docStatus == 0)
+                if (docStatus == 0) ...[
+                  OutlinedButton.icon(
+                    onPressed: busy ? null : () => _loadDraftForEdit(name),
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('تعديل المسودة'),
+                  ),
                   FilledButton.tonal(
                     onPressed: busy ? null : () => _confirmSubmit(name),
                     child: const Text('ترحيل المهمة'),
                   ),
+                ],
                 if (docStatus == 1 && (status == 'Queued' || status == 'Paused'))
                   FilledButton(
                     onPressed: busy ? null : () => _runAction(
@@ -489,8 +532,9 @@ class _ProcessPaymentReconciliationPageState
             ),
             const SizedBox(height: 10),
             ExpansionTile(
-              initiallyExpanded: false,
-              title: const Text('إنشاء مهمة تسوية جماعية'),
+              key: ValueKey('process-reconciliation-form-${_editingJobName ?? 'new'}'),
+              initiallyExpanded: _editingJobName != null,
+              title: Text(_editingJobName == null ? 'إنشاء مهمة تسوية جماعية' : 'تعديل مسودة $_editingJobName'),
               subtitle: const Text('يعالج ERPNext الفواتير والمدفوعات في الخلفية ويحتفظ بسجل التقدم.'),
               childrenPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               children: [
@@ -530,7 +574,7 @@ class _ProcessPaymentReconciliationPageState
                   icon: _saving
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.save_outlined),
-                  label: const Text('حفظ مسودة المهمة'),
+                  label: Text(_editingJobName == null ? 'حفظ مسودة المهمة' : 'حفظ تعديلات المسودة'),
                 ),
               ],
             ),
