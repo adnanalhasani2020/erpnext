@@ -589,6 +589,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 final isDynamicLink = type == 'Dynamic Link';
                 final canPickLink = isLink || (isDynamicLink && dynamicLinkTarget.trim().isNotEmpty);
                 final isDate = type == 'Date';
+                final isDateTime = type == 'Datetime';
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: TextField(
@@ -605,7 +606,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                       ? const TextInputType.numberWithOptions(decimal: true)
                       : type == 'Email' ? TextInputType.emailAddress
                       : type == 'Phone' ? TextInputType.phone : TextInputType.text,
-                    readOnly: isDate,
+                    readOnly: isDate || isDateTime,
                     decoration: InputDecoration(
                       labelText: label,
                       helperText: canPickLink ? 'اختر سجلاً موجوداً في ERPNext' : isDynamicLink ? 'حدد نوع المرجع أولاً' : field['reqd'] == 1 ? 'حقل إلزامي' : null,
@@ -621,14 +622,26 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                             icon: const Icon(Icons.search),
                           ) : null,
                     ),
-                    onTap: isDate ? () async {
+                    onTap: isDate || isDateTime ? () async {
                       final initial = DateTime.tryParse(controller.text) ?? DateTime.now();
                       final picked = await showDatePicker(
                         context: context, initialDate: initial,
                         firstDate: DateTime(1900), lastDate: DateTime(2200),
                       );
-                      if (picked != null) controller.text =
-                        '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+                      if (picked == null) return;
+                      var chosen = DateTime(picked.year, picked.month, picked.day, initial.hour, initial.minute);
+                      if (isDateTime) {
+                        final time = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay(hour: initial.hour, minute: initial.minute),
+                        );
+                        if (time == null) return;
+                        chosen = DateTime(picked.year, picked.month, picked.day, time.hour, time.minute);
+                      }
+                      final date = '${chosen.year.toString().padLeft(4, '0')}-${chosen.month.toString().padLeft(2, '0')}-${chosen.day.toString().padLeft(2, '0')}';
+                      controller.text = isDateTime
+                        ? '${date} ${chosen.hour.toString().padLeft(2, '0')}:${chosen.minute.toString().padLeft(2, '0')}:00'
+                        : date;
                     } : null,
                   ),
                 );
@@ -1135,8 +1148,19 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
           lastDate: DateTime(2200),
         );
         if (picked != null) {
-          final date = '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
-          controller.text = isDateTime ? '${date} 00:00:00' : date;
+          var chosen = DateTime(picked.year, picked.month, picked.day, initial.hour, initial.minute);
+          if (isDateTime) {
+            final time = await showTimePicker(
+              context: context,
+              initialTime: TimeOfDay(hour: initial.hour, minute: initial.minute),
+            );
+            if (time == null) return;
+            chosen = DateTime(picked.year, picked.month, picked.day, time.hour, time.minute);
+          }
+          final date = '${chosen.year.toString().padLeft(4, '0')}-${chosen.month.toString().padLeft(2, '0')}-${chosen.day.toString().padLeft(2, '0')}';
+          controller.text = isDateTime
+            ? '${date} ${chosen.hour.toString().padLeft(2, '0')}:${chosen.minute.toString().padLeft(2, '0')}:00'
+            : date;
           _filters[key] = controller.text;
         }
       } : null,
