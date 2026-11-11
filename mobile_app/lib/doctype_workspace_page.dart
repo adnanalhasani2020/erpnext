@@ -802,6 +802,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 }
                 final controller = controllers[key]!;
                 final isDate = type == 'Date';
+                final isDateTime = type == 'Datetime';
                 final isLink = type == 'Link' && (f['options']?.toString().trim().isNotEmpty ?? false);
                 final dynamicLinkField = f['options']?.toString() ?? '';
                 final dynamicLinkTarget = selections[dynamicLinkField] ??
@@ -826,10 +827,10 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                       }
                     },
                     keyboardType: keyboard,
-                    readOnly: isDate,
+                    readOnly: isDate || isDateTime,
                     minLines: (type == 'Text' || type == 'Long Text') ? 3 : 1,
                     maxLines: (type == 'Text' || type == 'Long Text') ? 5 : 1,
-                    onTap: isDate ? () async {
+                    onTap: isDate || isDateTime ? () async {
                       final initial = DateTime.tryParse(controller.text) ?? DateTime.now();
                       final date = await showDatePicker(
                         context: context,
@@ -837,8 +838,20 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                         firstDate: DateTime(1900),
                         lastDate: DateTime(2200),
                       );
-                      if (date != null) controller.text =
-                        '${date.year.toString().padLeft(4, '0')}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+                      if (date == null) return;
+                      var chosen = DateTime(date.year, date.month, date.day, initial.hour, initial.minute);
+                      if (isDateTime) {
+                        final time = await showTimePicker(
+                          context: context,
+                          initialTime: TimeOfDay(hour: initial.hour, minute: initial.minute),
+                        );
+                        if (time == null) return;
+                        chosen = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+                      }
+                      final formattedDate = '${chosen.year.toString().padLeft(4, '0')}-${chosen.month.toString().padLeft(2, '0')}-${chosen.day.toString().padLeft(2, '0')}';
+                      controller.text = isDateTime
+                        ? '${formattedDate} ${chosen.hour.toString().padLeft(2, '0')}:${chosen.minute.toString().padLeft(2, '0')}:00'
+                        : formattedDate;
                     } : null,
                     decoration: InputDecoration(
                       labelText: label,
