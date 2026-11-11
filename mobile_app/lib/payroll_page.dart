@@ -21,6 +21,8 @@ class PayrollPage extends StatefulWidget {
 
 class _PayrollPageState extends State<PayrollPage> {
   String? _company;
+  final _entrySearch = TextEditingController();
+  int? _entryDocStatus;
   String? _costCenter;
   String? _payableAccount;
   String? _bankAccount;
@@ -59,6 +61,7 @@ class _PayrollPageState extends State<PayrollPage> {
     _endDate.dispose();
     _exchangeRate.dispose();
     _currencyController.dispose();
+    _entrySearch.dispose();
     super.dispose();
   }
 
@@ -121,7 +124,7 @@ class _PayrollPageState extends State<PayrollPage> {
       _error = null;
     });
     try {
-      final rows = await widget.api.fetchPayrollEntries(company: company, start: 0);
+      final rows = await widget.api.fetchPayrollEntries(company: company, start: 0, search: _entrySearch.text, docStatus: _entryDocStatus);
       if (!mounted || generation != _entryGeneration || company != _company) return;
       setState(() {
         _entries = rows;
@@ -147,7 +150,7 @@ class _PayrollPageState extends State<PayrollPage> {
     final offset = _entryOffset;
     setState(() => _loadingMoreEntries = true);
     try {
-      final rows = await widget.api.fetchPayrollEntries(company: company, start: offset);
+      final rows = await widget.api.fetchPayrollEntries(company: company, start: offset, search: _entrySearch.text, docStatus: _entryDocStatus);
       if (!mounted || generation != _entryGeneration || company != _company) return;
       setState(() {
         final known = _entries.map((row) => row['name']?.toString()).toSet();
@@ -466,6 +469,46 @@ class _PayrollPageState extends State<PayrollPage> {
             ),
           const SizedBox(height: 12),
           Text('الدورات الموجودة', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _entrySearch,
+                  enabled: !_loadingEntries && !_loadingMoreEntries && !_saving,
+                  textInputAction: TextInputAction.search,
+                  decoration: InputDecoration(
+                    labelText: 'بحث برقم دورة الرواتب',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: IconButton(
+                      tooltip: 'تطبيق البحث',
+                      onPressed: _loadingEntries || _loadingMoreEntries || _saving ? null : _loadEntries,
+                      icon: const Icon(Icons.arrow_forward),
+                    ),
+                  ),
+                  onSubmitted: (_) => _loadEntries(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonFormField<int?>(
+                  initialValue: _entryDocStatus,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'حالة المستند'),
+                  items: const [
+                    DropdownMenuItem<int?>(value: null, child: Text('الكل')),
+                    DropdownMenuItem<int?>(value: 0, child: Text('مسودة')),
+                    DropdownMenuItem<int?>(value: 1, child: Text('مرحّل')),
+                    DropdownMenuItem<int?>(value: 2, child: Text('ملغي')),
+                  ],
+                  onChanged: _loadingEntries || _loadingMoreEntries || _saving ? null : (value) {
+                    setState(() => _entryDocStatus = value);
+                    _loadEntries();
+                  },
+                ),
+              ),
+            ],
+          ),
           if (_loadingEntries) const LinearProgressIndicator(),
           if (!_loadingEntries && _entries.isEmpty)
             const ListTile(title: Text('لا توجد دورات رواتب ظاهرة لهذه الشركة.')),
