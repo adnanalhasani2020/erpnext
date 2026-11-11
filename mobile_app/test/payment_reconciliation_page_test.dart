@@ -20,7 +20,10 @@ void main() {
     double? reconciledAllocationAmount;
     server.listen((request) async {
       request.response.headers.contentType = ContentType.json;
-      if (request.method == 'GET' &&
+      if (request.method == 'POST' &&
+          request.uri.pathSegments.join('/').endsWith('/payment_reconciliation.get_queries_for_dimension_filters')) {
+        request.response.write(jsonEncode({'message': []}));
+      } else if (request.method == 'GET' &&
           request.uri.pathSegments.length == 3 &&
           request.uri.pathSegments[2] == 'Account') {
         request.response.write(jsonEncode({
