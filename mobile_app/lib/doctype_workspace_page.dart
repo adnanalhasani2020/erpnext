@@ -258,10 +258,18 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
   List<String> get _listFields {
     final result = _fields.where((f) => f['fieldname'] is String &&
       f['fieldtype'] != 'Table' && f['fieldtype'] != 'Table MultiSelect' &&
-      (f['in_list_view'] == 1 || f['in_standard_filter'] == 1 || f['reqd'] == 1))
+      f['in_list_view'] == 1)
       .map((f) => f['fieldname'].toString()).toList();
     if (!result.contains('name')) result.insert(0, 'name');
+    if (!result.contains('modified')) result.add('modified');
     return result;
+  }
+
+  String _fieldLabel(String fieldname) {
+    if (fieldname == 'name') return 'المعرّف';
+    if (fieldname == 'modified') return 'آخر تعديل';
+    final matches = _fields.where((field) => field['fieldname'] == fieldname).toList();
+    return matches.isEmpty ? fieldname : (matches.first['label']?.toString() ?? fieldname);
   }
 
   @override
@@ -1155,7 +1163,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 orElse: () => 'name',
               );
               final subtitle = fields.where((f) => f != title && row[f] != null)
-                  .take(3).map((f) => f + ': ' + row[f].toString()).join(' • ');
+                  .take(3).map((f) => _fieldLabel(f) + ': ' + row[f].toString()).join(' • ');
               return ListTile(
                 leading: Icon(widget.definition.icon),
                 title: Text(row[title]?.toString() ?? row['name']?.toString() ?? '—'),
