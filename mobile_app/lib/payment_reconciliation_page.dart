@@ -510,6 +510,75 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
     }
   }
 
+  Map<String, double> _selectedTotals(
+    List<core.Map<String, dynamic>> rows,
+    Set<String> selected,
+    String nameField,
+    String amountField,
+  ) {
+    final totals = <String, double>{};
+    for (final row in rows) {
+      final name = row[nameField]?.toString() ?? '';
+      if (name.isEmpty || !selected.contains(name)) continue;
+      final currency = row['currency']?.toString().trim();
+      final key = currency == null || currency.isEmpty ? 'عملة غير محددة' : currency;
+      totals[key] = (totals[key] ?? 0) + _number(row[amountField]);
+    }
+    return totals;
+  }
+
+  Widget _currencyTotalsCard({
+    required String title,
+    required Map<String, double> totals,
+  }) {
+    if (totals.isEmpty) {
+      return Card(
+        child: ListTile(
+          dense: true,
+          title: Text(title),
+          subtitle: const Text('لا توجد سجلات محددة.'),
+        ),
+      );
+    }
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+            const SizedBox(height: 6),
+            ...totals.entries.map((entry) => Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(entry.key),
+                Text(entry.value.toStringAsFixed(2)),
+              ],
+            )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _removeAllocation(int index) {
+    final document = _document;
+    final raw = document?['allocation'];
+    if (document == null || raw is! List || index < 0 || index >= raw.length || _busy) return;
+    setState(() {
+      final updated = core.Map<String, dynamic>.from(document);
+      final rows = raw
+          .whereType<core.Map>()
+          .map((row) => core.Map<String, dynamic>.from(row))
+          .toList(growable: true);
+      if (index >= rows.length) return;
+      rows.removeAt(index);
+      updated['allocation'] = rows;
+      _document = updated;
+      _error = null;
+    });
+  }
+
   Widget _sectionTitle(String value) => Padding(
     padding: const EdgeInsetsDirectional.only(top: 18, bottom: 8),
     child: Text(value, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
@@ -577,6 +646,12 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
     final allocations = document?['allocation'] is List
         ? (document!['allocation'] as List).whereType<core.Map<String, dynamic>>().toList()
         : <core.Map<String, dynamic>>[];
+    final selectedInvoiceTotals = _selectedTotals(
+      invoices, _selectedInvoiceNumbers, 'invoice_number', 'outstanding_amount',
+    );
+    final selectedPaymentTotals = _selectedTotals(
+      payments, _selectedPaymentReferences, 'reference_name', 'amount',
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('تسوية المدفوعات')),
@@ -760,6 +835,10 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
                     onChanged: (value) => _changeInvoiceSelection(name, value),
                   );
                 }),
+              _currencyTotalsCard(
+                title: 'إجمالي الفواتير المحددة حسب العملة',
+                totals: selectedInvoiceTotals,
+              ),
               _sectionTitle('المدفوعات غير المخصصة (${payments.length}) • المحدد: ${_selectedPaymentReferences.length}'),
               if (payments.isEmpty)
                 const Card(child: ListTile(title: Text('لا توجد مدفوعات غير مخصصة ضمن الفلاتر.')))
@@ -775,6 +854,10 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
                     icon: Icons.payments_outlined,
                   );
                 }),
+              _currencyTotalsCard(
+                title: 'إجمالي المدفوعات المحددة حسب العملة',
+                totals: selectedPaymentTotals,
+              ),
               if (allocations.isEmpty) ...[
                 const SizedBox(height: 12),
                 FilledButton.tonalIcon(
@@ -805,6 +888,11 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
                             tooltip: 'تعديل مبلغ التخصيص',
                             onPressed: _busy ? null : () => _editAllocation(entry.key),
                             icon: const Icon(Icons.edit_outlined),
+                          ),
+                          IconButton(
+                            tooltip: 'حذف هذا التخصيص من المعاينة',
+                            onPressed: _busy ? null : () => _removeAllocation(entry.key),
+                            icon: const Icon(Icons.delete_outline),
                           ),
                         ],
                       ),
