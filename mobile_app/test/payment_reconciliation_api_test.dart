@@ -51,6 +51,8 @@ void main() {
         final args = body['args'] as core.Map<String, dynamic>;
         expect(args['invoices'], isA<List>());
         expect(args['payments'], isA<List>());
+        expect((args['invoices'] as List).single['invoice_number'], 'SINV-1');
+        expect((args['payments'] as List).single['reference_name'], 'PAY-1');
         document['allocation'] = [{
           'reference_type': 'Payment Entry',
           'reference_name': 'PAY-1',
@@ -100,7 +102,11 @@ void main() {
       );
       expect((loaded['invoices'] as List).length, 1);
       expect((loaded['payments'] as List).length, 1);
-      final allocated = await api.allocatePaymentReconciliation(loaded);
+      final allocated = await api.allocatePaymentReconciliation(
+        loaded,
+        selectedInvoiceNumbers: const ['SINV-1'],
+        selectedPaymentReferences: const ['PAY-1'],
+      );
       expect((allocated['allocation'] as List).length, 1);
       final difference = await api.calculatePaymentReconciliationDifference(
         document: allocated,
