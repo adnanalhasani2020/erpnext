@@ -1,7 +1,7 @@
 import 'dart:core';
 import 'dart:core' as core;
 // ignore_for_file: prefer_interpolation_to_compose_strings
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import '../api/frappe_api.dart';
 import 'erp_models.dart';
 List<String> parseSerialNumbers(String value) => value.split(RegExp(r'[\r\n,;]+')).map((v) => v.trim()).where((v) => v.isNotEmpty).toList(growable: false);
