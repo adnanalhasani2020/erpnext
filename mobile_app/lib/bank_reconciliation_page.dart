@@ -46,6 +46,7 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
   bool _loadingMoreStatementImports = false;
   bool _hasMoreStatementImports = false;
   int _statementImportOffset = 0;
+  int _statementImportGeneration = 0;
   core.Map<String, dynamic>? _savedStatementBalance;
   core.Map<String, dynamic>? _balances;
   String? _error;
@@ -168,7 +169,7 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
         company: company,
         date: _balanceDate.text,
       );
-      if (!mounted || account != _bankAccount || company != _company) return;
+      if (!mounted || generation != _statementImportGeneration || account != _bankAccount || company != _company) return;
       final saved = await widget.api.fetchLatestBankStatementClosingBalance(
         bankAccount: account, company: company,
       );
@@ -284,8 +285,8 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
     final company = _company;
     final account = _bankAccount;
     if (company == null || account == null || account.isEmpty ||
-        _loadingStatementImports || _loadingMoreStatementImports ||
-        (more && !_hasMoreStatementImports)) return;
+        _loadingMoreStatementImports || (more && (!_hasMoreStatementImports || _loadingStatementImports))) return;
+    final generation = ++_statementImportGeneration;
     setState(() {
       if (more) {
         _loadingMoreStatementImports = true;
@@ -316,7 +317,7 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
     } catch (error) {
       if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
     } finally {
-      if (mounted) {
+      if (mounted && generation == _statementImportGeneration) {
         setState(() {
           _loadingStatementImports = false;
           _loadingMoreStatementImports = false;
@@ -629,6 +630,9 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
             )).toList(),
             onChanged: _loadingAccounts || _matching ? null : (value) {
               setState(() {
+                _statementImportGeneration++;
+                _loadingStatementImports = false;
+                _loadingMoreStatementImports = false;
                 _bankAccount = value;
                 _balances = null;
                 _savedStatementBalance = null;
