@@ -316,7 +316,10 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
         _hasMoreStatementImports = rows.length == 25;
       });
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      if (mounted && generation == _statementImportGeneration &&
+          account == _bankAccount && company == _company) {
+        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      }
     } finally {
       if (mounted && generation == _statementImportGeneration) {
         setState(() {
