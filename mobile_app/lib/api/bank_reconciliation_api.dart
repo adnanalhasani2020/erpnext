@@ -592,14 +592,29 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
     }
 
   Future<core.Map<String, dynamic>> allocatePaymentReconciliation(
-      core.Map<String, dynamic> document,
-    ) async {
-      final invoices = document['invoices'];
-      final payments = document['payments'];
+      core.Map<String, dynamic> document, {
+      List<String>? selectedInvoiceNumbers,
+      List<String>? selectedPaymentReferences,
+    }) async {
+      final allInvoices = document['invoices'];
+      final allPayments = document['payments'];
       if (document['doctype'] != 'Payment Reconciliation' ||
-          invoices is! List || invoices.isEmpty ||
-          payments is! List || payments.isEmpty) {
+          allInvoices is! List || allInvoices.isEmpty ||
+          allPayments is! List || allPayments.isEmpty) {
         throw const FormatException('يجب تحميل فواتير ومدفوعات غير مسواة قبل إنشاء التوزيع.');
+      }
+      final invoices = selectedInvoiceNumbers == null
+          ? allInvoices
+          : allInvoices.whereType<core.Map<String, dynamic>>()
+              .where((row) => selectedInvoiceNumbers.contains(row['invoice_number']?.toString()))
+              .toList(growable: false);
+      final payments = selectedPaymentReferences == null
+          ? allPayments
+          : allPayments.whereType<core.Map<String, dynamic>>()
+              .where((row) => selectedPaymentReferences.contains(row['reference_name']?.toString()))
+              .toList(growable: false);
+      if (invoices.isEmpty || payments.isEmpty) {
+        throw const FormatException('اختر فاتورة واحدة ودفعة واحدة على الأقل لإجراء التخصيص.');
       }
       final result = await _runPaymentReconciliationMethod(
         document: document,
