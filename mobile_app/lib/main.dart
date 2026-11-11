@@ -2082,6 +2082,8 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
   String? _error;
   final _fromDate = TextEditingController();
   final _toDate = TextEditingController();
+  final _accountFilter = TextEditingController();
+  final _voucherTypeFilter = TextEditingController();
   core.Map<String, dynamic> _opening = {'balance': 0.0};
   core.Map<String, dynamic> _periodTotals = {'debit': 0.0, 'credit': 0.0, 'balance': 0.0};
 
@@ -2107,6 +2109,8 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
         company: _company,
         fromDate: _fromDate.text,
         toDate: _toDate.text,
+        account: _accountFilter.text,
+        voucherType: _voucherTypeFilter.text,
         start: more ? _rows.length : 0,
       );
       if (!more) {
@@ -2121,12 +2125,14 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
           final totals = await widget.api.fetchPartyLedgerTotals(
             partyType: 'Customer', party: widget.customer.id,
             company: _company, fromDate: _fromDate.text, toDate: _toDate.text,
+            account: _accountFilter.text, voucherType: _voucherTypeFilter.text,
           );
           final opening = _fromDate.text.trim().isEmpty
               ? <String, dynamic>{'balance': 0.0}
               : await widget.api.fetchPartyLedgerOpeningBalance(
                   partyType: 'Customer', party: widget.customer.id,
                   company: _company, beforeDate: _fromDate.text,
+                  account: _accountFilter.text, voucherType: _voucherTypeFilter.text,
                 );
           if (mounted) setState(() { _periodTotals = totals; _opening = opening; });
         }
@@ -2161,6 +2167,8 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
   void dispose() {
     _fromDate.dispose();
     _toDate.dispose();
+    _accountFilter.dispose();
+    _voucherTypeFilter.dispose();
     super.dispose();
   }
 
@@ -2205,6 +2213,26 @@ class _CustomerLedgerSheetState extends State<_CustomerLedgerSheet> {
                   Expanded(child: TextField(controller: _toDate, keyboardType: TextInputType.datetime,
                     decoration: const InputDecoration(labelText: 'إلى تاريخ YYYY-MM-DD'))),
                 ]),
+                ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  title: const Text('فلاتر متقدمة'),
+                  children: [
+                    TextField(
+                      controller: _accountFilter,
+                      decoration: const InputDecoration(
+                        labelText: 'الحساب المحاسبي (اختياري)',
+                        hintText: 'مثال: Accounts Receivable - CO',
+                      ),
+                    ),
+                    TextField(
+                      controller: _voucherTypeFilter,
+                      decoration: const InputDecoration(
+                        labelText: 'نوع المستند (اختياري)',
+                        hintText: 'مثال: Sales Invoice أو Payment Entry',
+                      ),
+                    ),
+                  ],
+                ),
                 Align(alignment: AlignmentDirectional.centerEnd, child: TextButton.icon(
                   onPressed: _loading || _loadingMore ? null : () => _load(),
                   icon: const Icon(Icons.filter_alt_outlined), label: const Text('تطبيق فترة الكشف'),
@@ -2306,6 +2334,8 @@ class _SupplierLedgerSheetState extends State<_SupplierLedgerSheet> {
   String? _error;
   final _fromDate = TextEditingController();
   final _toDate = TextEditingController();
+  final _accountFilter = TextEditingController();
+  final _voucherTypeFilter = TextEditingController();
   core.Map<String, dynamic> _opening = {'balance': 0.0};
   core.Map<String, dynamic> _periodTotals = {'debit': 0.0, 'credit': 0.0, 'balance': 0.0};
 
@@ -2331,6 +2361,8 @@ class _SupplierLedgerSheetState extends State<_SupplierLedgerSheet> {
         company: _company,
         fromDate: _fromDate.text,
         toDate: _toDate.text,
+        account: _accountFilter.text,
+        voucherType: _voucherTypeFilter.text,
         start: more ? _rows.length : 0,
       );
       if (!more) {
@@ -2345,12 +2377,14 @@ class _SupplierLedgerSheetState extends State<_SupplierLedgerSheet> {
           final totals = await widget.api.fetchPartyLedgerTotals(
             partyType: 'Supplier', party: widget.supplier.id,
             company: _company, fromDate: _fromDate.text, toDate: _toDate.text,
+            account: _accountFilter.text, voucherType: _voucherTypeFilter.text,
           );
           final opening = _fromDate.text.trim().isEmpty
               ? <String, dynamic>{'balance': 0.0}
               : await widget.api.fetchPartyLedgerOpeningBalance(
                   partyType: 'Supplier', party: widget.supplier.id,
                   company: _company, beforeDate: _fromDate.text,
+                  account: _accountFilter.text, voucherType: _voucherTypeFilter.text,
                 );
           if (mounted) setState(() { _periodTotals = totals; _opening = opening; });
         }
@@ -2385,6 +2419,8 @@ class _SupplierLedgerSheetState extends State<_SupplierLedgerSheet> {
   void dispose() {
     _fromDate.dispose();
     _toDate.dispose();
+    _accountFilter.dispose();
+    _voucherTypeFilter.dispose();
     super.dispose();
   }
 
@@ -2429,6 +2465,26 @@ class _SupplierLedgerSheetState extends State<_SupplierLedgerSheet> {
                   Expanded(child: TextField(controller: _toDate, keyboardType: TextInputType.datetime,
                     decoration: const InputDecoration(labelText: 'إلى تاريخ YYYY-MM-DD'))),
                 ]),
+                ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  title: const Text('فلاتر متقدمة'),
+                  children: [
+                    TextField(
+                      controller: _accountFilter,
+                      decoration: const InputDecoration(
+                        labelText: 'الحساب المحاسبي (اختياري)',
+                        hintText: 'مثال: Accounts Receivable - CO',
+                      ),
+                    ),
+                    TextField(
+                      controller: _voucherTypeFilter,
+                      decoration: const InputDecoration(
+                        labelText: 'نوع المستند (اختياري)',
+                        hintText: 'مثال: Sales Invoice أو Payment Entry',
+                      ),
+                    ),
+                  ],
+                ),
                 Align(alignment: AlignmentDirectional.centerEnd, child: TextButton.icon(
                   onPressed: _loading || _loadingMore ? null : () => _load(),
                   icon: const Icon(Icons.filter_alt_outlined), label: const Text('تطبيق فترة الكشف'),
