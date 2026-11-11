@@ -535,6 +535,13 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
         controllers[key] = TextEditingController(text: initial?.toString() ?? '');
       }
     }
+    void clearDependentDynamicLinks(String targetField) {
+      for (final dynamicField in fields.where((field) =>
+          field['fieldtype'] == 'Dynamic Link' && field['options']?.toString() == targetField)) {
+        final dynamicKey = dynamicField['fieldname']?.toString();
+        if (dynamicKey != null) controllers[dynamicKey]?.clear();
+      }
+    }
     String error = '';
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
@@ -586,6 +593,14 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: TextField(
                     controller: controller,
+                    onChanged: (_) {
+                      final hasDynamicDependents = fields.any((field) =>
+                        field['fieldtype'] == 'Dynamic Link' && field['options']?.toString() == key);
+                      if (hasDynamicDependents) {
+                        clearDependentDynamicLinks(key);
+                        refresh(() {});
+                      }
+                    },
                     keyboardType: const {'Int','Float','Currency','Percent'}.contains(type)
                       ? const TextInputType.numberWithOptions(decimal: true)
                       : type == 'Email' ? TextInputType.emailAddress
@@ -765,7 +780,10 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                       isExpanded: true,
                       decoration: InputDecoration(labelText: label),
                       items: items.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
-                      onChanged: (value) => refresh(() => selections[key] = value),
+                      onChanged: (value) {
+                      clearDependentDynamicLinks(key);
+                      refresh(() => selections[key] = value);
+                    },
                     ),
                   );
                 }
