@@ -616,6 +616,56 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
       return result;
     }
 
+  Future<double> calculatePaymentReconciliationDifference({
+      required core.Map<String, dynamic> document,
+      required core.Map<String, dynamic> allocation,
+      required double allocatedAmount,
+    }) async {
+      if (document['doctype'] != 'Payment Reconciliation' ||
+          !allocatedAmount.isFinite || allocatedAmount <= 0) {
+        throw const FormatException('بيانات حساب فرق التسوية غير صحيحة.');
+      }
+      final invoices = document['invoices'];
+      final payments = document['payments'];
+      if (invoices is! List || payments is! List) {
+        throw const FormatException('قوائم الفواتير والمدفوعات غير متاحة لحساب فرق التسوية.');
+      }
+      final invoiceNumber = allocation['invoice_number']?.toString() ?? '';
+      final paymentName = allocation['reference_name']?.toString() ?? '';
+      final invoiceRows = invoices.whereType<core.Map<String, dynamic>>()
+          .where((row) => row['invoice_number']?.toString() == invoiceNumber).toList();
+      final paymentRows = payments.whereType<core.Map<String, dynamic>>()
+          .where((row) => row['reference_name']?.toString() == paymentName).toList();
+      if (invoiceRows.length != 1 || paymentRows.length != 1) {
+        throw const FormatException('تعذر مطابقة الفاتورة والدفعة لهذا التخصيص بصورة فريدة.');
+      }
+      final response = await _sendJson(
+        'POST',
+        '/api/method/run_doc_method',
+        {
+          'docs': jsonEncode(document),
+          'method': 'calculate_difference_on_allocation_change',
+          'args': {
+            'payment_entry': paymentRows,
+            'invoice': invoiceRows,
+            'allocated_amount': allocatedAmount,
+          },
+        },
+      );
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر حساب فرق العملة للتخصيص من ERPNext.'));
+      }
+      final rawDifference = data['message'];
+      final difference = rawDifference is num
+          ? rawDifference.toDouble()
+          : double.tryParse(rawDifference?.toString() ?? '');
+      if (difference == null || !difference.isFinite) {
+        throw const FormatException('أعاد ERPNext قيمة غير صالحة لفرق التسوية.');
+      }
+      return difference;
+    }
+
   Future<core.Map<String, dynamic>> reconcilePaymentAllocations(
       core.Map<String, dynamic> document,
     ) async {
