@@ -171,9 +171,16 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
                     title: Text(item.label),
                     subtitle: Text(item.doctype, textDirection: TextDirection.ltr),
                     trailing: const Icon(Icons.chevron_left),
-                    onTap: () => Navigator.push(context, MaterialPageRoute<void>(
-                      builder: (_) => ErpDocTypeWorkspacePage(api: api, definition: item),
-                    )),
+                    onTap: () {
+                      final open = widget.onOpenDefinition;
+                      if (open != null) {
+                        open(item);
+                        return;
+                      }
+                      Navigator.push(context, MaterialPageRoute<void>(
+                        builder: (_) => ErpDocTypeWorkspacePage(api: widget.api, definition: item),
+                      ));
+                    },
                   ),
               ],
             )),
