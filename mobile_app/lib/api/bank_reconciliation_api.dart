@@ -8,20 +8,26 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
     }) async {
       final normalizedCompany = company.trim();
       if (normalizedCompany.isEmpty ||
-          !{'Customer', 'Supplier'}.contains(partyType)) {
+          !{'Customer', 'Supplier', 'Employee'}.contains(partyType)) {
         throw const FormatException('حدد الشركة ونوع الطرف الصحيحين.');
       }
-      final accountType = partyType == 'Customer' ? 'Receivable' : 'Payable';
+      final accountFilters = <List<dynamic>>[
+        ['company', '=', normalizedCompany],
+        ['is_group', '=', 0],
+        ['disabled', '=', 0],
+        if (partyType == 'Employee') ...[
+          ['account_type', 'in', ['Receivable', 'Payable']],
+          ['root_type', 'in', ['Asset', 'Liability']],
+        ] else ...[
+          ['account_type', '=', partyType == 'Customer' ? 'Receivable' : 'Payable'],
+          ['root_type', '=', partyType == 'Customer' ? 'Asset' : 'Liability'],
+        ],
+      ];
       final uri = FrappeApi.buildResourcePageUri(
         baseUrl: _baseUrl,
         resource: 'Account',
-        fields: const ['name', 'account_type', 'account_currency', 'company'],
-        filters: [
-          ['company', '=', normalizedCompany],
-          ['account_type', '=', accountType],
-          ['is_group', '=', 0],
-          ['disabled', '=', 0],
-        ],
+        fields: const ['name', 'account_type', 'root_type', 'account_currency', 'company'],
+        filters: accountFilters,
         orderBy: 'name asc',
         pageLength: 500,
       );
@@ -533,7 +539,7 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
         throw const FormatException('الحد الأدنى للمبلغ يجب ألا يتجاوز الحد الأعلى.');
       }
       if (cleanCompany.isEmpty || cleanParty.isEmpty || cleanAccount.isEmpty ||
-          !{'Customer', 'Supplier'}.contains(partyType) ||
+          !{'Customer', 'Supplier', 'Employee'}.contains(partyType) ||
           invoiceLimit < 0 || invoiceLimit > 500 ||
           paymentLimit < 0 || paymentLimit > 500) {
         throw const FormatException('أكمل الشركة والطرف وحساب الذمم، وحدد حدود تحميل بين 0 و500.');
