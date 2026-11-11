@@ -1571,7 +1571,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ));
   }
 
-  Future<void> _openPurchaseWorkflow({String? initialInvoiceName}) async {
+  Future<void> _openPurchaseWorkflow({String? initialInvoiceName, String? section}) async {
     if (!_requireServerAccess('إدارة المشتريات')) return;
     await Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => PurchaseWorkflowPage(
@@ -1581,6 +1581,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         items: _items,
         warehouses: _warehouses,
         initialInvoiceName: initialInvoiceName,
+        initialSection: section,
         onChanged: () { _loadPurchases(); _loadInventory(); },
       ),
     ));
@@ -1649,6 +1650,17 @@ class _MobileHomePageState extends State<MobileHomePage> {
             icon: const Icon(Icons.shopping_bag_outlined),
             label: const Text('إدارة المشتريات'),
           ),
+
+          for (final item in const [
+            ('Purchase Order', 'أوامر الشراء'),
+            ('Purchase Invoice', 'فواتير المشتريات'),
+            ('Payment Entry', 'دفعات الموردين'),
+            ('Supplier Ledger', 'كشف حساب المورد'),
+          ])
+            OutlinedButton.icon(
+              onPressed: _isGuest || _purchaseLoading ? null : () => _openPurchaseWorkflow(section: item.$1),
+              icon: const Icon(Icons.open_in_new), label: Text(item.$2),
+            ),
           OutlinedButton.icon(
             onPressed: _isGuest || _inventoryLoading ? null : _openStockWorkflow,
             icon: const Icon(Icons.warehouse_outlined),

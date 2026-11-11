@@ -7,9 +7,10 @@ import 'models/erp_models.dart';
 import 'models/serial_batch_tracking.dart';
 
 class PurchaseWorkflowPage extends StatefulWidget {
-  const PurchaseWorkflowPage({super.key, required this.api, required this.companies, required this.suppliers, required this.items, required this.warehouses, this.initialInvoiceName, this.onChanged});
+  const PurchaseWorkflowPage({super.key, required this.api, required this.companies, required this.suppliers, required this.items, required this.warehouses, this.initialInvoiceName, this.onChanged, this.initialSection});
   final FrappeApi api;
   final String? initialInvoiceName;
+  final String? initialSection;
   final List<ErpCompany> companies;
   final List<ErpSupplier> suppliers;
   final List<ErpItem> items;
@@ -30,6 +31,8 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       if (mounted) setState(() => _actionInProgress = false);
     }
   }
+
+  bool _show(String section) => widget.initialSection == null || widget.initialSection == section;
 
   List<ErpPurchaseInvoice> rows = [];
   List<core.Map<String, dynamic>> purchaseOrders = [];
@@ -1164,19 +1167,20 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
 
   Widget _field(TextEditingController c, String label, {bool number = false}) => Padding(padding: const EdgeInsets.only(bottom: 8), child: TextField(controller: c, keyboardType: number ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text, decoration: InputDecoration(labelText: label)));
   @override Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('إدارة المشتريات'), actions: [IconButton(onPressed: load, icon: const Icon(Icons.refresh))]),
-    floatingActionButton: FloatingActionButton.extended(onPressed: () => compose(), icon: const Icon(Icons.add), label: const Text('فاتورة مشتريات')),
+    appBar: AppBar(title: Text(widget.initialSection == 'Purchase Order' ? 'أوامر الشراء' : widget.initialSection == 'Purchase Invoice' ? 'فواتير المشتريات' : widget.initialSection == 'Payment Entry' ? 'دفعات الموردين' : widget.initialSection == 'Supplier Ledger' ? 'كشف حساب المورد' : 'إدارة المشتريات'), actions: [IconButton(onPressed: load, icon: const Icon(Icons.refresh))]),
+    floatingActionButton: _show('Purchase Invoice') ? FloatingActionButton.extended(onPressed: () => compose(), icon: const Icon(Icons.add), label: const Text('فاتورة مشتريات')) : null,
     body: ListView(padding: const EdgeInsets.all(16), children: [
-      const Text('إدارة أوامر الشراء وفواتير الموردين والاستلام والدفعات والمرتجعات.'),
+      if (widget.initialSection == null) const Text('إدارة أوامر الشراء وفواتير الموردين والاستلام والدفعات والمرتجعات.'),
       Row(children: [
         Expanded(child: TextField(controller: search, onSubmitted: (_) => load(),
           decoration: InputDecoration(labelText: 'بحث بالمستند أو المورد', suffixIcon: IconButton(onPressed: load, icon: const Icon(Icons.search))))),
         const SizedBox(width: 8),
-        FilledButton.tonalIcon(onPressed: () => composePurchaseOrder(),
+        if (_show('Purchase Order')) FilledButton.tonalIcon(onPressed: () => composePurchaseOrder(),
           icon: const Icon(Icons.playlist_add), label: const Text('أمر شراء')),
       ]),
       if (loading) const LinearProgressIndicator(),
       if (error != null) Text(error!),
+      if (_show('Purchase Order')) ...[
       Text('أوامر الشراء (${purchaseOrders.length})', style: Theme.of(context).textTheme.titleMedium),
       if (purchaseOrders.isEmpty && !loading) const ListTile(title: Text('لا توجد أوامر شراء ظاهرة')),
       ...purchaseOrders.map((order) {
@@ -1196,7 +1200,10 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
           icon: loadingMorePurchaseOrders ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.expand_more),
           label: const Text('تحميل أوامر شراء إضافية'),
         )),
+      ],
       const Divider(height: 24),
+      if (_show('Purchase Invoice')) ...[
+
       Text('فواتير المشتريات (' + rows.length.toString() + ')', style: Theme.of(context).textTheme.titleMedium),
       if (rows.isEmpty && !loading) const ListTile(title: Text('لا توجد فواتير ظاهرة')),
       ...rows.map((x) => Card(child: ListTile(leading: Icon(x.isReturn ? Icons.assignment_return_outlined : Icons.shopping_cart_outlined), title: Text((x.isReturn ? 'مرتجع • ' : '') + x.id), subtitle: Text(x.supplierName + (x.returnAgainst == null ? '' : ' • أصل: ' + x.returnAgainst!) + ' • ' + (x.status ?? '—') + ' • المتبقي ' + x.outstandingAmount.toStringAsFixed(2)), trailing: Text(x.grandTotal.toStringAsFixed(2)), onTap: () => details(x.id)))),
@@ -1206,7 +1213,10 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
           icon: loadingMore ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.expand_more),
           label: const Text('تحميل فواتير إضافية'),
         )),
+      ],
       const Divider(height: 32),
+      if (_show('Payment Entry')) ...[
+
       Text('مسودات دفعات الموردين (${draftSupplierPayments.length})', style: Theme.of(context).textTheme.titleMedium),
       const Text('يمكن مراجعة المسودة والتحقق من إحالات الفواتير ثم ترحيلها دون إنشاء سند مكرر.'),
       if (draftSupplierPayments.isEmpty && !loading)
@@ -1228,7 +1238,10 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
               : const Icon(Icons.expand_more),
           label: const Text('تحميل مسودات دفعات إضافية'),
         )),
+      ],
       const Divider(height: 32),
+      if (_show('Supplier Ledger')) ...[
+
       Text('سجل دفعات الموردين (${supplierPayments.length})', style: Theme.of(context).textTheme.titleMedium),
       const Text('يعرض سندات الصرف المرحلة فقط؛ المسودات والقيود الملغاة لا تدخل في السجل.'),
       if (supplierPayments.isEmpty && !loading)
@@ -1313,6 +1326,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
           icon: ledgerLoadingMore ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.expand_more),
           label: const Text('تحميل قيود إضافية'),
         )),
+      ],
       const SizedBox(height: 90),
     ]),
   );
