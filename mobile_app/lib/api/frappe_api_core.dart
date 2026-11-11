@@ -688,6 +688,39 @@ abstract class _FrappeApiCore {
       required String bankAccount, required String company,
     });
 
+  Future<List<core.Map<String, dynamic>>> fetchProcessPaymentReconciliationJobs({
+      int start = 0, String? search, String? company,
+    });
+
+  Future<core.Map<String, dynamic>> fetchProcessPaymentReconciliationJob(String name);
+
+  Future<core.Map<String, dynamic>> saveProcessPaymentReconciliationDraft({
+      String? name,
+      required String company,
+      required String partyType,
+      required String party,
+      required String receivablePayableAccount,
+      String? defaultAdvanceAccount,
+      String? fromInvoiceDate,
+      String? toInvoiceDate,
+      String? fromPaymentDate,
+      String? toPaymentDate,
+      String? costCenter,
+      String? bankCashAccount,
+    });
+
+  Future<core.Map<String, dynamic>> submitProcessPaymentReconciliation(String name);
+
+  Future<core.Map<String, dynamic>> cancelProcessPaymentReconciliation(String name);
+
+  Future<core.Map<String, dynamic>> startProcessPaymentReconciliation(String name);
+
+  Future<core.Map<String, dynamic>> pauseProcessPaymentReconciliation(String name);
+
+  Future<core.Map<String, dynamic>> fetchProcessPaymentReconciliationProgress(String name);
+
+  Future<core.Map<String, dynamic>?> fetchProcessPaymentReconciliationLog(String name);
+
   Future<core.Map<String, dynamic>> fetchPartyLedgerTotals({
       required String partyType, required String party,
       String? company, String? fromDate, String? toDate,
