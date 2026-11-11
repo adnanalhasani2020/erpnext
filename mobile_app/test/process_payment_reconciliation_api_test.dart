@@ -82,6 +82,17 @@ void main() {
         request.response.write(jsonEncode({'message': {'processed': 3, 'total': 5}}));
       } else if (request.method == 'GET' &&
           path == 'api/resource/Process Payment Reconciliation Log') {
+        final filters = request.uri.queryParameters['filters'];
+        if (filters != null) {
+          final decoded = jsonDecode(filters) as List;
+          if (decoded.any((row) => jsonEncode(row) == jsonEncode(['process_pr', '=', 'ACC-PPR-00001']))) {
+            expect(decoded, contains(['process_pr', '=', 'ACC-PPR-00001']));
+          } else {
+            expect(decoded, contains(['status', '=', 'Running']));
+            final search = jsonDecode(request.uri.queryParameters['or_filters']!) as List;
+            expect(search, contains(['process_pr', 'like', '%ACC-PPR%']));
+          }
+        }
         request.response.write(jsonEncode({'data': [{
           'name': 'PPR-LOG-00001',
           'process_pr': 'ACC-PPR-00001',
@@ -160,6 +171,14 @@ void main() {
       final log = await api.fetchProcessPaymentReconciliationLog('ACC-PPR-00001');
       expect(log?['name'], 'PPR-LOG-00001');
       expect((log?['allocations'] as List).length, 1);
+
+      final allLogs = await api.fetchProcessPaymentReconciliationLogs(
+        status: 'Running',
+        search: 'ACC-PPR',
+      );
+      expect(allLogs.single['name'], 'PPR-LOG-00001');
+      final logDocument = await api.fetchProcessPaymentReconciliationLogDocument('PPR-LOG-00001');
+      expect(logDocument['process_pr'], 'ACC-PPR-00001');
 
       final paused = await api.pauseProcessPaymentReconciliation('ACC-PPR-00001');
       expect(paused['status'], 'Paused');
