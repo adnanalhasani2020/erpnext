@@ -710,7 +710,7 @@ abstract class _FrappeApiCore {
     });
 
   Future<List<core.Map<String, dynamic>>> fetchProcessPaymentReconciliationJobs({
-      int start = 0, String? search, String? company, String? status,
+      int start = 0, String? search, String? company, String? status, String? partyType,
     });
 
   Future<core.Map<String, dynamic>> fetchProcessPaymentReconciliationJob(String name);
