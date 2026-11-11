@@ -495,8 +495,13 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
             child: Wrap(spacing: 8, children: [
               TextButton(
                 onPressed: _loading || _loadingMore ? null : () {
-                  _postingFrom.clear(); _postingTo.clear();
-                  _drafts = []; _offset = 0; _hasMore = false;
+                  setState(() {
+                    _postingFrom.clear();
+                    _postingTo.clear();
+                    _drafts = [];
+                    _offset = 0;
+                    _hasMore = false;
+                  });
                   _load();
                 },
                 child: const Text('مسح الفترة'),
