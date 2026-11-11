@@ -169,7 +169,7 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
         company: company,
         date: _balanceDate.text,
       );
-      if (!mounted || generation != _statementImportGeneration || account != _bankAccount || company != _company) return;
+      if (!mounted || account != _bankAccount || company != _company) return;
       final saved = await widget.api.fetchLatestBankStatementClosingBalance(
         bankAccount: account, company: company,
       );
@@ -304,7 +304,8 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
         company: company,
         start: more ? _statementImportOffset : 0,
       );
-      if (!mounted || account != _bankAccount || company != _company) return;
+      if (!mounted || generation != _statementImportGeneration ||
+          account != _bankAccount || company != _company) return;
       setState(() {
         if (more) {
           _statementImports.addAll(rows);
