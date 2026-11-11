@@ -7,29 +7,41 @@ mixin PayrollApiMixin on _FrappeApiCore {
     }) async {
       final normalizedCompany = company.trim();
       if (normalizedCompany.isEmpty) throw const FormatException('حدد الشركة لعرض مراكز التكلفة.');
-      final uri = FrappeApi.buildResourcePageUri(
-        baseUrl: _baseUrl,
-        resource: 'Cost Center',
-        fields: const ['name', 'cost_center_name', 'company', 'is_group', 'disabled'],
-        filters: [
-          ['company', '=', normalizedCompany],
-          ['is_group', '=', 0],
-          ['disabled', '=', 0],
-        ],
-        orderBy: 'lft asc, name asc',
-        pageLength: 500,
-      );
-      final response = await _sendUri('GET', uri);
-      final data = _decode(response.body);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw Exception(_message(data, 'تعذر تحميل مراكز التكلفة.'));
+      const maxRows = 10000;
+      final collected = <core.Map<String, dynamic>>[];
+      var start = 0;
+      while (true) {
+        final requestedPageLength = (maxRows + 1 - collected.length).clamp(1, 500).toInt();
+        final uri = FrappeApi.buildResourcePageUri(
+          baseUrl: _baseUrl,
+          resource: 'Cost Center',
+          fields: const ['name', 'cost_center_name', 'company', 'is_group', 'disabled'],
+          filters: [
+            ['company', '=', normalizedCompany],
+            ['is_group', '=', 0],
+            ['disabled', '=', 0],
+          ],
+          orderBy: 'lft asc, name asc',
+          start: start,
+          pageLength: requestedPageLength,
+        );
+        final response = await _sendUri('GET', uri);
+        final data = _decode(response.body);
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          throw Exception(_message(data, 'تعذر تحميل مراكز التكلفة.'));
+        }
+        final rows = data['data'];
+        if (rows is! List) throw const FormatException('استجابة مراكز التكلفة غير متوقعة.');
+        collected.addAll(rows.whereType<core.Map<String, dynamic>>()
+            .where((row) => row['company'] == normalizedCompany &&
+                row['is_group'] != 1 && row['is_group'] != true)
+            .map((row) => core.Map<String, dynamic>.from(row)));
+        if (collected.length > maxRows) {
+          throw const FormatException('تجاوز عدد مراكز التكلفة 10,000؛ قلّص بيانات الشركة قبل إعداد الرواتب.');
+        }
+        if (rows.length < requestedPageLength) return collected;
+        start += rows.length;
       }
-      final rows = data['data'];
-      if (rows is! List) throw const FormatException('استجابة مراكز التكلفة غير متوقعة.');
-      return rows.whereType<core.Map<String, dynamic>>()
-          .where((row) => row['company'] == normalizedCompany &&
-              row['is_group'] != 1 && row['is_group'] != true)
-          .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
     }
 
   Future<List<core.Map<String, dynamic>>> fetchPayrollEntries({
