@@ -19,6 +19,7 @@ import 'journal_entries_page.dart';
 import 'hr_workflows_page.dart';
 import 'payroll_page.dart';
 import 'warehouse_hierarchy_page.dart';
+import 'doctype_workspace_page.dart';
 import 'models/erp_models.dart';
 import 'widgets/count_card.dart';
 import 'widgets/load_more_button.dart';
@@ -1180,6 +1181,13 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ));
   }
 
+  void _openDocTypeDirectory() {
+    if (!_requireServerAccess('شاشات ERPNext المستقلة')) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => ErpDocTypeDirectoryPage(api: _api),
+    ));
+  }
+
   void _openHrWorkflows() {
     if (!_requireServerAccess('الموارد البشرية')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
@@ -2048,6 +2056,14 @@ class _MobileHomePageState extends State<MobileHomePage> {
           ],
         ],
         const SizedBox(height: 18),
+        Card(child: ListTile(
+          leading: const CircleAvatar(child: Icon(Icons.dashboard_customize_outlined)),
+          title: const Text('شاشات ERPNext المستقلة'),
+          subtitle: const Text('كل نوع مستند في شاشة جوال مستقلة'),
+          trailing: const Icon(Icons.chevron_left),
+          onTap: _isGuest ? null : _openDocTypeDirectory,
+        )),
+        const SizedBox(height: 10),
         Card(child: ListTile(
           leading: const CircleAvatar(child: Icon(Icons.receipt_long_outlined)),
           title: const Text('المعاملات'),
