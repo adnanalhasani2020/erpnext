@@ -275,8 +275,10 @@ abstract class _FrappeApiCore {
     });
 
   Future<core.Map<String, dynamic>> allocatePaymentReconciliation(
-      core.Map<String, dynamic> document,
-    );
+      core.Map<String, dynamic> document, {
+      List<String>? selectedInvoiceNumbers,
+      List<String>? selectedPaymentReferences,
+    });
 
   Future<double> calculatePaymentReconciliationDifference({
       required core.Map<String, dynamic> document,
