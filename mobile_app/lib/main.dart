@@ -1188,10 +1188,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ));
   }
 
-  void _openHrWorkflows() {
+  void _openHrWorkflows({String? doctype}) {
     if (!_requireServerAccess('الموارد البشرية')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => HrWorkflowsPage(api: _api, companies: _companies),
+      builder: (_) => HrWorkflowsPage(api: _api, companies: _companies, initialDoctype: doctype, standalone: doctype != null),
     ));
   }
 
@@ -1552,7 +1552,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ));
   }
 
-  Future<void> _openSalesWorkflow() async {
+  Future<void> _openSalesWorkflow({String? doctype}) async {
     if (!_requireServerAccess('دورة المبيعات')) return;
     await Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => SalesWorkflowPage(
@@ -1565,6 +1565,8 @@ class _MobileHomePageState extends State<MobileHomePage> {
         onSalesInvoiceDraftCreated: (draft) {
           _openSalesInvoiceComposer(initialDraft: draft);
         },
+        initialDoctype: doctype,
+        standalone: doctype != null,
       ),
     ));
   }
@@ -1632,6 +1634,16 @@ class _MobileHomePageState extends State<MobileHomePage> {
             icon: const Icon(Icons.route_outlined),
             label: const Text('دورة المبيعات'),
           ),
+
+          for (final item in const [
+            ('Quotation', 'عروض الأسعار'),
+            ('Sales Order', 'أوامر البيع'),
+            ('Delivery Note', 'أذون التسليم'),
+          ])
+            OutlinedButton.icon(
+              onPressed: _isGuest || _salesLoading || _inventoryLoading ? null : () => _openSalesWorkflow(doctype: item.$1),
+              icon: const Icon(Icons.open_in_new), label: Text(item.$2),
+            ),
           OutlinedButton.icon(
             onPressed: _isGuest || _purchaseLoading || _inventoryLoading ? null : _openPurchaseWorkflow,
             icon: const Icon(Icons.shopping_bag_outlined),
@@ -1657,6 +1669,18 @@ class _MobileHomePageState extends State<MobileHomePage> {
             icon: const Icon(Icons.payments_outlined),
             label: const Text('دورة الرواتب'),
           ),
+
+          for (final item in const [
+            ('Employee', 'الموظفون'),
+            ('Attendance', 'الحضور'),
+            ('Leave Application', 'طلبات الإجازة'),
+            ('Expense Claim', 'مطالبات المصروفات'),
+            ('Salary Slip', 'قسائم الرواتب'),
+          ])
+            OutlinedButton.icon(
+              onPressed: _isGuest || _companies.isEmpty ? null : () => _openHrWorkflows(doctype: item.$1),
+              icon: const Icon(Icons.open_in_new), label: Text(item.$2),
+            ),
           OutlinedButton.icon(
             onPressed: _isGuest || _salesLoading || _purchaseLoading ? null : _openPaymentReconciliation,
             icon: const Icon(Icons.compare_arrows_outlined),

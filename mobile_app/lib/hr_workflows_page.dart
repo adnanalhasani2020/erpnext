@@ -6,9 +6,11 @@ import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
 
 class HrWorkflowsPage extends StatefulWidget {
-  const HrWorkflowsPage({super.key, required this.api, required this.companies});
+  const HrWorkflowsPage({super.key, required this.api, required this.companies, this.initialDoctype, this.standalone = false});
   final FrappeApi api;
   final List<ErpCompany> companies;
+  final String? initialDoctype;
+  final bool standalone;
 
   @override
   State<HrWorkflowsPage> createState() => _HrWorkflowsPageState();
@@ -35,7 +37,15 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 5, vsync: this)..addListener(_onTabChanged);
+    final initialTab = switch (widget.initialDoctype) {
+      'Employee' => 0,
+      'Attendance' => 1,
+      'Leave Application' => 2,
+      'Expense Claim' => 3,
+      'Salary Slip' => 4,
+      _ => 0,
+    };
+    _tabs = TabController(length: 5, initialIndex: initialTab, vsync: this)..addListener(_onTabChanged);
     _company = widget.companies.isEmpty ? null : widget.companies.first.name;
     _load();
   }
@@ -899,7 +909,7 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
     final canCreate = _tabs.index == 0 || _tabs.index == 1 || _tabs.index == 2 || _tabs.index == 3;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('الموارد البشرية'),
+        title: Text(widget.standalone ? switch (_tabs.index) { 0 => 'الموظفون', 1 => 'الحضور', 2 => 'طلبات الإجازة', 3 => 'مطالبات المصروفات', _ => 'قسائم الرواتب' } : 'الموارد البشرية'),
         actions: [
           IconButton(onPressed: _loading ? null : _load, tooltip: 'تحديث', icon: const Icon(Icons.refresh)),
           if (_tabs.index == 2)
@@ -915,7 +925,7 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
               icon: const Icon(Icons.add_circle_outline),
             ),
         ],
-        bottom: TabBar(controller: _tabs, isScrollable: true, tabs: const [
+        bottom: widget.standalone ? null : TabBar(controller: _tabs, isScrollable: true, tabs: const [
           Tab(text: 'الموظفون'),
           Tab(text: 'الحضور'),
           Tab(text: 'الإجازات'),
@@ -953,7 +963,13 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
             content: Text(_error!),
             actions: [TextButton(onPressed: () => setState(() => _error = null), child: const Text('إغلاق'))],
           ),
-        Expanded(child: TabBarView(controller: _tabs, children: [
+        Expanded(child: widget.standalone ? switch (_tabs.index) {
+          0 => _employeeList(),
+          1 => _documentList(_attendance, 'Attendance'),
+          2 => _documentList(_leaveApplications, 'Leave Application'),
+          3 => _expenseList(),
+          _ => _salaryList(),
+        } : TabBarView(controller: _tabs, children: [
           _employeeList(),
           _documentList(_attendance, 'Attendance'),
           _documentList(_leaveApplications, 'Leave Application'),
