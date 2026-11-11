@@ -830,7 +830,10 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
     }
 
   Future<core.Map<String, dynamic>> _validateProcessReconciliationAccount(
-      String accountName, String company, {Set<String> allowedTypes = const {}}) async {
+      String accountName, String company, {
+      Set<String> allowedTypes = const {},
+      Set<String> allowedRootTypes = const {},
+    }) async {
       final id = accountName.trim();
       if (id.isEmpty) throw const FormatException('أحد الحسابات المطلوبة غير محدد.');
       final response = await _send('GET',
@@ -844,7 +847,8 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
           account['company'] != company ||
           account['is_group'] == 1 || account['is_group'] == true ||
           account['disabled'] == 1 || account['disabled'] == true ||
-          (allowedTypes.isNotEmpty && !allowedTypes.contains(account['account_type']?.toString()))) {
+          (allowedTypes.isNotEmpty && !allowedTypes.contains(account['account_type']?.toString())) ||
+          (allowedRootTypes.isNotEmpty && !allowedRootTypes.contains(account['root_type']?.toString()))) {
         throw FormatException('الحساب $id غير صالح للشركة أو نوع الحساب المطلوب.');
       }
       return core.Map<String, dynamic>.from(account);
@@ -899,6 +903,15 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
           partyType == 'Employee' && !{'Asset', 'Liability'}.contains(partyAccount['root_type'])) {
         throw const FormatException('نوع الحساب الرئيسي لا يتوافق مع نوع الطرف.');
       }
+      final partyResponse = await _send(
+        'GET', '/api/resource/' + Uri.encodeComponent(partyType) + '/' + Uri.encodeComponent(cleanParty),
+      );
+      final partyData = _decode(partyResponse.body);
+      final partyDocument = partyData['data'];
+      if (partyResponse.statusCode < 200 || partyResponse.statusCode >= 300 ||
+          partyDocument is! core.Map<String, dynamic> || partyDocument['name'] != cleanParty) {
+        throw FormatException('تعذر التحقق من وجود $partyType $cleanParty في ERPNext.');
+      }
       final advance = defaultAdvanceAccount?.trim() ?? '';
       if (advance.isNotEmpty) {
         await _validateProcessReconciliationAccount(
@@ -906,12 +919,17 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
           allowedTypes: partyType == 'Customer'
               ? const {'Receivable'}
               : const {'Payable'},
+          allowedRootTypes: partyType == 'Customer'
+              ? const {'Liability'}
+              : const {'Asset'},
         );
       }
       final bankCash = bankCashAccount?.trim() ?? '';
       if (bankCash.isNotEmpty) {
         await _validateProcessReconciliationAccount(
-          bankCash, cleanCompany, allowedTypes: const {'Bank', 'Cash'},
+          bankCash, cleanCompany,
+          allowedTypes: const {'Bank', 'Cash'},
+          allowedRootTypes: const {'Asset'},
         );
       }
       final cost = costCenter?.trim() ?? '';
@@ -922,7 +940,8 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
         final row = data['data'];
         if (response.statusCode < 200 || response.statusCode >= 300 ||
             row is! core.Map<String, dynamic> || row['company'] != cleanCompany ||
-            row['is_group'] == 1 || row['is_group'] == true) {
+            row['is_group'] == 1 || row['is_group'] == true ||
+            row['disabled'] == 1 || row['disabled'] == true) {
           throw const FormatException('مركز التكلفة غير تابع للشركة أو غير صالح للاستخدام.');
         }
       }
