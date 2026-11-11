@@ -1184,8 +1184,45 @@ class _MobileHomePageState extends State<MobileHomePage> {
   void _openDocTypeDirectory() {
     if (!_requireServerAccess('شاشات ERPNext المستقلة')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => ErpDocTypeDirectoryPage(api: _api),
+      builder: (_) => ErpDocTypeDirectoryPage(api: _api, onOpenDefinition: _openDocTypeDefinition),
     ));
+  }
+
+  void _openDocTypeDefinition(ErpDocTypeDefinition item) {
+    switch (item.doctype) {
+      case 'Quotation':
+      case 'Sales Order':
+      case 'Delivery Note':
+        _openSalesWorkflow(doctype: item.doctype);
+        return;
+      case 'Purchase Order':
+      case 'Purchase Invoice':
+        _openPurchaseWorkflow(section: item.doctype);
+        return;
+      case 'Stock Entry':
+      case 'Purchase Receipt':
+      case 'Stock Reconciliation':
+      case 'Pick List':
+      case 'Batch':
+      case 'Serial No':
+      case 'Item Reorder':
+        _openStockWorkflow(section: item.doctype);
+        return;
+      case 'Employee':
+      case 'Attendance':
+      case 'Leave Application':
+      case 'Expense Claim':
+      case 'Salary Slip':
+        _openHrWorkflows(doctype: item.doctype);
+        return;
+      case 'Payroll Entry':
+        _openPayroll();
+        return;
+      default:
+        Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => ErpDocTypeWorkspacePage(api: _api, definition: item),
+        ));
+    }
   }
 
   void _openHrWorkflows({String? doctype}) {

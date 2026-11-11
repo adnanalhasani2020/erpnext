@@ -1,6 +1,26 @@
 part of 'frappe_api.dart';
 
 mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
+  Future<List<core.Map<String, dynamic>>> fetchWorkspaceDirectory() async {
+    final uri = FrappeApi.buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Workspace',
+      fields: const ['name','title','label','module','is_hidden','links','sidebar_items'],
+      filters: const [['is_hidden', '=', 0]],
+      start: 0,
+      pageLength: 500,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل مساحات العمل من ERPNext.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw const FormatException('استجابة مساحات العمل غير متوقعة.');
+    return rows.whereType<core.Map<String, dynamic>>()
+      .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+  }
+
   Future<core.Map<String, dynamic>> fetchDocTypeMeta(String doctype) async {
     final uri = Uri.parse('$_baseUrl/api/method/frappe.desk.form.load.getdoctype')
         .replace(queryParameters: {'doctype': doctype.trim(), 'with_parent': '1'});
@@ -23,13 +43,14 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
   Future<List<core.Map<String, dynamic>>> fetchDocTypeRows({
     required String doctype, required List<String> fields,
     String search = '', int start = 0, List<List<dynamic>> filters = const [],
+    List<String> searchFields = const [],
   }) async {
     final selected = <String>{'name', 'docstatus', 'modified', ...fields}.toList();
     final query = search.trim();
     final ors = <List<dynamic>>[];
     if (query.isNotEmpty) {
       ors.add(['name', 'like', '%$query%']);
-      for (final field in fields.where((f) => f != 'name').take(8)) {
+      for (final field in (searchFields.isEmpty ? fields.where((f) => f != 'name') : searchFields).take(8)) {
         ors.add([field, 'like', '%$query%']);
       }
     }
@@ -90,6 +111,54 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
       throw const FormatException('لم يؤكد ERPNext حفظ المستند.');
     }
     return core.Map<String, dynamic>.from(saved);
+  }
+
+  Future<List<core.Map<String, dynamic>>> fetchDocTypeWorkflowTransitions({
+    required String doctype, required String name,
+  }) async {
+    final doc = await fetchDocTypeDocument(doctype: doctype, name: name);
+    final uri = Uri.parse('$_baseUrl/api/method/frappe.model.workflow.get_transitions')
+        .replace(queryParameters: {'doc': jsonEncode(doc)});
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر جلب إجراءات سير العمل من ERPNext.'));
+    }
+    final rows = data['message'];
+    if (rows is! List) throw const FormatException('استجابة إجراءات سير العمل غير متوقعة.');
+    return rows.whereType<core.Map<String, dynamic>>().where((row) =>
+      row['action'] is String && (row['action'] as String).trim().isNotEmpty
+    ).map((row) => core.Map<String, dynamic>.from(row)).toList();
+  }
+
+  Future<core.Map<String, dynamic>> applyDocTypeWorkflowAction({
+    required String doctype, required String name, required String action,
+  }) async {
+    final key = doctype + ':' + name + ':workflow:' + action;
+    if (!_inFlightDocumentActions.add(key)) throw const FormatException('الإجراء قيد التنفيذ بالفعل.');
+    try {
+      final doc = await fetchDocTypeDocument(doctype: doctype, name: name);
+      final transitions = await fetchDocTypeWorkflowTransitions(doctype: doctype, name: name);
+      if (!transitions.any((row) => row['action']?.toString() == action)) {
+        throw const FormatException('الإجراء غير متاح لهذا المستند أو للمستخدم الحالي.');
+      }
+      final response = await _sendJson(
+        'POST', '/api/method/frappe.model.workflow.apply_workflow',
+        {'doc': doc, 'action': action},
+      );
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'رفض ERPNext تنفيذ إجراء سير العمل.'));
+      }
+      final updated = data['message'];
+      if (updated is! core.Map<String, dynamic> || updated['doctype'] != doctype ||
+          updated['name'] != name) {
+        throw const FormatException('لم يؤكد ERPNext تنفيذ الإجراء على المستند الصحيح.');
+      }
+      return core.Map<String, dynamic>.from(updated);
+    } finally {
+      _inFlightDocumentActions.remove(key);
+    }
   }
 
   Future<core.Map<String, dynamic>> transitionDocTypeDocument({

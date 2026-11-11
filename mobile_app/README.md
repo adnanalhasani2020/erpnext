@@ -144,3 +144,8 @@ The APK is written to `build/app/outputs/flutter-apk/app-debug.apk`.
 ### Large sales pricing catalogs
 - Sales Pricing loads selling Pricing Rules in ERPNext-sized pages and offers an explicit load-more action; subsequent pages are appended without duplicate rule IDs.
 - The initial list is refreshed from offset zero after creating, editing, or disabling a rule. Large catalogs should be verified with a role that can read the full Pricing Rule list.
+
+
+## Screen parity and routing
+
+The DocType directory discovers visible DocType links from the connected ERPNext Workspaces and preserves dedicated mobile routes for sales, purchasing, stock, HR and payroll workflows. See [the parity report](docs/one-to-one-screen-parity-2026-11-11.md) for coverage and remaining form differences.
