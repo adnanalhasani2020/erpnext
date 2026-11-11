@@ -1050,6 +1050,47 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
       return core.Map<String, dynamic>.from(account);
     }
 
+  Future<core.Map<String, dynamic>> fetchProcessPaymentReconciliationPartyAccounts({
+      required String company,
+      required String partyType,
+      required String party,
+    }) async {
+      final cleanCompany = company.trim();
+      final cleanParty = party.trim();
+      if (cleanCompany.isEmpty || cleanParty.isEmpty ||
+          !{'Customer', 'Supplier', 'Employee'}.contains(partyType)) {
+        throw const FormatException('حدد الشركة ونوع الطرف ورمزه لجلب حساباته الافتراضية.');
+      }
+      final response = await _sendJson(
+        'POST',
+        '/api/method/erpnext.accounts.party.get_party_account',
+        {
+          'company': cleanCompany,
+          'party_type': partyType,
+          'party': cleanParty,
+          'include_advance': 1,
+        },
+      );
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر جلب حسابات الطرف الافتراضية من ERPNext.'));
+      }
+      final message = data['message'];
+      if (message is String && message.trim().isNotEmpty) {
+        return {'receivable_payable_account': message.trim(), 'default_advance_account': null};
+      }
+      if (message is List && message.isNotEmpty &&
+          message.first is String && (message.first as String).trim().isNotEmpty) {
+        final advance = message.length > 1 && message[1] is String
+            ? (message[1] as String).trim() : '';
+        return {
+          'receivable_payable_account': (message.first as String).trim(),
+          'default_advance_account': advance.isEmpty ? null : advance,
+        };
+      }
+      throw const FormatException('لم يعثر ERPNext على حساب ذمم افتراضي لهذا الطرف والشركة.');
+    }
+
   Future<core.Map<String, dynamic>> saveProcessPaymentReconciliationDraft({
       String? name,
       required String company,
