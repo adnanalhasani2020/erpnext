@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:erpnext_mobile/api/frappe_api.dart';
 
@@ -76,6 +79,33 @@ void main() {
         ),
         throwsA(isA<FormatException>()),
       );
+    });
+
+    test('applies account and voucher-type filters to customer ledger queries', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      List<dynamic>? filters;
+      server.listen((request) async {
+        filters = jsonDecode(request.uri.queryParameters['filters']!) as List<dynamic>;
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(jsonEncode({'data': []}));
+        await request.response.close();
+      });
+      final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+      try {
+        await api.fetchCustomerLedger(
+          customer: 'CUST-1',
+          company: 'COMP-1',
+          account: 'Debtors - CO',
+          voucherType: 'Sales Invoice',
+        );
+        expect(filters, contains(['account', '=', 'Debtors - CO']));
+        expect(filters, contains(['voucher_type', '=', 'Sales Invoice']));
+        expect(filters, contains(['company', '=', 'COMP-1']));
+        expect(filters, contains(['party', '=', 'CUST-1']));
+      } finally {
+        api.dispose();
+        await server.close(force: true);
+      }
     });
 
     test('rejects reversed customer ledger date range before network access', () async {
