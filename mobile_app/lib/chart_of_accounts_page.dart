@@ -18,6 +18,7 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
   List<core.Map<String, dynamic>> rows = [];
   bool loading = false, loadingMore = false, hasMore = false;
   bool includeDisabled = false;
+  String? _rootType;
   int offset = 0;
   String? error;
 
@@ -39,7 +40,7 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
     try {
       final page = await widget.api.fetchAccountingAccounts(
         company: company!, search: search.text, start: more ? offset : 0,
-        includeDisabled: includeDisabled,
+        rootType: _rootType, includeDisabled: includeDisabled,
       );
       if (!mounted) return;
       setState(() {
@@ -245,13 +246,33 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
       )),
       Padding(padding: const EdgeInsets.fromLTRB(12, 0, 12, 8), child: TextField(
         controller: search, enabled: !loading && !loadingMore, textInputAction: TextInputAction.search,
-        onSubmitted: (_) => load(),
+        onSubmitted: (_) { setState(() { rows = []; offset = 0; hasMore = false; }); load(); },
         decoration: InputDecoration(
           labelText: 'بحث باسم الحساب أو رمزه أو نوعه',
           prefixIcon: const Icon(Icons.search),
-          suffixIcon: IconButton(onPressed: loading || loadingMore ? null : () => load(), icon: const Icon(Icons.arrow_forward)),
+          suffixIcon: IconButton(onPressed: loading || loadingMore ? null : () { setState(() { rows = []; offset = 0; hasMore = false; }); load(); }, icon: const Icon(Icons.arrow_forward)),
         ),
       )),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: DropdownButtonFormField<String?>(
+          initialValue: _rootType,
+          isExpanded: true,
+          decoration: const InputDecoration(labelText: 'التصنيف الرئيسي'),
+          items: const [
+            DropdownMenuItem<String?>(value: null, child: Text('كل التصنيفات')),
+            DropdownMenuItem<String?>(value: 'Asset', child: Text('الأصول')),
+            DropdownMenuItem<String?>(value: 'Liability', child: Text('الالتزامات')),
+            DropdownMenuItem<String?>(value: 'Equity', child: Text('حقوق الملكية')),
+            DropdownMenuItem<String?>(value: 'Income', child: Text('الإيرادات')),
+            DropdownMenuItem<String?>(value: 'Expense', child: Text('المصروفات')),
+          ],
+          onChanged: loading || loadingMore ? null : (value) {
+            setState(() { _rootType = value; rows = []; offset = 0; hasMore = false; });
+            load();
+          },
+        ),
+      ),
       SwitchListTile(
         dense: true,
         title: const Text('عرض الحسابات المعطلة'),
