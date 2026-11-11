@@ -2,22 +2,29 @@ part of 'frappe_api.dart';
 
 mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
   Future<List<core.Map<String, dynamic>>> fetchWorkspaceDirectory() async {
-    final uri = FrappeApi.buildResourcePageUri(
-      baseUrl: _baseUrl,
-      resource: 'Workspace',
-      fields: const ['name','title','label','module','is_hidden'],
-      filters: const [['is_hidden', '=', 0]],
-      start: 0,
-      pageLength: 100,
-    );
-    final response = await _sendUri('GET', uri);
-    final data = _decode(response.body);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(data, 'تعذر تحميل مساحات العمل من ERPNext.'));
+    final summaries = <core.Map<String, dynamic>>[];
+    var start = 0;
+    while (start < 500) {
+      final uri = FrappeApi.buildResourcePageUri(
+        baseUrl: _baseUrl,
+        resource: 'Workspace',
+        fields: const ['name','title','label','module','is_hidden'],
+        filters: const [['is_hidden', '=', 0]],
+        start: start,
+        pageLength: 100,
+      );
+      final response = await _sendUri('GET', uri);
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر تحميل مساحات العمل من ERPNext.'));
+      }
+      final rows = data['data'];
+      if (rows is! List) throw const FormatException('استجابة مساحات العمل غير متوقعة.');
+      final page = rows.whereType<core.Map<String, dynamic>>().toList();
+      summaries.addAll(page);
+      if (page.length < 100) break;
+      start += page.length;
     }
-    final rows = data['data'];
-    if (rows is! List) throw const FormatException('استجابة مساحات العمل غير متوقعة.');
-    final summaries = rows.whereType<core.Map<String, dynamic>>().toList();
     final details = await Future.wait(summaries.map((row) async {
       final name = row['name']?.toString() ?? '';
       if (name.isEmpty) return core.Map<String, dynamic>.from(row);
