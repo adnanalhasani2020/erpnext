@@ -3,7 +3,7 @@ import 'dart:core' as core;
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:erpnext_mobile/purchase_inventory_workflows.dart';
 import 'package:erpnext_mobile/api/frappe_api.dart';
