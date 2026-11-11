@@ -606,6 +606,7 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
               items: const [
                 DropdownMenuItem(value: 'Customer', child: Text('عميل')),
                 DropdownMenuItem(value: 'Supplier', child: Text('مورد')),
+                DropdownMenuItem(value: 'Employee', child: Text('موظف')),
               ],
               onChanged: _busy ? null : (value) {
                 if (value == null) return;
@@ -624,8 +625,12 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
                 if (_document != null) setState(() => _document = null);
               },
               decoration: InputDecoration(
-                labelText: _partyType == 'Customer' ? 'رمز العميل' : 'رمز المورد',
-                hintText: _partyType == 'Customer' ? 'مثال: CUST-0001' : 'مثال: SUPP-0001',
+                labelText: _partyType == 'Customer'
+                    ? 'رمز العميل'
+                    : _partyType == 'Supplier' ? 'رمز المورد' : 'رمز الموظف',
+                hintText: _partyType == 'Customer'
+                    ? 'مثال: CUST-0001'
+                    : _partyType == 'Supplier' ? 'مثال: SUPP-0001' : 'مثال: HR-EMP-0001',
               ),
             ),
             const SizedBox(height: 10),
