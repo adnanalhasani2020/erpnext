@@ -527,7 +527,15 @@ abstract class _FrappeApiCore {
       required core.Map<String, dynamic> values,
     });
 
-  Future<List<core.Map<String, dynamic>>> fetchJournalEntryDrafts({required String company, int start = 0, String? search});
+  Future<List<core.Map<String, dynamic>>> fetchJournalEntryDrafts({
+      required String company,
+      int start = 0,
+      String? search,
+      int? docStatus,
+      String? fromDate,
+      String? toDate,
+      String? voucherType,
+    });
 
   Future<core.Map<String, dynamic>> fetchJournalEntryDocument(String name);
 
