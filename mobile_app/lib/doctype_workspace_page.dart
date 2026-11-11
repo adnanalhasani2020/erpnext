@@ -368,6 +368,259 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
         ),
       ) ?? false;
 
+  Future<List<Map<String, dynamic>>?> _editChildTable(
+    Map<String, dynamic> field,
+    List<Map<String, dynamic>> currentRows,
+  ) async {
+    final childDoctype = field['options']?.toString().trim() ?? '';
+    if (childDoctype.isEmpty) {
+      _notice('تعريف نوع الجدول الفرعي غير متاح من ERPNext.');
+      return null;
+    }
+    late final Map<String, dynamic> meta;
+    try {
+      meta = await widget.api.fetchDocTypeMeta(childDoctype);
+    } catch (e) {
+      _notice('تعذر تحميل تعريف الجدول الفرعي: ${e.toString().replaceFirst('Exception: ', '')}');
+      return null;
+    }
+    final rows = currentRows.map((row) => Map<String, dynamic>.from(row)).toList();
+    return showDialog<List<Map<String, dynamic>>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(builder: (context, refresh) => AlertDialog(
+        title: Text(field['label']?.toString() ?? childDoctype),
+        content: SizedBox(
+          width: 560,
+          height: 440,
+          child: Column(children: [
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: FilledButton.icon(
+                onPressed: () async {
+                  final row = await _editChildRow(meta, null);
+                  if (row != null) refresh(() => rows.add(row));
+                },
+                icon: const Icon(Icons.add),
+                label: const Text('إضافة صف'),
+              ),
+            ),
+            Expanded(child: rows.isEmpty
+              ? const Center(child: Text('لا توجد صفوف. أضف صفاً للبدء.'))
+              : ListView.separated(
+                  itemCount: rows.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (_, index) {
+                    final row = rows[index];
+                    final labelField = (meta['fields'] as List? ?? const [])
+                        .whereType<Map<String, dynamic>>()
+                        .firstWhere((f) => f['in_list_view'] == 1 && row[f['fieldname']] != null,
+                          orElse: () => <String, dynamic>{});
+                    final labelKey = labelField['fieldname']?.toString();
+                    final title = labelKey == null ? 'السطر ${index + 1}' : row[labelKey].toString();
+                    return ListTile(
+                      title: Text(title),
+                      subtitle: Text('السطر ${index + 1}'),
+                      onTap: () async {
+                        final edited = await _editChildRow(meta, row);
+                        if (edited != null) refresh(() => rows[index] = edited);
+                      },
+                      trailing: IconButton(
+                        tooltip: 'حذف الصف',
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => refresh(() => rows.removeAt(index)),
+                      ),
+                    );
+                  },
+                )),
+          ]),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, rows), child: const Text('اعتماد الصفوف')),
+        ],
+      )),
+    );
+  }
+
+  Future<Map<String, dynamic>?> _editChildRow(
+    Map<String, dynamic> meta,
+    Map<String, dynamic>? source,
+  ) async {
+    final fields = (meta['fields'] as List? ?? const [])
+        .whereType<Map<String, dynamic>>()
+        .where((field) {
+          final key = field['fieldname']?.toString() ?? '';
+          final type = field['fieldtype']?.toString() ?? '';
+          return key.isNotEmpty && !const {
+            'name','owner','creation','modified','modified_by','docstatus','idx',
+            'parent','parenttype','parentfield'
+          }.contains(key) && field['hidden'] != 1 && field['read_only'] != 1 &&
+            !const {'Section Break','Column Break','Tab Break','HTML','Button','Fold','Heading','Table','Table MultiSelect'}.contains(type);
+        }).toList();
+    final controllers = <String, TextEditingController>{};
+    final checks = <String, bool>{};
+    final selections = <String, String?>{};
+    for (final field in fields) {
+      final key = field['fieldname'].toString();
+      final type = field['fieldtype']?.toString() ?? '';
+      final initial = source?[key] ?? field['default'];
+      if (type == 'Check') {
+        checks[key] = initial == 1 || initial == true || initial?.toString() == '1';
+      } else if (type == 'Select') {
+        selections[key] = initial?.toString();
+      } else {
+        controllers[key] = TextEditingController(text: initial?.toString() ?? '');
+      }
+    }
+    String error = '';
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(builder: (context, refresh) => AlertDialog(
+        title: Text(source == null ? 'إضافة صف' : 'تعديل الصف'),
+        content: SizedBox(width: 520, child: SingleChildScrollView(child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (error.isNotEmpty) Text(error, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+            for (final field in fields)
+              Builder(builder: (context) {
+                final key = field['fieldname'].toString();
+                final type = field['fieldtype']?.toString() ?? '';
+                final label = field['label']?.toString() ?? key;
+                if (type == 'Table' || type == 'Table MultiSelect') {
+                  final count = tableValues[key]?.length ?? 0;
+                  return Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.table_rows_outlined),
+                      title: Text(label),
+                      subtitle: Text('${count} صف'),
+                      trailing: const Icon(Icons.edit_outlined),
+                      onTap: saving ? null : () async {
+                        final updated = await _editChildTable(f, tableValues[key] ?? <Map<String, dynamic>>[]);
+                        if (updated != null) refresh(() => tableValues[key] = updated);
+                      },
+                    ),
+                  );
+                }
+                if (type == 'Check') {
+                  return CheckboxListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text(label),
+                    value: checks[key] ?? false,
+                    onChanged: (value) => refresh(() => checks[key] = value ?? false),
+                  );
+                }
+                if (type == 'Select') {
+                  final options = (field['options']?.toString() ?? '').split('\\n')
+                      .map((v) => v.trim()).where((v) => v.isNotEmpty).toList();
+                  final current = selections[key];
+                  final items = <String>{...options, if (current != null && current.isNotEmpty) current}.toList();
+                  return DropdownButtonFormField<String>(
+                    value: current != null && current.isNotEmpty ? current : null,
+                    isExpanded: true,
+                    decoration: InputDecoration(labelText: label),
+                    items: items.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+                    onChanged: (value) => refresh(() => selections[key] = value),
+                  );
+                }
+                final controller = controllers[key]!;
+                final isLink = type == 'Link' && (field['options']?.toString().trim().isNotEmpty ?? false);
+                final isDate = type == 'Date';
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: TextField(
+                    controller: controller,
+                    keyboardType: const {'Int','Float','Currency','Percent'}.contains(type)
+                      ? const TextInputType.numberWithOptions(decimal: true)
+                      : type == 'Email' ? TextInputType.emailAddress
+                      : type == 'Phone' ? TextInputType.phone : TextInputType.text,
+                    readOnly: isDate,
+                    decoration: InputDecoration(
+                      labelText: label,
+                      helperText: field['reqd'] == 1 ? 'حقل إلزامي' : null,
+                      suffixIcon: isDate
+                        ? const Icon(Icons.calendar_today_outlined)
+                        : isLink ? IconButton(
+                            tooltip: 'اختيار سجل',
+                            onPressed: () async {
+                              final selected = await _pickLinkValue(field['options'].toString());
+                              if (selected != null) controller.text = selected;
+                            },
+                            icon: const Icon(Icons.search),
+                          ) : null,
+                    ),
+                    onTap: isDate ? () async {
+                      final initial = DateTime.tryParse(controller.text) ?? DateTime.now();
+                      final picked = await showDatePicker(
+                        context: context, initialDate: initial,
+                        firstDate: DateTime(1900), lastDate: DateTime(2200),
+                      );
+                      if (picked != null) controller.text =
+                        '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+                    } : null,
+                  ),
+                );
+              }),
+          ],
+        ))),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('رجوع')),
+          FilledButton(
+            onPressed: () {
+              try {
+                final values = <String, dynamic>{...?source};
+                for (final field in fields) {
+                  final key = field['fieldname'].toString();
+                  final type = field['fieldtype']?.toString() ?? '';
+                  if (type == 'Table' || type == 'Table MultiSelect') {
+                    values[key] = tableValues[key] ?? <Map<String, dynamic>>[];
+                    continue;
+                  }
+                  if (type == 'Check') {
+                    values[key] = checks[key] == true ? 1 : 0;
+                    continue;
+                  }
+                  if (type == 'Select') {
+                    final selected = selections[key]?.trim() ?? '';
+                    if (field['reqd'] == 1 && selected.isEmpty) {
+                      throw FormatException('الحقل ${field['label'] ?? key} مطلوب.');
+                    }
+                    if (selected.isNotEmpty) values[key] = selected;
+                    continue;
+                  }
+                  final raw = controllers[key]!.text.trim();
+                  if (field['reqd'] == 1 && raw.isEmpty) {
+                    throw FormatException('الحقل ${field['label'] ?? key} مطلوب.');
+                  }
+                  if (raw.isEmpty) continue;
+                  if (type == 'Int') {
+                    values[key] = int.tryParse(raw) ??
+                      (throw FormatException('قيمة ${field['label'] ?? key} يجب أن تكون عدداً صحيحاً.'));
+                  } else if (const {'Float','Currency','Percent'}.contains(type)) {
+                    final number = double.tryParse(raw);
+                    if (number == null || !number.isFinite) {
+                      throw FormatException('قيمة ${field['label'] ?? key} غير رقمية.');
+                    }
+                    values[key] = number;
+                  } else {
+                    values[key] = raw;
+                  }
+                }
+                Navigator.pop(dialogContext, values);
+              } catch (e) {
+                refresh(() => error = e.toString().replaceFirst('Exception: ', ''));
+              }
+            },
+            child: const Text('حفظ الصف'),
+          ),
+        ],
+      )),
+    );
+    for (final controller in controllers.values) {
+      controller.dispose();
+    }
+    return result;
+  }
+
   Future<void> _edit({Map<String, dynamic>? source}) async {
     final editable = _fields.where((f) {
       final key = f['fieldname']?.toString() ?? '';
@@ -379,11 +632,16 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     final controllers = <String, TextEditingController>{};
     final checks = <String, bool>{};
     final selections = <String, String?>{};
+    final tableValues = <String, List<Map<String, dynamic>>>{};
     for (final f in editable) {
       final key = f['fieldname'].toString();
       final type = f['fieldtype']?.toString() ?? '';
       final initial = source?[key] ?? f['default'];
-      if (type == 'Check') {
+      if (type == 'Table' || type == 'Table MultiSelect') {
+        tableValues[key] = initial is List
+          ? initial.whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList()
+          : <Map<String, dynamic>>[];
+      } else if (type == 'Check') {
         checks[key] = initial == 1 || initial == true || initial?.toString() == '1';
       } else if (type == 'Select') {
         selections[key] = initial?.toString();
@@ -503,11 +761,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     if (source != null && source.containsKey(key)) values[key] = null;
                     continue;
                   }
-                  if (type == 'Table' || type == 'Table MultiSelect') {
-                    final parsed = jsonDecode(raw);
-                    if (parsed is! List) throw FormatException('قيمة الجدول ' + key + ' يجب أن تكون JSON array.');
-                    values[key] = parsed;
-                  } else if (type == 'Int') {
+                  if (type == 'Int') {
                     values[key] = int.tryParse(raw) ?? (throw FormatException('قيمة ' + key + ' يجب أن تكون عدداً صحيحاً.'));
                   } else if (const {'Float','Currency','Percent'}.contains(type)) {
                     final number = double.tryParse(raw);
