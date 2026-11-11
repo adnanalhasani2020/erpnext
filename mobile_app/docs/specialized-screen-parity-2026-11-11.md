@@ -46,6 +46,7 @@ Audit basis: Flutter source, Frappe API calls and ERPNext workspace/DocType sour
 9. Payment Reconciliation now displays selected invoice/payment totals by currency and allows removing individual suggested allocations before confirmation.
 10. A dedicated Process Payment Reconciliation screen now creates and submits native background jobs, supports start/resume/pause/cancel, and reads persistent job progress and allocation logs.
 11. Bank Reconciliation now lists prior Bank Statement Import documents and reads native row-level Data Import Logs.
+12. Payment Reconciliation discovers custom accounting-dimension Link fields from ERPNext metadata, displays them in the mobile filter set, validates values against their linked DocTypes and company filters, and forwards them to the native reconciliation method.
 
 ## Payment Reconciliation follow-up — 2026-11-11
 
