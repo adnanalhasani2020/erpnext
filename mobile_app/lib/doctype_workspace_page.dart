@@ -276,6 +276,8 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
       final doc = await widget.api.fetchDocTypeDocument(doctype: _doctype, name: name);
       if (!mounted) return;
       final fields = _fields.where((f) => f['fieldname'] is String && doc.containsKey(f['fieldname'])).toList();
+      final company = doc['company']?.toString() ?? '';
+      final transitions = company.isEmpty ? <Map<String, dynamic>>[] : await widget.api.fetchWorkflowTransitions(doctype: _doctype, name: name, company: company).catchError((_) => <Map<String, dynamic>>[]);
       final status = (doc['docstatus'] as num?)?.toInt() ?? 0;
       await showModalBottomSheet<void>(
         context: context, isScrollControlled: true, useSafeArea: true, showDragHandle: true,
@@ -316,6 +318,19 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                   },
                   child: const Text('ترحيل'),
                 ),
+                for (final transition in transitions)
+                  OutlinedButton(
+                    onPressed: () async {
+                      final action = transition['action']?.toString() ?? '';
+                      if (action.isEmpty) return;
+                      try {
+                        await widget.api.applyWorkflowAction(doctype: _doctype, name: name, company: company, action: action);
+                        if (sheet.mounted) Navigator.pop(sheet);
+                        _generation++; await _load();
+                      } catch (e) { _notice(e.toString()); }
+                    },
+                    child: Text(transition['action']?.toString() ?? 'إجراء'),
+                  ),
                 if (status == 1 && _meta?['is_submittable'] == 1) OutlinedButton(
                   onPressed: () async {
                     try {
