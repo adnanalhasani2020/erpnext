@@ -26,7 +26,9 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
   List<core.Map<String, dynamic>> _drafts = [];
   String? _editing;
   String? _error;
-  bool _loading = false, _saving = false, _submitting = false;
+  bool _loading = false, _loadingMore = false, _hasMore = false;
+  bool _saving = false, _submitting = false;
+  int _offset = 0;
 
   @override
   void initState() {
@@ -103,17 +105,42 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
   double get _debit => _lines.fold(0, (v, e) => v + _amount(e.debit.text) * _amount(e.exchangeRate.text));
   double get _credit => _lines.fold(0, (v, e) => v + _amount(e.credit.text) * _amount(e.exchangeRate.text));
 
-  Future<void> _load() async {
+  Future<void> _load({bool more = false}) async {
     final company = _company;
-    if (company == null || _loading) return;
-    setState(() { _loading = true; _error = null; });
+    if (company == null || _loading || _loadingMore || (more && !_hasMore)) return;
+    setState(() {
+      if (more) {
+        _loadingMore = true;
+      } else {
+        _loading = true;
+        _error = null;
+      }
+    });
     try {
-      final rows = await widget.api.fetchJournalEntryDrafts(company: company, search: _search.text);
-      if (!mounted) return;
-      setState(() => _drafts = rows);
+      final rows = await widget.api.fetchJournalEntryDrafts(
+        company: company,
+        search: _search.text,
+        start: more ? _offset : 0,
+      );
+      if (!mounted || company != _company) return;
+      setState(() {
+        if (more) {
+          final existing = _drafts.map((row) => row['name']?.toString()).toSet();
+          _drafts.addAll(rows.where((row) => !existing.contains(row['name']?.toString())));
+        } else {
+          _drafts = rows;
+        }
+        _offset = _drafts.length;
+        _hasMore = rows.length == 50;
+      });
     } catch (e) {
       if (mounted) setState(() => _error = e.toString().replaceFirst('Exception: ', ''));
-    } finally { if (mounted) setState(() => _loading = false); }
+    } finally {
+      if (mounted) setState(() {
+        _loading = false;
+        _loadingMore = false;
+      });
+    }
   }
 
   void _resetForm() {
@@ -258,7 +285,7 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
         initialValue: _company, isExpanded: true,
         decoration: const InputDecoration(labelText: 'الشركة'),
         items: widget.companies.map((c) => DropdownMenuItem(value: c.name, child: Text(c.name))).toList(),
-        onChanged: _loading || _saving || _submitting ? null : (v) { setState(() { _company = v; _drafts = []; }); _accountSearch.clear(); _resetForm(); _loadAccounts(); _load(); },
+        onChanged: _loading || _saving || _submitting ? null : (v) { setState(() { _company = v; _drafts = []; _offset = 0; _hasMore = false; }); _accountSearch.clear(); _resetForm(); _loadAccounts(); _load(); },
       ),
       const SizedBox(height: 12),
       Text(_editing == null ? 'إنشاء قيد جديد' : 'تعديل المسودة $_editing', style: Theme.of(context).textTheme.titleLarge),
@@ -398,7 +425,7 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
       ..._drafts.map((row) => Card(child: ListTile(
         title: Text('${row['name']?.toString() ?? ''} • ${row['docstatus'] == 1 ? 'مرحّل' : 'مسودة'}'),
         subtitle: Text('${row['posting_date'] ?? ''} • مدين ${row['total_debit'] ?? '—'} • دائن ${row['total_credit'] ?? '—'}'),
-        onTap: _loading || _saving || _submitting || row['docstatus'] != 0 ? null : () => _edit(row),
+        onTap: _loading || _loadingMore || _saving || _submitting || row['docstatus'] != 0 ? null : () => _edit(row),
         trailing: row['docstatus'] == 0
           ? IconButton(tooltip: 'ترحيل', onPressed: _submitting ? null : () => _submit(row), icon: const Icon(Icons.publish))
           : Row(mainAxisSize: MainAxisSize.min, children: [
@@ -406,6 +433,14 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
               IconButton(tooltip: 'إلغاء القيد', onPressed: _submitting ? null : () => _cancel(row), icon: const Icon(Icons.cancel_outlined)),
             ]),
       ))),
+      if (_hasMore || _loadingMore)
+        OutlinedButton.icon(
+          onPressed: _loadingMore || _loading ? null : () => _load(more: true),
+          icon: _loadingMore
+              ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.expand_more),
+          label: Text(_loadingMore ? 'جارٍ تحميل المزيد...' : 'تحميل قيود إضافية'),
+        ),
       const SizedBox(height: 20),
     ]),
   );
