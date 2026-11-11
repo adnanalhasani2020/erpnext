@@ -503,10 +503,35 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
       String? toPaymentDate,
       int invoiceLimit = 50,
       int paymentLimit = 50,
+      String? bankCashAccount,
+      String? defaultAdvanceAccount,
+      String? costCenter,
+      String? project,
+      String? invoiceName,
+      String? paymentName,
+      double? minimumInvoiceAmount,
+      double? maximumInvoiceAmount,
+      double? minimumPaymentAmount,
+      double? maximumPaymentAmount,
     }) async {
       final cleanCompany = company.trim();
       final cleanParty = party.trim();
       final cleanAccount = receivablePayableAccount.trim();
+      double? validateAmount(double? value, String label) {
+        if (value == null) return null;
+        if (!value.isFinite || value < 0) {
+          throw FormatException('$label يجب أن يكون رقماً موجباً أو صفراً.');
+        }
+        return value;
+      }
+      final minInvoice = validateAmount(minimumInvoiceAmount, 'الحد الأدنى للفاتورة');
+      final maxInvoice = validateAmount(maximumInvoiceAmount, 'الحد الأعلى للفاتورة');
+      final minPayment = validateAmount(minimumPaymentAmount, 'الحد الأدنى للدفعة');
+      final maxPayment = validateAmount(maximumPaymentAmount, 'الحد الأعلى للدفعة');
+      if ((minInvoice != null && maxInvoice != null && minInvoice > maxInvoice) ||
+          (minPayment != null && maxPayment != null && minPayment > maxPayment)) {
+        throw const FormatException('الحد الأدنى للمبلغ يجب ألا يتجاوز الحد الأعلى.');
+      }
       if (cleanCompany.isEmpty || cleanParty.isEmpty || cleanAccount.isEmpty ||
           !{'Customer', 'Supplier'}.contains(partyType) ||
           invoiceLimit < 0 || invoiceLimit > 500 ||
@@ -542,6 +567,16 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
         if (invoiceTo != null) 'to_invoice_date': invoiceTo,
         if (paymentFrom != null) 'from_payment_date': paymentFrom,
         if (paymentTo != null) 'to_payment_date': paymentTo,
+        if (bankCashAccount?.trim().isNotEmpty == true) 'bank_cash_account': bankCashAccount!.trim(),
+        if (defaultAdvanceAccount?.trim().isNotEmpty == true) 'default_advance_account': defaultAdvanceAccount!.trim(),
+        if (costCenter?.trim().isNotEmpty == true) 'cost_center': costCenter!.trim(),
+        if (project?.trim().isNotEmpty == true) 'project': project!.trim(),
+        if (invoiceName?.trim().isNotEmpty == true) 'invoice_name': invoiceName!.trim(),
+        if (paymentName?.trim().isNotEmpty == true) 'payment_name': paymentName!.trim(),
+        if (minInvoice != null) 'minimum_invoice_amount': minInvoice,
+        if (maxInvoice != null) 'maximum_invoice_amount': maxInvoice,
+        if (minPayment != null) 'minimum_payment_amount': minPayment,
+        if (maxPayment != null) 'maximum_payment_amount': maxPayment,
         'invoices': <core.Map<String, dynamic>>[],
         'payments': <core.Map<String, dynamic>>[],
         'allocation': <core.Map<String, dynamic>>[],
