@@ -23,8 +23,8 @@ void main() {
     };
     server.listen((request) async {
       request.response.headers.contentType = ContentType.json;
-      final path = request.uri.path;
-      if (request.method == 'GET' && path.contains('/api/resource/Account/')) {
+      final path = request.uri.pathSegments.join('/');
+      if (request.method == 'GET' && path.contains('api/resource/Account/')) {
         request.response.write(jsonEncode({'data': {
           'doctype': 'Account',
           'name': 'Debtors - COMP-1',
@@ -35,14 +35,14 @@ void main() {
           'disabled': 0,
         }}));
       } else if (request.method == 'POST' &&
-          path == '/api/resource/Process Payment Reconciliation') {
+          path == 'api/resource/Process Payment Reconciliation') {
         final body = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
         document = {...body, 'name': 'ACC-PPR-00001', 'docstatus': 0, 'status': ''};
         request.response.write(jsonEncode({'data': document}));
       } else if (request.method == 'GET' &&
-          path == '/api/resource/Process Payment Reconciliation/ACC-PPR-00001') {
+          path == 'api/resource/Process Payment Reconciliation/ACC-PPR-00001') {
         request.response.write(jsonEncode({'data': document}));
-      } else if (request.method == 'POST' && path == '/api/method/frappe.client.submit') {
+      } else if (request.method == 'POST' && path == 'api/method/frappe.client.submit') {
         document = {...document, 'docstatus': 1, 'status': 'Queued'};
         request.response.write(jsonEncode({'message': document}));
       } else if (request.method == 'POST' &&
@@ -57,7 +57,7 @@ void main() {
           path.endsWith('/process_payment_reconciliation.get_reconciled_count')) {
         request.response.write(jsonEncode({'message': {'processed': 3, 'total': 5}}));
       } else if (request.method == 'GET' &&
-          path == '/api/resource/Process Payment Reconciliation Log') {
+          path == 'api/resource/Process Payment Reconciliation Log') {
         request.response.write(jsonEncode({'data': [{
           'name': 'PPR-LOG-00001',
           'process_pr': 'ACC-PPR-00001',
@@ -66,7 +66,7 @@ void main() {
           'reconciled_entries': 3,
         }]}));
       } else if (request.method == 'GET' &&
-          path == '/api/resource/Process Payment Reconciliation Log/PPR-LOG-00001') {
+          path == 'api/resource/Process Payment Reconciliation Log/PPR-LOG-00001') {
         request.response.write(jsonEncode({'data': {
           'doctype': 'Process Payment Reconciliation Log',
           'name': 'PPR-LOG-00001',
