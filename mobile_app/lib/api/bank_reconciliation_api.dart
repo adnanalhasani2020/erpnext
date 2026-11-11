@@ -1233,9 +1233,18 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
       if (response.statusCode < 200 || response.statusCode >= 300) {
         throw Exception(_message(data, 'تعذر بدء مهمة التسوية أو استئنافها. تحقق من إعدادات التسوية والجدولة.'));
       }
+      final serverMessage = data['message']?.toString() ?? '';
+      if (serverMessage.toLowerCase().contains('scheduler is inactive')) {
+        throw const FormatException('جدولة ERPNext غير نشطة؛ بقيت المهمة في الانتظار ولم يبدأ العامل الخلفي.');
+      }
       final refreshed = await fetchProcessPaymentReconciliationJob(id);
-      if (!{'Running', 'Queued'}.contains(refreshed['status'])) {
-        throw Exception('لم يؤكد ERPNext بدء المهمة؛ الحالة الحالية: ${refreshed['status'] ?? 'غير معروفة'}.');
+      if (refreshed['status'] != 'Running') {
+        final currentStatus = refreshed['status']?.toString() ?? 'غير معروفة';
+        throw FormatException(
+          currentStatus == 'Queued'
+              ? 'بقيت المهمة في قائمة الانتظار؛ تحقق من تشغيل Scheduler وWorkers في خادم ERPNext.'
+              : 'لم يؤكد ERPNext بدء المهمة؛ الحالة الحالية: $currentStatus.',
+        );
       }
       return refreshed;
     }
