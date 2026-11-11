@@ -2,7 +2,7 @@
 
 ## Workspace discovery
 
-The mobile directory now reads visible `Workspace` records from the connected ERPNext site using the authenticated Frappe resource API. It extracts only visible links whose `link_type` is `DocType`, groups them by their native Workspace, and de-duplicates repeated links by DocType name. This makes the directory follow the installed ERPNext version, custom workspaces and installed HRMS workspace links rather than a hard-coded list alone. A static 47-entry fallback remains available when the account cannot read Workspace metadata.
+The mobile directory now reads visible `Workspace` records from the connected ERPNext site using the authenticated Frappe resource API. It extracts only visible links whose `link_type` is `DocType`, groups them by their native Workspace, and de-duplicates repeated links within each Workspace while preserving the same DocType when it appears in another Workspace. This makes the directory follow the installed ERPNext version, custom workspaces and installed HRMS workspace links rather than a hard-coded list alone. A static 47-entry fallback remains available when the account cannot read Workspace metadata.
 
 ## Dedicated mobile routes
 
@@ -20,7 +20,7 @@ Other DocTypes open their own independent metadata-driven screen. The route pres
 
 - Metadata is loaded from `frappe.desk.form.load.getdoctype`.
 - Workspace entries and DocType lists are loaded through authenticated, paginated `/api/resource` requests.
-- List search, metadata-driven sort order and standard filters are applied on the server. Standard filters use type-aware controls for Select, Check, Date, Datetime, numeric and Link fields, with a visible clear-all action.
+- List search, metadata-driven sort order and standard filters are applied on the server. Standard filters use type-aware controls for Select, Check, Date, Datetime (separate date and time pickers), numeric and Link fields, with a visible clear-all action.
 - Detail reads use the canonical resource endpoint.
 - Draft create/edit uses `frappe.client.insert` / `frappe.client.save`.
 - Submit/cancel uses ERPNext's document lifecycle endpoints after re-reading the canonical document.
@@ -29,6 +29,6 @@ Other DocTypes open their own independent metadata-driven screen. The route pres
 
 ## Remaining form parity
 
-The generic editor now provides type-aware Check, Select, Date, numeric and server-search Link inputs. Dynamic Link pickers refresh when their target DocType changes. The list screen follows ERPNext `in_list_view` metadata for columns, supports server-side sorting by metadata fields and keeps each DocType link distinct inside its own Workspace. Table and Table MultiSelect fields now use native row-by-row add/edit/delete dialogs backed by child DocType metadata; the parent document saves the child rows through Frappe. Nested child tables, full dynamic-link controls, formula/dependency/visibility rules, attachments, comments/timeline, version history, list-view bulk actions, report-builder screens and every DocType-specific button still require dedicated work. A screen directory entry is not a claim that every form control on the ERPNext Desk has been reproduced.
+The generic editor now provides type-aware Check, Select, Date, Datetime, numeric and server-search Link inputs. Dynamic Link pickers refresh when their target DocType changes. The list screen follows ERPNext `in_list_view` metadata for columns, supports server-side sorting by metadata fields and keeps each DocType link distinct inside its own Workspace. Table and Table MultiSelect fields now use native row-by-row add/edit/delete dialogs backed by child DocType metadata; the parent document saves the child rows through Frappe. Nested child tables, full dynamic-link controls, formula/dependency/visibility rules, attachments, comments/timeline, version history, list-view bulk actions, report-builder screens and every DocType-specific button still require dedicated work. A screen directory entry is not a claim that every form control on the ERPNext Desk has been reproduced.
 
 Specialized mobile workflows retain their richer business logic and must not be replaced by generic metadata editing. Live permission/workflow/GL/stock acceptance requires a version-matched ERPNext + HRMS site and role-specific test accounts.
