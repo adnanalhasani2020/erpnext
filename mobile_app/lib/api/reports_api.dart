@@ -92,6 +92,7 @@ mixin ReportsApiMixin on _FrappeApiCore {
         required List<dynamic> fields,
         required String groupBy,
         required String orderBy,
+        List<List<dynamic>>? filtersOverride,
         int start = 0,
         int pageLength = 500,
       }) async {
@@ -99,7 +100,7 @@ mixin ReportsApiMixin on _FrappeApiCore {
           queryParameters: {
             'doctype': 'Sales Invoice',
             'fields': jsonEncode(fields),
-            'filters': jsonEncode(filters),
+            'filters': jsonEncode(filtersOverride ?? filters),
             'group_by': groupBy,
             'order_by': orderBy,
             'limit_start': start.toString(),
@@ -128,7 +129,7 @@ mixin ReportsApiMixin on _FrappeApiCore {
         orderBy: 'currency asc',
         pageLength: 1000,
       );
-      final currencyTotals = <core.Map<String, dynamic>>[];
+      final totalsByCurrency = <String, core.Map<String, dynamic>>{};
       var invoiceCount = 0;
       for (final row in currencyRows) {
         final currency = row['currency']?.toString().trim() ?? '';
@@ -141,13 +142,56 @@ mixin ReportsApiMixin on _FrappeApiCore {
           throw const FormatException('أعاد ERPNext إجماليات مبيعات أو أرصدة غير صالحة.');
         }
         invoiceCount += count;
-        currencyTotals.add({
+        totalsByCurrency[currency] = {
           'currency': currency,
           'total': total,
           'outstanding': outstanding,
           'invoice_count': count,
-        });
+          'return_total': 0.0,
+          'return_invoice_count': 0,
+          'net_total': total,
+        };
       }
+      final returnRows = await groupedRows(
+        fields: const [
+          'currency',
+          {'SUM': 'grand_total', 'as': 'total'},
+          {'COUNT': 'name', 'as': 'invoice_count'},
+        ],
+        groupBy: 'currency',
+        orderBy: 'currency asc',
+        filtersOverride: [
+          ['docstatus', '=', 1],
+          ['is_return', '=', 1],
+          ['company', '=', normalizedCompany],
+          ['posting_date', 'between', [fromDate, toDate]],
+        ],
+        pageLength: 1000,
+      );
+      for (final row in returnRows) {
+        final currency = row['currency']?.toString().trim() ?? '';
+        final rawTotal = double.tryParse(row['total']?.toString() ?? '');
+        final count = int.tryParse(row['invoice_count']?.toString() ?? '');
+        if (currency.isEmpty || rawTotal == null || !rawTotal.isFinite ||
+            count == null || count < 0) {
+          throw const FormatException('أعاد ERPNext إجماليات مرتجعات غير صالحة.');
+        }
+        final returnTotal = rawTotal.abs();
+        final entry = totalsByCurrency.putIfAbsent(currency, () => {
+          'currency': currency,
+          'total': 0.0,
+          'outstanding': 0.0,
+          'invoice_count': 0,
+          'return_total': 0.0,
+          'return_invoice_count': 0,
+          'net_total': 0.0,
+        });
+        entry['return_total'] = returnTotal;
+        entry['return_invoice_count'] = count;
+        entry['net_total'] = (entry['total'] as double) - returnTotal;
+      }
+      final currencyTotals = totalsByCurrency.values.toList()
+        ..sort((a, b) => (a['currency'] as String).compareTo(b['currency'] as String));
 
       final customerRows = <core.Map<String, dynamic>>[];
       var customerOffset = 0;
