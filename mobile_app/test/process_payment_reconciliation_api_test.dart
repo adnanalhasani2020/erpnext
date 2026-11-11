@@ -29,6 +29,7 @@ void main() {
         final filters = jsonDecode(request.uri.queryParameters['filters']!) as List;
         expect(filters.any((row) => jsonEncode(row) == jsonEncode(['company', '=', 'COMP-1'])), isTrue);
         expect(filters.any((row) => jsonEncode(row) == jsonEncode(['status', '=', 'Running'])), isTrue);
+        expect(filters.any((row) => jsonEncode(row) == jsonEncode(['party_type', '=', 'Customer'])), isTrue);
         request.response.write(jsonEncode({'data': [{
           'name': 'ACC-PPR-00001',
           'company': 'COMP-1',
@@ -118,6 +119,7 @@ void main() {
       final filteredJobs = await api.fetchProcessPaymentReconciliationJobs(
         company: 'COMP-1',
         status: 'Running',
+        partyType: 'Customer',
       );
       expect(filteredJobs.single['name'], 'ACC-PPR-00001');
 
