@@ -526,6 +526,16 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
       final doc = await widget.api.fetchDocTypeDocument(doctype: _doctype, name: name);
       if (!mounted) return;
       final fields = _fields.where((f) => f['fieldname'] is String && doc.containsKey(f['fieldname'])).toList();
+      final childMeta = <String, Map<String, dynamic>>{};
+      for (final field in fields.where((f) => f['fieldtype'] == 'Table' || f['fieldtype'] == 'Table MultiSelect')) {
+        final childDoctype = field['options']?.toString().trim() ?? '';
+        if (childDoctype.isEmpty || childMeta.containsKey(childDoctype)) continue;
+        try {
+          childMeta[childDoctype] = await widget.api.fetchDocTypeMeta(childDoctype);
+        } catch (_) {
+          // Keep raw child-row fields visible if child metadata is not readable.
+        }
+      }
       final transitions = await widget.api.fetchDocTypeWorkflowTransitions(doctype: _doctype, name: name).catchError((_) => <Map<String, dynamic>>[]);
       final status = (doc['docstatus'] as num?)?.toInt() ?? 0;
       await showModalBottomSheet<void>(
@@ -544,9 +554,62 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
               separatorBuilder: (_, __) => const Divider(height: 1),
               itemBuilder: (_, i) {
                 final f = fields[i], key = f['fieldname'].toString(), value = doc[key];
+                final label = f['label']?.toString() ?? key;
+                if (value is List) {
+                  final childDoctype = f['options']?.toString() ?? '';
+                  final childFields = (childMeta[childDoctype]?['fields'] as List? ?? const [])
+                      .whereType<Map<String, dynamic>>()
+                      .where((childField) => childField['fieldname'] is String &&
+                        childField['fieldtype'] != 'Section Break' &&
+                        childField['fieldtype'] != 'Column Break' &&
+                        childField['fieldtype'] != 'Tab Break' &&
+                        childField['hidden'] != 1)
+                      .toList();
+                  return ExpansionTile(
+                    title: Text(label),
+                    subtitle: Text('${value.length} صف'),
+                    leading: const Icon(Icons.table_rows_outlined),
+                    children: [
+                      for (var rowIndex = 0; rowIndex < value.length; rowIndex++)
+                        Card(
+                          margin: const EdgeInsetsDirectional.fromSTEB(12, 4, 12, 8),
+                          child: ExpansionTile(
+                            title: Text('السطر ${rowIndex + 1}'),
+                            children: [
+                              for (final childField in childFields)
+                                if (value[rowIndex] is Map &&
+                                    (value[rowIndex] as Map).containsKey(childField['fieldname']))
+                                  ListTile(
+                                    dense: true,
+                                    title: Text(childField['label']?.toString() ?? childField['fieldname'].toString()),
+                                    subtitle: SelectableText(
+                                      (value[rowIndex] as Map)[childField['fieldname']]?.toString() ?? '—',
+                                    ),
+                                  ),
+                              if (childFields.isEmpty && value[rowIndex] is Map)
+                                ListTile(
+                                  title: SelectableText((value[rowIndex] as Map).toString()),
+                                ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  );
+                }
+                if (value is Map) {
+                  return ExpansionTile(
+                    title: Text(label),
+                    subtitle: const Text('تفاصيل مرتبطة'),
+                    children: value.entries.map((entry) => ListTile(
+                      dense: true,
+                      title: Text(entry.key),
+                      subtitle: SelectableText(entry.value?.toString() ?? '—'),
+                    )).toList(),
+                  );
+                }
                 return ListTile(
-                  title: Text(f['label']?.toString() ?? key),
-                  subtitle: SelectableText(value is List || value is Map ? value.toString() : value?.toString() ?? '—'),
+                  title: Text(label),
+                  subtitle: SelectableText(value?.toString() ?? '—'),
                 );
               },
             )),
