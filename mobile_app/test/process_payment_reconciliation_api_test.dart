@@ -60,6 +60,11 @@ void main() {
       } else if (request.method == 'GET' &&
           path == 'api/resource/Process Payment Reconciliation/ACC-PPR-00001') {
         request.response.write(jsonEncode({'data': document}));
+      } else if (request.method == 'PUT' &&
+          path == 'api/resource/Process Payment Reconciliation/ACC-PPR-00001') {
+        final body = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
+        document = {...body, 'name': 'ACC-PPR-00001', 'docstatus': 0, 'status': ''};
+        request.response.write(jsonEncode({'data': document}));
       } else if (request.method == 'POST' && path == 'api/method/frappe.client.submit') {
         document = {...document, 'docstatus': 1, 'status': 'Queued'};
         request.response.write(jsonEncode({'message': document}));
@@ -126,6 +131,18 @@ void main() {
       );
       expect(draft['name'], 'ACC-PPR-00001');
       expect(draft['docstatus'], 0);
+
+      final updatedDraft = await api.saveProcessPaymentReconciliationDraft(
+        name: 'ACC-PPR-00001',
+        company: 'COMP-1',
+        partyType: 'Customer',
+        party: 'CUS-1',
+        receivablePayableAccount: 'Debtors - COMP-1',
+        fromInvoiceDate: '2026-01-01',
+        toInvoiceDate: '2026-01-31',
+      );
+      expect(updatedDraft['name'], 'ACC-PPR-00001');
+      expect(updatedDraft['docstatus'], 0);
 
       final submitted = await api.submitProcessPaymentReconciliation('ACC-PPR-00001');
       expect(submitted['docstatus'], 1);
