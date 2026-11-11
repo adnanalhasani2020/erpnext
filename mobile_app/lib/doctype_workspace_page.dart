@@ -550,6 +550,12 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 }
                 final controller = controllers[key]!;
                 final isLink = type == 'Link' && (field['options']?.toString().trim().isNotEmpty ?? false);
+                final dynamicLinkField = field['options']?.toString() ?? '';
+                final dynamicLinkTarget = selections[dynamicLinkField] ??
+                    controllers[dynamicLinkField]?.text ??
+                    source?[dynamicLinkField]?.toString() ?? '';
+                final isDynamicLink = type == 'Dynamic Link';
+                final canPickLink = isLink || (isDynamicLink && dynamicLinkTarget.trim().isNotEmpty);
                 final isDate = type == 'Date';
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),
@@ -562,13 +568,14 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     readOnly: isDate,
                     decoration: InputDecoration(
                       labelText: label,
-                      helperText: field['reqd'] == 1 ? 'حقل إلزامي' : null,
+                      helperText: canPickLink ? 'اختر سجلاً موجوداً في ERPNext' : isDynamicLink ? 'حدد نوع المرجع أولاً' : field['reqd'] == 1 ? 'حقل إلزامي' : null,
                       suffixIcon: isDate
                         ? const Icon(Icons.calendar_today_outlined)
-                        : isLink ? IconButton(
+                        : canPickLink ? IconButton(
                             tooltip: 'اختيار سجل',
                             onPressed: () async {
-                              final selected = await _pickLinkValue(field['options'].toString());
+                              final target = isLink ? field['options'].toString() : dynamicLinkTarget.trim();
+                              final selected = await _pickLinkValue(target);
                               if (selected != null) controller.text = selected;
                             },
                             icon: const Icon(Icons.search),
@@ -732,8 +739,16 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 final controller = controllers[key]!;
                 final isDate = type == 'Date';
                 final isLink = type == 'Link' && (f['options']?.toString().trim().isNotEmpty ?? false);
+                final dynamicLinkField = f['options']?.toString() ?? '';
+                final dynamicLinkTarget = selections[dynamicLinkField] ??
+                    controllers[dynamicLinkField]?.text ??
+                    source?[dynamicLinkField]?.toString() ?? '';
+                final isDynamicLink = type == 'Dynamic Link';
+                final canPickLink = isLink || (isDynamicLink && dynamicLinkTarget.trim().isNotEmpty);
                 final keyboard = const {'Int','Float','Currency','Percent'}.contains(type)
-                    ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text;
+                    ? const TextInputType.numberWithOptions(decimal: true)
+                    : type == 'Email' ? TextInputType.emailAddress
+                    : type == 'Phone' ? TextInputType.phone : TextInputType.text;
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: TextField(
@@ -755,13 +770,14 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     } : null,
                     decoration: InputDecoration(
                       labelText: label,
-                      helperText: isLink ? 'اختر سجلاً موجوداً في ERPNext' : f['reqd'] == 1 ? 'حقل إلزامي' : null,
+                      helperText: canPickLink ? 'اختر سجلاً موجوداً في ERPNext' : isDynamicLink ? 'حدد نوع المرجع أولاً' : f['reqd'] == 1 ? 'حقل إلزامي' : null,
                       suffixIcon: isDate
                         ? const Icon(Icons.calendar_today_outlined)
-                        : isLink ? IconButton(
+                        : canPickLink ? IconButton(
                             tooltip: 'اختيار سجل',
                             onPressed: () async {
-                              final selected = await _pickLinkValue(f['options'].toString());
+                              final target = isLink ? f['options'].toString() : dynamicLinkTarget.trim();
+                              final selected = await _pickLinkValue(target);
                               if (selected != null) controller.text = selected;
                             },
                             icon: const Icon(Icons.search),
