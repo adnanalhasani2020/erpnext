@@ -565,13 +565,17 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                       throw FormatException('الحقل ${field['label'] ?? key} مطلوب.');
                     }
                     if (selected.isNotEmpty) values[key] = selected;
+                    else if (source != null && source.containsKey(key)) values[key] = null;
                     continue;
                   }
                   final raw = controllers[key]!.text.trim();
                   if (field['reqd'] == 1 && raw.isEmpty) {
                     throw FormatException('الحقل ${field['label'] ?? key} مطلوب.');
                   }
-                  if (raw.isEmpty) continue;
+                  if (raw.isEmpty) {
+                    if (source != null && source.containsKey(key)) values[key] = null;
+                    continue;
+                  }
                   if (type == 'Int') {
                     values[key] = int.tryParse(raw) ??
                       (throw FormatException('قيمة ${field['label'] ?? key} يجب أن تكون عدداً صحيحاً.'));
