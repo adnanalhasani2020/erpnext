@@ -84,7 +84,26 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
       final definitions = <ErpDocTypeDefinition>[];
       final seen = <String>{};
       for (final workspace in workspaces) {
-        final workspaceLabel = (workspace['title'] ?? workspace['label'] ?? workspace['name'] ?? 'ERPNext').toString();
+        final workspaceTitle = (workspace['title'] ?? workspace['label'] ?? workspace['name'] ?? 'ERPNext').toString();
+        const workspaceLabels = <String, String>{
+          'Accounting': 'المحاسبة',
+          'Financial Reports': 'التقارير المالية',
+          'Invoicing': 'الفوترة',
+          'Payments': 'المدفوعات',
+          'Assets': 'الأصول',
+          'Buying': 'المشتريات',
+          'CRM': 'علاقات العملاء',
+          'Manufacturing': 'التصنيع',
+          'Projects': 'المشاريع',
+          'Quality': 'الجودة',
+          'Selling': 'المبيعات',
+          'ERPNext Settings': 'إعدادات النظام',
+          'Stock': 'المخزون',
+          'Support': 'الدعم',
+          'Human Resources': 'الموارد البشرية',
+          'HR': 'الموارد البشرية',
+        };
+        final workspaceLabel = workspaceLabels[workspaceTitle] ?? workspaceTitle;
         final links = <dynamic>[
           if (workspace['links'] is List) ...(workspace['links'] as List),
           if (workspace['sidebar_items'] is List) ...(workspace['sidebar_items'] as List),
@@ -95,7 +114,30 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           final doctype = link['link_to']?.toString().trim() ?? '';
           if (doctype.isEmpty || link['link_type']?.toString() != 'DocType' ||
               (link['hidden'] == 1 || link['hidden'] == true) || link['type'] == 'Section Break' || !seen.add(doctype)) continue;
-          var displayLabel = (link['label']?.toString().trim().isNotEmpty ?? false) ? link['label'].toString() : doctype;
+          const translatedLabels = <String, String>{
+            'Payment Request': 'طلبات الدفع',
+            'Payment Order': 'أوامر الدفع',
+            'Bank Account': 'الحسابات البنكية',
+            'Currency': 'العملات',
+            'Mode of Payment': 'طرق الدفع',
+            'Price List': 'قوائم الأسعار',
+            'Item Price': 'أسعار الأصناف',
+            'Customer Group': 'مجموعات العملاء',
+            'Supplier Group': 'مجموعات الموردين',
+            'Territory': 'المناطق البيعية',
+            'Campaign': 'الحملات',
+            'Sales Person': 'مندوبو المبيعات',
+            'Sales Partner': 'شركاء المبيعات',
+            'BOM': 'قوائم المواد',
+            'Work Order': 'أوامر التصنيع',
+            'Job Card': 'بطاقات العمل',
+            'Asset Category': 'فئات الأصول',
+            'Asset Repair': 'إصلاح الأصول',
+            'Quality Action': 'إجراءات الجودة',
+            'Non Conformance': 'حالات عدم المطابقة',
+          };
+          var displayLabel = translatedLabels[doctype] ??
+            ((link['label']?.toString().trim().isNotEmpty ?? false) ? link['label'].toString() : doctype);
           for (final known in erpDocTypeDefinitions) {
             if (known.doctype == doctype) { displayLabel = known.label; break; }
           }
