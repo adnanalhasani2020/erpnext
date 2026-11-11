@@ -1835,8 +1835,8 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
                           }
                           var currentSerials = <String>[];
                           if (item.hasSerialNo && currentQty > 0) {
-                            if ((currentQty - currentQty.round()).abs() > 0.000001 || currentQty > 200) {
-                              notice('عدد الأرقام الحالية يتجاوز الحد الآمن أو ليس عدداً صحيحاً؛ استخدم شاشة ERPNext المكتبية.');
+                            if ((currentQty - currentQty.round()).abs() > 0.000001 || currentQty > 5000) {
+                              notice('عدد الأرقام الحالية يتجاوز حد المعالجة الآمن (5000) أو ليس عدداً صحيحاً؛ قسّم التسوية إلى مستندات أصغر.');
                               return;
                             }
                             currentSerials = await widget.api.fetchAvailableSerialNumbers(
