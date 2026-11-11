@@ -63,3 +63,6 @@ A passing unit/widget test or APK build does not replace live ERPNext integratio
 - Stock Reconciliation no longer imposes a 200-serial UI ceiling. It now aligns with the API's chunked 200-at-a-time fetch and 5,000-serial per-item safety ceiling.
 - Payroll Entry history now paginates beyond the first 50 records and refreshes safely when the selected company changes.
 - These are source-code changes only. No Flutter test, Android build, or live ERPNext/HRMS integration run has been completed in this session.
+
+
+- Customer and Supplier ledger views now expose advanced exact filters for GL account and voucher type. The same filters apply consistently to the paginated GL Entry rows, period totals, opening balance and calculated closing balance. Consolidated balances remain intentionally unavailable when all companies are selected to avoid mixing company currencies.
