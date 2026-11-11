@@ -2,7 +2,7 @@ import 'dart:core';
 import 'dart:core' as core;
 // ignore_for_file: prefer_interpolation_to_compose_strings
 
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 import 'api/frappe_api.dart';
 import 'sales_margin_analysis_page.dart';
