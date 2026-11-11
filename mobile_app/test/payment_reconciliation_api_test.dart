@@ -184,6 +184,68 @@ void main() {
     }
   });
 
+  test('payment reconciliation discovers and validates configured accounting dimensions', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      final path = request.uri.pathSegments.join('/');
+      if (request.method == 'POST' &&
+          path.endsWith('/payment_reconciliation.get_queries_for_dimension_filters')) {
+        request.response.write(jsonEncode({'message': [{
+          'fieldname': 'business_unit',
+          'filters': {'company': 'COMP-1'},
+        }]}));
+      } else if (request.method == 'GET' &&
+          path == 'api/method/frappe.desk.form.load.getdoctype') {
+        request.response.write(jsonEncode({'message': {'docs': [{
+          'doctype': 'DocType',
+          'name': 'Payment Reconciliation',
+          'fields': [{
+            'fieldname': 'business_unit',
+            'fieldtype': 'Link',
+            'label': 'Business Unit',
+            'options': 'Business Unit',
+          }],
+        }]}}));
+      } else if (request.method == 'GET' &&
+          path == 'api/resource/Business Unit') {
+        final filters = jsonDecode(request.uri.queryParameters['filters']!) as List;
+        expect(filters, contains(['company', '=', 'COMP-1']));
+        expect(filters, contains(['name', '=', 'BU-1']));
+        request.response.write(jsonEncode({'data': [{'name': 'BU-1'}]}));
+      } else if (request.method == 'POST' &&
+          path == 'api/method/run_doc_method') {
+        final body = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
+        final document = jsonDecode(body['docs'] as String) as core.Map<String, dynamic>;
+        expect(document['business_unit'], 'BU-1');
+        document['invoices'] = <core.Map<String, dynamic>>[];
+        document['payments'] = <core.Map<String, dynamic>>[];
+        request.response.write(jsonEncode({'docs': [document]}));
+      } else {
+        request.response.statusCode = HttpStatus.notFound;
+        request.response.write(jsonEncode({'message': 'Unexpected request: $path'}));
+      }
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      final definitions = await api.fetchPaymentReconciliationDimensions('COMP-1');
+      expect(definitions.single['fieldname'], 'business_unit');
+      expect(definitions.single['options'], 'Business Unit');
+      final document = await api.fetchUnreconciledPaymentEntries(
+        company: 'COMP-1',
+        partyType: 'Customer',
+        party: 'CUS-1',
+        receivablePayableAccount: 'Debtors - COMP-1',
+        accountingDimensions: const {'business_unit': 'BU-1'},
+      );
+      expect(document['business_unit'], 'BU-1');
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
   test('payment reconciliation rejects invalid inputs before network access', () async {
     final api = FrappeApi();
     await expectLater(
