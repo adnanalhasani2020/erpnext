@@ -37,6 +37,11 @@ Audit basis: Flutter source, Frappe API calls and ERPNext workspace/DocType sour
 1. Journal Entry history now loads in 50-row pages, offers draft/submitted/canceled status filters and exposes a load-more action instead of silently stopping at the first page.
 2. Chart of Accounts now exposes a server-side Root Type filter (Asset, Liability, Equity, Income, Expense) and indents accounts using parent relationships already loaded in the current result set.
 3. Sales Dashboard now queries submitted return invoices separately, shows return totals and calculates net sales per currency without combining currencies.
+4. Payment Reconciliation now allows per-allocation amount edits before confirmation, exposes invoice/payment fetch limits (50/100/250/500 up to the API cap of 500), and has a widget test verifying the 500/500 request values and the edited amount passed to ERPNext.
+5. Payroll Entry history now supports server-side name search and document-status filters (draft/submitted/cancelled) while preserving pagination.
+6. Item Catalog Excel import now validates required columns, missing mandatory row data and duplicate item codes before any writes; it asks for confirmation and explains that matching item codes update existing Items.
+7. The DocType directory now routes Account, Journal Entry, Payment Reconciliation, Bank Transaction, Warehouse, Sales Person, Item Price, Pricing Rule and Sales Invoice to their specialized mobile workflows instead of the generic DocType editor.
+8. The mobile CI analyzer command now uses `--no-fatal-infos`: info diagnostics remain visible, while actual warnings and errors still fail the job. Flutter SDK Material imports remain on the supported `package:flutter/material.dart` path.
 4. Payment Reconciliation now permits editing each suggested allocation amount before confirmation; the server remains authoritative for available balances and final reconciliation.
 
 ## Important boundaries
