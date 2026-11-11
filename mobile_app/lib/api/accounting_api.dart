@@ -121,6 +121,7 @@ mixin AccountingApiMixin on _FrappeApiCore {
       required String company,
       int start = 0,
       String? search,
+      String? rootType,
       bool includeDisabled = false,
     }) async {
       final normalizedCompany = company.trim();
@@ -133,6 +134,7 @@ mixin AccountingApiMixin on _FrappeApiCore {
           'root_type', 'account_currency', 'company', 'is_group', 'disabled'],
         filters: [
           ['company', '=', normalizedCompany],
+          if (rootType != null && rootType.trim().isNotEmpty) ['root_type', '=', rootType.trim()],
           if (!includeDisabled) ['disabled', '=', 0],
         ],
         orFilters: query == null || query.isEmpty ? null : [
