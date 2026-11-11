@@ -485,21 +485,6 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 final key = field['fieldname'].toString();
                 final type = field['fieldtype']?.toString() ?? '';
                 final label = field['label']?.toString() ?? key;
-                if (type == 'Table' || type == 'Table MultiSelect') {
-                  final count = tableValues[key]?.length ?? 0;
-                  return Card(
-                    child: ListTile(
-                      leading: const Icon(Icons.table_rows_outlined),
-                      title: Text(label),
-                      subtitle: Text('${count} صف'),
-                      trailing: const Icon(Icons.edit_outlined),
-                      onTap: saving ? null : () async {
-                        final updated = await _editChildTable(f, tableValues[key] ?? <Map<String, dynamic>>[]);
-                        if (updated != null) refresh(() => tableValues[key] = updated);
-                      },
-                    ),
-                  );
-                }
                 if (type == 'Check') {
                   return CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
@@ -664,6 +649,21 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 final type = f['fieldtype']?.toString() ?? '';
                 final label = f['label']?.toString() ?? key;
                 final options = (f['options']?.toString() ?? '').split('\n').where((v) => v.trim().isNotEmpty).toList();
+                if (type == 'Table' || type == 'Table MultiSelect') {
+                  final count = tableValues[key]?.length ?? 0;
+                  return Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.table_rows_outlined),
+                      title: Text(label),
+                      subtitle: Text('${count} صف'),
+                      trailing: const Icon(Icons.edit_outlined),
+                      onTap: saving ? null : () async {
+                        final updated = await _editChildTable(f, tableValues[key] ?? <Map<String, dynamic>>[]);
+                        if (updated != null) refresh(() => tableValues[key] = updated);
+                      },
+                    ),
+                  );
+                }
                 if (type == 'Check') {
                   return CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
