@@ -1211,9 +1211,11 @@ class _MobileHomePageState extends State<MobileHomePage> {
         _openPaymentReconciliation();
         return;
       case 'Process Payment Reconciliation':
+      case 'Process Payment Reconciliation Log':
         _openProcessPaymentReconciliation();
         return;
       case 'Bank Transaction':
+      case 'Bank Statement Import':
         _openBankReconciliation();
         return;
       case 'Warehouse':
