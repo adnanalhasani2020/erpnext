@@ -134,8 +134,14 @@ void main() {
       request.response.headers.contentType = ContentType.json;
       if (request.method == 'GET' && request.uri.path.endsWith('/Account')) {
         final filters = jsonDecode(request.uri.queryParameters['filters']!) as List;
-        expect(filters, contains(['account_type', 'in', ['Receivable', 'Payable']]));
-        expect(filters, contains(['root_type', 'in', ['Asset', 'Liability']]));
+        expect(
+          filters.any((row) => jsonEncode(row) == jsonEncode(['account_type', 'in', ['Receivable', 'Payable']])),
+          isTrue,
+        );
+        expect(
+          filters.any((row) => jsonEncode(row) == jsonEncode(['root_type', 'in', ['Asset', 'Liability']])),
+          isTrue,
+        );
         request.response.write(jsonEncode({'data': [{
           'name': 'Employee Payable - COMP-1',
           'account_type': 'Payable',
