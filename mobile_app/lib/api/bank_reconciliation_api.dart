@@ -726,6 +726,60 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
       return {'name': id, 'job_id': job, 'status': 'Queued'};
     }
 
+  Future<List<core.Map<String, dynamic>>> fetchBankStatementImports({
+      required String bankAccount,
+      required String company,
+      int start = 0,
+    }) async {
+      final account = bankAccount.trim(), cleanCompany = company.trim();
+      if (account.isEmpty || cleanCompany.isEmpty || start < 0) {
+        throw const FormatException('حدد الشركة والحساب البنكي وموضع التحميل الصحيح.');
+      }
+      final uri = FrappeApi.buildResourcePageUri(
+        baseUrl: _baseUrl,
+        resource: 'Bank Statement Import',
+        fields: const [
+          'name', 'company', 'bank_account', 'bank', 'status', 'reference_doctype',
+          'import_type', 'import_file', 'creation', 'modified',
+        ],
+        filters: [
+          ['company', '=', cleanCompany],
+          ['bank_account', '=', account],
+        ],
+        orderBy: 'creation desc, name desc',
+        start: start,
+        pageLength: 25,
+      );
+      final response = await _sendUri('GET', uri);
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر تحميل سجل استيراد كشوف البنك.'));
+      }
+      final rows = data['data'];
+      if (rows is! List) throw const FormatException('استجابة سجل استيراد كشوف البنك غير صحيحة.');
+      return rows.whereType<core.Map<String, dynamic>>()
+          .where((row) => row['company'] == cleanCompany && row['bank_account'] == account)
+          .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+    }
+
+  Future<List<core.Map<String, dynamic>>> fetchBankStatementImportLogs(String importName) async {
+      final id = importName.trim();
+      if (id.isEmpty) throw const FormatException('رقم مستند استيراد كشف البنك غير موجود.');
+      final response = await _sendJson(
+        'POST',
+        '/api/method/erpnext.accounts.doctype.bank_statement_import.bank_statement_import.get_import_logs',
+        {'docname': id},
+      );
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر تحميل تفاصيل أخطاء وسجلات استيراد كشف البنك.'));
+      }
+      final rows = data['message'];
+      if (rows is! List) throw const FormatException('استجابة سجلات استيراد كشف البنك غير صحيحة.');
+      return rows.whereType<core.Map<String, dynamic>>()
+          .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+    }
+
   Future<core.Map<String, dynamic>> fetchBankStatementImportStatus(String importName) async {
       final id = importName.trim();
       if (id.isEmpty) throw const FormatException('رقم مستند الاستيراد غير موجود.');
