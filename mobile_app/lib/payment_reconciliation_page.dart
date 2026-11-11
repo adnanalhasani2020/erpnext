@@ -43,6 +43,8 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
   int _paymentLimit = 50;
   List<core.Map<String, dynamic>> _accounts = const [];
   core.Map<String, dynamic>? _document;
+  final Set<String> _selectedInvoiceNumbers = <String>{};
+  final Set<String> _selectedPaymentReferences = <String>{};
   bool _loadingAccounts = false;
   bool _loadingEntries = false;
   bool _allocating = false;
@@ -271,7 +273,21 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
         maximumPaymentAmount: _optionalAmount(_maximumPaymentController),
       );
       if (!mounted || generation != _requestGeneration) return;
-      setState(() => _document = document);
+      final invoiceRows = document['invoices'] as List;
+      final paymentRows = document['payments'] as List;
+      setState(() {
+        _document = document;
+        _selectedInvoiceNumbers
+          ..clear()
+          ..addAll(invoiceRows.whereType<core.Map<String, dynamic>>()
+              .map((row) => row['invoice_number']?.toString() ?? '')
+              .where((name) => name.isNotEmpty));
+        _selectedPaymentReferences
+          ..clear()
+          ..addAll(paymentRows.whereType<core.Map<String, dynamic>>()
+              .map((row) => row['reference_name']?.toString() ?? '')
+              .where((name) => name.isNotEmpty));
+      });
     } catch (error) {
       if (mounted && generation == _requestGeneration) {
         setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
@@ -291,7 +307,14 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
       _error = null;
     });
     try {
-      final result = await widget.api.allocatePaymentReconciliation(document);
+      if (_selectedInvoiceNumbers.isEmpty || _selectedPaymentReferences.isEmpty) {
+        throw const FormatException('حدد فاتورة واحدة ودفعة واحدة على الأقل قبل معاينة التخصيص.');
+      }
+      final result = await widget.api.allocatePaymentReconciliation(
+        document,
+        selectedInvoiceNumbers: _selectedInvoiceNumbers.toList(growable: false),
+        selectedPaymentReferences: _selectedPaymentReferences.toList(growable: false),
+      );
       if (!mounted) return;
       setState(() => _document = result);
     } catch (error) {
@@ -492,19 +515,56 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
     child: Text(value, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
   );
 
-  Widget _entryCard({
+  Widget _selectableEntryCard({
     required String title,
     required String subtitle,
     required String amount,
+    required bool selected,
+    required ValueChanged<bool?> onChanged,
     IconData icon = Icons.receipt_long_outlined,
   }) => Card(
-    child: ListTile(
-      leading: Icon(icon),
+    child: CheckboxListTile(
+      value: selected,
+      onChanged: _busy ? null : onChanged,
+      secondary: Icon(icon),
       title: Text(title),
       subtitle: Text(subtitle),
-      trailing: Text(amount, style: const TextStyle(fontWeight: FontWeight.w600)),
+      controlAffinity: ListTileControlAffinity.leading,
+      isThreeLine: false,
+      dense: true,
+      secondary: Text(amount, style: const TextStyle(fontWeight: FontWeight.w600)),
     ),
   );
+
+  void _changeInvoiceSelection(String name, bool? selected) {
+    if (selected == null) return;
+    setState(() {
+      if (selected) {
+        _selectedInvoiceNumbers.add(name);
+      } else {
+        _selectedInvoiceNumbers.remove(name);
+      }
+      if (_document != null) {
+        _document = core.Map<String, dynamic>.from(_document!)
+          ..['allocation'] = <core.Map<String, dynamic>>[];
+      }
+    });
+  }
+
+  void _changePaymentSelection(String name, bool? selected) {
+    if (selected == null) return;
+    setState(() {
+      if (selected) {
+        _selectedPaymentReferences.add(name);
+      } else {
+        _selectedPaymentReferences.remove(name);
+      }
+      if (_document != null) {
+        _document = core.Map<String, dynamic>.from(_document!)
+          ..['allocation'] = <core.Map<String, dynamic>>[];
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -682,25 +742,35 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
                 child: LinearProgressIndicator(),
               ),
             if (document != null) ...[
-              _sectionTitle('الفواتير غير المسواة (${invoices.length})'),
+              _sectionTitle('الفواتير غير المسواة (${invoices.length}) • المحدد: ${_selectedInvoiceNumbers.length}'),
               if (invoices.isEmpty)
                 const Card(child: ListTile(title: Text('لا توجد فواتير مستحقة ضمن الفلاتر.')))
               else
-                ...invoices.map((row) => _entryCard(
-                  title: '${row['invoice_type'] ?? ''} • ${row['invoice_number'] ?? ''}',
-                  subtitle: '${row['invoice_date'] ?? ''} • ${row['currency'] ?? ''}',
-                  amount: _number(row['outstanding_amount']).toStringAsFixed(2),
-                )),
-              _sectionTitle('المدفوعات غير المخصصة (${payments.length})'),
+                ...invoices.map((row) {
+                  final name = row['invoice_number']?.toString() ?? '';
+                  return _selectableEntryCard(
+                    title: '${row['invoice_type'] ?? ''} • $name',
+                    subtitle: '${row['invoice_date'] ?? ''} • ${row['currency'] ?? ''}',
+                    amount: _number(row['outstanding_amount']).toStringAsFixed(2),
+                    selected: _selectedInvoiceNumbers.contains(name),
+                    onChanged: (value) => _changeInvoiceSelection(name, value),
+                  );
+                }),
+              _sectionTitle('المدفوعات غير المخصصة (${payments.length}) • المحدد: ${_selectedPaymentReferences.length}'),
               if (payments.isEmpty)
                 const Card(child: ListTile(title: Text('لا توجد مدفوعات غير مخصصة ضمن الفلاتر.')))
               else
-                ...payments.map((row) => _entryCard(
-                  title: '${row['reference_type'] ?? ''} • ${row['reference_name'] ?? ''}',
-                  subtitle: '${row['posting_date'] ?? ''} • ${row['currency'] ?? ''}',
-                  amount: _number(row['amount']).toStringAsFixed(2),
-                  icon: Icons.payments_outlined,
-                )),
+                ...payments.map((row) {
+                  final name = row['reference_name']?.toString() ?? '';
+                  return _selectableEntryCard(
+                    title: '${row['reference_type'] ?? ''} • $name',
+                    subtitle: '${row['posting_date'] ?? ''} • ${row['currency'] ?? ''}',
+                    amount: _number(row['amount']).toStringAsFixed(2),
+                    selected: _selectedPaymentReferences.contains(name),
+                    onChanged: (value) => _changePaymentSelection(name, value),
+                    icon: Icons.payments_outlined,
+                  );
+                }),
               if (allocations.isEmpty) ...[
                 const SizedBox(height: 12),
                 FilledButton.tonalIcon(
