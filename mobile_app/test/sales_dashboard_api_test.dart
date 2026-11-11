@@ -80,6 +80,21 @@ void main() {
         request.response.write(jsonEncode({'message': [{
           'currency': 'YER', 'total': 3000, 'outstanding': 500, 'invoice_count': 2,
         }]}));
+      } else if (groupBy == 'posting_date, currency') {
+        expect(fields, contains('posting_date'));
+        expect(fields, contains('currency'));
+        expect(request.uri.queryParameters['limit_page_length'], '500');
+        request.response.write(jsonEncode({'message': isReturnQuery ? [{
+          'posting_date': '2026-11-09',
+          'currency': 'YER',
+          'total': -500,
+          'invoice_count': 1,
+        }] : [{
+          'posting_date': '2026-11-08',
+          'currency': 'YER',
+          'total': 3000,
+          'invoice_count': 2,
+        }]}));
       } else {
         expect(groupBy, 'currency, customer, customer_name');
         request.response.write(jsonEncode({'message': [
@@ -103,6 +118,12 @@ void main() {
       expect(totals.single['return_total'], 500.0);
       expect(totals.single['net_total'], 2500.0);
       expect(totals.single['return_invoice_count'], 1);
+      final monthly = summary['monthly_totals_by_currency'] as Map;
+      final november = (monthly['YER'] as List).single;
+      expect(november['month'], '2026-11');
+      expect(november['total'], 3000.0);
+      expect(november['return_total'], 500.0);
+      expect(november['net_total'], 2500.0);
       final top = summary['top_customers_by_currency'] as Map;
       expect((top['YER'] as List).first['customer'], 'CUS-1');
     } finally {
