@@ -62,6 +62,12 @@ void main() {
             'allocated_amount': 75,
             'currency': 'YER',
           }];
+        } else if (method == 'calculate_difference_on_allocation_change') {
+          final args = body['args'] as core.Map<String, dynamic>;
+          expect(args['allocated_amount'], 50);
+          request.response.write(jsonEncode({'docs': [document], 'message': 0}));
+          await request.response.close();
+          return;
         } else if (method == 'reconcile') {
           reconcileCalls++;
           final allocation = document['allocation'] as List;
