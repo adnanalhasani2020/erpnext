@@ -109,7 +109,9 @@ class _ProcessPaymentReconciliationLogPageState
     final loading = _loadingDetails.contains(name);
     final total = int.tryParse(row['total_allocations']?.toString() ?? '0') ?? 0;
     final processed = int.tryParse(row['reconciled_entries']?.toString() ?? '0') ?? 0;
-    final ratio = total == 0 ? 0.0 : (processed / total).clamp(0.0, 1.0).toDouble();
+    final ratio = total == 0
+        ? (_checked(row['reconciled']) ? 1.0 : 0.0)
+        : (processed / total).clamp(0.0, 1.0).toDouble();
 
     return Card(
       child: Padding(
