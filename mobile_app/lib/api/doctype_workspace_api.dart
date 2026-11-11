@@ -5,10 +5,10 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
     final uri = FrappeApi.buildResourcePageUri(
       baseUrl: _baseUrl,
       resource: 'Workspace',
-      fields: const ['name','title','label','module','is_hidden','links','sidebar_items'],
+      fields: const ['name','title','label','module','is_hidden'],
       filters: const [['is_hidden', '=', 0]],
       start: 0,
-      pageLength: 500,
+      pageLength: 100,
     );
     final response = await _sendUri('GET', uri);
     final data = _decode(response.body);
@@ -17,8 +17,25 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
     }
     final rows = data['data'];
     if (rows is! List) throw const FormatException('استجابة مساحات العمل غير متوقعة.');
-    return rows.whereType<core.Map<String, dynamic>>()
-      .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+    final summaries = rows.whereType<core.Map<String, dynamic>>().toList();
+    final details = await Future.wait(summaries.map((row) async {
+      final name = row['name']?.toString() ?? '';
+      if (name.isEmpty) return core.Map<String, dynamic>.from(row);
+      final detailResponse = await _send(
+        'GET', '/api/resource/Workspace/' + Uri.encodeComponent(name),
+      );
+      final detailData = _decode(detailResponse.body);
+      if (detailResponse.statusCode < 200 || detailResponse.statusCode >= 300) {
+        return core.Map<String, dynamic>.from(row);
+      }
+      final document = detailData['data'];
+      if (document is! core.Map<String, dynamic> ||
+          document['doctype'] != 'Workspace' || document['name'] != name) {
+        return core.Map<String, dynamic>.from(row);
+      }
+      return core.Map<String, dynamic>.from(document);
+    }));
+    return details;
   }
 
   Future<core.Map<String, dynamic>> fetchDocTypeMeta(String doctype) async {
