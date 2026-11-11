@@ -125,7 +125,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('تعديل مبلغ التخصيص'));
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextFormField), '50');
+      await tester.enterText(find.byType(TextFormField).first, '50');
       await tester.tap(find.text('حفظ المبلغ'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('تأكيد التخصيص وترحيل التسوية'));
