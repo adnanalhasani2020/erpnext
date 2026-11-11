@@ -1729,18 +1729,18 @@ class FrappeApi {
 
   Future<List<core.Map<String, dynamic>>> fetchSupplierLedger({
     required String supplier, int start = 0, String? company,
-    String? fromDate, String? toDate,
+    String? fromDate, String? toDate, String? account, String? voucherType,
   }) => _fetchPartyLedger(
     partyType: 'Supplier', party: supplier, start: start, company: company,
-    fromDate: fromDate, toDate: toDate,
+    fromDate: fromDate, toDate: toDate, account: account, voucherType: voucherType,
   );
 
   Future<List<core.Map<String, dynamic>>> fetchCustomerLedger({
     required String customer, int start = 0, String? company,
-    String? fromDate, String? toDate,
+    String? fromDate, String? toDate, String? account, String? voucherType,
   }) => _fetchPartyLedger(
     partyType: 'Customer', party: customer, start: start, company: company,
-    fromDate: fromDate, toDate: toDate,
+    fromDate: fromDate, toDate: toDate, account: account, voucherType: voucherType,
   );
 
   String? _validateLedgerDate(String? raw, String label) {
@@ -1756,9 +1756,12 @@ class FrappeApi {
   Future<List<core.Map<String, dynamic>>> _fetchPartyLedger({
     required String partyType, required String party, int start = 0,
     String? company, String? fromDate, String? toDate,
+    String? account, String? voucherType,
   }) async {
     final cleanParty = party.trim();
     final cleanCompany = company?.trim() ?? '';
+    final cleanAccount = account?.trim() ?? '';
+    final cleanVoucherType = voucherType?.trim() ?? '';
     final from = _validateLedgerDate(fromDate, 'تاريخ البداية');
     final to = _validateLedgerDate(toDate, 'تاريخ النهاية');
     if (cleanParty.isEmpty || start < 0 ||
@@ -1772,6 +1775,8 @@ class FrappeApi {
       if (cleanCompany.isNotEmpty) ['company', '=', cleanCompany],
       if (from != null) ['posting_date', '>=', from],
       if (to != null) ['posting_date', '<=', to],
+      if (cleanAccount.isNotEmpty) ['account', '=', cleanAccount],
+      if (cleanVoucherType.isNotEmpty) ['voucher_type', '=', cleanVoucherType],
     ];
     final uri = buildResourcePageUri(
       baseUrl: _baseUrl, resource: 'GL Entry',
@@ -1796,7 +1801,7 @@ class FrappeApi {
 
   Future<core.Map<String, dynamic>> fetchPartyLedgerOpeningBalance({
     required String partyType, required String party, required String beforeDate,
-    String? company,
+    String? company, String? account, String? voucherType,
   }) async {
     final cleanParty = party.trim();
     final before = _validateLedgerDate(beforeDate, 'تاريخ بداية الكشف');
@@ -1808,6 +1813,8 @@ class FrappeApi {
       ['party_type', '=', partyType], ['party', '=', cleanParty],
       ['is_cancelled', '=', 0], ['posting_date', '<', before],
       if (company?.trim().isNotEmpty == true) ['company', '=', company!.trim()],
+      if (account?.trim().isNotEmpty == true) ['account', '=', account!.trim()],
+      if (voucherType?.trim().isNotEmpty == true) ['voucher_type', '=', voucherType!.trim()],
     ];
     final uri = Uri.parse('$_baseUrl/api/method/frappe.client.get_list').replace(
       queryParameters: {
@@ -6561,6 +6568,7 @@ Future<core.Map<String, dynamic>> startBankStatementImport(String importName) as
   Future<core.Map<String, dynamic>> fetchPartyLedgerTotals({
     required String partyType, required String party,
     String? company, String? fromDate, String? toDate,
+    String? account, String? voucherType,
   }) async {
     final cleanParty = party.trim();
     final from = _validateLedgerDate(fromDate, 'تاريخ البداية');
@@ -6575,8 +6583,10 @@ Future<core.Map<String, dynamic>> startBankStatementImport(String importName) as
       if (company?.trim().isNotEmpty == true) ['company', '=', company!.trim()],
       if (from != null) ['posting_date', '>=', from],
       if (to != null) ['posting_date', '<=', to],
+      if (account?.trim().isNotEmpty == true) ['account', '=', account!.trim()],
+      if (voucherType?.trim().isNotEmpty == true) ['voucher_type', '=', voucherType!.trim()],
     ];
-    final uri = Uri.parse('$_baseUrl/api/method/frappe.client.get_list').replace(
+    final uri = Uri.parse('$_baseUrl/api/method/frappe.client.get_list').replace
       queryParameters: {
         'doctype': 'GL Entry',
         'fields': jsonEncode(['sum(debit) as debit', 'sum(credit) as credit']),
