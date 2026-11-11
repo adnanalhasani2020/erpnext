@@ -29,6 +29,6 @@ Other DocTypes open their own independent metadata-driven screen. The route pres
 
 ## Remaining form parity
 
-The generic editor now provides type-aware Check, Select, Date, numeric and server-search Link inputs. Child tables remain editable as JSON payloads rather than native row-by-row editors. Full native child-table editors, dynamic-link controls, formula/dependency/visibility rules, attachments, comments/timeline, version history, list-view bulk actions, report-builder screens and every DocType-specific button still require dedicated work. A screen directory entry is not a claim that every form control on the ERPNext Desk has been reproduced.
+The generic editor now provides type-aware Check, Select, Date, numeric and server-search Link inputs. Table and Table MultiSelect fields now use native row-by-row add/edit/delete dialogs backed by child DocType metadata; the parent document saves the child rows through Frappe. Nested child tables, full dynamic-link controls, formula/dependency/visibility rules, attachments, comments/timeline, version history, list-view bulk actions, report-builder screens and every DocType-specific button still require dedicated work. A screen directory entry is not a claim that every form control on the ERPNext Desk has been reproduced.
 
 Specialized mobile workflows retain their richer business logic and must not be replaced by generic metadata editing. Live permission/workflow/GL/stock acceptance requires a version-matched ERPNext + HRMS site and role-specific test accounts.
