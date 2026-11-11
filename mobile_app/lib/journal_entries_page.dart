@@ -26,6 +26,7 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
   List<core.Map<String, dynamic>> _drafts = [];
   String? _editing;
   String? _error;
+  int? _docStatus;
   bool _loading = false, _loadingMore = false, _hasMore = false;
   bool _saving = false, _submitting = false;
   int _offset = 0;
@@ -120,6 +121,7 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
       final rows = await widget.api.fetchJournalEntryDrafts(
         company: company,
         search: _search.text,
+        docStatus: _docStatus,
         start: more ? _offset : 0,
       );
       if (!mounted || company != _company) return;
@@ -417,8 +419,22 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
       if (_editing != null) TextButton(onPressed: _saving || _submitting ? null : _resetForm, child: const Text('إلغاء التعديل')),
       const Divider(height: 30),
       Text('سجل القيود اليومية', style: Theme.of(context).textTheme.titleLarge),
-      TextField(controller: _search, enabled: !_loading && !_saving && !_submitting, textInputAction: TextInputAction.search, onSubmitted: (_) => _load(),
-        decoration: InputDecoration(labelText: 'بحث برقم القيد أو البيان', suffixIcon: IconButton(onPressed: _loading || _saving || _submitting ? null : _load, icon: const Icon(Icons.search)))),
+      DropdownButtonFormField<int?>(
+        initialValue: _docStatus,
+        isExpanded: true,
+        decoration: const InputDecoration(labelText: 'حالة القيد'),
+        items: const [
+          DropdownMenuItem<int?>(value: null, child: Text('المسودات والقيود المرحلة')),
+          DropdownMenuItem<int?>(value: 0, child: Text('المسودات فقط')),
+          DropdownMenuItem<int?>(value: 1, child: Text('القيود المرحلة فقط')),
+        ],
+        onChanged: _loading || _loadingMore || _saving || _submitting ? null : (value) {
+          setState(() { _docStatus = value; _drafts = []; _offset = 0; _hasMore = false; });
+          _load();
+        },
+      ),
+      TextField(controller: _search, enabled: !_loading && !_loadingMore && !_saving && !_submitting, textInputAction: TextInputAction.search, onSubmitted: (_) => _load(),
+        decoration: InputDecoration(labelText: 'بحث برقم القيد أو البيان', suffixIcon: IconButton(onPressed: _loading || _loadingMore || _saving || _submitting ? null : _load, icon: const Icon(Icons.search)))),
       if (_loading) const LinearProgressIndicator(),
       if (_error != null) Card(color: Theme.of(context).colorScheme.errorContainer, child: Padding(padding: const EdgeInsets.all(12), child: Text(_error!))),
       if (_drafts.isEmpty && !_loading) const ListTile(title: Text('لا توجد مسودات ظاهرة لهذه الشركة.')),
