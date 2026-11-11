@@ -61,6 +61,64 @@ void main() {
       );
     });
 
+    test('loads bank statement import history and native row-level import logs', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      server.listen((request) async {
+        request.response.headers.contentType = ContentType.json;
+        final path = request.uri.pathSegments.join('/');
+        if (request.method == 'GET' &&
+            path == 'api/resource/Bank Statement Import') {
+          final filters = jsonDecode(request.uri.queryParameters['filters']!) as List;
+          expect(filters, contains(['company', '=', 'COMP-1']));
+          expect(filters, contains(['bank_account', '=', 'BANK-1']));
+          expect(request.uri.queryParameters['limit_start'], '25');
+          request.response.write(jsonEncode({'data': [{
+            'name': 'BSI-0001',
+            'company': 'COMP-1',
+            'bank_account': 'BANK-1',
+            'status': 'Partial Success',
+            'reference_doctype': 'Bank Transaction',
+            'import_type': 'Insert New Records',
+          }]}));
+        } else if (request.method == 'POST' &&
+            path.endsWith('/bank_statement_import.get_import_logs')) {
+          final body = jsonDecode(await utf8.decoder.bind(request).join()) as Map<String, dynamic>;
+          expect(body['docname'], 'BSI-0001');
+          request.response.write(jsonEncode({'message': [{
+            'success': 1,
+            'docname': 'BT-0001',
+            'messages': 'Imported',
+            'exception': null,
+            'row_indexes': '[2]',
+          }, {
+            'success': 0,
+            'docname': null,
+            'messages': 'Invalid amount',
+            'exception': 'ValueError',
+            'row_indexes': '[3]',
+          }]}));
+        } else {
+          request.response.statusCode = HttpStatus.notFound;
+          request.response.write(jsonEncode({'message': 'Unexpected request: $path'}));
+        }
+        await request.response.close();
+      });
+      final client = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+      try {
+        final imports = await client.fetchBankStatementImports(
+          bankAccount: 'BANK-1', company: 'COMP-1', start: 25,
+        );
+        expect(imports.single['name'], 'BSI-0001');
+        final logs = await client.fetchBankStatementImportLogs('BSI-0001');
+        expect(logs, hasLength(2));
+        expect(logs.first['success'], 1);
+        expect(logs.last['exception'], 'ValueError');
+      } finally {
+        client.dispose();
+        await server.close(force: true);
+      }
+    });
+
     test('rejects unsupported bank statement file types before network access', () async {
       await expectLater(
         api.createBankStatementImportPreview(
