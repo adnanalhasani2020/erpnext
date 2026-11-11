@@ -1053,6 +1053,96 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(value.replaceFirst('Exception: ', ''))));
   }
 
+  Widget _standardFilterInput(Map<String, dynamic> field) {
+    final key = field['fieldname'].toString();
+    final label = field['label']?.toString() ?? key;
+    final type = field['fieldtype']?.toString() ?? '';
+    final controller = _filterControllers[key]!;
+    if (type == 'Select') {
+      final options = (field['options']?.toString() ?? '').split('\\n')
+          .map((value) => value.trim()).where((value) => value.isNotEmpty).toList();
+      if (options.isNotEmpty) {
+        final current = _filters[key];
+        return DropdownButtonFormField<String>(
+          key: ValueKey('filter-$key-${current ?? ''}'),
+          initialValue: current,
+          isExpanded: true,
+          decoration: InputDecoration(labelText: label, isDense: true),
+          items: options.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
+          onChanged: (value) {
+            if (value == null) {
+              _filters.remove(key);
+            } else {
+              _filters[key] = value;
+            }
+          },
+        );
+      }
+    }
+    if (type == 'Check') {
+      final current = _filters[key];
+      return DropdownButtonFormField<String>(
+        key: ValueKey('filter-$key-${current ?? ''}'),
+        initialValue: current,
+        isExpanded: true,
+        decoration: InputDecoration(labelText: label, isDense: true),
+        items: const [
+          DropdownMenuItem(value: '1', child: Text('نعم')),
+          DropdownMenuItem(value: '0', child: Text('لا')),
+        ],
+        onChanged: (value) {
+          if (value == null) {
+            _filters.remove(key);
+          } else {
+            _filters[key] = value;
+          }
+        },
+      );
+    }
+    final isDate = type == 'Date';
+    final isDateTime = type == 'Datetime';
+    final isLink = type == 'Link' && (field['options']?.toString().trim().isNotEmpty ?? false);
+    return TextField(
+      controller: controller,
+      keyboardType: const {'Int','Float','Currency','Percent'}.contains(type)
+          ? const TextInputType.numberWithOptions(decimal: true)
+          : TextInputType.text,
+      readOnly: isDate || isDateTime,
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        suffixIcon: isDate || isDateTime
+          ? const Icon(Icons.calendar_today_outlined)
+          : isLink ? IconButton(
+              tooltip: 'اختيار سجل',
+              onPressed: () async {
+                final selected = await _pickLinkValue(field['options'].toString());
+                if (selected != null) {
+                  controller.text = selected;
+                  _filters[key] = selected;
+                }
+              },
+              icon: const Icon(Icons.search),
+            ) : null,
+      ),
+      onChanged: (value) => _filters[key] = value,
+      onTap: isDate || isDateTime ? () async {
+        final initial = DateTime.tryParse(controller.text) ?? DateTime.now();
+        final picked = await showDatePicker(
+          context: context,
+          initialDate: initial,
+          firstDate: DateTime(1900),
+          lastDate: DateTime(2200),
+        );
+        if (picked != null) {
+          final date = '${picked.year.toString().padLeft(4, '0')}-${picked.month.toString().padLeft(2, '0')}-${picked.day.toString().padLeft(2, '0')}';
+          controller.text = isDateTime ? '${date} 00:00:00' : date;
+          _filters[key] = controller.text;
+        }
+      } : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final fields = _listFields;
@@ -1140,14 +1230,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Expanded(child: TextField(
-                          controller: _filterControllers[field['fieldname'].toString()],
-                          decoration: InputDecoration(
-                            labelText: field['label']?.toString() ?? field['fieldname'].toString(),
-                            isDense: true,
-                          ),
-                          onChanged: (value) => _filters[field['fieldname'].toString()] = value,
-                        )),
+                        Expanded(child: _standardFilterInput(field)),
                       ]),
                     ),
                   Align(
