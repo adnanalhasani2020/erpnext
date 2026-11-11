@@ -1683,7 +1683,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
             ('Purchase Order', 'أوامر الشراء'),
             ('Purchase Invoice', 'فواتير المشتريات'),
             ('Payment Entry', 'دفعات الموردين'),
-            ('Supplier Ledger', 'كشف حساب المورد'),
+            ('Supplier Ledger', 'سجل دفعات الموردين'),
           ])
             OutlinedButton.icon(
               onPressed: _isGuest || _purchaseLoading ? null : () => _openPurchaseWorkflow(section: item.$1),
