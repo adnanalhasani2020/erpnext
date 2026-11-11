@@ -34,6 +34,11 @@ void main() {
           'is_group': 0,
           'disabled': 0,
         }}));
+      } else if (request.method == 'GET' &&
+          path == 'api/resource/Customer/CUS-1') {
+        request.response.write(jsonEncode({'data': {
+          'doctype': 'Customer', 'name': 'CUS-1', 'customer_name': 'Customer One',
+        }}));
       } else if (request.method == 'POST' &&
           path == 'api/resource/Process Payment Reconciliation') {
         final body = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
