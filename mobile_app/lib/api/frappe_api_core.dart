@@ -261,6 +261,8 @@ abstract class _FrappeApiCore {
       core.Map<String, dynamic>? args,
     });
 
+  Future<List<core.Map<String, dynamic>>> fetchPaymentReconciliationDimensions(String company);
+
   Future<core.Map<String, dynamic>> fetchUnreconciledPaymentEntries({
       required String company,
       required String partyType,
@@ -272,6 +274,17 @@ abstract class _FrappeApiCore {
       String? toPaymentDate,
       int invoiceLimit = 50,
       int paymentLimit = 50,
+      String? bankCashAccount,
+      String? defaultAdvanceAccount,
+      String? costCenter,
+      String? project,
+      String? invoiceName,
+      String? paymentName,
+      core.Map<String, String>? accountingDimensions,
+      double? minimumInvoiceAmount,
+      double? maximumInvoiceAmount,
+      double? minimumPaymentAmount,
+      double? maximumPaymentAmount,
     });
 
   Future<core.Map<String, dynamic>> allocatePaymentReconciliation(
