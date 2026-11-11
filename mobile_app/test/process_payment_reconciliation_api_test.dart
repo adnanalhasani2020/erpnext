@@ -24,7 +24,20 @@ void main() {
     server.listen((request) async {
       request.response.headers.contentType = ContentType.json;
       final path = request.uri.pathSegments.join('/');
-      if (request.method == 'GET' && path.contains('api/resource/Account/')) {
+      if (request.method == 'GET' &&
+          path == 'api/resource/Process Payment Reconciliation') {
+        final filters = jsonDecode(request.uri.queryParameters['filters']!) as List;
+        expect(filters.any((row) => jsonEncode(row) == jsonEncode(['company', '=', 'COMP-1'])), isTrue);
+        expect(filters.any((row) => jsonEncode(row) == jsonEncode(['status', '=', 'Running'])), isTrue);
+        request.response.write(jsonEncode({'data': [{
+          'name': 'ACC-PPR-00001',
+          'company': 'COMP-1',
+          'party_type': 'Customer',
+          'party': 'CUS-1',
+          'status': 'Running',
+          'docstatus': 1,
+        }]}));
+      } else if (request.method == 'GET' && path.contains('api/resource/Account/')) {
         request.response.write(jsonEncode({'data': {
           'doctype': 'Account',
           'name': 'Debtors - COMP-1',
@@ -97,6 +110,12 @@ void main() {
 
     final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
     try {
+      final filteredJobs = await api.fetchProcessPaymentReconciliationJobs(
+        company: 'COMP-1',
+        status: 'Running',
+      );
+      expect(filteredJobs.single['name'], 'ACC-PPR-00001');
+
       final draft = await api.saveProcessPaymentReconciliationDraft(
         company: 'COMP-1',
         partyType: 'Customer',
