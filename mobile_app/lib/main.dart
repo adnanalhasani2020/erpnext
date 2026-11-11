@@ -1190,6 +1190,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
 
   void _openDocTypeDefinition(ErpDocTypeDefinition item) {
     switch (item.doctype) {
+      case 'Item':
+        _openMasterData();
+        return;
       case 'Quotation':
       case 'Sales Order':
       case 'Delivery Note':
