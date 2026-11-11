@@ -310,28 +310,64 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
     final controller = TextEditingController(
       text: current['allocated_amount']?.toString() ?? '',
     );
+    final differenceAccountController = TextEditingController(
+      text: current['difference_account']?.toString() ?? '',
+    );
+    final gainLossDateController = TextEditingController(
+      text: current['gain_loss_posting_date']?.toString() ?? '',
+    );
     final formKey = GlobalKey<FormState>();
-    final amount = await showDialog<double>(
+    final values = await showDialog<core.Map<String, dynamic>>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('تعديل مبلغ التخصيص'),
+        title: const Text('تعديل التخصيص'),
         content: Form(
           key: formKey,
-          child: TextFormField(
-            controller: controller,
-            autofocus: true,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(
-              labelText: 'المبلغ المخصص',
-              helperText: 'سيعيد ERPNext التحقق من الرصيد المتاح عند التسوية.',
-            ),
-            validator: (value) {
-              final parsed = double.tryParse(value?.trim() ?? '');
-              if (parsed == null || !parsed.isFinite || parsed <= 0) {
-                return 'أدخل مبلغاً أكبر من صفر.';
-              }
-              return null;
-            },
+          child: SingleChildScrollView(
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              TextFormField(
+                controller: controller,
+                autofocus: true,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'المبلغ المخصص',
+                  helperText: 'سيعيد ERPNext التحقق من الرصيد المتاح عند التسوية.',
+                ),
+                validator: (value) {
+                  final parsed = double.tryParse(value?.trim() ?? '');
+                  if (parsed == null || !parsed.isFinite || parsed <= 0) {
+                    return 'أدخل مبلغاً أكبر من صفر.';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: differenceAccountController,
+                decoration: const InputDecoration(
+                  labelText: 'حساب فرق العملة (عند وجود فرق)',
+                  helperText: 'حساب حركة تابع للشركة، وفق صلاحيات ERPNext.',
+                ),
+              ),
+              TextFormField(
+                controller: gainLossDateController,
+                readOnly: true,
+                decoration: const InputDecoration(
+                  labelText: 'تاريخ قيد فرق العملة (عند وجود فرق)',
+                  suffixIcon: Icon(Icons.calendar_today_outlined),
+                ),
+                onTap: () async {
+                  final initial = DateTime.tryParse(gainLossDateController.text) ?? DateTime.now();
+                  final picked = await showDatePicker(
+                    context: dialogContext,
+                    initialDate: initial,
+                    firstDate: DateTime(2000),
+                    lastDate: DateTime(2100),
+                  );
+                  if (picked != null) gainLossDateController.text = _dateString(picked);
+                },
+              ),
+            ]),
           ),
         ),
         actions: [
@@ -342,15 +378,22 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
           FilledButton(
             onPressed: () {
               if (!(formKey.currentState?.validate() ?? false)) return;
-              Navigator.pop(dialogContext, double.parse(controller.text.trim()));
+              Navigator.pop(dialogContext, <String, dynamic>{
+                'amount': double.parse(controller.text.trim()),
+                'difference_account': differenceAccountController.text.trim(),
+                'gain_loss_posting_date': gainLossDateController.text.trim(),
+              });
             },
-            child: const Text('حفظ المبلغ'),
+            child: const Text('حفظ التخصيص'),
           ),
         ],
       ),
     );
     controller.dispose();
-    if (amount == null || !mounted || _document != document) return;
+    differenceAccountController.dispose();
+    gainLossDateController.dispose();
+    if (values == null || !mounted || _document != document) return;
+    final amount = values['amount'] as double;
     setState(() {
       _allocating = true;
       _error = null;
@@ -362,6 +405,13 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
         allocation: allocation,
         allocatedAmount: amount,
       );
+      if (difference.abs() > 0.0000001 &&
+          ((values['difference_account'] as String).isEmpty ||
+           (values['gain_loss_posting_date'] as String).isEmpty)) {
+        throw const FormatException(
+          'يوجد فرق عملة. حدد حساب الفرق وتاريخ قيد فرق العملة قبل حفظ التخصيص.',
+        );
+      }
       if (!mounted || _document != document) return;
       final updatedDocument = core.Map<String, dynamic>.from(document);
       final updatedAllocations = raw.map((row) =>
@@ -369,6 +419,12 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
       ).toList(growable: true);
       updatedAllocations[index]['allocated_amount'] = amount;
       updatedAllocations[index]['difference_amount'] = difference;
+      if ((values['difference_account'] as String).isNotEmpty) {
+        updatedAllocations[index]['difference_account'] = values['difference_account'];
+      }
+      if ((values['gain_loss_posting_date'] as String).isNotEmpty) {
+        updatedAllocations[index]['gain_loss_posting_date'] = values['gain_loss_posting_date'];
+      }
       updatedDocument['allocation'] = updatedAllocations;
       setState(() {
         _document = updatedDocument;
