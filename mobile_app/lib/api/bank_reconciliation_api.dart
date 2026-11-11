@@ -771,6 +771,319 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
       return core.Map<String, dynamic>.from(saved);
     }
 
+  Future<List<core.Map<String, dynamic>>> fetchProcessPaymentReconciliationJobs({
+      int start = 0, String? search, String? company,
+    }) async {
+      if (start < 0) throw const FormatException('موضع تحميل المهام غير صحيح.');
+      final query = search?.trim() ?? '';
+      final cleanCompany = company?.trim() ?? '';
+      final uri = FrappeApi.buildResourcePageUri(
+        baseUrl: _baseUrl,
+        resource: 'Process Payment Reconciliation',
+        fields: const [
+          'name', 'company', 'party_type', 'party', 'receivable_payable_account',
+          'status', 'docstatus', 'creation', 'modified', 'error_log',
+        ],
+        filters: cleanCompany.isEmpty ? null : [['company', '=', cleanCompany]],
+        orFilters: query.isEmpty ? null : [
+          ['name', 'like', '%$query%'],
+          ['party', 'like', '%$query%'],
+        ],
+        orderBy: 'creation desc, name desc',
+        start: start,
+        pageLength: 50,
+      );
+      final response = await _sendUri('GET', uri);
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر تحميل مهام التسوية الآلية. تحقق من صلاحية Process Payment Reconciliation.'));
+      }
+      final rows = data['data'];
+      if (rows is! List) throw const FormatException('استجابة مهام التسوية الآلية غير صحيحة.');
+      return rows.whereType<core.Map<String, dynamic>>()
+          .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+    }
+
+  Future<core.Map<String, dynamic>> fetchProcessPaymentReconciliationJob(String name) async {
+      final id = name.trim();
+      if (id.isEmpty) throw const FormatException('رقم مهمة التسوية غير موجود.');
+      final response = await _send('GET',
+        '/api/resource/Process%20Payment%20Reconciliation/' + Uri.encodeComponent(id));
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر تحميل تفاصيل مهمة التسوية.'));
+      }
+      final document = data['data'];
+      if (document is! core.Map<String, dynamic> ||
+          document['doctype'] != 'Process Payment Reconciliation' || document['name'] != id) {
+        throw const FormatException('لم يؤكد ERPNext هوية مهمة التسوية المطلوبة.');
+      }
+      return core.Map<String, dynamic>.from(document);
+    }
+
+  Future<core.Map<String, dynamic>> _validateProcessReconciliationAccount(
+      String accountName, String company, {Set<String> allowedTypes = const {}}) async {
+      final id = accountName.trim();
+      if (id.isEmpty) throw const FormatException('أحد الحسابات المطلوبة غير محدد.');
+      final response = await _send('GET',
+        '/api/resource/Account/' + Uri.encodeComponent(id));
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر التحقق من الحساب $id.'));
+      }
+      final account = data['data'];
+      if (account is! core.Map<String, dynamic> || account['name'] != id ||
+          account['company'] != company ||
+          account['is_group'] == 1 || account['is_group'] == true ||
+          account['disabled'] == 1 || account['disabled'] == true ||
+          (allowedTypes.isNotEmpty && !allowedTypes.contains(account['account_type']?.toString()))) {
+        throw FormatException('الحساب $id غير صالح للشركة أو نوع الحساب المطلوب.');
+      }
+      return core.Map<String, dynamic>.from(account);
+    }
+
+  Future<core.Map<String, dynamic>> saveProcessPaymentReconciliationDraft({
+      String? name,
+      required String company,
+      required String partyType,
+      required String party,
+      required String receivablePayableAccount,
+      String? defaultAdvanceAccount,
+      String? fromInvoiceDate,
+      String? toInvoiceDate,
+      String? fromPaymentDate,
+      String? toPaymentDate,
+      String? costCenter,
+      String? bankCashAccount,
+    }) async {
+      final cleanCompany = company.trim();
+      final cleanParty = party.trim();
+      final cleanAccount = receivablePayableAccount.trim();
+      if (cleanCompany.isEmpty || cleanParty.isEmpty || cleanAccount.isEmpty ||
+          !{'Customer', 'Supplier', 'Employee'}.contains(partyType)) {
+        throw const FormatException('حدد الشركة والطرف ونوعه وحساب الذمم.');
+      }
+      String? date(String? raw, String label) {
+        final value = raw?.trim() ?? '';
+        if (value.isEmpty) return null;
+        final parsed = DateTime.tryParse(value);
+        if (parsed == null || parsed.toIso8601String().substring(0, 10) != value) {
+          throw FormatException('$label غير صحيح؛ استخدم YYYY-MM-DD.');
+        }
+        return value;
+      }
+      final invoiceFrom = date(fromInvoiceDate, 'بداية تاريخ الفواتير');
+      final invoiceTo = date(toInvoiceDate, 'نهاية تاريخ الفواتير');
+      final paymentFrom = date(fromPaymentDate, 'بداية تاريخ المدفوعات');
+      final paymentTo = date(toPaymentDate, 'نهاية تاريخ المدفوعات');
+      if ((invoiceFrom != null && invoiceTo != null && invoiceFrom.compareTo(invoiceTo) > 0) ||
+          (paymentFrom != null && paymentTo != null && paymentFrom.compareTo(paymentTo) > 0)) {
+        throw const FormatException('تاريخ بداية الفلتر يجب ألا يتجاوز تاريخ نهايته.');
+      }
+      final partyAccount = await _validateProcessReconciliationAccount(
+        cleanAccount, cleanCompany,
+        allowedTypes: partyType == 'Customer'
+            ? const {'Receivable'}
+            : partyType == 'Supplier' ? const {'Payable'} : const {'Receivable', 'Payable'},
+      );
+      if (partyType == 'Customer' && partyAccount['root_type'] != 'Asset' ||
+          partyType == 'Supplier' && partyAccount['root_type'] != 'Liability' ||
+          partyType == 'Employee' && !{'Asset', 'Liability'}.contains(partyAccount['root_type'])) {
+        throw const FormatException('نوع الحساب الرئيسي لا يتوافق مع نوع الطرف.');
+      }
+      final advance = defaultAdvanceAccount?.trim() ?? '';
+      if (advance.isNotEmpty) {
+        await _validateProcessReconciliationAccount(
+          advance, cleanCompany,
+          allowedTypes: partyType == 'Customer'
+              ? const {'Receivable'}
+              : const {'Payable'},
+        );
+      }
+      final bankCash = bankCashAccount?.trim() ?? '';
+      if (bankCash.isNotEmpty) {
+        await _validateProcessReconciliationAccount(
+          bankCash, cleanCompany, allowedTypes: const {'Bank', 'Cash'},
+        );
+      }
+      final cost = costCenter?.trim() ?? '';
+      if (cost.isNotEmpty) {
+        final response = await _send('GET',
+          '/api/resource/Cost%20Center/' + Uri.encodeComponent(cost));
+        final data = _decode(response.body);
+        final row = data['data'];
+        if (response.statusCode < 200 || response.statusCode >= 300 ||
+            row is! core.Map<String, dynamic> || row['company'] != cleanCompany ||
+            row['is_group'] == 1 || row['is_group'] == true) {
+          throw const FormatException('مركز التكلفة غير تابع للشركة أو غير صالح للاستخدام.');
+        }
+      }
+      final payload = <String, dynamic>{
+        'doctype': 'Process Payment Reconciliation',
+        'company': cleanCompany,
+        'party_type': partyType,
+        'party': cleanParty,
+        'receivable_payable_account': cleanAccount,
+        'default_advance_account': advance.isEmpty ? null : advance,
+        'bank_cash_account': bankCash.isEmpty ? null : bankCash,
+        'cost_center': cost.isEmpty ? null : cost,
+        'from_invoice_date': invoiceFrom,
+        'to_invoice_date': invoiceTo,
+        'from_payment_date': paymentFrom,
+        'to_payment_date': paymentTo,
+      };
+      final id = name?.trim() ?? '';
+      final response = id.isEmpty
+          ? await _sendJson('POST', '/api/resource/Process%20Payment%20Reconciliation', payload)
+          : await _sendJson('PUT', '/api/resource/Process%20Payment%20Reconciliation/' + Uri.encodeComponent(id), payload);
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر حفظ مهمة التسوية الآلية.'));
+      }
+      final saved = data['data'];
+      if (saved is! core.Map<String, dynamic> ||
+          saved['doctype'] != 'Process Payment Reconciliation' ||
+          (saved['name']?.toString().isEmpty ?? true) ||
+          saved['company'] != cleanCompany || saved['party'] != cleanParty ||
+          saved['party_type'] != partyType || saved['receivable_payable_account'] != cleanAccount ||
+          saved['docstatus'] != 0) {
+        throw const FormatException('لم يؤكد ERPNext حفظ مسودة مهمة التسوية.');
+      }
+      return core.Map<String, dynamic>.from(saved);
+    }
+
+  Future<core.Map<String, dynamic>> submitProcessPaymentReconciliation(String name) async {
+      final id = name.trim();
+      if (id.isEmpty) throw const FormatException('رقم مهمة التسوية غير موجود.');
+      final current = await fetchProcessPaymentReconciliationJob(id);
+      if (current['docstatus'] != 0) throw const FormatException('يمكن ترحيل مسودة مهمة التسوية فقط.');
+      final response = await _sendJson('POST', '/api/method/frappe.client.submit', {'doc': current});
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر ترحيل مهمة التسوية.'));
+      }
+      final submitted = data['message'];
+      if (submitted is! core.Map<String, dynamic> || submitted['doctype'] != 'Process Payment Reconciliation' ||
+          submitted['name'] != id || submitted['docstatus'] != 1 || submitted['status'] != 'Queued') {
+        throw Exception('لم يؤكد ERPNext ترحيل مهمة التسوية ووضعها في قائمة الانتظار.');
+      }
+      return core.Map<String, dynamic>.from(submitted);
+    }
+
+  Future<core.Map<String, dynamic>> cancelProcessPaymentReconciliation(String name) async {
+      final id = name.trim();
+      if (id.isEmpty) throw const FormatException('رقم مهمة التسوية غير موجود.');
+      final current = await fetchProcessPaymentReconciliationJob(id);
+      if (current['docstatus'] != 1 || current['status'] == 'Running') {
+        throw const FormatException('لا يمكن إلغاء المهمة إلا بعد ترحيلها وعندما لا تكون قيد التنفيذ.');
+      }
+      final response = await _sendJson('POST', '/api/method/frappe.client.cancel', {'doc': current});
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر إلغاء مهمة التسوية.'));
+      }
+      final cancelled = data['message'];
+      if (cancelled is! core.Map<String, dynamic> || cancelled['doctype'] != 'Process Payment Reconciliation' ||
+          cancelled['name'] != id || cancelled['docstatus'] != 2 || cancelled['status'] != 'Cancelled') {
+        throw Exception('لم يؤكد ERPNext إلغاء مهمة التسوية.');
+      }
+      return core.Map<String, dynamic>.from(cancelled);
+    }
+
+  Future<core.Map<String, dynamic>> startProcessPaymentReconciliation(String name) async {
+      final id = name.trim();
+      if (id.isEmpty) throw const FormatException('رقم مهمة التسوية غير موجود.');
+      final current = await fetchProcessPaymentReconciliationJob(id);
+      if (current['docstatus'] != 1 || !{'Queued', 'Paused'}.contains(current['status'])) {
+        throw const FormatException('بدء أو استئناف المهمة متاح فقط للمهام المرحلة المنتظرة أو المتوقفة.');
+      }
+      final response = await _sendJson('POST',
+        '/api/method/erpnext.accounts.doctype.process_payment_reconciliation.process_payment_reconciliation.trigger_job_for_doc',
+        {'docname': id});
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر بدء مهمة التسوية أو استئنافها. تحقق من إعدادات التسوية والجدولة.'));
+      }
+      final refreshed = await fetchProcessPaymentReconciliationJob(id);
+      if (!{'Running', 'Queued'}.contains(refreshed['status'])) {
+        throw Exception('لم يؤكد ERPNext بدء المهمة؛ الحالة الحالية: ${refreshed['status'] ?? 'غير معروفة'}.');
+      }
+      return refreshed;
+    }
+
+  Future<core.Map<String, dynamic>> pauseProcessPaymentReconciliation(String name) async {
+      final id = name.trim();
+      if (id.isEmpty) throw const FormatException('رقم مهمة التسوية غير موجود.');
+      final current = await fetchProcessPaymentReconciliationJob(id);
+      if (current['docstatus'] != 1 || current['status'] != 'Running') {
+        throw const FormatException('إيقاف المهمة متاح فقط عندما تكون قيد التنفيذ.');
+      }
+      final response = await _sendJson('POST',
+        '/api/method/erpnext.accounts.doctype.process_payment_reconciliation.process_payment_reconciliation.pause_job_for_doc',
+        {'docname': id});
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر إيقاف مهمة التسوية.'));
+      }
+      final refreshed = await fetchProcessPaymentReconciliationJob(id);
+      if (refreshed['status'] != 'Paused') throw Exception('لم يؤكد ERPNext إيقاف المهمة.');
+      return refreshed;
+    }
+
+  Future<core.Map<String, dynamic>> fetchProcessPaymentReconciliationProgress(String name) async {
+      final id = name.trim();
+      if (id.isEmpty) throw const FormatException('رقم مهمة التسوية غير موجود.');
+      final response = await _sendJson('POST',
+        '/api/method/erpnext.accounts.doctype.process_payment_reconciliation.process_payment_reconciliation.get_reconciled_count',
+        {'docname': id});
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر تحميل تقدم مهمة التسوية.'));
+      }
+      final result = data['message'];
+      if (result is! core.Map<String, dynamic>) throw const FormatException('بيانات تقدم مهمة التسوية غير صحيحة.');
+      final processed = int.tryParse(result['processed']?.toString() ?? '0');
+      final total = int.tryParse(result['total']?.toString() ?? '0');
+      if (processed == null || total == null || processed < 0 || total < 0 || processed > total && total > 0) {
+        throw const FormatException('أعاد ERPNext أرقام تقدم غير صالحة.');
+      }
+      return {'processed': processed, 'total': total};
+    }
+
+  Future<core.Map<String, dynamic>?> fetchProcessPaymentReconciliationLog(String name) async {
+      final id = name.trim();
+      if (id.isEmpty) throw const FormatException('رقم مهمة التسوية غير موجود.');
+      final uri = FrappeApi.buildResourcePageUri(
+        baseUrl: _baseUrl, resource: 'Process Payment Reconciliation Log',
+        fields: const ['name', 'process_pr', 'status', 'allocated', 'reconciled',
+          'total_allocations', 'reconciled_entries', 'creation', 'modified'],
+        filters: [['process_pr', '=', id]],
+        orderBy: 'creation desc, name desc', pageLength: 1,
+      );
+      final response = await _sendUri('GET', uri);
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر تحميل سجل تنفيذ مهمة التسوية.'));
+      }
+      final rows = data['data'];
+      if (rows is! List) throw const FormatException('استجابة سجل تنفيذ التسوية غير صحيحة.');
+      if (rows.isEmpty) return null;
+      final logName = rows.first is core.Map ? rows.first['name']?.toString() ?? '' : '';
+      if (logName.isEmpty) throw const FormatException('اسم سجل التنفيذ غير موجود.');
+      final detailResponse = await _send('GET',
+        '/api/resource/Process%20Payment%20Reconciliation%20Log/' + Uri.encodeComponent(logName));
+      final detailData = _decode(detailResponse.body);
+      if (detailResponse.statusCode < 200 || detailResponse.statusCode >= 300) {
+        throw Exception(_message(detailData, 'تعذر تحميل تفاصيل سجل التنفيذ.'));
+      }
+      final detail = detailData['data'];
+      if (detail is! core.Map<String, dynamic> || detail['name'] != logName ||
+          detail['process_pr'] != id || detail['doctype'] != 'Process Payment Reconciliation Log') {
+        throw const FormatException('سجل التنفيذ لا يطابق مهمة التسوية المطلوبة.');
+      }
+      return core.Map<String, dynamic>.from(detail);
+    }
+
   Future<core.Map<String, dynamic>?> fetchLatestBankStatementClosingBalance({
       required String bankAccount, required String company,
     }) async {
