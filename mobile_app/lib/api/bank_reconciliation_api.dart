@@ -39,8 +39,16 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
       final rows = data['data'];
       if (rows is! List) throw Exception('استجابة حسابات الذمم غير متوقعة.');
       return rows.whereType<core.Map<String, dynamic>>()
-          .where((row) => row['company'] == normalizedCompany &&
-              row['account_type'] == accountType)
+          .where((row) {
+            if (row['company'] != normalizedCompany) return false;
+            if (partyType == 'Employee') {
+              return {'Receivable', 'Payable'}.contains(row['account_type']) &&
+                  {'Asset', 'Liability'}.contains(row['root_type']);
+            }
+            return row['account_type'] ==
+                    (partyType == 'Customer' ? 'Receivable' : 'Payable') &&
+                row['root_type'] == (partyType == 'Customer' ? 'Asset' : 'Liability');
+          })
           .map((row) => core.Map<String, dynamic>.from(row))
           .toList(growable: false);
     }
