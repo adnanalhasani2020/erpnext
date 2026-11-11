@@ -693,8 +693,8 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     controller: controller,
                     keyboardType: keyboard,
                     readOnly: isDate,
-                    minLines: (type == 'Text' || type == 'Long Text' || type == 'Table' || type == 'Table MultiSelect') ? 3 : 1,
-                    maxLines: (type == 'Text' || type == 'Long Text' || type == 'Table' || type == 'Table MultiSelect') ? 5 : 1,
+                    minLines: (type == 'Text' || type == 'Long Text') ? 3 : 1,
+                    maxLines: (type == 'Text' || type == 'Long Text') ? 5 : 1,
                     onTap: isDate ? () async {
                       final initial = DateTime.tryParse(controller.text) ?? DateTime.now();
                       final date = await showDatePicker(
@@ -708,9 +708,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     } : null,
                     decoration: InputDecoration(
                       labelText: label,
-                      helperText: type == 'Table' || type == 'Table MultiSelect'
-                        ? 'أدخل صفوف الجدول بصيغة JSON حالياً'
-                        : isLink ? 'اختر سجلاً موجوداً في ERPNext' : f['reqd'] == 1 ? 'حقل إلزامي' : null,
+                      helperText: isLink ? 'اختر سجلاً موجوداً في ERPNext' : f['reqd'] == 1 ? 'حقل إلزامي' : null,
                       suffixIcon: isDate
                         ? const Icon(Icons.calendar_today_outlined)
                         : isLink ? IconButton(
