@@ -42,6 +42,9 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
   int _invoiceLimit = 50;
   int _paymentLimit = 50;
   List<core.Map<String, dynamic>> _accounts = const [];
+  List<core.Map<String, dynamic>> _dimensionDefinitions = const [];
+  final Map<String, TextEditingController> _dimensionControllers = {};
+  int _dimensionGeneration = 0;
   core.Map<String, dynamic>? _document;
   final Set<String> _selectedInvoiceNumbers = <String>{};
   final Set<String> _selectedPaymentReferences = <String>{};
@@ -56,7 +59,10 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
   void initState() {
     super.initState();
     _company = widget.companies.isEmpty ? null : widget.companies.first.name;
-    if (_company != null) _loadAccounts();
+    if (_company != null) {
+      _loadAccounts();
+      _loadDimensions();
+    }
   }
 
   @override
@@ -77,6 +83,11 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
     _maximumInvoiceController.dispose();
     _minimumPaymentController.dispose();
     _maximumPaymentController.dispose();
+    _dimensionGeneration++;
+    for (final controller in _dimensionControllers.values) {
+      controller.dispose();
+    }
+    _dimensionControllers.clear();
     super.dispose();
   }
 
@@ -158,6 +169,36 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
       return 'بداية فترة المدفوعات يجب ألا تتجاوز نهايتها.';
     }
     return null;
+  }
+
+  Future<void> _loadDimensions() async {
+    final company = _company;
+    if (company == null || company.isEmpty) return;
+    final generation = ++_dimensionGeneration;
+    try {
+      final definitions = await widget.api.fetchPaymentReconciliationDimensions(company);
+      if (!mounted || generation != _dimensionGeneration || company != _company) return;
+      final next = <String, TextEditingController>{};
+      for (final definition in definitions) {
+        final fieldname = definition['fieldname']?.toString() ?? '';
+        if (fieldname.isEmpty) continue;
+        next[fieldname] = _dimensionControllers[fieldname] ?? TextEditingController();
+      }
+      for (final entry in _dimensionControllers.entries) {
+        if (!next.containsKey(entry.key)) entry.value.dispose();
+      }
+      setState(() {
+        _dimensionControllers
+          ..clear()
+          ..addAll(next);
+        _dimensionDefinitions = definitions;
+        _document = null;
+      });
+    } catch (error) {
+      if (mounted && generation == _dimensionGeneration) {
+        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      }
+    }
   }
 
   Future<void> _loadAccounts() async {
@@ -267,6 +308,10 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
         project: _projectController.text,
         invoiceName: _invoiceNameController.text,
         paymentName: _paymentNameController.text,
+        accountingDimensions: {
+          for (final entry in _dimensionControllers.entries)
+            if (entry.value.text.trim().isNotEmpty) entry.key: entry.value.text.trim(),
+        },
         minimumInvoiceAmount: _optionalAmount(_minimumInvoiceController),
         maximumInvoiceAmount: _optionalAmount(_maximumInvoiceController),
         minimumPaymentAmount: _optionalAmount(_minimumPaymentController),
@@ -672,6 +717,7 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
               onChanged: _busy ? null : (value) {
                 setState(() => _company = value);
                 _loadAccounts();
+                _loadDimensions();
               },
             ),
             const SizedBox(height: 10),
@@ -772,6 +818,45 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
                 _dateField(_paymentToController, 'إلى تاريخ الدفعة'),
               ],
             ),
+            if (_dimensionDefinitions.isNotEmpty)
+              ExpansionTile(
+                title: Text('الأبعاد المحاسبية (${_dimensionDefinitions.length})'),
+                children: [
+                  const Padding(
+                    padding: EdgeInsetsDirectional.only(bottom: 8),
+                    child: Text('هذه الأبعاد تُكتشف من إعدادات ERPNext وتُطبق على الفواتير والمدفوعات والقيود وفق صلاحيات المستخدم.'),
+                  ),
+                  ..._dimensionDefinitions.map((definition) {
+                    final fieldname = definition['fieldname']?.toString() ?? '';
+                    final controller = _dimensionControllers[fieldname];
+                    if (controller == null) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: TextField(
+                        controller: controller,
+                        enabled: !_busy,
+                        decoration: InputDecoration(
+                          labelText: definition['label']?.toString() ?? fieldname,
+                          helperText: 'نوع البيانات: ${definition['options'] ?? ''}',
+                          suffixIcon: controller.text.isEmpty
+                              ? null
+                              : IconButton(
+                                  tooltip: 'مسح البعد',
+                                  onPressed: _busy ? null : () {
+                                    controller.clear();
+                                    setState(() => _document = null);
+                                  },
+                                  icon: const Icon(Icons.clear),
+                                ),
+                        ),
+                        onChanged: (_) {
+                          if (_document != null) setState(() => _document = null);
+                        },
+                      ),
+                    );
+                  }),
+                ],
+              ),
             ExpansionTile(
               title: const Text('الفلاتر المتقدمة المطابقة لـ ERPNext'),
               subtitle: const Text('تضييق النتائج حسب الحسابات والمبالغ والمستندات'),
