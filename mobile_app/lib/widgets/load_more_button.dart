@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 class LoadMoreButton extends StatelessWidget {
   const LoadMoreButton(this.loading, this.label, this.onPressed, {super.key});
