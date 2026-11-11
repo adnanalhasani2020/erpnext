@@ -506,6 +506,45 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
       return updated;
     }
 
+  Future<List<String>> searchPaymentReconciliationDimensionValues({
+      required String company,
+      required String fieldname,
+      required String search,
+    }) async {
+      final cleanSearch = search.trim();
+      if (cleanSearch.isEmpty) return const [];
+      if (cleanSearch.length < 2) {
+        throw const FormatException('اكتب حرفين على الأقل للبحث في قيم البعد المحاسبي.');
+      }
+      final definitions = await fetchPaymentReconciliationDimensions(company);
+      final matches = definitions.where((row) => row['fieldname'] == fieldname).toList();
+      if (matches.length != 1) throw FormatException('البعد المحاسبي غير متاح: $fieldname');
+      final definition = matches.single;
+      final filters = <List<dynamic>>[
+        for (final filter in (definition['filters'] as core.Map<String, dynamic>).entries)
+          [filter.key, '=', filter.value],
+      ];
+      final uri = FrappeApi.buildResourcePageUri(
+        baseUrl: _baseUrl,
+        resource: definition['options'].toString(),
+        fields: const ['name'],
+        filters: filters,
+        orFilters: [['name', 'like', '%$cleanSearch%']],
+        orderBy: 'name asc',
+        pageLength: 20,
+      );
+      final response = await _sendUri('GET', uri);
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر البحث في قيم البعد المحاسبي $fieldname.'));
+      }
+      final rows = data['data'];
+      if (rows is! List) throw const FormatException('استجابة قيم البعد المحاسبي غير صحيحة.');
+      return rows.whereType<core.Map<String, dynamic>>()
+          .map((row) => row['name']?.toString() ?? '')
+          .where((name) => name.isNotEmpty).toList(growable: false);
+    }
+
   Future<List<core.Map<String, dynamic>>> fetchPaymentReconciliationDimensions(String company) async {
       final cleanCompany = company.trim();
       if (cleanCompany.isEmpty) throw const FormatException('حدد الشركة لتحميل الأبعاد المحاسبية.');
