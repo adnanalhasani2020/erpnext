@@ -169,6 +169,41 @@ void main() {
     }
   });
 
+  test('background payment reconciliation does not claim a queued job started when scheduler is inactive', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final document = <String, dynamic>{
+      'doctype': 'Process Payment Reconciliation',
+      'name': 'ACC-PPR-QUEUED',
+      'docstatus': 1,
+      'status': 'Queued',
+    };
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      final path = request.uri.pathSegments.join('/');
+      if (request.method == 'GET' &&
+          path == 'api/resource/Process Payment Reconciliation/ACC-PPR-QUEUED') {
+        request.response.write(jsonEncode({'data': document}));
+      } else if (request.method == 'POST' &&
+          path.endsWith('/process_payment_reconciliation.trigger_job_for_doc')) {
+        request.response.write(jsonEncode({'message': "Scheduler is Inactive. Can't trigger job now."}));
+      } else {
+        request.response.statusCode = HttpStatus.notFound;
+        request.response.write(jsonEncode({'message': 'Unexpected request'}));
+      }
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      await expectLater(
+        api.startProcessPaymentReconciliation('ACC-PPR-QUEUED'),
+        throwsA(isA<FormatException>()),
+      );
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
   test('background payment reconciliation rejects invalid date ranges before network access', () async {
     final api = FrappeApi()..configure('http://127.0.0.1:1');
     try {
