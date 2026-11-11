@@ -644,7 +644,7 @@ class _ProcessPaymentReconciliationPageState
                 _dateField(_paymentTo, 'المدفوعات إلى تاريخ'),
                 const SizedBox(height: 12),
                 FilledButton.icon(
-                  onPressed: _saving ? null : _saveDraft,
+                  onPressed: _saving || _loadingPartyAccounts ? null : _saveDraft,
                   icon: _saving
                       ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.save_outlined),
