@@ -528,11 +528,10 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
       onChanged: _busy ? null : onChanged,
       secondary: Icon(icon),
       title: Text(title),
-      subtitle: Text(subtitle),
+      subtitle: Text('$subtitle • $amount'),
       controlAffinity: ListTileControlAffinity.leading,
       isThreeLine: false,
       dense: true,
-      secondary: Text(amount, style: const TextStyle(fontWeight: FontWeight.w600)),
     ),
   );
 
