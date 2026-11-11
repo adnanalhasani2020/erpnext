@@ -94,6 +94,9 @@ class _ProcessPaymentReconciliationLogPageState
     }
   }
 
+  double _number(dynamic value) =>
+      value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '') ?? 0;
+
   bool _checked(dynamic value) => value == true || value == 1 || value?.toString() == '1';
 
   Widget _logCard(core.Map<String, dynamic> row) {
@@ -152,6 +155,7 @@ class _ProcessPaymentReconciliationLogPageState
                   title: Text('تفاصيل التخصيصات (${allocations.length})'),
                   children: allocations.map((allocation) {
                     final reconciled = _checked(allocation['reconciled']);
+                    final difference = _number(allocation['difference_amount']);
                     return ListTile(
                       dense: true,
                       leading: Icon(
@@ -165,10 +169,9 @@ class _ProcessPaymentReconciliationLogPageState
                         crossAxisAlignment: CrossAxisAlignment.end,
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text((allocation['allocated_amount'] ?? 0).toString()),
-                          if ((allocation['difference_amount'] as num?)?.abs() != null &&
-                              ((allocation['difference_amount'] as num?)?.abs() ?? 0) > 0)
-                            Text('فرق: ${allocation['difference_amount']}'),
+                          Text('${_number(allocation['allocated_amount']).toStringAsFixed(2)} ${allocation['currency'] ?? ''}'),
+                          if (difference.abs() > 0)
+                            Text('فرق: ${difference.toStringAsFixed(2)}'),
                         ],
                       ),
                     );
