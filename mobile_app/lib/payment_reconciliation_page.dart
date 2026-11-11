@@ -45,6 +45,7 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
   List<core.Map<String, dynamic>> _dimensionDefinitions = const [];
   final Map<String, TextEditingController> _dimensionControllers = {};
   int _dimensionGeneration = 0;
+  bool _loadingDimensions = false;
   core.Map<String, dynamic>? _document;
   final Set<String> _selectedInvoiceNumbers = <String>{};
   final Set<String> _selectedPaymentReferences = <String>{};
@@ -91,7 +92,7 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
     super.dispose();
   }
 
-  bool get _busy => _loadingAccounts || _loadingEntries || _allocating || _reconciling;
+  bool get _busy => _loadingAccounts || _loadingDimensions || _loadingEntries || _allocating || _reconciling;
 
   double _number(dynamic value) =>
       value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '') ?? 0;
@@ -175,6 +176,7 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
     final company = _company;
     if (company == null || company.isEmpty) return;
     final generation = ++_dimensionGeneration;
+    setState(() => _loadingDimensions = true);
     try {
       final definitions = await widget.api.fetchPaymentReconciliationDimensions(company);
       if (!mounted || generation != _dimensionGeneration || company != _company) return;
@@ -197,6 +199,10 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
     } catch (error) {
       if (mounted && generation == _dimensionGeneration) {
         setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted && generation == _dimensionGeneration) {
+        setState(() => _loadingDimensions = false);
       }
     }
   }
@@ -755,7 +761,7 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
               ),
             ),
             const SizedBox(height: 10),
-            if (_loadingAccounts) const LinearProgressIndicator(),
+            if (_loadingAccounts || _loadingDimensions) const LinearProgressIndicator(),
             DropdownButtonFormField<String>(
               initialValue: _account,
               isExpanded: true,
