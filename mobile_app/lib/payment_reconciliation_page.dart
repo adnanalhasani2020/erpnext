@@ -351,16 +351,36 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
     );
     controller.dispose();
     if (amount == null || !mounted || _document != document) return;
-    final updatedDocument = core.Map<String, dynamic>.from(document);
-    final updatedAllocations = raw.map((row) =>
-      core.Map<String, dynamic>.from(row as core.Map)
-    ).toList(growable: true);
-    updatedAllocations[index]['allocated_amount'] = amount;
-    updatedDocument['allocation'] = updatedAllocations;
     setState(() {
-      _document = updatedDocument;
+      _allocating = true;
       _error = null;
     });
+    try {
+      final allocation = core.Map<String, dynamic>.from(current);
+      final difference = await widget.api.calculatePaymentReconciliationDifference(
+        document: document,
+        allocation: allocation,
+        allocatedAmount: amount,
+      );
+      if (!mounted || _document != document) return;
+      final updatedDocument = core.Map<String, dynamic>.from(document);
+      final updatedAllocations = raw.map((row) =>
+        core.Map<String, dynamic>.from(row as core.Map)
+      ).toList(growable: true);
+      updatedAllocations[index]['allocated_amount'] = amount;
+      updatedAllocations[index]['difference_amount'] = difference;
+      updatedDocument['allocation'] = updatedAllocations;
+      setState(() {
+        _document = updatedDocument;
+        _error = null;
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) setState(() => _allocating = false);
+    }
   }
 
   Future<void> _confirmReconciliation() async {
