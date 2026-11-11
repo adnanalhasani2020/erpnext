@@ -113,6 +113,7 @@ void main() {
       expect(calls, [
         'get_unreconciled_entries',
         'allocate_entries',
+        'calculate_difference_on_allocation_change',
         'reconcile',
       ]);
     } finally {
