@@ -1,4 +1,4 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 
 class CountCard extends StatelessWidget {
   const CountCard({super.key, required this.label, required this.count, required this.icon});
