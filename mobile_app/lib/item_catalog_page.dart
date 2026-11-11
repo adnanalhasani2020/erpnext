@@ -158,10 +158,56 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
       String val(List<Data?> row,String key) { final i=index[key]; return i==null||i>=row.length?'':_str(row[i]?.value); }
       final rows = sheet.rows.skip(1).where((r)=>r.any((c)=>_str(c?.value).isNotEmpty)).toList();
       if (rows.length > 500) throw const FormatException('الحد الأقصى 500 صنف في الدفعة الواحدة.');
+      final seenCodes = <String>{};
+      final duplicateCodes = <String>{};
+      final invalidRows = <int>[];
+      for (var i = 0; i < rows.length; i++) {
+        final row = rows[i];
+        final code = val(row, 'item_code');
+        final name = val(row, 'item_name');
+        final group = val(row, 'item_group');
+        final uom = val(row, 'stock_uom');
+        if ([code, name, group, uom].any((v) => v.isEmpty)) {
+          invalidRows.add(i + 2);
+        }
+        if (code.isNotEmpty && !seenCodes.add(code)) duplicateCodes.add(code);
+      }
+      if (invalidRows.isNotEmpty || duplicateCodes.isNotEmpty) {
+        final rowText = invalidRows.take(8).join('، ');
+        final duplicateText = duplicateCodes.take(8).join('، ');
+        throw FormatException([
+          if (invalidRows.isNotEmpty) 'بيانات أساسية ناقصة في الصفوف: $rowText${invalidRows.length > 8 ? ' وغيرها' : ''}.',
+          if (duplicateCodes.isNotEmpty) 'رموز أصناف مكررة داخل الملف: $duplicateText${duplicateCodes.length > 8 ? ' وغيرها' : ''}.',
+          'لم يُحفظ أي صنف. صحح الملف ثم أعد الاستيراد.',
+        ].join(' '));
+      }
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('تأكيد استيراد دليل الأصناف'),
+          content: Text(
+            'سيتم إرسال ${rows.length} صنفاً إلى ERPNext. '
+            'الرمز الموجود مسبقاً سيحدّث الصنف الحالي، والرمز الجديد سينشئ صنفاً جديداً. '
+            'قد ينجح بعض السجلات ويفشل بعضها بحسب صلاحيات الخادم والبيانات المرجعية. '
+            'لن يبدأ الحفظ قبل تأكيدك.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('إلغاء'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('ابدأ الاستيراد'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
       var ok=0, failed=0; final errors=<String>[];
       for (final row in rows) {
         final code=val(row,'item_code'), name=val(row,'item_name'), group=val(row,'item_group'), uom=val(row,'stock_uom');
-        if ([code,name,group,uom].any((v)=>v.isEmpty)) { failed++; if(errors.length<8) errors.add('صف ناقص البيانات الأساسية'); continue; }
         try {
           await widget.api.saveMasterDataDocument(doctype:'Item', name:code, values:{
             'item_code':code,'item_name':name,'item_group':group,'stock_uom':uom,
