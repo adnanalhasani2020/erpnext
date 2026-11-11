@@ -1916,10 +1916,11 @@ class FrappeApi {
   }) async {
     final account = bankAccount.trim();
     final cleanCompany = company.trim();
-    final lowerName = fileName.toLowerCase();
+    final lowerName = fileName.trim().toLowerCase();
+    final isMt940 = lowerName.endsWith('.txt') || lowerName.endsWith('.mt940') ||
+        lowerName.endsWith('.940') || lowerName.endsWith('.sta');
     final supported = lowerName.endsWith('.csv') ||
-        lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls') ||
-        lowerName.endsWith('.txt');
+        lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls') || isMt940;
     if (account.isEmpty || cleanCompany.isEmpty || fileBytes.isEmpty ||
         !supported || fileBytes.length > 15 * 1024 * 1024) {
       throw const FormatException('اختر ملف CSV أو Excel أو MT940 صالحاً، بحجم لا يتجاوز 15 ميجابايت.');
@@ -1946,7 +1947,7 @@ class FrappeApi {
       'submit_after_import': 1,
       'mute_emails': 1,
       'use_csv_sniffer': 1,
-      'import_mt940_fromat': lowerName.endsWith('.txt') ? 1 : 0,
+      'import_mt940_fromat': isMt940 ? 1 : 0,
     });
     final createdData = _decode(createdResponse.body);
     if (createdResponse.statusCode < 200 || createdResponse.statusCode >= 300) {
@@ -2000,7 +2001,7 @@ class FrappeApi {
       throw Exception(_message(attachData, 'تم رفع الملف لكن تعذر ربطه بمستند الاستيراد.'));
     }
     var effectiveFileUrl = fileUrl;
-    if (lowerName.endsWith('.txt')) {
+    if (isMt940) {
       final conversionResponse = await _sendJson('POST',
         '/api/method/erpnext.accounts.doctype.bank_statement_import.bank_statement_import.convert_mt940_to_csv',
         {'data_import': importId, 'mt940_file_path': fileUrl});
@@ -2029,9 +2030,9 @@ class FrappeApi {
             ? (column['content'] ?? column['header_title'] ?? column['fieldname'])?.toString().toLowerCase().trim() ?? ''
             : '').toList()
         : <String>[];
-    if (!columnNames.contains('bank account') && !columnNames.contains('bank_account')) {
-      throw const FormatException('الملف لا يحتوي عمود Bank Account؛ لم يبدأ الاستيراد.');
-    }
+    // The selected Bank Account is already attached to the import document.
+    // Do not reject a valid mapped statement merely because the preview omits
+    // a redundant Bank Account column; ERPNext validates the actual import.
     return {
       'name': importId,
       'file_url': effectiveFileUrl,
