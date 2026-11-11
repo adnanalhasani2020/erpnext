@@ -678,6 +678,14 @@ abstract class _FrappeApiCore {
 
   Future<core.Map<String, dynamic>> fetchBankStatementImportStatus(String importName);
 
+  Future<List<core.Map<String, dynamic>>> fetchBankStatementImports({
+      required String bankAccount,
+      required String company,
+      int start = 0,
+    });
+
+  Future<List<core.Map<String, dynamic>>> fetchBankStatementImportLogs(String importName);
+
   Future<core.Map<String, dynamic>> saveBankStatementClosingBalance({
       required String bankAccount, required String company,
       required String statementDate, required double closingBalance,
