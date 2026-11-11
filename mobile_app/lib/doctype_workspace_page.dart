@@ -555,10 +555,6 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 for (final field in fields) {
                   final key = field['fieldname'].toString();
                   final type = field['fieldtype']?.toString() ?? '';
-                  if (type == 'Table' || type == 'Table MultiSelect') {
-                    values[key] = tableValues[key] ?? <Map<String, dynamic>>[];
-                    continue;
-                  }
                   if (type == 'Check') {
                     values[key] = checks[key] == true ? 1 : 0;
                     continue;
@@ -741,6 +737,10 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 for (final f in editable) {
                   final key = f['fieldname'].toString();
                   final type = f['fieldtype']?.toString() ?? '';
+                  if (type == 'Table' || type == 'Table MultiSelect') {
+                    values[key] = tableValues[key] ?? <Map<String, dynamic>>[];
+                    continue;
+                  }
                   if (type == 'Check') {
                     values[key] = checks[key] == true ? 1 : 0;
                     continue;
