@@ -76,7 +76,7 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
   Future<List<core.Map<String, dynamic>>> fetchDocTypeRows({
     required String doctype, required List<String> fields,
     String search = '', int start = 0, List<List<dynamic>> filters = const [],
-    List<String> searchFields = const [],
+    List<String> searchFields = const [], String orderBy = 'modified desc',
   }) async {
     final selected = <String>{'name', 'docstatus', 'modified', ...fields}.toList();
     final query = search.trim();
@@ -89,7 +89,7 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
     }
     final uri = FrappeApi.buildResourcePageUri(
       baseUrl: _baseUrl, resource: doctype, fields: selected,
-      filters: filters, orFilters: ors.isEmpty ? null : ors, orderBy: 'modified desc',
+      filters: filters, orFilters: ors.isEmpty ? null : ors, orderBy: orderBy,
       start: start, pageLength: FrappeApi.pageSize,
     );
     final response = await _sendUri('GET', uri);
