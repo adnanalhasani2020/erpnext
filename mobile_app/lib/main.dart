@@ -1581,7 +1581,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         items: _items,
         warehouses: _warehouses,
         initialInvoiceName: initialInvoiceName,
-        initialSection: section,
+        initialSection: section ?? (initialInvoiceName != null ? 'Purchase Invoice' : null),
         onChanged: () { _loadPurchases(); _loadInventory(); },
       ),
     ));
@@ -1630,11 +1630,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
         spacing: 8,
         runSpacing: 8,
         children: [
-          OutlinedButton.icon(
-            onPressed: _isGuest || _salesLoading || _inventoryLoading ? null : _openSalesWorkflow,
-            icon: const Icon(Icons.route_outlined),
-            label: const Text('دورة المبيعات'),
-          ),
 
           for (final item in const [
             ('Quotation', 'عروض الأسعار'),
@@ -1645,11 +1640,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
               onPressed: _isGuest || _salesLoading || _inventoryLoading ? null : () => _openSalesWorkflow(doctype: item.$1),
               icon: const Icon(Icons.open_in_new), label: Text(item.$2),
             ),
-          OutlinedButton.icon(
-            onPressed: _isGuest || _purchaseLoading || _inventoryLoading ? null : _openPurchaseWorkflow,
-            icon: const Icon(Icons.shopping_bag_outlined),
-            label: const Text('إدارة المشتريات'),
-          ),
 
           for (final item in const [
             ('Purchase Order', 'أوامر الشراء'),
@@ -1722,11 +1712,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
             onPressed: _isGuest || _salesLoading ? null : _openSalesCommissions,
             icon: const Icon(Icons.percent_outlined),
             label: const Text('العمولات'),
-          ),
-          OutlinedButton.icon(
-            onPressed: !_isGuest && _companies.isNotEmpty ? _openHrWorkflows : null,
-            icon: const Icon(Icons.groups_outlined),
-            label: const Text('الموارد البشرية'),
           ),
         ],
       ),
