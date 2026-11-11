@@ -25,6 +25,16 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
   final _invoiceToController = TextEditingController();
   final _paymentFromController = TextEditingController();
   final _paymentToController = TextEditingController();
+  final _bankCashAccountController = TextEditingController();
+  final _advanceAccountController = TextEditingController();
+  final _costCenterController = TextEditingController();
+  final _projectController = TextEditingController();
+  final _invoiceNameController = TextEditingController();
+  final _paymentNameController = TextEditingController();
+  final _minimumInvoiceController = TextEditingController();
+  final _maximumInvoiceController = TextEditingController();
+  final _minimumPaymentController = TextEditingController();
+  final _maximumPaymentController = TextEditingController();
 
   String? _company;
   String _partyType = 'Customer';
@@ -55,6 +65,16 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
     _invoiceToController.dispose();
     _paymentFromController.dispose();
     _paymentToController.dispose();
+    _bankCashAccountController.dispose();
+    _advanceAccountController.dispose();
+    _costCenterController.dispose();
+    _projectController.dispose();
+    _invoiceNameController.dispose();
+    _paymentNameController.dispose();
+    _minimumInvoiceController.dispose();
+    _maximumInvoiceController.dispose();
+    _minimumPaymentController.dispose();
+    _maximumPaymentController.dispose();
     super.dispose();
   }
 
@@ -169,6 +189,45 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
     }
   }
 
+  double? _optionalAmount(TextEditingController controller) {
+    final raw = controller.text.trim();
+    if (raw.isEmpty) return null;
+    final value = double.tryParse(raw);
+    if (value == null || !value.isFinite || value < 0) {
+      throw FormatException('أدخل مبلغاً صحيحاً موجباً أو اترك الحقل فارغاً.');
+    }
+    return value;
+  }
+
+  Widget _advancedFilter(TextEditingController controller, String label,
+      {bool numeric = false}) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: TextField(
+      controller: controller,
+      enabled: !_busy,
+      keyboardType: numeric
+          ? const TextInputType.numberWithOptions(decimal: true)
+          : TextInputType.text,
+      onChanged: (_) {
+        if (_document != null) setState(() => _document = null);
+      },
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        suffixIcon: controller.text.isEmpty
+            ? null
+            : IconButton(
+                tooltip: 'مسح',
+                onPressed: _busy ? null : () {
+                  controller.clear();
+                  setState(() => _document = null);
+                },
+                icon: const Icon(Icons.clear),
+              ),
+      ),
+    ),
+  );
+
   Future<void> _loadEntries() async {
     final company = _company;
     final party = _partyController.text.trim();
@@ -200,6 +259,16 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
         toPaymentDate: _paymentToController.text.trim(),
         invoiceLimit: _invoiceLimit,
         paymentLimit: _paymentLimit,
+        bankCashAccount: _bankCashAccountController.text,
+        defaultAdvanceAccount: _advanceAccountController.text,
+        costCenter: _costCenterController.text,
+        project: _projectController.text,
+        invoiceName: _invoiceNameController.text,
+        paymentName: _paymentNameController.text,
+        minimumInvoiceAmount: _optionalAmount(_minimumInvoiceController),
+        maximumInvoiceAmount: _optionalAmount(_maximumInvoiceController),
+        minimumPaymentAmount: _optionalAmount(_minimumPaymentController),
+        maximumPaymentAmount: _optionalAmount(_maximumPaymentController),
       );
       if (!mounted || generation != _requestGeneration) return;
       setState(() => _document = document);
@@ -486,6 +555,35 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
                 _dateField(_invoiceToController, 'إلى تاريخ الفاتورة'),
                 _dateField(_paymentFromController, 'من تاريخ الدفعة'),
                 _dateField(_paymentToController, 'إلى تاريخ الدفعة'),
+              ],
+            ),
+            ExpansionTile(
+              title: const Text('الفلاتر المتقدمة المطابقة لـ ERPNext'),
+              subtitle: const Text('تضييق النتائج حسب الحسابات والمبالغ والمستندات'),
+              children: [
+                _advancedFilter(_bankCashAccountController, 'حساب البنك أو النقد'),
+                _advancedFilter(_advanceAccountController, 'حساب الدفعات المقدمة'),
+                _advancedFilter(_costCenterController, 'مركز التكلفة'),
+                _advancedFilter(_projectController, 'المشروع'),
+                _advancedFilter(_invoiceNameController, 'رقم فاتورة محددة'),
+                _advancedFilter(_paymentNameController, 'رقم دفعة محددة'),
+                Row(children: [
+                  Expanded(child: _advancedFilter(_minimumInvoiceController, 'أقل مبلغ فاتورة', numeric: true)),
+                  const SizedBox(width: 8),
+                  Expanded(child: _advancedFilter(_maximumInvoiceController, 'أعلى مبلغ فاتورة', numeric: true)),
+                ]),
+                Row(children: [
+                  Expanded(child: _advancedFilter(_minimumPaymentController, 'أقل مبلغ دفعة', numeric: true)),
+                  const SizedBox(width: 8),
+                  Expanded(child: _advancedFilter(_maximumPaymentController, 'أعلى مبلغ دفعة', numeric: true)),
+                ]),
+                const Padding(
+                  padding: EdgeInsetsDirectional.fromSTEB(12, 0, 12, 12),
+                  child: Text(
+                    'تُرسل هذه المعايير إلى مستند Payment Reconciliation الأصلي؛ ويتحقق ERPNext من صلاحية الحسابات ومراكز التكلفة والمشاريع وفق الشركة وصلاحيات المستخدم.',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),
