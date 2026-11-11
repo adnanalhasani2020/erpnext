@@ -59,6 +59,15 @@ void main() {
           'allocated_amount': 75,
           'currency': 'YER',
         }];
+      } else if (method == 'calculate_difference_on_allocation_change') {
+        final args = body['args'] as core.Map<String, dynamic>;
+        expect(args['payment_entry'], isA<List>());
+        expect(args['invoice'], isA<List>());
+        expect(args['allocated_amount'], 50);
+        request.response.headers.contentType = ContentType.json;
+        request.response.write(jsonEncode({'docs': [document], 'message': 0}));
+        await request.response.close();
+        return;
       } else if (method == 'reconcile') {
         expect(document['allocation'], isA<List>());
       } else {
@@ -93,6 +102,12 @@ void main() {
       expect((loaded['payments'] as List).length, 1);
       final allocated = await api.allocatePaymentReconciliation(loaded);
       expect((allocated['allocation'] as List).length, 1);
+      final difference = await api.calculatePaymentReconciliationDifference(
+        document: allocated,
+        allocation: core.Map<String, dynamic>.from((allocated['allocation'] as List).first as core.Map),
+        allocatedAmount: 50,
+      );
+      expect(difference, 0);
       final reconciled = await api.reconcilePaymentAllocations(allocated);
       expect(reconciled['doctype'], 'Payment Reconciliation');
       expect(calls, [
