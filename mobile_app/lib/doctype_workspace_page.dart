@@ -494,7 +494,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                   );
                 }
                 if (type == 'Select') {
-                  final options = (field['options']?.toString() ?? '').split('\\n')
+                  final options = (field['options']?.toString() ?? '').split('\n')
                       .map((v) => v.trim()).where((v) => v.isNotEmpty).toList();
                   final current = selections[key];
                   final items = <String>{...options, if (current != null && current.isNotEmpty) current}.toList();
