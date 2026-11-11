@@ -28,7 +28,7 @@ void main() {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       final calls = <String>[];
       server.listen((request) async {
-        final body = await utf8.decoder.bind(request).join();
+        await utf8.decoder.bind(request).join();
         request.response.headers.contentType = ContentType.json;
         final segments = request.uri.pathSegments;
         final path = segments.join('/');
