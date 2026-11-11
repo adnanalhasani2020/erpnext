@@ -1,5 +1,5 @@
 import 'package:erpnext_mobile/main.dart';
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:erpnext_mobile/widgets/load_more_button.dart';
 import 'package:erpnext_mobile/widgets/server_search_field.dart';
