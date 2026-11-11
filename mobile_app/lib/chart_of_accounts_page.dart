@@ -147,6 +147,24 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
     }
   }
 
+  int _accountDepth(core.Map<String, dynamic> row) {
+    final byName = <String, core.Map<String, dynamic>>{
+      for (final item in rows)
+        if (item['name']?.toString().isNotEmpty == true)
+          item['name'].toString(): item,
+    };
+    var parent = row['parent_account']?.toString() ?? '';
+    var depth = 0;
+    final visited = <String>{row['name']?.toString() ?? ''};
+    while (parent.isNotEmpty && depth < 12 && visited.add(parent)) {
+      final parentRow = byName[parent];
+      if (parentRow == null) break;
+      depth++;
+      parent = parentRow['parent_account']?.toString() ?? '';
+    }
+    return depth;
+  }
+
   void showDetails(core.Map<String, dynamic> row) {
     showModalBottomSheet<void>(
       context: context, showDragHandle: true, useSafeArea: true,
@@ -297,20 +315,23 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
           itemBuilder: (context, index) {
             final row = rows[index];
             final isGroup = row['is_group'] == 1 || row['is_group'] == true;
-            return ListTile(
-              leading: Icon(isGroup ? Icons.account_tree_outlined : Icons.account_balance_wallet_outlined),
-              title: Text(row['account_name']?.toString() ?? row['name']?.toString() ?? ''),
-              subtitle: Text([
-                row['name']?.toString() ?? '',
-                row['account_type']?.toString() ?? row['root_type']?.toString() ?? '',
-                row['parent_account']?.toString() ?? '',
-              ].where((v) => v.isNotEmpty).join(' • ')),
-              trailing: Column(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(row['account_currency']?.toString() ?? ''),
-                if (row['disabled'] == 1 || row['disabled'] == true)
-                  const Text('معطل', style: TextStyle(fontSize: 11, color: Colors.red)),
-              ]),
-              onTap: () => showDetails(row),
+            return Padding(
+              padding: EdgeInsetsDirectional.only(start: _accountDepth(row) * 16.0),
+              child: ListTile(
+                leading: Icon(isGroup ? Icons.account_tree_outlined : Icons.account_balance_wallet_outlined),
+                title: Text(row['account_name']?.toString() ?? row['name']?.toString() ?? ''),
+                subtitle: Text([
+                  row['name']?.toString() ?? '',
+                  row['account_type']?.toString() ?? row['root_type']?.toString() ?? '',
+                  row['parent_account']?.toString() ?? '',
+                ].where((v) => v.isNotEmpty).join(' • ')),
+                trailing: Column(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  Text(row['account_currency']?.toString() ?? ''),
+                  if (row['disabled'] == 1 || row['disabled'] == true)
+                    const Text('معطل', style: TextStyle(fontSize: 11, color: Colors.red)),
+                ]),
+                onTap: () => showDetails(row),
+              ),
             );
           },
         ),
