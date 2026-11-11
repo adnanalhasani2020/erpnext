@@ -830,7 +830,8 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 }
                 final controller = controllers[key]!;
                 final isDate = type == 'Date';
-                final conditionalReadOnly = f['read_only'] == 1 || _evaluateFrappeCondition(f['read_only_depends_on']?.toString(), currentFormValues());
+                final readOnlyCondition = f['read_only_depends_on']?.toString().trim() ?? '';
+                final conditionalReadOnly = f['read_only'] == 1 || (readOnlyCondition.isNotEmpty && _evaluateFrappeCondition(readOnlyCondition, currentFormValues()));
                 final isLink = type == 'Link' && (f['options']?.toString().trim().isNotEmpty ?? false);
                 final dynamicLinkField = f['options']?.toString() ?? '';
                 final dynamicLinkTarget = selections[dynamicLinkField] ??
