@@ -113,8 +113,8 @@ void main() {
       await tester.tap(find.text('معاينة التوزيع التلقائي حسب الأقدمية'));
       await tester.pumpAndSettle();
       expect(find.text('معاينة التخصيصات (1)'), findsOneWidget);
-      expect(find.text('100.00'), findsOneWidget);
-      expect(find.text('75.00'), findsOneWidget);
+      expect(find.text('100.00'), findsNWidgets(2));
+      expect(find.text('75.00'), findsNWidgets(2));
 
       await tester.tap(find.byTooltip('حذف هذا التخصيص من المعاينة'));
       await tester.pumpAndSettle();
