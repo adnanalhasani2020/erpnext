@@ -1,4 +1,4 @@
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
 
 class ErpDocTypeDefinition {
