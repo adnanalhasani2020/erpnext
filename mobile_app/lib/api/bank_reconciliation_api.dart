@@ -506,6 +506,62 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
       return updated;
     }
 
+  Future<List<core.Map<String, dynamic>>> fetchPaymentReconciliationDimensions(String company) async {
+      final cleanCompany = company.trim();
+      if (cleanCompany.isEmpty) throw const FormatException('حدد الشركة لتحميل الأبعاد المحاسبية.');
+      final response = await _sendJson(
+        'POST',
+        '/api/method/erpnext.accounts.doctype.payment_reconciliation.payment_reconciliation.get_queries_for_dimension_filters',
+        {'company': cleanCompany},
+      );
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر اكتشاف أبعاد المحاسبة من ERPNext.'));
+      }
+      final rawDimensions = data['message'];
+      if (rawDimensions is! List) throw const FormatException('استجابة الأبعاد المحاسبية غير صحيحة.');
+      if (rawDimensions.isEmpty) return const [];
+      final metaUri = Uri.parse('$_baseUrl/api/method/frappe.desk.form.load.getdoctype')
+          .replace(queryParameters: {'doctype': 'Payment Reconciliation', 'with_parent': '1'});
+      final metaResponse = await _sendUri('GET', metaUri);
+      final metaData = _decode(metaResponse.body);
+      if (metaResponse.statusCode < 200 || metaResponse.statusCode >= 300) {
+        throw Exception(_message(metaData, 'تعذر تحميل تعريف حقول أبعاد التسوية.'));
+      }
+      final message = metaData['message'];
+      final docs = message is core.Map<String, dynamic> ? message['docs'] : null;
+      if (docs is! List) throw const FormatException('تعريف حقول التسوية غير متاح.');
+      final doctypeMeta = docs.whereType<core.Map<String, dynamic>>().firstWhere(
+        (row) => row['doctype'] == 'DocType' && row['name'] == 'Payment Reconciliation',
+        orElse: () => <String, dynamic>{},
+      );
+      final fields = doctypeMeta['fields'];
+      if (fields is! List) throw const FormatException('حقول DocType التسوية غير متاحة.');
+      final byName = <String, core.Map<String, dynamic>>{
+        for (final row in fields.whereType<core.Map<String, dynamic>>())
+          if (row['fieldname'] is String) row['fieldname'].toString(): row,
+      };
+      final result = <core.Map<String, dynamic>>[];
+      final seen = <String>{};
+      for (final raw in rawDimensions.whereType<core.Map<String, dynamic>>()) {
+        final fieldname = raw['fieldname']?.toString() ?? '';
+        final field = byName[fieldname];
+        final options = field?['options']?.toString() ?? '';
+        if (fieldname.isEmpty || !seen.add(fieldname) ||
+            field?['fieldtype'] != 'Link' || options.isEmpty) continue;
+        final rawFilters = raw['filters'];
+        result.add({
+          'fieldname': fieldname,
+          'label': field?['label']?.toString().isNotEmpty == true
+              ? field!['label'].toString() : fieldname,
+          'options': options,
+          'filters': rawFilters is core.Map<String, dynamic>
+              ? core.Map<String, dynamic>.from(rawFilters) : <String, dynamic>{},
+        });
+      }
+      return result;
+    }
+
   Future<core.Map<String, dynamic>> fetchUnreconciledPaymentEntries({
       required String company,
       required String partyType,
@@ -523,6 +579,7 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
       String? project,
       String? invoiceName,
       String? paymentName,
+      core.Map<String, String>? accountingDimensions,
       double? minimumInvoiceAmount,
       double? maximumInvoiceAmount,
       double? minimumPaymentAmount,
@@ -569,8 +626,21 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
           (paymentFrom != null && paymentTo != null && paymentFrom.compareTo(paymentTo) > 0)) {
         throw const FormatException('تاريخ البداية يجب ألا يتجاوز تاريخ النهاية.');
       }
+      final suppliedDimensions = <String, String>{
+        for (final entry in (accountingDimensions ?? const <String, String>{}).entries)
+          if (entry.value.trim().isNotEmpty) entry.key: entry.value.trim(),
+      };
+      if (suppliedDimensions.isNotEmpty) {
+        final definitions = await fetchPaymentReconciliationDimensions(cleanCompany);
+        final allowed = definitions.map((row) => row['fieldname']?.toString() ?? '').toSet();
+        final invalid = suppliedDimensions.keys.where((key) => !allowed.contains(key)).toList();
+        if (invalid.isNotEmpty) {
+          throw FormatException('أبعاد محاسبية غير معروفة في إعدادات ERPNext: ${invalid.join('، ')}');
+        }
+      }
       final document = <String, dynamic>{
         'doctype': 'Payment Reconciliation',
+        ...suppliedDimensions,
         'company': cleanCompany,
         'party_type': partyType,
         'party': cleanParty,
