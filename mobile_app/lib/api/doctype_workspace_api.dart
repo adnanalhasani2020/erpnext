@@ -26,7 +26,7 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
       if (page.length < 100) break;
       start += page.length;
     }
-    final details = await Future.wait(summaries.map((row) async {
+    Future<core.Map<String, dynamic>> fetchWorkspaceDetail(core.Map<String, dynamic> row) async {
       final name = row['name']?.toString() ?? '';
       if (name.isEmpty) return core.Map<String, dynamic>.from(row);
       final detailResponse = await _send(
@@ -42,7 +42,15 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
         return core.Map<String, dynamic>.from(row);
       }
       return core.Map<String, dynamic>.from(document);
-    }));
+    }
+
+    // Bound concurrent detail reads so a site with many Workspaces is not flooded.
+    final details = <core.Map<String, dynamic>>[];
+    for (var offset = 0; offset < summaries.length; offset += 8) {
+      final end = (offset + 8 < summaries.length) ? offset + 8 : summaries.length;
+      final batch = await Future.wait(summaries.sublist(offset, end).map(fetchWorkspaceDetail));
+      details.addAll(batch);
+    }
     return details;
   }
 
