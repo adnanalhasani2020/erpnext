@@ -37,6 +37,7 @@ class _ProcessPaymentReconciliationPageState
   String? _editingJobName;
   String _partyType = 'Customer';
   String? _statusFilter;
+  String? _partyTypeFilter;
   List<core.Map<String, dynamic>> _jobs = [];
   int _offset = 0;
   bool _loading = false;
@@ -123,6 +124,7 @@ class _ProcessPaymentReconciliationPageState
         search: _search.text,
         company: _company,
         status: _statusFilter,
+        partyType: _partyTypeFilter,
       );
       if (!mounted) return;
       setState(() {
@@ -527,6 +529,22 @@ class _ProcessPaymentReconciliationPageState
               ],
               onChanged: _loading || _loadingMore ? null : (value) {
                 setState(() => _statusFilter = value);
+                _load();
+              },
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String?>(
+              initialValue: _partyTypeFilter,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'تصفية نوع الطرف'),
+              items: const [
+                DropdownMenuItem<String?>(value: null, child: Text('كل أنواع الأطراف')),
+                DropdownMenuItem<String?>(value: 'Customer', child: Text('العملاء')),
+                DropdownMenuItem<String?>(value: 'Supplier', child: Text('الموردون')),
+                DropdownMenuItem<String?>(value: 'Employee', child: Text('الموظفون')),
+              ],
+              onChanged: _loading || _loadingMore ? null : (value) {
+                setState(() => _partyTypeFilter = value);
                 _load();
               },
             ),
