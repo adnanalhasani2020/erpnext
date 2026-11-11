@@ -246,6 +246,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
   List<Map<String, dynamic>> _filterFields = [];
   final Map<String, String> _filters = {};
   final Map<String, String> _filterOperators = {};
+  final Map<String, TextEditingController> _filterControllers = {};
   String _sortField = 'modified';
   bool _sortDescending = true;
   bool _loading = true, _more = false, _hasMore = false;
@@ -275,7 +276,13 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
   @override
   void initState() { super.initState(); _initialize(); }
   @override
-  void dispose() { _search.dispose(); super.dispose(); }
+  void dispose() {
+    _search.dispose();
+    for (final controller in _filterControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
 
   Future<void> _initialize() async {
     setState(() { _loading = true; _error = null; });
@@ -289,6 +296,10 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
           .where((f) => f['fieldname'] is String && f['in_standard_filter'] == 1 &&
             !const {'Table','Table MultiSelect','Section Break','Column Break','Tab Break','HTML'}.contains(f['fieldtype']))
           .toList();
+        for (final field in _filterFields) {
+          final key = field['fieldname'].toString();
+          _filterControllers.putIfAbsent(key, () => TextEditingController());
+        }
       });
       await _load();
     } catch (e) {
@@ -1112,6 +1123,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                         ),
                         const SizedBox(width: 8),
                         Expanded(child: TextField(
+                          controller: _filterControllers[field['fieldname'].toString()],
                           decoration: InputDecoration(
                             labelText: field['label']?.toString() ?? field['fieldname'].toString(),
                             isDense: true,
@@ -1127,6 +1139,9 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                         onPressed: _loading ? null : () {
                           _filters.clear();
                           _filterOperators.clear();
+                          for (final controller in _filterControllers.values) {
+                            controller.clear();
+                          }
                           _generation++;
                           _load();
                         },
