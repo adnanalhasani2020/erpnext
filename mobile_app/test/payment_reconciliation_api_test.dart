@@ -128,6 +128,56 @@ void main() {
     }
   });
 
+  test('employee payment reconciliation uses the native receivable/payable account filters', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      request.response.headers.contentType = ContentType.json;
+      if (request.method == 'GET' && request.uri.path.endsWith('/Account')) {
+        final filters = jsonDecode(request.uri.queryParameters['filters']!) as List;
+        expect(filters, contains(['account_type', 'in', ['Receivable', 'Payable']]));
+        expect(filters, contains(['root_type', 'in', ['Asset', 'Liability']]));
+        request.response.write(jsonEncode({'data': [{
+          'name': 'Employee Payable - COMP-1',
+          'account_type': 'Payable',
+          'root_type': 'Liability',
+          'account_currency': 'YER',
+          'company': 'COMP-1',
+        }]}));
+      } else if (request.method == 'POST' &&
+          request.uri.pathSegments.join('/') == 'api/method/run_doc_method') {
+        final body = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
+        final document = jsonDecode(body['docs'] as String) as core.Map<String, dynamic>;
+        expect(document['party_type'], 'Employee');
+        expect(document['party'], 'HR-EMP-0001');
+        document['invoices'] = <core.Map<String, dynamic>>[];
+        document['payments'] = <core.Map<String, dynamic>>[];
+        request.response.write(jsonEncode({'docs': [document]}));
+      } else {
+        request.response.statusCode = HttpStatus.notFound;
+        request.response.write(jsonEncode({'message': 'Unexpected request'}));
+      }
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      final accounts = await api.fetchReconciliationAccounts(
+        company: 'COMP-1',
+        partyType: 'Employee',
+      );
+      expect(accounts.single['account_type'], 'Payable');
+      final document = await api.fetchUnreconciledPaymentEntries(
+        company: 'COMP-1',
+        partyType: 'Employee',
+        party: 'HR-EMP-0001',
+        receivablePayableAccount: 'Employee Payable - COMP-1',
+      );
+      expect(document['party_type'], 'Employee');
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
   test('payment reconciliation rejects invalid inputs before network access', () async {
     final api = FrappeApi();
     await expectLater(
