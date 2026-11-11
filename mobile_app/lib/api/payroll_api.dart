@@ -88,9 +88,12 @@ mixin PayrollApiMixin on _FrappeApiCore {
     }) async {
       final entry = payrollEntry.trim(), normalizedCompany = company.trim();
       if (entry.isEmpty || normalizedCompany.isEmpty) throw const FormatException('دورة الرواتب والشركة مطلوبتان.');
+      const maxRows = 10000;
       final collected = <core.Map<String, dynamic>>[];
       var start = 0;
-      while (collected.length < 10000) {
+      while (true) {
+        // Fetch one extra row at the boundary so exactly 10,000 slips remain valid.
+        final requestedPageLength = (maxRows + 1 - collected.length).clamp(1, 500).toInt();
         final uri = FrappeApi.buildResourcePageUri(
           baseUrl: _baseUrl,
           resource: 'Salary Slip',
@@ -105,7 +108,7 @@ mixin PayrollApiMixin on _FrappeApiCore {
           ],
           orderBy: 'employee_name asc, name asc',
           start: start,
-          pageLength: 500,
+          pageLength: requestedPageLength,
         );
         final response = await _sendUri('GET', uri);
         final data = _decode(response.body);
@@ -118,10 +121,12 @@ mixin PayrollApiMixin on _FrappeApiCore {
             .where((row) => row['company'] == normalizedCompany && row['payroll_entry'] == entry)
             .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
         collected.addAll(page);
-        if (rows.length < 500) return collected;
+        if (collected.length > maxRows) {
+          throw const FormatException('تجاوزت كشوف الرواتب حد العرض الآمن 10,000 سجل؛ صفّ الدورة في ERPNext قبل المتابعة.');
+        }
+        if (rows.length < requestedPageLength) return collected;
         start += rows.length;
       }
-      throw const FormatException('تجاوزت كشوف الرواتب حد العرض الآمن 10,000 سجل؛ صفّ الدورة في ERPNext قبل المتابعة.');
     }
 
   Future<core.Map<String, dynamic>> createPayrollEntryDraft({
