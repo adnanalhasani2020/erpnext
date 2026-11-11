@@ -780,7 +780,7 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
     }
 
   Future<List<core.Map<String, dynamic>>> fetchProcessPaymentReconciliationJobs({
-      int start = 0, String? search, String? company,
+      int start = 0, String? search, String? company, String? status,
     }) async {
       if (start < 0) throw const FormatException('موضع تحميل المهام غير صحيح.');
       final query = search?.trim() ?? '';
@@ -792,7 +792,10 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
           'name', 'company', 'party_type', 'party', 'receivable_payable_account',
           'status', 'docstatus', 'creation', 'modified', 'error_log',
         ],
-        filters: cleanCompany.isEmpty ? null : [['company', '=', cleanCompany]],
+        filters: [
+          if (cleanCompany.isNotEmpty) ['company', '=', cleanCompany],
+          if (status?.trim().isNotEmpty == true) ['status', '=', status!.trim()],
+        ],
         orFilters: query.isEmpty ? null : [
           ['name', 'like', '%$query%'],
           ['party', 'like', '%$query%'],
