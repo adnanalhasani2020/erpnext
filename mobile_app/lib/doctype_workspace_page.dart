@@ -95,10 +95,14 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           final link = Map<String, dynamic>.from(raw);
           final doctype = link['link_to']?.toString().trim() ?? '';
           if (doctype.isEmpty || link['link_type']?.toString() != 'DocType' ||
-              link['hidden'] == 1 || link['type'] == 'Section Break' || !seen.add(doctype)) continue;
+              (link['hidden'] == 1 || link['hidden'] == true) || link['type'] == 'Section Break' || !seen.add(doctype)) continue;
+          var displayLabel = (link['label']?.toString().trim().isNotEmpty ?? false) ? link['label'].toString() : doctype;
+          for (final known in erpDocTypeDefinitions) {
+            if (known.doctype == doctype) { displayLabel = known.label; break; }
+          }
           definitions.add(ErpDocTypeDefinition(
             workspaceLabel,
-            (link['label']?.toString().trim().isNotEmpty ?? false) ? link['label'].toString() : doctype,
+            displayLabel,
             doctype,
             _workspaceIcon(workspaceLabel),
           ));
