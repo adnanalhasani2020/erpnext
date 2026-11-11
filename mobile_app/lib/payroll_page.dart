@@ -36,6 +36,10 @@ class _PayrollPageState extends State<PayrollPage> {
   List<core.Map<String, dynamic>> _entries = [];
   bool _loadingSetup = false;
   bool _loadingEntries = false;
+  bool _loadingMoreEntries = false;
+  bool _hasMoreEntries = false;
+  int _entryOffset = 0;
+  int _entryGeneration = 0;
   bool _saving = false;
   String? _error;
 
@@ -106,19 +110,55 @@ class _PayrollPageState extends State<PayrollPage> {
 
   Future<void> _loadEntries() async {
     final company = _company;
-    if (company == null || company.isEmpty) return;
+    if (company == null || company.isEmpty || _loadingEntries) return;
+    final generation = ++_entryGeneration;
     setState(() {
       _loadingEntries = true;
+      _loadingMoreEntries = false;
+      _hasMoreEntries = false;
+      _entryOffset = 0;
+      _entries = [];
       _error = null;
     });
     try {
-      final rows = await widget.api.fetchPayrollEntries(company: company);
-      if (!mounted || company != _company) return;
-      setState(() => _entries = rows);
+      final rows = await widget.api.fetchPayrollEntries(company: company, start: 0);
+      if (!mounted || generation != _entryGeneration || company != _company) return;
+      setState(() {
+        _entries = rows;
+        _entryOffset = rows.length;
+        _hasMoreEntries = rows.length == 50;
+      });
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      if (mounted && generation == _entryGeneration) {
+        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      }
     } finally {
-      if (mounted) setState(() => _loadingEntries = false);
+      if (mounted && generation == _entryGeneration) setState(() => _loadingEntries = false);
+    }
+  }
+
+  Future<void> _loadMoreEntries() async {
+    final company = _company;
+    if (company == null || company.isEmpty || _loadingEntries ||
+        _loadingMoreEntries || !_hasMoreEntries) return;
+    final generation = _entryGeneration;
+    final offset = _entryOffset;
+    setState(() => _loadingMoreEntries = true);
+    try {
+      final rows = await widget.api.fetchPayrollEntries(company: company, start: offset);
+      if (!mounted || generation != _entryGeneration || company != _company) return;
+      setState(() {
+        final known = _entries.map((row) => row['name']?.toString()).toSet();
+        _entries.addAll(rows.where((row) => !known.contains(row['name']?.toString())));
+        _entryOffset += rows.length;
+        _hasMoreEntries = rows.length == 50;
+      });
+    } catch (error) {
+      if (mounted && generation == _entryGeneration) {
+        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted && generation == _entryGeneration) setState(() => _loadingMoreEntries = false);
     }
   }
 
@@ -298,7 +338,7 @@ class _PayrollPageState extends State<PayrollPage> {
         actions: [
           IconButton(
             tooltip: 'تحديث الدورات',
-            onPressed: _loadingEntries || _saving ? null : _loadEntries,
+            onPressed: _loadingEntries || _loadingMoreEntries || _saving ? null : _loadEntries,
             icon: const Icon(Icons.refresh),
           ),
         ],
@@ -439,6 +479,19 @@ class _PayrollPageState extends State<PayrollPage> {
               onTap: _saving ? null : () => _showEntry(row),
             ),
           )),
+          if (_hasMoreEntries || _loadingMoreEntries)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: OutlinedButton.icon(
+                onPressed: _loadingMoreEntries || _loadingEntries || _saving
+                    ? null : _loadMoreEntries,
+                icon: _loadingMoreEntries
+                    ? const SizedBox(width: 18, height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2))
+                    : const Icon(Icons.expand_more),
+                label: Text(_loadingMoreEntries ? 'جارٍ تحميل المزيد...' : 'تحميل دورات رواتب إضافية'),
+              ),
+            ),
         ],
       ),
     );
