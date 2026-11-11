@@ -1017,6 +1017,12 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
         'to_payment_date': paymentTo,
       };
       final id = name?.trim() ?? '';
+      if (id.isNotEmpty) {
+        final current = await fetchProcessPaymentReconciliationJob(id);
+        if (current['docstatus'] != 0) {
+          throw const FormatException('لا يمكن تعديل مهمة تسوية مرحّلة أو ملغاة.');
+        }
+      }
       final response = id.isEmpty
           ? await _sendJson('POST', '/api/resource/Process%20Payment%20Reconciliation', payload)
           : await _sendJson('PUT', '/api/resource/Process%20Payment%20Reconciliation/' + Uri.encodeComponent(id), payload);
