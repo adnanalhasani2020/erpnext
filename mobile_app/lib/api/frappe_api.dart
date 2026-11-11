@@ -6137,7 +6137,9 @@ class FrappeApi {
       for (final raw in pendingRows.whereType<core.Map<String, dynamic>>()) {
         final pendingName = raw['name']?.toString().trim() ?? '';
         if (pendingName.isEmpty || raw['company'] != claim['company'] ||
-            raw['party'] != claim['employee'] || raw['docstatus'] != 0) continue;
+            raw['party'] != claim['employee'] || raw['docstatus'] != 0) {
+          continue;
+        }
         final pending = await _fetchPaymentEntryDraft(
           pendingName, paymentType: 'Pay', partyType: 'Employee',
         );
@@ -6588,7 +6590,7 @@ Future<core.Map<String, dynamic>> startBankStatementImport(String importName) as
       if (account?.trim().isNotEmpty == true) ['account', '=', account!.trim()],
       if (voucherType?.trim().isNotEmpty == true) ['voucher_type', '=', voucherType!.trim()],
     ];
-    final uri = Uri.parse('$_baseUrl/api/method/frappe.client.get_list').replace
+    final uri = Uri.parse('$_baseUrl/api/method/frappe.client.get_list').replace(
       queryParameters: {
         'doctype': 'GL Entry',
         'fields': jsonEncode(['sum(debit) as debit', 'sum(credit) as credit']),
