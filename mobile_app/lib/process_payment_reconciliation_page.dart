@@ -293,7 +293,7 @@ class _ProcessPaymentReconciliationPageState
         : <core.Map>[];
     final total = int.tryParse(progress['total']?.toString() ?? '0') ?? 0;
     final processed = int.tryParse(progress['processed']?.toString() ?? '0') ?? 0;
-    final ratio = total <= 0 ? (status == 'Completed' ? 1.0 : 0.0) : (processed / total).clamp(0.0, 1.0);
+    final ratio = total <= 0 ? (status == 'Completed' ? 1.0 : 0.0) : (processed / total).clamp(0.0, 1.0).toDouble();
 
     return Card(
       child: Padding(
@@ -355,9 +355,7 @@ class _ProcessPaymentReconciliationPageState
               children: [
                 if (docStatus == 0)
                   FilledButton.tonal(
-                    onPressed: busy ? null : () => _runAction(
-                      name, widget.api.submitProcessPaymentReconciliation, 'تم ترحيل المهمة ووضعها في قائمة الانتظار.',
-                    ),
+                    onPressed: busy ? null : () => _confirmSubmit(name),
                     child: const Text('ترحيل المهمة'),
                   ),
                 if (docStatus == 1 && (status == 'Queued' || status == 'Paused'))
@@ -389,6 +387,35 @@ class _ProcessPaymentReconciliationPageState
         ),
       ),
     );
+  }
+
+  Future<void> _confirmSubmit(String name) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('ترحيل مهمة التسوية الجماعية'),
+        content: Text(
+          'سيتم ترحيل المهمة $name إلى قائمة ERPNext. بعد بدء التنفيذ، قد ينشئ الخادم تسويات فعلية لعدد كبير من الفواتير والمدفوعات في الخلفية. راجع الشركة والطرف وحساب الذمم والفترات قبل المتابعة.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('مراجعة'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('تأكيد الترحيل'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true && mounted) {
+      await _runAction(
+        name,
+        widget.api.submitProcessPaymentReconciliation,
+        'تم ترحيل المهمة ووضعها في قائمة الانتظار.',
+      );
+    }
   }
 
   Future<void> _confirmCancel(String name) async {
