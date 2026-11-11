@@ -1052,8 +1052,10 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 .where((field) => field['fieldname'] is String &&
                   !const {'Table','Table MultiSelect','Section Break','Column Break','Tab Break','HTML','Button'}.contains(field['fieldtype']))
                 .map((field) => field['fieldname'].toString())}.map((key) {
-                  final field = _fields.where((f) => f['fieldname'] == key).firstOrNull;
-                  final label = field?['label']?.toString() ?? (key == 'modified' ? 'آخر تعديل' : key);
+                  final matches = _fields.where((f) => f['fieldname'] == key).toList();
+                  final label = matches.isEmpty
+                    ? (key == 'modified' ? 'آخر تعديل' : key)
+                    : (matches.first['label']?.toString() ?? key);
                   return DropdownMenuItem(value: key, child: Text(label, overflow: TextOverflow.ellipsis));
                 }).toList(),
               onChanged: (value) {
