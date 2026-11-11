@@ -66,3 +66,5 @@ A passing unit/widget test or APK build does not replace live ERPNext integratio
 
 
 - Customer and Supplier ledger views now expose advanced exact filters for GL account and voucher type. The same filters apply consistently to the paginated GL Entry rows, period totals, opening balance and calculated closing balance. Consolidated balances remain intentionally unavailable when all companies are selected to avoid mixing company currencies.
+
+- Payroll submission now preserves the employee child rows already present in the reviewed draft. HRMS employee discovery runs only when the draft has no employee rows, preventing a submission action from silently replacing a reviewed employee selection.
