@@ -1,7 +1,7 @@
 import 'dart:core';
 import 'dart:core' as core;
 // ignore_for_file: prefer_interpolation_to_compose_strings, curly_braces_in_flow_control_structures
-import 'package:material_ui/material_ui.dart';
+import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
 import 'models/serial_batch_tracking.dart';
