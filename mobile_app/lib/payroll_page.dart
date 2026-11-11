@@ -500,7 +500,7 @@ class _PayrollPageState extends State<PayrollPage> {
   }
 }
 
-class _PayrollEntrySheet extends StatelessWidget {
+class _PayrollEntrySheet extends StatefulWidget {
   const _PayrollEntrySheet({
     required this.document,
     required this.slips,
@@ -512,7 +512,18 @@ class _PayrollEntrySheet extends StatelessWidget {
   final ValueChanged<String> onAction;
 
   @override
+  State<_PayrollEntrySheet> createState() => _PayrollEntrySheetState();
+}
+
+class _PayrollEntrySheetState extends State<_PayrollEntrySheet> {
+  int _visibleEmployees = 100;
+  int _visibleSlips = 100;
+
+  @override
   Widget build(BuildContext context) {
+    final document = widget.document;
+    final slips = widget.slips;
+    final onAction = widget.onAction;
     final submitted = document['docstatus'] == 1;
     final draft = document['docstatus'] == 0;
     final slipDrafts = slips.where((row) => row['docstatus'] == 0).length;
@@ -530,24 +541,40 @@ class _PayrollEntrySheet extends StatelessWidget {
           Text('الفترة: ${document['start_date'] ?? ''} → ${document['end_date'] ?? ''}'),
           const Divider(),
           Text('الموظفون المحددون: ${employees.length}', style: const TextStyle(fontWeight: FontWeight.bold)),
-          ...employees.take(100).map((row) => ListTile(
+          ...employees.take(_visibleEmployees).map((row) => ListTile(
             dense: true,
             leading: const Icon(Icons.person_outline),
             title: Text('${row['employee_name'] ?? row['employee'] ?? ''}'),
             subtitle: Text('${row['employee'] ?? ''} • هيكل الراتب: ${row['salary_structure'] ?? 'سيُحدّد بواسطة HRMS'}'),
           )),
-          if (employees.length > 100)
-            Text('يُعرض أول 100 موظف من ${employees.length} لتخفيف تحميل الشاشة.'),
+          if (employees.length > _visibleEmployees)
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: OutlinedButton(
+                onPressed: () => setState(() {
+                  _visibleEmployees = (_visibleEmployees + 100).clamp(0, employees.length).toInt();
+                }),
+                child: Text('عرض ${(employees.length - _visibleEmployees) > 100 ? 100 : employees.length - _visibleEmployees} موظف إضافي'),
+              ),
+            ),
           const Divider(),
           Text('كشوف الرواتب: ${slips.length} • مسودات: $slipDrafts • معتمدة: $slipSubmitted'),
-          ...slips.take(100).map((row) => ListTile(
+          ...slips.take(_visibleSlips).map((row) => ListTile(
             dense: true,
             title: Text('${row['employee_name'] ?? row['employee'] ?? ''}'),
             subtitle: Text('${row['name'] ?? ''} • ${row['status'] ?? ''}'),
             trailing: Text('${row['net_pay'] ?? 0} ${row['currency'] ?? ''}'),
           )),
-          if (slips.length > 100)
-            Text('يُعرض أول 100 كشف من ${slips.length} لتخفيف تحميل الشاشة.'),
+          if (slips.length > _visibleSlips)
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: OutlinedButton(
+                onPressed: () => setState(() {
+                  _visibleSlips = (_visibleSlips + 100).clamp(0, slips.length).toInt();
+                }),
+                child: Text('عرض ${(slips.length - _visibleSlips) > 100 ? 100 : slips.length - _visibleSlips} كشف إضافي'),
+              ),
+            ),
           const SizedBox(height: 12),
           if (draft) ...[
             FilledButton(

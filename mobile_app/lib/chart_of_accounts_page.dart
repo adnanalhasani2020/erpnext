@@ -17,6 +17,7 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
   final search = TextEditingController();
   List<core.Map<String, dynamic>> rows = [];
   bool loading = false, loadingMore = false, hasMore = false;
+  bool includeDisabled = false;
   int offset = 0;
   String? error;
 
@@ -38,6 +39,7 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
     try {
       final page = await widget.api.fetchAccountingAccounts(
         company: company!, search: search.text, start: more ? offset : 0,
+        includeDisabled: includeDisabled,
       );
       if (!mounted) return;
       setState(() {
@@ -52,10 +54,102 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
     }
   }
 
+  Future<void> showAccountEditor({core.Map<String, dynamic>? row}) async {
+    final isEdit = row != null;
+    final name = TextEditingController(text: row?['account_name']?.toString() ?? '');
+    final parent = TextEditingController(text: row?['parent_account']?.toString() ?? '');
+    final currency = TextEditingController(text: row?['account_currency']?.toString() ?? '');
+    final accountType = TextEditingController(text: row?['account_type']?.toString() ?? '');
+    final rootType = row?['root_type']?.toString() ?? '';
+    var isGroup = row?['is_group'] == 1 || row?['is_group'] == true;
+    var saving = false;
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, refresh) => AlertDialog(
+          title: Text(isEdit ? 'تعديل الحساب' : 'إضافة حساب جديد'),
+          content: SingleChildScrollView(child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(controller: name, decoration: const InputDecoration(labelText: 'اسم الحساب *')),
+              TextField(controller: parent, enabled: !isEdit, decoration: const InputDecoration(labelText: 'الحساب الأب التجميعي *')),
+              if (isEdit)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('التصنيف الرئيسي'),
+                  subtitle: Text(rootType.isEmpty ? 'يحدده ERPNext' : rootType),
+                )
+              else
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Text('سيُورث التصنيف الرئيسي ونوع التقرير تلقائياً من الحساب الأب في ERPNext.'),
+                ),
+              TextField(controller: currency, enabled: !isEdit, decoration: const InputDecoration(labelText: 'عملة الحساب *')),
+              TextField(controller: accountType, decoration: const InputDecoration(labelText: 'نوع الحساب (اختياري)')),
+              if (!isEdit) CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: isGroup,
+                title: const Text('حساب تجميعي'),
+                onChanged: (v) => refresh(() => isGroup = v ?? false),
+              ),
+              if (isEdit) const Align(
+                alignment: Alignment.centerRight,
+                child: Text('يمكن تعديل الاسم ونوع الحساب فقط؛ تبقى هوية الحساب وتصنيفه ثابتين.',
+                  style: TextStyle(fontSize: 12)),
+              ),
+            ],
+          )),
+          actions: [
+            TextButton(onPressed: saving ? null : () => Navigator.pop(dialogContext, false),
+              child: const Text('إلغاء')),
+            FilledButton(
+              onPressed: saving ? null : () async {
+                refresh(() => saving = true);
+                try {
+                  await widget.api.saveAccountingAccount(
+                    name: row?['name']?.toString(),
+                    accountName: name.text,
+                    company: company!,
+                    parentAccount: parent.text,
+                    accountCurrency: currency.text,
+                    isGroup: isGroup,
+                    accountType: accountType.text,
+                    disabled: row?['disabled'] == 1 || row?['disabled'] == true,
+                  );
+                  if (dialogContext.mounted) Navigator.pop(dialogContext, true);
+                } catch (e) {
+                  if (dialogContext.mounted) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+                    );
+                    refresh(() => saving = false);
+                  }
+                }
+              },
+              child: Text(saving ? 'جارٍ الحفظ...' : 'حفظ'),
+            ),
+          ],
+        ),
+      ),
+    );
+    name.dispose();
+    parent.dispose();
+    currency.dispose();
+    accountType.dispose();
+    if (result == true && mounted) {
+      await load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(isEdit ? 'تم تحديث الحساب.' : 'تم إنشاء الحساب.')),
+        );
+      }
+    }
+  }
+
   void showDetails(core.Map<String, dynamic> row) {
     showModalBottomSheet<void>(
       context: context, showDragHandle: true, useSafeArea: true,
-      builder: (context) => Padding(
+      builder: (sheetContext) => Padding(
         padding: const EdgeInsets.all(20),
         child: ListView(shrinkWrap: true, children: [
           Text(row['account_name']?.toString() ?? row['name']?.toString() ?? 'الحساب',
@@ -67,6 +161,66 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
           ListTile(title: const Text('العملة'), subtitle: Text(row['account_currency']?.toString() ?? '—')),
           ListTile(title: const Text('الشركة'), subtitle: Text(row['company']?.toString() ?? '—')),
           ListTile(title: const Text('النوع'), subtitle: Text((row['is_group'] == 1 || row['is_group'] == true) ? 'حساب تجميعي' : 'حساب حركة')),
+          if (!(row['is_group'] == 1 || row['is_group'] == true))
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.pop(sheetContext);
+                showAccountEditor(row: row);
+              },
+              icon: const Icon(Icons.edit_outlined),
+              label: const Text('تعديل الحساب'),
+            ),
+          if (!(row['is_group'] == 1 || row['is_group'] == true))
+            OutlinedButton.icon(
+              onPressed: () async {
+                Navigator.pop(sheetContext);
+                final currentlyDisabled = row['disabled'] == 1 || row['disabled'] == true;
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (dialogContext) => AlertDialog(
+                    title: Text(currentlyDisabled ? 'تفعيل الحساب' : 'تعطيل الحساب'),
+                    content: Text(currentlyDisabled
+                        ? 'سيُطلب من ERPNext إعادة تفعيل الحساب ${row['name']}.'
+                        : 'سيُطلب من ERPNext تعطيل الحساب ${row['name']}. قد يرفض ERPNext ذلك إذا كانت هناك قيود أو ارتباطات تمنع التعطيل.'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(dialogContext, false),
+                        child: const Text('رجوع')),
+                      FilledButton(onPressed: () => Navigator.pop(dialogContext, true),
+                        child: const Text('تأكيد')),
+                    ],
+                  ),
+                );
+                if (confirmed != true || !mounted) return;
+                try {
+                  await widget.api.saveAccountingAccount(
+                    name: row['name']?.toString(),
+                    company: company!,
+                    accountName: row['account_name']?.toString() ?? row['name']?.toString() ?? '',
+                    parentAccount: row['parent_account']?.toString() ?? '',
+                    isGroup: false,
+                    accountType: row['account_type']?.toString() ?? '',
+                    accountCurrency: row['account_currency']?.toString() ?? '',
+                    disabled: !currentlyDisabled,
+                  );
+                  await load();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(currentlyDisabled ? 'تم تفعيل الحساب.' : 'تم تعطيل الحساب.')),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(e.toString().replaceFirst('Exception: ', ''))),
+                    );
+                  }
+                }
+              },
+              icon: Icon((row['disabled'] == 1 || row['disabled'] == true)
+                  ? Icons.check_circle_outline : Icons.block_outlined),
+              label: Text((row['disabled'] == 1 || row['disabled'] == true)
+                  ? 'تفعيل الحساب' : 'تعطيل الحساب'),
+            ),
         ]),
       ),
     );
@@ -76,6 +230,8 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('دليل الحسابات'), actions: [
       IconButton(onPressed: loading ? null : () => load(), icon: const Icon(Icons.refresh)),
+      IconButton(onPressed: company == null || loading || loadingMore ? null : () => showAccountEditor(),
+        tooltip: 'إضافة حساب', icon: const Icon(Icons.add)),
     ]),
     body: Column(children: [
       Padding(padding: const EdgeInsets.all(12), child: DropdownButtonFormField<String>(
@@ -96,6 +252,15 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
           suffixIcon: IconButton(onPressed: loading || loadingMore ? null : () => load(), icon: const Icon(Icons.arrow_forward)),
         ),
       )),
+      SwitchListTile(
+        dense: true,
+        title: const Text('عرض الحسابات المعطلة'),
+        value: includeDisabled,
+        onChanged: loading || loadingMore ? null : (value) {
+          setState(() { includeDisabled = value; rows = []; offset = 0; hasMore = false; });
+          load();
+        },
+      ),
       if (loading) const LinearProgressIndicator(),
       if (error != null) ListTile(
         leading: const Icon(Icons.error_outline),
@@ -119,7 +284,11 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
                 row['account_type']?.toString() ?? row['root_type']?.toString() ?? '',
                 row['parent_account']?.toString() ?? '',
               ].where((v) => v.isNotEmpty).join(' • ')),
-              trailing: Text(row['account_currency']?.toString() ?? ''),
+              trailing: Column(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text(row['account_currency']?.toString() ?? ''),
+                if (row['disabled'] == 1 || row['disabled'] == true)
+                  const Text('معطل', style: TextStyle(fontSize: 11, color: Colors.red)),
+              ]),
               onTap: () => showDetails(row),
             );
           },

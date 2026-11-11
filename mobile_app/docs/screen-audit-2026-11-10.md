@@ -68,3 +68,20 @@ A passing unit/widget test or APK build does not replace live ERPNext integratio
 - Customer and Supplier ledger views now expose advanced exact filters for GL account and voucher type. The same filters apply consistently to the paginated GL Entry rows, period totals, opening balance and calculated closing balance. Consolidated balances remain intentionally unavailable when all companies are selected to avoid mixing company currencies.
 
 - Payroll submission now preserves the employee child rows already present in the reviewed draft. HRMS employee discovery runs only when the draft has no employee rows, preventing a submission action from silently replacing a reviewed employee selection.
+
+
+- Chart of Accounts now supports creating company-scoped accounts with server-side verification of the company and active parent group; root/report type is inherited from that parent, and non-default currencies are checked against enabled ERPNext Currency records. Existing ledger accounts expose constrained edit, disable and re-enable actions. The screen can include disabled accounts in its listing; edits preserve account identity, company, parent, root/report type, currency and group status. Focused validation tests cover missing required values and unsupported root types.
+- Payroll Entry details now reveal the full employee selection and fetched Salary Slip list progressively in 100-row increments instead of silently truncating the view at 100 rows. The existing API safety cap and HRMS server-side validation remain in force.
+- These changes are committed on `refactor/frappe-api-domain-services`. They have not been executed through Flutter tests, Android build, or a live ERPNext/HRMS site in this session.
+
+
+- Inventory valuation in Financial Reports now reveals additional warehouse/item balance rows in 60-row increments instead of permanently hiding every row after the first 60. Missing ERPNext valuation values remain explicitly flagged and are not fabricated or included as known value.
+
+
+- Bank Statement Import preview continues to show the first 12 warnings inline and now provides a scrollable full-warning view when ERPNext returns more, so later validation warnings are not hidden.
+
+
+- Sales Dashboard now uses permission-aware ERPNext server-side grouped queries for invoice totals by currency, outstanding amounts, invoice counts, and top customers. It no longer downloads every invoice row to calculate these metrics on the device. Grouped customer rows retain a 10,000-row safety ceiling; server permissions and the v16 aggregate-field syntax still require validation against the deployed Frappe version.
+
+
+- CI follow-up for head `075cc6887009348613e89b2fafea37e7c2276a1e`: Documentation Required completed successfully. Android APK build and PR checks were triggered but had not completed when this note was written. No live ERPNext/HRMS acceptance environment was available.
