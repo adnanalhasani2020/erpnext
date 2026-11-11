@@ -427,6 +427,7 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
           DropdownMenuItem<int?>(value: null, child: Text('المسودات والقيود المرحلة')),
           DropdownMenuItem<int?>(value: 0, child: Text('المسودات فقط')),
           DropdownMenuItem<int?>(value: 1, child: Text('القيود المرحلة فقط')),
+          DropdownMenuItem<int?>(value: 2, child: Text('القيود الملغاة فقط')),
         ],
         onChanged: _loading || _loadingMore || _saving || _submitting ? null : (value) {
           setState(() { _docStatus = value; _drafts = []; _offset = 0; _hasMore = false; });
@@ -437,17 +438,19 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
         decoration: InputDecoration(labelText: 'بحث برقم القيد أو البيان', suffixIcon: IconButton(onPressed: _loading || _loadingMore || _saving || _submitting ? null : _load, icon: const Icon(Icons.search)))),
       if (_loading) const LinearProgressIndicator(),
       if (_error != null) Card(color: Theme.of(context).colorScheme.errorContainer, child: Padding(padding: const EdgeInsets.all(12), child: Text(_error!))),
-      if (_drafts.isEmpty && !_loading) const ListTile(title: Text('لا توجد مسودات ظاهرة لهذه الشركة.')),
+      if (_drafts.isEmpty && !_loading) const ListTile(title: Text('لا توجد قيود مطابقة للفلاتر أو لا تتوفر صلاحية القراءة.')),
       ..._drafts.map((row) => Card(child: ListTile(
-        title: Text('${row['name']?.toString() ?? ''} • ${row['docstatus'] == 1 ? 'مرحّل' : 'مسودة'}'),
+        title: Text('${row['name']?.toString() ?? ''} • ${row['docstatus'] == 1 ? 'مرحّل' : row['docstatus'] == 2 ? 'ملغى' : 'مسودة'}'),
         subtitle: Text('${row['posting_date'] ?? ''} • مدين ${row['total_debit'] ?? '—'} • دائن ${row['total_credit'] ?? '—'}'),
         onTap: _loading || _loadingMore || _saving || _submitting || row['docstatus'] != 0 ? null : () => _edit(row),
         trailing: row['docstatus'] == 0
           ? IconButton(tooltip: 'ترحيل', onPressed: _submitting ? null : () => _submit(row), icon: const Icon(Icons.publish))
-          : Row(mainAxisSize: MainAxisSize.min, children: [
-              IconButton(tooltip: 'إنشاء قيد عكسي', onPressed: _submitting ? null : () => _reverse(row), icon: const Icon(Icons.swap_horiz)),
-              IconButton(tooltip: 'إلغاء القيد', onPressed: _submitting ? null : () => _cancel(row), icon: const Icon(Icons.cancel_outlined)),
-            ]),
+          : row['docstatus'] == 1
+              ? Row(mainAxisSize: MainAxisSize.min, children: [
+                  IconButton(tooltip: 'إنشاء قيد عكسي', onPressed: _submitting ? null : () => _reverse(row), icon: const Icon(Icons.swap_horiz)),
+                  IconButton(tooltip: 'إلغاء القيد', onPressed: _submitting ? null : () => _cancel(row), icon: const Icon(Icons.cancel_outlined)),
+                ])
+              : const Icon(Icons.block_outlined, color: Colors.grey),
       ))),
       if (_hasMore || _loadingMore)
         OutlinedButton.icon(
