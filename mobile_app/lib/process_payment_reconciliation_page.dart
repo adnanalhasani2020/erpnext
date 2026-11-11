@@ -361,7 +361,7 @@ class _ProcessPaymentReconciliationPageState
                 if (docStatus == 1 && (status == 'Queued' || status == 'Paused'))
                   FilledButton(
                     onPressed: busy ? null : () => _runAction(
-                      name, widget.api.startProcessPaymentReconciliation, 'أُرسل طلب بدء المهمة إلى ERPNext.',
+                      name, widget.api.startProcessPaymentReconciliation, 'استلم ERPNext طلب بدء المهمة؛ تحقق من حالتها بعد قليل.',
                     ),
                     child: Text(status == 'Paused' ? 'استئناف' : 'بدء التنفيذ'),
                   ),
