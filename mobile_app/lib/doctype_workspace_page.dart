@@ -545,7 +545,10 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     isExpanded: true,
                     decoration: InputDecoration(labelText: label),
                     items: items.map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
-                    onChanged: (value) => refresh(() => selections[key] = value),
+                    onChanged: (value) {
+                        clearDependentDynamicLinks(key);
+                        refresh(() => selections[key] = value);
+                      },
                   );
                 }
                 final controller = controllers[key]!;
@@ -683,6 +686,14 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
         controllers[key] = TextEditingController(text: initial?.toString() ?? '');
       }
     }
+    void clearDependentDynamicLinks(String targetField) {
+      for (final dynamicField in editable.where((field) =>
+          field['fieldtype'] == 'Dynamic Link' && field['options']?.toString() == targetField)) {
+        final dynamicKey = dynamicField['fieldname']?.toString();
+        if (dynamicKey != null) controllers[dynamicKey]?.clear();
+      }
+    }
+
     String error = '';
     bool saving = false;
     final saved = await showDialog<bool>(
@@ -753,6 +764,14 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: TextField(
                     controller: controller,
+                    onChanged: (_) {
+                      final hasDynamicDependents = editable.any((field) =>
+                        field['fieldtype'] == 'Dynamic Link' && field['options']?.toString() == key);
+                      if (hasDynamicDependents) {
+                        clearDependentDynamicLinks(key);
+                        refresh(() {});
+                      }
+                    },
                     keyboardType: keyboard,
                     readOnly: isDate,
                     minLines: (type == 'Text' || type == 'Long Text') ? 3 : 1,
