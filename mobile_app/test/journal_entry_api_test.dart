@@ -16,7 +16,7 @@ void main() {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     server.listen((request) async {
       expect(request.method, 'GET');
-      expect(request.uri.path.endsWith('/Journal Entry'), isTrue);
+      expect(request.uri.pathSegments.last, 'Journal Entry');
       final filters = jsonDecode(request.uri.queryParameters['filters']!) as List;
       expect(filters.any((row) => jsonEncode(row) == jsonEncode(['posting_date', '>=', '2026-01-01'])), isTrue);
       expect(filters.any((row) => jsonEncode(row) == jsonEncode(['posting_date', '<=', '2026-01-31'])), isTrue);
