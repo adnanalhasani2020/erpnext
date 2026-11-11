@@ -115,6 +115,8 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
   final _search = TextEditingController();
   Map<String, dynamic>? _meta;
   List<Map<String, dynamic>> _rows = [];
+  List<Map<String, dynamic>> _filterFields = [];
+  final Map<String, String> _filters = {};
   bool _loading = true, _more = false, _hasMore = false;
   int _offset = 0, _generation = 0;
   String? _error;
@@ -141,7 +143,14 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     try {
       final meta = await widget.api.fetchDocTypeMeta(_doctype);
       if (!mounted) return;
-      setState(() => _meta = meta);
+      setState(() {
+        _meta = meta;
+        _filterFields = (meta['fields'] as List? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .where((f) => f['fieldname'] is String && f['in_standard_filter'] == 1 &&
+            !const {'Table','Table MultiSelect','Section Break','Column Break','Tab Break','HTML'}.contains(f['fieldtype']))
+          .take(8).toList();
+      });
       await _load();
     } catch (e) {
       if (mounted) setState(() { _error = e.toString().replaceFirst('Exception: ', ''); _loading = false; });
@@ -155,8 +164,18 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     setState(() { if (append) { _more = true; } else { _loading = true; _error = null; } });
     try {
       final fields = _listFields;
+      final activeFilters = <List<dynamic>>[];
+      for (final field in _filterFields) {
+        final key = field['fieldname'].toString();
+        final value = _filters[key]?.trim() ?? '';
+        if (value.isEmpty) continue;
+        final type = field['fieldtype']?.toString() ?? '';
+        final operator = type == 'Data' || type == 'Link' ? 'like' : '=';
+        activeFilters.add([key, operator, operator == 'like' ? '%' + value + '%' : value]);
+      }
       final rows = await widget.api.fetchDocTypeRows(
-        doctype: _doctype, fields: fields, search: _search.text, start: start,
+        doctype: _doctype, fields: fields, search: _search.text,
+        start: start, filters: activeFilters,
       );
       if (!mounted || generation != _generation) return;
       setState(() {
@@ -345,6 +364,30 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
             suffixIcon: IconButton(onPressed: () { _generation++; _load(); }, icon: const Icon(Icons.search)),
           ),
         )),
+        if (_filterFields.isNotEmpty)
+          ExpansionTile(
+            title: const Text('فلاتر الشاشة الأصلية'),
+            leading: const Icon(Icons.filter_alt_outlined),
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Column(children: [
+                  for (final field in _filterFields)
+                    TextField(
+                      decoration: InputDecoration(labelText: field['label']?.toString() ?? field['fieldname'].toString()),
+                      onChanged: (value) => _filters[field['fieldname'].toString()] = value,
+                    ),
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: FilledButton.tonalIcon(
+                      onPressed: _loading ? null : () { _generation++; _load(); },
+                      icon: const Icon(Icons.filter_alt), label: const Text('تطبيق الفلاتر'),
+                    ),
+                  ),
+                ]),
+              ),
+            ],
+          ),
         if (_loading || _more) const LinearProgressIndicator(),
         if (_error != null) MaterialBanner(
           content: Text(_error!),
