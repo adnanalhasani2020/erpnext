@@ -263,6 +263,12 @@ abstract class _FrappeApiCore {
 
   Future<List<core.Map<String, dynamic>>> fetchPaymentReconciliationDimensions(String company);
 
+  Future<List<String>> searchPaymentReconciliationDimensionValues({
+      required String company,
+      required String fieldname,
+      required String search,
+    });
+
   Future<core.Map<String, dynamic>> fetchUnreconciledPaymentEntries({
       required String company,
       required String partyType,
