@@ -320,7 +320,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
         final value = _filters[key]?.trim() ?? '';
         if (value.isEmpty) continue;
         final type = field['fieldtype']?.toString() ?? '';
-        final operator = _filterOperators[key] ?? (type == 'Data' || type == 'Link' ? 'like' : '=');
+        final operator = _filterOperators[key] ?? (type == 'Data' || type == 'Small Text' ? 'like' : '=');
         final filterValue = operator == 'like' ? '%$value%' : value;
         activeFilters.add([key, operator, filterValue]);
       }
@@ -1218,7 +1218,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                           width: 112,
                           child: DropdownButtonFormField<String>(
                             initialValue: _filterOperators[field['fieldname'].toString()] ??
-                              ((field['fieldtype'] == 'Data' || field['fieldtype'] == 'Link') ? 'like' : '='),
+                              ((field['fieldtype'] == 'Data' || field['fieldtype'] == 'Small Text') ? 'like' : '='),
                             isExpanded: true,
                             decoration: const InputDecoration(labelText: 'المعامل', isDense: true),
                             items: _filterOperatorsFor(field).map((value) => DropdownMenuItem(
