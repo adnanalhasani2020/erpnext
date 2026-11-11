@@ -1288,6 +1288,56 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
       return {'processed': processed, 'total': total};
     }
 
+  Future<List<core.Map<String, dynamic>>> fetchProcessPaymentReconciliationLogs({
+      int start = 0, String? search, String? status,
+    }) async {
+      if (start < 0) throw const FormatException('موضع تحميل سجلات التسوية غير صحيح.');
+      final query = search?.trim() ?? '';
+      final uri = FrappeApi.buildResourcePageUri(
+        baseUrl: _baseUrl,
+        resource: 'Process Payment Reconciliation Log',
+        fields: const [
+          'name', 'process_pr', 'status', 'allocated', 'reconciled',
+          'total_allocations', 'reconciled_entries', 'creation', 'modified',
+        ],
+        filters: status?.trim().isNotEmpty == true
+            ? [['status', '=', status!.trim()]] : null,
+        orFilters: query.isEmpty ? null : [
+          ['name', 'like', '%$query%'],
+          ['process_pr', 'like', '%$query%'],
+        ],
+        orderBy: 'creation desc, name desc',
+        start: start,
+        pageLength: 50,
+      );
+      final response = await _sendUri('GET', uri);
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر تحميل سجل مهام التسوية.'));
+      }
+      final rows = data['data'];
+      if (rows is! List) throw const FormatException('استجابة سجل مهام التسوية غير صحيحة.');
+      return rows.whereType<core.Map<String, dynamic>>()
+          .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+    }
+
+  Future<core.Map<String, dynamic>> fetchProcessPaymentReconciliationLogDocument(String name) async {
+      final id = name.trim();
+      if (id.isEmpty) throw const FormatException('رقم سجل التسوية غير موجود.');
+      final response = await _send('GET',
+        '/api/resource/Process%20Payment%20Reconciliation%20Log/' + Uri.encodeComponent(id));
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر تحميل تفاصيل سجل التسوية.'));
+      }
+      final document = data['data'];
+      if (document is! core.Map<String, dynamic> ||
+          document['doctype'] != 'Process Payment Reconciliation Log' || document['name'] != id) {
+        throw const FormatException('لم يؤكد ERPNext هوية سجل التسوية المطلوب.');
+      }
+      return core.Map<String, dynamic>.from(document);
+    }
+
   Future<core.Map<String, dynamic>?> fetchProcessPaymentReconciliationLog(String name) async {
       final id = name.trim();
       if (id.isEmpty) throw const FormatException('رقم مهمة التسوية غير موجود.');
