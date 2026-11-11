@@ -15,6 +15,7 @@ void main() {
   testWidgets('editing reconciliation filters invalidates allocations and successful reconcile clears them', (tester) async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     var reconcileCalls = 0;
+    double? reconciledAllocationAmount;
     server.listen((request) async {
       request.response.headers.contentType = ContentType.json;
       if (request.method == 'GET' &&
@@ -59,6 +60,8 @@ void main() {
           }];
         } else if (method == 'reconcile') {
           reconcileCalls++;
+          final allocation = document['allocation'] as List;
+          reconciledAllocationAmount = (allocation.first as core.Map)['allocated_amount'] as double;
         } else {
           fail('Unexpected method: $method');
         }
@@ -100,12 +103,18 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('معاينة التوزيع التلقائي حسب الأقدمية'));
       await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('تعديل مبلغ التخصيص'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField), '50');
+      await tester.tap(find.text('حفظ المبلغ'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('تأكيد التخصيص وترحيل التسوية'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('تأكيد التسوية'));
       await tester.pumpAndSettle();
 
       expect(reconcileCalls, 1);
+      expect(reconciledAllocationAmount, 50.0);
       expect(find.text('معاينة التخصيصات (1)'), findsNothing);
       expect(find.text('تأكيد التخصيص وترحيل التسوية'), findsNothing);
       expect(find.textContaining('أكد ERPNext تنفيذ التسوية'), findsOneWidget);
