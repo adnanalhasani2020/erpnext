@@ -246,6 +246,8 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
   List<Map<String, dynamic>> _filterFields = [];
   final Map<String, String> _filters = {};
   final Map<String, String> _filterOperators = {};
+  String _sortField = 'modified';
+  bool _sortDescending = true;
   bool _loading = true, _more = false, _hasMore = false;
   int _offset = 0, _generation = 0;
   String? _error;
@@ -306,6 +308,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
       final rows = await widget.api.fetchDocTypeRows(
         doctype: _doctype, fields: fields, search: _search.text,
         start: start, filters: activeFilters,
+        orderBy: '$_sortField ${_sortDescending ? 'desc' : 'asc'}',
       );
       if (!mounted || generation != _generation) return;
       setState(() {
@@ -1038,6 +1041,38 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
             suffixIcon: IconButton(onPressed: () { _generation++; _load(); }, icon: const Icon(Icons.search)),
           ),
         )),
+        Padding(
+          padding: const EdgeInsetsDirectional.fromSTEB(12, 0, 12, 8),
+          child: Row(children: [
+            Expanded(child: DropdownButtonFormField<String>(
+              initialValue: _sortField,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'ترتيب حسب', isDense: true),
+              items: <String>{'modified', 'name', ..._fields
+                .where((field) => field['fieldname'] is String &&
+                  !const {'Table','Table MultiSelect','Section Break','Column Break','Tab Break','HTML','Button'}.contains(field['fieldtype']))
+                .map((field) => field['fieldname'].toString())}.map((key) {
+                  final field = _fields.where((f) => f['fieldname'] == key).firstOrNull;
+                  final label = field?['label']?.toString() ?? (key == 'modified' ? 'آخر تعديل' : key);
+                  return DropdownMenuItem(value: key, child: Text(label, overflow: TextOverflow.ellipsis));
+                }).toList(),
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() { _sortField = value; _generation++; });
+                _load();
+              },
+            )),
+            const SizedBox(width: 8),
+            IconButton.filledTonal(
+              tooltip: _sortDescending ? 'ترتيب تنازلي' : 'ترتيب تصاعدي',
+              onPressed: _loading ? null : () {
+                setState(() { _sortDescending = !_sortDescending; _generation++; });
+                _load();
+              },
+              icon: Icon(_sortDescending ? Icons.south : Icons.north),
+            ),
+          ]),
+        ),
         if (_filterFields.isNotEmpty)
           ExpansionTile(
             title: const Text('فلاتر الشاشة الأصلية'),
