@@ -1,42 +1,6 @@
 import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
 
-bool _evaluateFrappeCondition(String? expression, Map<String, dynamic> values) {
-  var source = expression?.trim() ?? '';
-  if (source.isEmpty) return true;
-  if (source.startsWith('eval:')) source = source.substring(5).trim();
-  source = source.replaceAll('doc.', '');
-  bool truthy(dynamic value) {
-    if (value == null || value == false || value == 0 || value == '') return false;
-    if (value is String && const {'0', 'false', 'False', 'no', 'No'}.contains(value)) return false;
-    return true;
-  }
-
-  final comparison = RegExp(r"""^([A-Za-z_][A-Za-z0-9_]*)\s*(==|!=|>=|<=|>|<)\s*['"]?(.*?)['"]?$""").firstMatch(source);
-  if (comparison != null) {
-    final actual = values[comparison.group(1)];
-    final operator = comparison.group(2)!;
-    final expectedText = comparison.group(3) ?? '';
-    final actualNumber = actual is num ? actual.toDouble() : double.tryParse(actual?.toString() ?? '');
-    final expectedNumber = double.tryParse(expectedText);
-    if (operator == '==') return (actual?.toString() ?? '') == expectedText;
-    if (operator == '!=') return (actual?.toString() ?? '') != expectedText;
-    if (actualNumber == null || expectedNumber == null) return false;
-    if (operator == '>') return actualNumber > expectedNumber;
-    if (operator == '>=') return actualNumber >= expectedNumber;
-    if (operator == '<') return actualNumber < expectedNumber;
-    return actualNumber <= expectedNumber;
-  }
-  final andParts = source.split('&&');
-  if (andParts.length > 1) return andParts.every((part) => _evaluateFrappeCondition(part, values));
-  final orParts = source.split('||');
-  if (orParts.length > 1) return orParts.any((part) => _evaluateFrappeCondition(part, values));
-  if (source.startsWith('!')) return !truthy(values[source.substring(1).trim()]);
-  if (RegExp(r'^[A-Za-z_][A-Za-z0-9_]*$').hasMatch(source)) return truthy(values[source]);
-  // Unknown JavaScript expressions stay visible; ERPNext remains the final validator.
-  return true;
-}
-
 class ErpDocTypeDefinition {
   const ErpDocTypeDefinition(this.group, this.label, this.doctype, this.icon);
   final String group, label, doctype;
