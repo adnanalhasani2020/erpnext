@@ -47,7 +47,7 @@ Audit basis: Flutter source, Frappe API calls and ERPNext workspace/DocType sour
 
 ## Payment Reconciliation follow-up — 2026-11-11
 
-The mobile screen now passes the native Payment Reconciliation filters to the virtual DocType, supports selecting which invoice/payment rows enter FIFO allocation, recalculates exchange differences through ERPNext when an allocation amount changes, and captures the difference account and gain/loss posting date when needed. The app still caps fetched rows at 500, does not yet expose dynamic accounting-dimension Link filters or the background Process Payment Reconciliation workflow, and has not been tested against a live ERPNext site.
+The mobile screen passes native Payment Reconciliation filters and discovered accounting-dimension fields to the virtual DocType, validates dimension Link values against ERPNext, supports selected invoice/payment rows and per-currency totals, allows removing or editing FIFO allocation rows, recalculates exchange differences through ERPNext, and captures difference-account and gain/loss posting-date details. The app still caps fetched rows at 500; dimension and other Link values are typed as ERPNext names rather than selected through searchable Link pickers. Background Process Payment Reconciliation jobs are now handled by a separate mobile workflow. No live ERPNext site was available for acceptance testing.
 
 ## Important boundaries
 
