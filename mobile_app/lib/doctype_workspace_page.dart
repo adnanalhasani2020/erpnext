@@ -113,7 +113,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           final link = Map<String, dynamic>.from(raw);
           final doctype = link['link_to']?.toString().trim() ?? '';
           if (doctype.isEmpty || link['link_type']?.toString() != 'DocType' ||
-              (link['hidden'] == 1 || link['hidden'] == true) || link['type'] == 'Section Break' || !seen.add(doctype)) continue;
+              (link['hidden'] == 1 || link['hidden'] == true) || link['type'] == 'Section Break' || !seen.add('${workspaceTitle}::${doctype}')) continue;
           const translatedLabels = <String, String>{
             'Payment Request': 'طلبات الدفع',
             'Payment Order': 'أوامر الدفع',
