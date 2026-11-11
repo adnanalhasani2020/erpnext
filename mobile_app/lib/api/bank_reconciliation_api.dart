@@ -632,10 +632,39 @@ mixin BankReconciliationApiMixin on _FrappeApiCore {
       };
       if (suppliedDimensions.isNotEmpty) {
         final definitions = await fetchPaymentReconciliationDimensions(cleanCompany);
-        final allowed = definitions.map((row) => row['fieldname']?.toString() ?? '').toSet();
-        final invalid = suppliedDimensions.keys.where((key) => !allowed.contains(key)).toList();
+        final definitionsByName = <String, core.Map<String, dynamic>>{
+          for (final row in definitions)
+            if (row['fieldname'] is String) row['fieldname'].toString(): row,
+        };
+        final invalid = suppliedDimensions.keys.where((key) => !definitionsByName.containsKey(key)).toList();
         if (invalid.isNotEmpty) {
           throw FormatException('أبعاد محاسبية غير معروفة في إعدادات ERPNext: ${invalid.join('، ')}');
+        }
+        for (final entry in suppliedDimensions.entries) {
+          final definition = definitionsByName[entry.key]!;
+          final filters = <List<dynamic>>[
+            for (final filter in (definition['filters'] as core.Map<String, dynamic>).entries)
+              [filter.key, '=', filter.value],
+            ['name', '=', entry.value],
+          ];
+          final uri = FrappeApi.buildResourcePageUri(
+            baseUrl: _baseUrl,
+            resource: definition['options'].toString(),
+            fields: const ['name'],
+            filters: filters,
+            orderBy: 'name asc',
+            pageLength: 1,
+          );
+          final optionResponse = await _sendUri('GET', uri);
+          final optionData = _decode(optionResponse.body);
+          if (optionResponse.statusCode < 200 || optionResponse.statusCode >= 300) {
+            throw Exception(_message(optionData, 'تعذر التحقق من قيمة البعد المحاسبي ${entry.key}.'));
+          }
+          final options = optionData['data'];
+          if (options is! List || !options.whereType<core.Map<String, dynamic>>()
+              .any((row) => row['name'] == entry.value)) {
+            throw FormatException('القيمة ${entry.value} غير متاحة للبعد المحاسبي ${entry.key} في هذه الشركة.');
+          }
         }
       }
       final document = <String, dynamic>{
