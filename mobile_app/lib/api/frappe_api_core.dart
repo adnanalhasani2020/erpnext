@@ -748,6 +748,12 @@ abstract class _FrappeApiCore {
 
   Future<core.Map<String, dynamic>?> fetchProcessPaymentReconciliationLog(String name);
 
+  Future<List<core.Map<String, dynamic>>> fetchProcessPaymentReconciliationLogs({
+      int start = 0, String? search, String? status,
+    });
+
+  Future<core.Map<String, dynamic>> fetchProcessPaymentReconciliationLogDocument(String name);
+
   Future<core.Map<String, dynamic>> fetchPartyLedgerTotals({
       required String partyType, required String party,
       String? company, String? fromDate, String? toDate,
