@@ -43,7 +43,9 @@ Audit basis: Flutter source, Frappe API calls and ERPNext workspace/DocType sour
 6. Item Catalog Excel import now validates required columns, missing mandatory row data and duplicate item codes before any writes; it asks for confirmation and explains that matching item codes update existing Items.
 7. The DocType directory now routes Account, Journal Entry, Payment Reconciliation, Bank Transaction, Warehouse, Sales Person, Item Price, Pricing Rule and Sales Invoice to their specialized mobile workflows instead of the generic DocType editor.
 8. The mobile CI analyzer command now uses `--no-fatal-infos`: info diagnostics remain visible, while actual warnings and errors still fail the job. Flutter SDK Material imports remain on the supported `package:flutter/material.dart` path.
-9. Payment Reconciliation now displays selected invoice/payment totals by currency and allows removing individual suggested allocations before confirmation.\n10. A dedicated Process Payment Reconciliation screen now creates and submits native background jobs, supports start/resume/pause/cancel, and reads persistent job progress and allocation logs.\n11. Bank Reconciliation now lists prior Bank Statement Import documents and reads native row-level Data Import Logs.
+9. Payment Reconciliation now displays selected invoice/payment totals by currency and allows removing individual suggested allocations before confirmation.
+10. A dedicated Process Payment Reconciliation screen now creates and submits native background jobs, supports start/resume/pause/cancel, and reads persistent job progress and allocation logs.
+11. Bank Reconciliation now lists prior Bank Statement Import documents and reads native row-level Data Import Logs.
 
 ## Payment Reconciliation follow-up — 2026-11-11
 
