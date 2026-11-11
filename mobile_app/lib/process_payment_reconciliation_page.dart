@@ -35,6 +35,7 @@ class _ProcessPaymentReconciliationPageState
 
   String? _company;
   String _partyType = 'Customer';
+  String? _statusFilter;
   List<core.Map<String, dynamic>> _jobs = [];
   int _offset = 0;
   bool _loading = false;
@@ -120,6 +121,7 @@ class _ProcessPaymentReconciliationPageState
         start: more ? _offset : 0,
         search: _search.text,
         company: _company,
+        status: _statusFilter,
       );
       if (!mounted) return;
       setState(() {
@@ -435,6 +437,26 @@ class _ProcessPaymentReconciliationPageState
               )).toList(),
               onChanged: _loading || _loadingMore ? null : (value) {
                 setState(() => _company = value);
+                _load();
+              },
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String?>(
+              initialValue: _statusFilter,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'تصفية حالة المهمة'),
+              items: const [
+                DropdownMenuItem<String?>(value: null, child: Text('كل الحالات')),
+                DropdownMenuItem<String?>(value: 'Queued', child: Text('في قائمة الانتظار')),
+                DropdownMenuItem<String?>(value: 'Running', child: Text('قيد التنفيذ')),
+                DropdownMenuItem<String?>(value: 'Paused', child: Text('متوقفة مؤقتاً')),
+                DropdownMenuItem<String?>(value: 'Completed', child: Text('مكتملة')),
+                DropdownMenuItem<String?>(value: 'Partially Reconciled', child: Text('مسواة جزئياً')),
+                DropdownMenuItem<String?>(value: 'Failed', child: Text('فشلت')),
+                DropdownMenuItem<String?>(value: 'Cancelled', child: Text('ملغاة')),
+              ],
+              onChanged: _loading || _loadingMore ? null : (value) {
+                setState(() => _statusFilter = value);
                 _load();
               },
             ),
