@@ -576,6 +576,24 @@ class _ProcessPaymentReconciliationPageState
                       : const Icon(Icons.save_outlined),
                   label: Text(_editingJobName == null ? 'حفظ مسودة المهمة' : 'حفظ تعديلات المسودة'),
                 ),
+                if (_editingJobName != null)
+                  TextButton(
+                    onPressed: _saving ? null : () {
+                      setState(() {
+                        _editingJobName = null;
+                        _party.clear();
+                        _receivableAccount.clear();
+                        _advanceAccount.clear();
+                        _bankCashAccount.clear();
+                        _costCenter.clear();
+                        _invoiceFrom.clear();
+                        _invoiceTo.clear();
+                        _paymentFrom.clear();
+                        _paymentTo.clear();
+                      });
+                    },
+                    child: const Text('إلغاء التعديل'),
+                  ),
               ],
             ),
             const Divider(height: 28),
