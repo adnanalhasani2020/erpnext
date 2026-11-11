@@ -193,6 +193,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
   List<Map<String, dynamic>> _rows = [];
   List<Map<String, dynamic>> _filterFields = [];
   final Map<String, String> _filters = {};
+  final Map<String, String> _filterOperators = {};
   bool _loading = true, _more = false, _hasMore = false;
   int _offset = 0, _generation = 0;
   String? _error;
@@ -204,7 +205,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     final result = _fields.where((f) => f['fieldname'] is String &&
       f['fieldtype'] != 'Table' && f['fieldtype'] != 'Table MultiSelect' &&
       (f['in_list_view'] == 1 || f['in_standard_filter'] == 1 || f['reqd'] == 1))
-      .map((f) => f['fieldname'].toString()).take(10).toList();
+      .map((f) => f['fieldname'].toString()).toList();
     if (!result.contains('name')) result.insert(0, 'name');
     return result;
   }
@@ -246,8 +247,9 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
         final value = _filters[key]?.trim() ?? '';
         if (value.isEmpty) continue;
         final type = field['fieldtype']?.toString() ?? '';
-        final operator = type == 'Data' || type == 'Link' ? 'like' : '=';
-        activeFilters.add([key, operator, operator == 'like' ? '%' + value + '%' : value]);
+        final operator = _filterOperators[key] ?? (type == 'Data' || type == 'Link' ? 'like' : '=');
+        final filterValue = operator == 'like' ? '%$value%' : value;
+        activeFilters.add([key, operator, filterValue]);
       }
       final rows = await widget.api.fetchDocTypeRows(
         doctype: _doctype, fields: fields, search: _search.text,
@@ -266,6 +268,17 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     }
   }
 
+
+  List<String> _filterOperatorsFor(Map<String, dynamic> field) {
+    final type = field['fieldtype']?.toString() ?? '';
+    if (const {'Int','Float','Currency','Percent','Date','Datetime','Time','Duration'}.contains(type)) {
+      return const ['=', '!=', '>', '>=', '<', '<='];
+    }
+    if (type == 'Data' || type == 'Link' || type == 'Dynamic Link' || type == 'Small Text') {
+      return const ['like', '=', '!='];
+    }
+    return const ['=', '!='];
+  }
 
   Future<String?> _pickLinkValue(String target) async {
     final query = TextEditingController();
@@ -627,16 +640,51 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 child: Column(children: [
                   for (final field in _filterFields)
-                    TextField(
-                      decoration: InputDecoration(labelText: field['label']?.toString() ?? field['fieldname'].toString()),
-                      onChanged: (value) => _filters[field['fieldname'].toString()] = value,
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(children: [
+                        SizedBox(
+                          width: 112,
+                          child: DropdownButtonFormField<String>(
+                            value: _filterOperators[field['fieldname'].toString()] ??
+                              ((field['fieldtype'] == 'Data' || field['fieldtype'] == 'Link') ? 'like' : '='),
+                            isExpanded: true,
+                            decoration: const InputDecoration(labelText: 'المعامل', isDense: true),
+                            items: _filterOperatorsFor(field).map((value) => DropdownMenuItem(
+                              value: value, child: Text(value, overflow: TextOverflow.ellipsis),
+                            )).toList(),
+                            onChanged: (value) {
+                              if (value != null) _filterOperators[field['fieldname'].toString()] = value;
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(child: TextField(
+                          decoration: InputDecoration(
+                            labelText: field['label']?.toString() ?? field['fieldname'].toString(),
+                            isDense: true,
+                          ),
+                          onChanged: (value) => _filters[field['fieldname'].toString()] = value,
+                        )),
+                      ]),
                     ),
                   Align(
                     alignment: AlignmentDirectional.centerEnd,
-                    child: FilledButton.tonalIcon(
-                      onPressed: _loading ? null : () { _generation++; _load(); },
-                      icon: const Icon(Icons.filter_alt), label: const Text('تطبيق الفلاتر'),
-                    ),
+                    child: Wrap(spacing: 8, children: [
+                      TextButton.icon(
+                        onPressed: _loading ? null : () {
+                          _filters.clear();
+                          _filterOperators.clear();
+                          _generation++;
+                          _load();
+                        },
+                        icon: const Icon(Icons.clear_all), label: const Text('مسح الفلاتر'),
+                      ),
+                      FilledButton.tonalIcon(
+                        onPressed: _loading ? null : () { _generation++; _load(); },
+                        icon: const Icon(Icons.filter_alt), label: const Text('تطبيق الفلاتر'),
+                      ),
+                    ]),
                   ),
                 ]),
               ),
