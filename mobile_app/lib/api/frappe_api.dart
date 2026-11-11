@@ -5629,16 +5629,18 @@ class FrappeApi {
   }) async {
     final id = name.trim(), normalizedCompany = company.trim();
     if (id.isEmpty || normalizedCompany.isEmpty) throw const FormatException('رقم دورة الرواتب والشركة مطلوبان.');
-    await fillPayrollEmployees(name: id, company: normalizedCompany);
-    final response = await _send('GET', '/api/resource/Payroll%20Entry/' + Uri.encodeComponent(id));
-    final data = _decode(response.body);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw Exception(_message(data, 'تعذر إعادة قراءة دورة الرواتب قبل الترحيل.'));
+    var current = await fetchPayrollEntryDocument(name: id, company: normalizedCompany);
+    if (current['docstatus'] != 0) {
+      throw const FormatException('لا يمكن ترحيل دورة رواتب لم تعد مسودة.');
     }
-    final current = data['data'];
-    if (current is! core.Map<String, dynamic> || current['doctype'] != 'Payroll Entry' ||
-        current['name'] != id || current['company'] != normalizedCompany ||
-        current['docstatus'] != 0 || current['employees'] is! List ||
+    // Preserve the employee rows already reviewed or edited by the user.
+    // Populate them only when the draft has not yet been initialized.
+    final existingEmployees = current['employees'];
+    if (existingEmployees is! List || existingEmployees.isEmpty) {
+      await fillPayrollEmployees(name: id, company: normalizedCompany);
+      current = await fetchPayrollEntryDocument(name: id, company: normalizedCompany);
+    }
+    if (current['docstatus'] != 0 || current['employees'] is! List ||
         (current['employees'] as List).isEmpty) {
       throw const FormatException('لا يمكن ترحيل دورة الرواتب قبل تحميل الموظفين والتحقق من الشركة والحالة.');
     }
