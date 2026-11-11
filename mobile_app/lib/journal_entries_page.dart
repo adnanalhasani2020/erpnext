@@ -17,7 +17,17 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
   final _date = TextEditingController(text: DateTime.now().toIso8601String().substring(0, 10));
   final _remark = TextEditingController();
   final _search = TextEditingController();
+  final _postingFrom = TextEditingController();
+  final _postingTo = TextEditingController();
   final _accountSearch = TextEditingController();
+  String? _voucherType;
+  static const _voucherTypes = <String>[
+    'Journal Entry', 'Inter Company Journal Entry', 'Bank Entry', 'Cash Entry',
+    'Credit Card Entry', 'Debit Note', 'Credit Note', 'Contra Entry', 'Excise Entry',
+    'Write Off Entry', 'Opening Entry', 'Depreciation Entry', 'Asset Disposal',
+    'Periodic Accounting Entry', 'Exchange Rate Revaluation', 'Exchange Gain Or Loss',
+    'Deferred Revenue', 'Deferred Expense',
+  ];
   List<core.Map<String, dynamic>> _accountOptions = [];
   bool _accountsLoading = false;
   String? _accountError;
@@ -42,7 +52,8 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
   @override
   void dispose() {
     _accountRequestId++;
-    _date.dispose(); _remark.dispose(); _search.dispose(); _accountSearch.dispose();
+    _date.dispose(); _remark.dispose(); _search.dispose();
+    _postingFrom.dispose(); _postingTo.dispose(); _accountSearch.dispose();
     for (final line in _lines) { line.dispose(); }
     super.dispose();
   }
@@ -106,6 +117,18 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
   double get _debit => _lines.fold(0, (v, e) => v + _amount(e.debit.text) * _amount(e.exchangeRate.text));
   double get _credit => _lines.fold(0, (v, e) => v + _amount(e.credit.text) * _amount(e.exchangeRate.text));
 
+  Future<void> _pickFilterDate(TextEditingController controller) async {
+    final initial = DateTime.tryParse(controller.text.trim()) ?? DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null || !mounted) return;
+    setState(() => controller.text = _postingDateString(picked));
+  }
+
   Future<void> _load({bool more = false}) async {
     final company = _company;
     if (company == null || _loading || _loadingMore || (more && !_hasMore)) return;
@@ -122,6 +145,9 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
         company: company,
         search: _search.text,
         docStatus: _docStatus,
+        fromDate: _postingFrom.text.trim(),
+        toDate: _postingTo.text.trim(),
+        voucherType: _voucherType,
         start: more ? _offset : 0,
       );
       if (!mounted || company != _company) return;
@@ -433,6 +459,58 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
           setState(() { _docStatus = value; _drafts = []; _offset = 0; _hasMore = false; });
           _load();
         },
+      ),
+      DropdownButtonFormField<String?>(
+        initialValue: _voucherType,
+        isExpanded: true,
+        decoration: const InputDecoration(labelText: 'نوع القيد'),
+        items: [
+          const DropdownMenuItem<String?>(value: null, child: Text('كل أنواع القيود')),
+          ..._voucherTypes.map((value) => DropdownMenuItem<String?>(
+            value: value, child: Text(value, overflow: TextOverflow.ellipsis),
+          )),
+        ],
+        onChanged: _loading || _loadingMore || _saving || _submitting ? null : (value) {
+          setState(() { _voucherType = value; _drafts = []; _offset = 0; _hasMore = false; });
+          _load();
+        },
+      ),
+      ExpansionTile(
+        title: const Text('فترة تاريخ القيد'),
+        children: [
+          TextField(
+            controller: _postingFrom,
+            readOnly: true,
+            decoration: const InputDecoration(labelText: 'من تاريخ', suffixIcon: Icon(Icons.calendar_today_outlined)),
+            onTap: () => _pickFilterDate(_postingFrom),
+          ),
+          TextField(
+            controller: _postingTo,
+            readOnly: true,
+            decoration: const InputDecoration(labelText: 'إلى تاريخ', suffixIcon: Icon(Icons.calendar_today_outlined)),
+            onTap: () => _pickFilterDate(_postingTo),
+          ),
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: Wrap(spacing: 8, children: [
+              TextButton(
+                onPressed: _loading || _loadingMore ? null : () {
+                  _postingFrom.clear(); _postingTo.clear();
+                  _drafts = []; _offset = 0; _hasMore = false;
+                  _load();
+                },
+                child: const Text('مسح الفترة'),
+              ),
+              FilledButton.tonal(
+                onPressed: _loading || _loadingMore ? null : () {
+                  setState(() { _drafts = []; _offset = 0; _hasMore = false; });
+                  _load();
+                },
+                child: const Text('تطبيق الفترة'),
+              ),
+            ]),
+          ),
+        ],
       ),
       TextField(controller: _search, enabled: !_loading && !_loadingMore && !_saving && !_submitting, textInputAction: TextInputAction.search, onSubmitted: (_) => _load(),
         decoration: InputDecoration(labelText: 'بحث برقم القيد أو البيان', suffixIcon: IconButton(onPressed: _loading || _loadingMore || _saving || _submitting ? null : _load, icon: const Icon(Icons.search)))),
