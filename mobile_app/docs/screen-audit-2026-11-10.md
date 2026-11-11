@@ -55,3 +55,11 @@ This audit reflects the unified Flutter branch after the advanced-stock merge an
 4. A production-signed APK, release signing configuration, security review, and live-site acceptance test remain outstanding.
 
 A passing unit/widget test or APK build does not replace live ERPNext integration validation. Do not mark a workflow production-ready until a disposable, version-matched ERPNext + HRMS site confirms permissions, document lifecycle, payment allocation, currency conversion, and General Ledger results.
+
+
+## Follow-up fixes — 2026-11-11
+
+- Bank statement picker and API now accept common MT940 extensions: `.txt`, `.mt940`, `.940`, and `.sta`, in addition to CSV/XLS/XLSX. MT940 conversion remains ERPNext-native. The client no longer blocks a preview just because a redundant Bank Account column is absent when the selected Bank Account is already attached to the import document; the server remains authoritative for import validation.
+- Stock Reconciliation no longer imposes a 200-serial UI ceiling. It now aligns with the API's chunked 200-at-a-time fetch and 5,000-serial per-item safety ceiling.
+- Payroll Entry history now paginates beyond the first 50 records and refreshes safely when the selected company changes.
+- These are source-code changes only. No Flutter test, Android build, or live ERPNext/HRMS integration run has been completed in this session.
