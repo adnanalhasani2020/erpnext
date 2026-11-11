@@ -25,6 +25,16 @@ void main() {
       expect(document['party'], 'CUS-1');
       if (method == 'get_unreconciled_entries') {
         expect(document['receivable_payable_account'], 'Debtors - COMP-1');
+        expect(document['bank_cash_account'], 'Cash - COMP-1');
+        expect(document['default_advance_account'], 'Advances - COMP-1');
+        expect(document['cost_center'], 'Main - COMP-1');
+        expect(document['project'], 'PRJ-1');
+        expect(document['invoice_name'], 'SINV-7');
+        expect(document['payment_name'], 'PAY-8');
+        expect(document['minimum_invoice_amount'], 10);
+        expect(document['maximum_invoice_amount'], 900);
+        expect(document['minimum_payment_amount'], 5);
+        expect(document['maximum_payment_amount'], 800);
         document['invoices'] = [{
           'invoice_type': 'Sales Invoice',
           'invoice_number': 'SINV-1',
@@ -68,6 +78,16 @@ void main() {
         partyType: 'Customer',
         party: 'CUS-1',
         receivablePayableAccount: 'Debtors - COMP-1',
+        bankCashAccount: 'Cash - COMP-1',
+        defaultAdvanceAccount: 'Advances - COMP-1',
+        costCenter: 'Main - COMP-1',
+        project: 'PRJ-1',
+        invoiceName: 'SINV-7',
+        paymentName: 'PAY-8',
+        minimumInvoiceAmount: 10,
+        maximumInvoiceAmount: 900,
+        minimumPaymentAmount: 5,
+        maximumPaymentAmount: 800,
       );
       expect((loaded['invoices'] as List).length, 1);
       expect((loaded['payments'] as List).length, 1);
@@ -105,6 +125,17 @@ void main() {
         receivablePayableAccount: 'Debtors - COMP-1',
         fromInvoiceDate: '2026-12-31',
         toInvoiceDate: '2026-01-01',
+      ),
+      throwsFormatException,
+    );
+    await expectLater(
+      api.fetchUnreconciledPaymentEntries(
+        company: 'COMP-1',
+        partyType: 'Customer',
+        party: 'CUS-1',
+        receivablePayableAccount: 'Debtors - COMP-1',
+        minimumInvoiceAmount: 500,
+        maximumInvoiceAmount: 100,
       ),
       throwsFormatException,
     );
