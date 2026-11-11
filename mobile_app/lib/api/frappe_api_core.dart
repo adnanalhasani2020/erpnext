@@ -278,6 +278,12 @@ abstract class _FrappeApiCore {
       core.Map<String, dynamic> document,
     );
 
+  Future<double> calculatePaymentReconciliationDifference({
+      required core.Map<String, dynamic> document,
+      required core.Map<String, dynamic> allocation,
+      required double allocatedAmount,
+    });
+
   Future<core.Map<String, dynamic>> reconcilePaymentAllocations(
       core.Map<String, dynamic> document,
     );
