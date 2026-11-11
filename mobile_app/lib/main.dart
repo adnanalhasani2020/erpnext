@@ -1193,6 +1193,31 @@ class _MobileHomePageState extends State<MobileHomePage> {
       case 'Item':
         _openMasterData();
         return;
+      case 'Account':
+        _openChartOfAccounts();
+        return;
+      case 'Journal Entry':
+        _openJournalEntries();
+        return;
+      case 'Payment Reconciliation':
+        _openPaymentReconciliation();
+        return;
+      case 'Bank Transaction':
+        _openBankReconciliation();
+        return;
+      case 'Warehouse':
+        _openWarehouseHierarchy();
+        return;
+      case 'Sales Person':
+        _openSalesCommissions();
+        return;
+      case 'Item Price':
+      case 'Pricing Rule':
+        _openSalesPricing();
+        return;
+      case 'Sales Invoice':
+        _openSalesInvoiceComposer();
+        return;
       case 'Quotation':
       case 'Sales Order':
       case 'Delivery Note':
