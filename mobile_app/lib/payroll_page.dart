@@ -110,7 +110,7 @@ class _PayrollPageState extends State<PayrollPage> {
 
   Future<void> _loadEntries() async {
     final company = _company;
-    if (company == null || company.isEmpty || _loadingEntries) return;
+    if (company == null || company.isEmpty) return;
     final generation = ++_entryGeneration;
     setState(() {
       _loadingEntries = true;
