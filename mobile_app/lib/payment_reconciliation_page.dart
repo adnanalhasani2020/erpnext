@@ -773,7 +773,9 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
               if (allocations.isEmpty) ...[
                 const SizedBox(height: 12),
                 FilledButton.tonalIcon(
-                  onPressed: _busy || invoices.isEmpty || payments.isEmpty ? null : _previewAllocation,
+                  onPressed: _busy || invoices.isEmpty || payments.isEmpty ||
+                      _selectedInvoiceNumbers.isEmpty || _selectedPaymentReferences.isEmpty
+                      ? null : _previewAllocation,
                   icon: const Icon(Icons.auto_fix_high_outlined),
                   label: const Text('معاينة التوزيع التلقائي حسب الأقدمية'),
                 ),
@@ -785,7 +787,11 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
                     child: ListTile(
                       leading: const Icon(Icons.compare_arrows_outlined),
                       title: Text('${row['reference_type'] ?? ''} • ${row['reference_name'] ?? ''}'),
-                      subtitle: Text('إلى ${row['invoice_type'] ?? ''} • ${row['invoice_number'] ?? ''}'),
+                      subtitle: Text(
+                        'إلى ${row['invoice_type'] ?? ''} • ${row['invoice_number'] ?? ''}'
+                        '${_number(row['difference_amount']).abs() > 0.0000001 ? '\nفرق العملة: ${_number(row['difference_amount']).toStringAsFixed(2)} • ${row['difference_account'] ?? 'حساب الفرق غير محدد'}' : ''}',
+                      ),
+                      isThreeLine: _number(row['difference_amount']).abs() > 0.0000001,
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
