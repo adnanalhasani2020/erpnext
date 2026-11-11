@@ -182,7 +182,7 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
     if (_importingStatement || _company == null || _bankAccount == null) return;
     try {
       final picked = await FilePicker.platform.pickFiles(
-        type: FileType.custom, allowedExtensions: const ['csv', 'xlsx', 'xls', 'txt'],
+        type: FileType.custom, allowedExtensions: const ['csv', 'xlsx', 'xls', 'txt', 'mt940', '940', 'sta'],
         withData: true, allowMultiple: false,
       );
       if (picked == null || picked.files.isEmpty) return;
