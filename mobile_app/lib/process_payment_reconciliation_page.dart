@@ -44,6 +44,7 @@ class _ProcessPaymentReconciliationPageState
   bool _loadingMore = false;
   bool _hasMore = false;
   bool _saving = false;
+  bool _loadingPartyAccounts = false;
   final Set<String> _busyJobs = <String>{};
   final Map<String, core.Map<String, dynamic>> _details = {};
   final Map<String, String> _detailErrors = {};
@@ -172,6 +173,32 @@ class _ProcessPaymentReconciliationPageState
       }
     }
     return null;
+  }
+
+  Future<void> _loadPartyAccounts() async {
+    final company = _company;
+    final party = _party.text.trim();
+    if (_loadingPartyAccounts || _saving || company == null || party.isEmpty) return;
+    setState(() {
+      _loadingPartyAccounts = true;
+      _error = null;
+    });
+    try {
+      final defaults = await widget.api.fetchProcessPaymentReconciliationPartyAccounts(
+        company: company,
+        partyType: _partyType,
+        party: party,
+      );
+      if (!mounted || company != _company || party != _party.text.trim()) return;
+      setState(() {
+        _receivableAccount.text = defaults['receivable_payable_account']?.toString() ?? '';
+        _advanceAccount.text = defaults['default_advance_account']?.toString() ?? '';
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _loadingPartyAccounts = false);
+    }
   }
 
   Future<void> _saveDraft() async {
@@ -564,12 +591,41 @@ class _ProcessPaymentReconciliationPageState
                     DropdownMenuItem(value: 'Supplier', child: Text('مورد')),
                     DropdownMenuItem(value: 'Employee', child: Text('موظف')),
                   ],
-                  onChanged: _saving ? null : (value) {
-                    if (value != null) setState(() => _partyType = value);
+                  onChanged: _saving || _loadingPartyAccounts ? null : (value) {
+                    if (value != null) {
+                      setState(() {
+                        _partyType = value;
+                        _party.clear();
+                        _receivableAccount.clear();
+                        _advanceAccount.clear();
+                      });
+                    }
                   },
                 ),
                 const SizedBox(height: 8),
-                TextField(controller: _party, decoration: const InputDecoration(labelText: 'رمز الطرف')),
+                TextField(
+                  controller: _party,
+                  enabled: !_saving && !_loadingPartyAccounts,
+                  decoration: InputDecoration(
+                    labelText: 'رمز الطرف',
+                    suffixIcon: IconButton(
+                      tooltip: 'جلب حسابات الطرف من ERPNext',
+                      onPressed: _saving || _loadingPartyAccounts ? null : _loadPartyAccounts,
+                      icon: _loadingPartyAccounts
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.manage_search),
+                    ),
+                  ),
+                  onSubmitted: (_) => _loadPartyAccounts(),
+                  onChanged: (_) {
+                    if (_receivableAccount.text.isNotEmpty || _advanceAccount.text.isNotEmpty) {
+                      setState(() {
+                        _receivableAccount.clear();
+                        _advanceAccount.clear();
+                      });
+                    }
+                  },
+                ),
                 const SizedBox(height: 8),
                 TextField(controller: _receivableAccount, decoration: const InputDecoration(labelText: 'حساب الذمم')),
                 const SizedBox(height: 8),
