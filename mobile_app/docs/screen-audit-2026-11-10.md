@@ -99,7 +99,7 @@ The dedicated DocType workspace implementation is a foundation for separate mobi
 ### Explicit parity gaps — do not mark complete
 
 - ERPNext Workspaces also contain non-DocType links (Reports, Pages, Dashboards, shortcuts and other link types). The current directory filters to DocType links; dedicated routes for every other link type remain required.
-- The generic DocType editor still renders Table and Table MultiSelect input as JSON rather than a native child-row editor. Child rows are now readable in details, but full add/edit/delete child-row behavior is not yet implemented.
+- The generic DocType editor now supports native add/edit/delete child-row workflows for Table and Table MultiSelect fields, using the child DocType metadata and preserving existing row properties. Nested child tables, dependency-aware child fields, conditional visibility and all specialized child-row actions still require additional implementation.
 - Attachments, comments, communications, activity timeline, document sharing, assignment, tags, print/ PDF, export, list-view bulk actions, saved filters, sorting controls and every DocType-specific action still require a per-screen inventory and implementation where the web screen exposes them.
 - Standard metadata filters are not equivalent to every ERPNext List View filter, custom filter, report filter or workspace shortcut. Those must be captured separately for each installed module and version.
 - The directory currently derives visible entries from Workspace metadata accessible to the logged-in user. A server/site inventory is still needed to discover hidden, permission-restricted and module-specific screens without bypassing permissions.
