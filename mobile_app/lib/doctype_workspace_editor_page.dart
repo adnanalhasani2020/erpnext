@@ -731,12 +731,22 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 for (final f in editable) {
                   final key = f['fieldname'].toString();
                   final type = f['fieldtype']?.toString() ?? '';
+                  final liveValues = dependencyValues();
+                  if (!visibleField(f) || readOnlyField(f)) continue;
+                  final requiredNow = requiredField(f);
                   if (type == 'Table' || type == 'Table MultiSelect') {
+                    if (requiredNow && (tableValues[key]?.isEmpty ?? true)) {
+                      throw FormatException('الحقل ' + (f['label']?.toString() ?? key) + ' مطلوب.');
+                    }
                     values[key] = tableValues[key] ?? <Map<String, dynamic>>[];
                     continue;
                   }
                   if (type == 'Check') {
-                    values[key] = checks[key] == true ? 1 : 0;
+                    final checked = checks[key] == true;
+                    if (requiredNow && !checked) {
+                      throw FormatException('الحقل ' + (f['label']?.toString() ?? key) + ' مطلوب.');
+                    }
+                    values[key] = checked ? 1 : 0;
                     continue;
                   }
                   if (type == 'Select') {
