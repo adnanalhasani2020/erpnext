@@ -66,3 +66,8 @@ The HR workflow's list presentation is now separated into focused widgets in `hr
 ## Leave application draft editing — 2026-11-12
 
 Added a dedicated edit action for draft Leave Application rows. The editor loads Leave Type choices, keeps the employee identity read-only, validates the date range, and saves through a new HR API method. The API re-reads the canonical document, verifies its DocType, name, company and draft status, revalidates the employee and Leave Type, saves through `frappe.client.save`, and checks the returned document identity and updated fields. Submitted/cancelled leave documents are not editable through this path. Widget and API tests cover the draft edit action, invalid inputs, employee/company preservation, and the confirmed server response. Leave balance, allocation, overlap and approval policy remain enforced by the ERPNext server and require a live HRMS acceptance test.
+
+
+## Payroll session-bound loading safety — 2026-11-12
+
+Payroll setup data (cost centers, payable accounts and bank accounts), payroll-entry list pages, pagination, entry details, and post-action refreshes now capture the Frappe API session generation. Responses from an earlier signed-in session are ignored; stale setup/list requests cannot overwrite data for a newly selected company or account, and their loading indicators are finalized without applying stale records. Payroll draft creation and submit/slip-submit/bank-entry feedback also verify that the initiating session remains active before presenting results. This is client-side stale-response protection, not a substitute for server authorization; each ERPNext request continues to enforce the authenticated user's permissions.
