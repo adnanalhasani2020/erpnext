@@ -28,6 +28,7 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
   List<Map<String, dynamic>> _rows = const [];
   bool _loadingDefinition = true;
   bool _running = false;
+  bool _linkSearchLoading = false;
   String? _error;
   int _generation = 0;
 
@@ -133,6 +134,106 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
     setState(() => _values[fieldname] = value);
   }
 
+  Future<String?> _pickLinkValue(String target) async {
+    if (target.trim().isEmpty) return null;
+    final query = TextEditingController();
+    List<Map<String, dynamic>> rows = [];
+    List<String> displayFields = const [];
+    bool loading = false;
+    bool dialogOpen = true;
+    String? error;
+    Future<void> search(StateSetter refresh) async {
+      refresh(() { loading = true; error = null; });
+      try {
+        final meta = await widget.api.fetchDocTypeMeta(target);
+        final fields = (meta['fields'] as List? ?? const [])
+            .whereType<Map<String, dynamic>>();
+        displayFields = fields.where((field) =>
+          field['fieldname'] is String &&
+          (field['in_list_view'] == 1 || field['reqd'] == 1))
+          .map((field) => field['fieldname'].toString())
+          .where((field) => field != 'name').take(4).toList();
+        rows = await widget.api.fetchDocTypeRows(
+          doctype: target,
+          fields: displayFields,
+          search: query.text.trim(),
+          searchFields: displayFields,
+        );
+      } catch (exception) {
+        error = exception.toString().replaceFirst('Exception: ', '');
+      }
+      if (dialogOpen && mounted) refresh(() => loading = false);
+    }
+
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, refresh) => AlertDialog(
+          title: Text('اختيار سجل من $target'),
+          content: SizedBox(
+            width: 520,
+            height: 420,
+            child: Column(
+              children: [
+                TextField(
+                  controller: query,
+                  autofocus: true,
+                  textInputAction: TextInputAction.search,
+                  onSubmitted: (_) => search(refresh),
+                  decoration: InputDecoration(
+                    labelText: 'ابحث في $target',
+                    suffixIcon: IconButton(
+                      onPressed: loading ? null : () => search(refresh),
+                      icon: const Icon(Icons.search),
+                    ),
+                  ),
+                ),
+                if (loading) const LinearProgressIndicator(),
+                if (error != null) Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Text(error!),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    itemCount: rows.length,
+                    itemBuilder: (_, index) {
+                      final row = rows[index];
+                      final name = row['name']?.toString() ?? '';
+                      final subtitle = displayFields
+                          .where((field) => row[field] != null)
+                          .map((field) => row[field].toString())
+                          .join(' • ');
+                      return ListTile(
+                        title: Text(name),
+                        subtitle: subtitle.isEmpty ? null : Text(subtitle),
+                        onTap: name.isEmpty ? null : () {
+                          dialogOpen = false;
+                          Navigator.pop(dialogContext, name);
+                        },
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                dialogOpen = false;
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('إغلاق'),
+            ),
+          ],
+        ),
+      ),
+    );
+    dialogOpen = false;
+    query.dispose();
+    return selected;
+  }
+
   Widget _buildFilter(Map<String, dynamic> filter) {
     final fieldname = _fieldname(filter);
     if (fieldname.isEmpty) return const SizedBox.shrink();
@@ -182,6 +283,10 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
       );
     }
 
+    final isLink = type == 'Link' || type == 'Dynamic Link';
+    final linkTarget = type == 'Dynamic Link'
+        ? (_values[filter['options']?.toString()]?.toString() ?? '')
+        : (filter['options']?.toString() ?? '');
     return TextFormField(
       controller: _controllers[fieldname],
       keyboardType: const {
@@ -189,10 +294,27 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
       }.contains(type) ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
       decoration: InputDecoration(
         labelText: label,
-        helperText: filter['options']?.toString().isNotEmpty == true &&
-                (type == 'Link' || type == 'Dynamic Link')
-            ? filter['options'].toString()
-            : null,
+        helperText: isLink && linkTarget.isEmpty
+            ? 'حدد نوع المرجع أولاً'
+            : isLink ? linkTarget : null,
+        suffixIcon: isLink ? IconButton(
+          tooltip: 'اختيار سجل',
+          onPressed: _linkSearchLoading || linkTarget.isEmpty ? null : () async {
+            setState(() => _linkSearchLoading = true);
+            try {
+              final selected = await _pickLinkValue(linkTarget);
+              if (selected != null && mounted) {
+                _controllers[fieldname]?.text = selected;
+                setState(() => _values[fieldname] = selected);
+              }
+            } finally {
+              if (mounted) setState(() => _linkSearchLoading = false);
+            }
+          },
+          icon: _linkSearchLoading
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.search),
+        ) : null,
       ),
       validator: requiredField
           ? (value) => value == null || value.trim().isEmpty ? 'هذا الحقل مطلوب' : null
