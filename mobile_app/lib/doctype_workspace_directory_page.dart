@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
 import 'doctype_workspace_model.dart';
 import 'doctype_workspace_editor_page.dart';
+import 'workspace_web_page.dart';
 
 const erpDocTypeDefinitions = <ErpDocTypeDefinition>[
   ErpDocTypeDefinition('المبيعات', 'عروض الأسعار', 'Quotation', Icons.request_quote_outlined),
@@ -132,6 +133,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
               'اختصارات',
               linkType,
               routeOptions,
+              workspaceTitle,
             ));
           }
           continue;
@@ -166,6 +168,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
               'اختصارات',
               shortcutType,
               routeOptions,
+              workspaceTitle,
             ));
           }
         }
@@ -237,6 +240,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
             currentSection,
             linkType,
             routeOptions,
+            workspaceTitle,
           ));
         }
       }
@@ -298,7 +302,20 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
               }
               return Card(child: ExpansionTile(
                 initiallyExpanded: group.key == 'المبيعات' || group.key == 'المشتريات',
-                leading: const Icon(Icons.folder_outlined),
+                leading: group.value.first.workspaceName.isEmpty
+                    ? const Icon(Icons.folder_outlined)
+                    : IconButton(
+                        tooltip: 'فتح مساحة العمل الأصلية في ERPNext',
+                        onPressed: () => Navigator.push(context, MaterialPageRoute<void>(
+                          builder: (_) => WorkspaceWebPage(
+                            api: widget.api,
+                            title: group.key,
+                            linkType: 'Workspace',
+                            target: group.value.first.workspaceName,
+                          ),
+                        )),
+                        icon: const Icon(Icons.open_in_browser),
+                      ),
                 title: Text(group.key),
                 subtitle: Text(group.value.length.toString() + ' شاشة'),
                 children: [
