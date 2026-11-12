@@ -386,23 +386,6 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
         controllers[key] = TextEditingController(text: initial?.toString() ?? '');
       }
     }
-    Future<void> chooseAttachment(String key, String type, StateSetter refresh) async {
-      final picked = await FilePicker.platform.pickFiles(
-        type: type == 'Attach Image' ? FileType.image : FileType.any,
-        allowMultiple: false,
-        withData: true,
-      );
-      if (picked == null || picked.files.isEmpty) return;
-      final file = picked.files.first;
-      if (file.bytes == null || file.bytes!.isEmpty) {
-        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تعذر قراءة محتوى الملف المحدد.')),
-        );
-        return;
-      }
-      refresh(() => pendingAttachments[key] = file);
-    }
-
     void clearDependentDynamicLinks(String targetField) {
       for (final dynamicField in fields.where((field) =>
           field['fieldtype'] == 'Dynamic Link' && field['options']?.toString() == targetField)) {
@@ -476,7 +459,6 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 final canPickLink = isLink || (isDynamicLink && dynamicLinkTarget.trim().isNotEmpty);
                 final isDate = type == 'Date';
                 final isDateTime = type == 'Datetime';
-                final isAttachment = type == 'Attach' || type == 'Attach Image';
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: TextField(
@@ -695,6 +677,28 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     final selections = <String, String?>{};
     final tableValues = <String, List<Map<String, dynamic>>>{};
     final pendingAttachments = <String, PlatformFile>{};
+    Future<void> chooseAttachment(String key, String type, StateSetter refresh) async {
+      try {
+        final picked = await FilePicker.platform.pickFiles(
+          type: type == 'Attach Image' ? FileType.image : FileType.any,
+          allowMultiple: false,
+          withData: true,
+        );
+        if (picked == null || picked.files.isEmpty) return;
+        final file = picked.files.first;
+        if (file.bytes == null || file.bytes!.isEmpty) {
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('تعذر قراءة محتوى الملف المحدد.')),
+          );
+          return;
+        }
+        refresh(() => pendingAttachments[key] = file);
+      } catch (error) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تعذر اختيار الملف: ${error.toString().replaceFirst('Exception: ', '')}')),
+        );
+      }
+    }
     for (final f in editable) {
       final key = f['fieldname'].toString();
       final type = f['fieldtype']?.toString() ?? '';
