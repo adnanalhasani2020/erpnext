@@ -378,16 +378,24 @@ class _NativeDashboardChartState extends State<_NativeDashboardChart> {
       final definition = result['definition'] as Map<String, dynamic>;
       final data = result['data'] as Map<String, dynamic>;
       final labels = (data['labels'] as List? ?? const []).map((value) => value.toString()).toList();
-      final datasets = data['datasets'] as List? ?? const [];
-      final first = datasets.isNotEmpty && datasets.first is Map ? datasets.first as Map : const {};
-      final values = (first['values'] as List? ?? const []).map((value) => (value as num?)?.toDouble() ?? 0).toList();
-      if (values.isEmpty) {
+      final datasets = (data['datasets'] as List? ?? const [])
+          .whereType<Map>()
+          .map((dataset) => <String, dynamic>{
+            'name': dataset['name']?.toString() ?? '',
+            'values': (dataset['values'] as List? ?? const [])
+                .map((value) => (value as num?)?.toDouble() ?? 0).toList(),
+          })
+          .where((dataset) => (dataset['values'] as List<double>).isNotEmpty)
+          .toList(growable: false);
+      if (datasets.isEmpty) {
         return ListTile(leading: const Icon(Icons.bar_chart), title: Text(widget.label), subtitle: const Text('لا توجد بيانات ضمن المرشحات الحالية.'));
       }
       final visualType = definition['type']?.toString() ?? 'Bar';
       if (visualType == 'Heatmap') {
         return ListTile(leading: const Icon(Icons.grid_on), title: Text(widget.label), subtitle: const Text('عرض Heatmap الأصلي لم يُنفّذ بعد في Flutter.'));
       }
+      final seriesValues = datasets.map((dataset) => dataset['values'] as List<double>).toList(growable: false);
+      final seriesNames = datasets.map((dataset) => dataset['name'] as String).toList(growable: false);
       return Padding(
         padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -396,7 +404,7 @@ class _NativeDashboardChartState extends State<_NativeDashboardChart> {
           SizedBox(
             height: 156,
             child: CustomPaint(
-              painter: _WorkspaceChartPainter(values: values, visualType: visualType, colors: Theme.of(context).colorScheme),
+              painter: _WorkspaceChartPainter(seriesValues: seriesValues, visualType: visualType, colors: Theme.of(context).colorScheme),
               child: const SizedBox.expand(),
             ),
           ),
@@ -405,8 +413,21 @@ class _NativeDashboardChartState extends State<_NativeDashboardChart> {
               spacing: 8,
               runSpacing: 4,
               children: [
-                for (var i = 0; i < labels.length && i < values.length && i < 8; i++)
-                  Text('${labels[i]}: ${values[i].toStringAsFixed(0)}', style: Theme.of(context).textTheme.labelSmall),
+                for (var i = 0; i < labels.length && i < seriesValues.first.length && i < 8; i++)
+                  Text('${labels[i]}: ${seriesValues.first[i].toStringAsFixed(0)}', style: Theme.of(context).textTheme.labelSmall),
+              ],
+            ),
+          if (seriesNames.length > 1)
+            Wrap(
+              spacing: 12,
+              runSpacing: 4,
+              children: [
+                for (var i = 0; i < seriesNames.length; i++)
+                  Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.circle, size: 8, color: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.secondary, Theme.of(context).colorScheme.tertiary, Theme.of(context).colorScheme.error][i % 4]),
+                    const SizedBox(width: 4),
+                    Text(seriesNames[i], style: Theme.of(context).textTheme.labelSmall),
+                  ]),
               ],
             ),
         ]),
@@ -416,15 +437,21 @@ class _NativeDashboardChartState extends State<_NativeDashboardChart> {
 }
 
 class _WorkspaceChartPainter extends CustomPainter {
-  const _WorkspaceChartPainter({required this.values, required this.visualType, required this.colors});
-  final List<double> values;
+  const _WorkspaceChartPainter({required this.seriesValues, required this.visualType, required this.colors});
+  final List<List<double>> seriesValues;
   final String visualType;
   final ColorScheme colors;
 
+  List<Color> get _palette => [colors.primary, colors.secondary, colors.tertiary, colors.error, colors.primaryContainer];
+
   @override
   void paint(Canvas canvas, Size size) {
+    if (seriesValues.isEmpty || seriesValues.every((series) => series.isEmpty)) return;
+    final palette = _palette;
+    final values = visualType == 'Pie' || visualType == 'Donut' || visualType == 'Percentage'
+        ? seriesValues.first
+        : seriesValues.expand((series) => series).toList(growable: false);
     if (values.isEmpty) return;
-    final palette = [colors.primary, colors.secondary, colors.tertiary, colors.error, colors.primaryContainer];
     final maxValue = values.reduce((a, b) => a > b ? a : b);
     final minValue = values.reduce((a, b) => a < b ? a : b);
     final range = (maxValue - minValue).abs() < 0.000001 ? 1.0 : maxValue - minValue;
@@ -435,13 +462,14 @@ class _WorkspaceChartPainter extends CustomPainter {
       canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
     }
     if (visualType == 'Pie' || visualType == 'Donut' || visualType == 'Percentage') {
-      final total = values.fold<double>(0, (sum, value) => sum + value.abs());
+      final pieValues = seriesValues.first;
+      final total = pieValues.fold<double>(0, (sum, value) => sum + value.abs());
       if (total == 0) return;
       final side = size.height - 16;
       final rect = Rect.fromLTWH((size.width - side) / 2, 8, side, side);
       var start = -1.57079632679;
-      for (var i = 0; i < values.length; i++) {
-        final sweep = values[i].abs() / total * 6.28318530718;
+      for (var i = 0; i < pieValues.length; i++) {
+        final sweep = pieValues[i].abs() / total * 6.28318530718;
         final paint = Paint()..color = palette[i % palette.length]..style = PaintingStyle.fill;
         canvas.drawArc(rect, start, sweep, true, paint);
         start += sweep;
@@ -452,33 +480,46 @@ class _WorkspaceChartPainter extends CustomPainter {
       }
       return;
     }
+    final seriesCount = seriesValues.length;
     if (visualType == 'Line') {
-      final path = Path();
-      for (var i = 0; i < values.length; i++) {
-        final x = values.length == 1 ? size.width / 2 : i * size.width / (values.length - 1);
-        final y = baseline - ((values[i] - minValue) / range) * (size.height - 28);
-        if (i == 0) { path.moveTo(x, y); } else { path.lineTo(x, y); }
-      }
-      canvas.drawPath(path, Paint()..color = colors.primary..style = PaintingStyle.stroke..strokeWidth = 2.5);
-      for (var i = 0; i < values.length; i++) {
-        final x = values.length == 1 ? size.width / 2 : i * size.width / (values.length - 1);
-        final y = baseline - ((values[i] - minValue) / range) * (size.height - 28);
-        canvas.drawCircle(Offset(x, y), 3.5, Paint()..color = colors.primary);
+      for (var seriesIndex = 0; seriesIndex < seriesCount; seriesIndex++) {
+        final current = seriesValues[seriesIndex];
+        if (current.isEmpty) continue;
+        final path = Path();
+        for (var i = 0; i < current.length; i++) {
+          final x = current.length == 1 ? size.width / 2 : i * size.width / (current.length - 1);
+          final y = baseline - ((current[i] - minValue) / range) * (size.height - 28);
+          if (i == 0) { path.moveTo(x, y); } else { path.lineTo(x, y); }
+        }
+        final color = palette[seriesIndex % palette.length];
+        canvas.drawPath(path, Paint()..color = color..style = PaintingStyle.stroke..strokeWidth = 2.5);
+        for (var i = 0; i < current.length; i++) {
+          final x = current.length == 1 ? size.width / 2 : i * size.width / (current.length - 1);
+          final y = baseline - ((current[i] - minValue) / range) * (size.height - 28);
+          canvas.drawCircle(Offset(x, y), 3.5, Paint()..color = color);
+        }
       }
       return;
     }
-    final slot = size.width / values.length;
-    final barWidth = slot * .62;
-    for (var i = 0; i < values.length; i++) {
-      final height = ((values[i] - minValue) / range) * (size.height - 30) + 4;
-      final rect = Rect.fromLTWH(i * slot + (slot - barWidth) / 2, baseline - height, barWidth, height);
-      canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(4)), Paint()..color = palette[i % palette.length]);
+    final pointCount = seriesValues.map((series) => series.length).reduce((a, b) => a > b ? a : b);
+    if (pointCount == 0) return;
+    final slot = size.width / pointCount;
+    final groupWidth = slot * .78;
+    final barWidth = groupWidth / seriesCount;
+    for (var seriesIndex = 0; seriesIndex < seriesCount; seriesIndex++) {
+      final current = seriesValues[seriesIndex];
+      for (var i = 0; i < current.length; i++) {
+        final height = ((current[i] - minValue) / range) * (size.height - 30) + 4;
+        final left = i * slot + (slot - groupWidth) / 2 + seriesIndex * barWidth;
+        final rect = Rect.fromLTWH(left, baseline - height, barWidth * .88, height);
+        canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(3)), Paint()..color = palette[seriesIndex % palette.length]);
+      }
     }
   }
 
   @override
   bool shouldRepaint(covariant _WorkspaceChartPainter oldDelegate) =>
-      oldDelegate.values != values || oldDelegate.visualType != visualType || oldDelegate.colors != colors;
+      oldDelegate.seriesValues != seriesValues || oldDelegate.visualType != visualType || oldDelegate.colors != colors;
 }
 
 class _NativeQuickList extends StatefulWidget {
