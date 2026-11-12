@@ -257,6 +257,27 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           ));
         }
       }
+      // Keep workspaces that contain only Desk widgets visible even when they have no DocType links.
+      // The destination remains the original ERPNext Workspace, not a fabricated mobile form.
+      for (final workspace in workspaces) {
+        final workspaceName = (workspace['name'] ?? '').toString().trim();
+        if (workspaceName.isEmpty || definitions.any((item) => item.workspaceName == workspaceName)) continue;
+        final hasDeskWidgets = ['charts', 'number_cards', 'quick_lists', 'shortcuts']
+            .any((key) => workspace[key] is List && (workspace[key] as List).isNotEmpty);
+        if (!hasDeskWidgets) continue;
+        final title = (workspace['title'] ?? workspace['label'] ?? workspaceName).toString();
+        const labels = <String, String>{
+          'Accounting': 'المحاسبة', 'Financial Reports': 'التقارير المالية',
+          'Invoicing': 'الفوترة', 'Payments': 'المدفوعات', 'Assets': 'الأصول',
+          'Buying': 'المشتريات', 'CRM': 'علاقات العملاء', 'Manufacturing': 'التصنيع',
+          'Projects': 'المشاريع', 'Quality': 'الجودة', 'Selling': 'المبيعات',
+          'ERPNext Settings': 'إعدادات النظام', 'Stock': 'المخزون', 'Support': 'الدعم',
+          'Human Resources': 'الموارد البشرية', 'HR': 'الموارد البشرية',
+        };
+        final group = labels[title] ?? title;
+        definitions.add(ErpDocTypeDefinition(group, 'لوحة مساحة العمل', workspaceName,
+          _workspaceIcon(group), 'لوحة مساحة العمل', 'Workspace', const {}, workspaceName));
+      }
       if (!mounted) return;
       setState(() {
         _definitions = definitions;
