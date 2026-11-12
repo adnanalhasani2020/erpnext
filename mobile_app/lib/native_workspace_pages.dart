@@ -320,6 +320,46 @@ class _WarehouseCapacitySummaryNativePageState extends State<WarehouseCapacitySu
     }
   }
 
+  Future<void> _openPutawayRule(core.Map<String, dynamic> row) async {
+    final itemCode = row['item_code']?.toString() ?? '';
+    final warehouse = row['warehouse']?.toString() ?? '';
+    final company = row['company']?.toString() ?? '';
+    if (itemCode.isEmpty || warehouse.isEmpty || company.isEmpty) return;
+    try {
+      final matches = await widget.api.fetchDocTypeRows(
+        doctype: 'Putaway Rule',
+        fields: const ['name'],
+        filters: [
+          ['item_code', '=', itemCode],
+          ['warehouse', '=', warehouse],
+          ['company', '=', company],
+        ],
+        orderBy: 'name asc',
+      );
+      if (!mounted) return;
+      if (matches.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('لم يعثر ERPNext على قاعدة التوجيه المرتبطة بهذه السعة.')),
+        );
+        return;
+      }
+      final name = matches.first['name']?.toString() ?? '';
+      if (name.isEmpty) return;
+      await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => ErpDocTypeWorkspacePage(
+          api: widget.api,
+          definition: const ErpDocTypeDefinition('المخزون', 'قواعد التوجيه', 'Putaway Rule', Icons.rule_outlined),
+          initialDocumentName: name,
+        ),
+      ));
+      if (mounted) _load(reset: true);
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تعذر فتح قاعدة التوجيه: ${error.toString().replaceFirst('Exception: ', '')}')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
@@ -391,6 +431,15 @@ class _WarehouseCapacitySummaryNativePageState extends State<WarehouseCapacitySu
             LinearProgressIndicator(value: ((row['percent_occupied'] as num?)?.toDouble() ?? 0).clamp(0, 100) / 100),
             const SizedBox(height: 4),
             Text('الإشغال: ${row['percent_occupied'] ?? 0}% • ${row['company'] ?? ''}', style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 8),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: OutlinedButton.icon(
+                onPressed: _loading ? null : () => _openPutawayRule(row),
+                icon: const Icon(Icons.edit_outlined),
+                label: const Text('تعديل السعة'),
+              ),
+            ),
           ]),
         )),
       if (_rows.isEmpty && !_loading) const Card(child: ListTile(title: Text('لا توجد قواعد سعة مطابقة.'))),
