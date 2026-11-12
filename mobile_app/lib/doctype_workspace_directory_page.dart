@@ -227,7 +227,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
       groups.putIfAbsent(item.group, () => []).add(item);
     }
     return Scaffold(
-      appBar: AppBar(title: const Text('شاشات ERPNext المستقلة'), actions: [IconButton(tooltip: 'مزامنة شاشات ERPNext', onPressed: _loading ? null : _loadWorkspaceDirectory, icon: const Icon(Icons.sync))]),
+      appBar: AppBar(title: const Text('مساحات العمل'), actions: [IconButton(tooltip: 'مزامنة شاشات ERPNext', onPressed: _loading ? null : _loadWorkspaceDirectory, icon: const Icon(Icons.sync))]),
       body: ListView(
         padding: const EdgeInsets.all(12),
         children: [
