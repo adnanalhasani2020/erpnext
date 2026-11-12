@@ -5,11 +5,10 @@ import 'widgets/count_card.dart';
 import 'widgets/server_search_field.dart';
 
 class StockBalancesPage extends StatelessWidget {
-  const StockBalancesPage({super.key,required this.stockBalances,required this.warehouses,required this.items,required this.search,required this.searchController,required this.selectedWarehouse,required this.guest,required this.loading,required this.loadingMore,required this.error,required this.hasMore,required this.onSearch,required this.onOpenStockWorkflow,required this.onSelectWarehouse,required this.onLoadMore,required this.onShowItemDetails,required this.onRefresh});
+  const StockBalancesPage({super.key,required this.stockBalances,required this.warehouses,required this.search,required this.searchController,required this.selectedWarehouse,required this.guest,required this.loading,required this.loadingMore,required this.error,required this.hasMore,required this.onSearch,required this.onOpenStockWorkflow,required this.onSelectWarehouse,required this.onLoadMore,required this.onShowItemDetails,required this.onRefresh});
   final List<ErpStockBalance> stockBalances;
   final List<ErpWarehouse> warehouses;
-  final List<ErpItem> items;
-  final String search;
+    final String search;
   final TextEditingController searchController;
   final String? selectedWarehouse;
   final bool guest,loading,loadingMore,hasMore;
