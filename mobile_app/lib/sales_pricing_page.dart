@@ -854,18 +854,6 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                 if (next && _discountRules.isEmpty) _loadDiscounts();
               },
             ),
-            if (widget.initialDoctype == null && _selectedPriceList != null) Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: OutlinedButton.icon(
-                onPressed: _loading || _saving ? null : () {
-                  Navigator.of(context).push(MaterialPageRoute<void>(
-                    builder: (_) => SalesMarginAnalysisPage(api: widget.api, priceList: _selectedPriceList!),
-                  ));
-                },
-                icon: const Icon(Icons.query_stats),
-                label: const Text('تحليل أثر الخصومات على هامش الربح'),
-              ),
-            ),
             if (widget.initialDoctype == null) Align(
               alignment: AlignmentDirectional.centerStart,
               child: OutlinedButton.icon(
