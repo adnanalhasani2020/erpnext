@@ -351,13 +351,13 @@ class _StockSummaryNativePageState extends State<StockSummaryNativePage> {
               runSpacing: 4,
               children: [
                 OutlinedButton.icon(
-                  onPressed: _actionLoading ? null : () => _createStockEntryFromSummary(row, move: false),
+                  onPressed: _loading || _loadingMore || _actionLoading ? null : () => _createStockEntryFromSummary(row, move: false),
                   icon: const Icon(Icons.add),
                   label: const Text('إضافة'),
                 ),
                 if ((double.tryParse(row['actual_qty']?.toString() ?? '') ?? 0) > 0)
                   OutlinedButton.icon(
-                    onPressed: _actionLoading ? null : () => _createStockEntryFromSummary(row, move: true),
+                    onPressed: _loading || _loadingMore || _actionLoading ? null : () => _createStockEntryFromSummary(row, move: true),
                     icon: const Icon(Icons.swap_horiz),
                     label: const Text('نقل'),
                   ),
