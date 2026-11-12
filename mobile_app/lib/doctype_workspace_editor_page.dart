@@ -301,7 +301,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     for (final field in fields) {
       final key = field['fieldname'].toString();
       final type = field['fieldtype']?.toString() ?? '';
-      final initial = source?[key] ?? field['default'];
+      final initial = source?[key] ?? widget.definition.routeOptions[key] ?? field['default'];
       if (type == 'Table' || type == 'Table MultiSelect') {
         tableValues[key] = initial is List
             ? initial.whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList()
