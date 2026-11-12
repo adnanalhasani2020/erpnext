@@ -386,6 +386,23 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
         controllers[key] = TextEditingController(text: initial?.toString() ?? '');
       }
     }
+    Future<void> chooseAttachment(String key, String type, StateSetter refresh) async {
+      final picked = await FilePicker.platform.pickFiles(
+        type: type == 'Attach Image' ? FileType.image : FileType.any,
+        allowMultiple: false,
+        withData: true,
+      );
+      if (picked == null || picked.files.isEmpty) return;
+      final file = picked.files.first;
+      if (file.bytes == null || file.bytes!.isEmpty) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تعذر قراءة محتوى الملف المحدد.')),
+        );
+        return;
+      }
+      refresh(() => pendingAttachments[key] = file);
+    }
+
     void clearDependentDynamicLinks(String targetField) {
       for (final dynamicField in fields.where((field) =>
           field['fieldtype'] == 'Dynamic Link' && field['options']?.toString() == targetField)) {
@@ -459,6 +476,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 final canPickLink = isLink || (isDynamicLink && dynamicLinkTarget.trim().isNotEmpty);
                 final isDate = type == 'Date';
                 final isDateTime = type == 'Datetime';
+                final isAttachment = type == 'Attach' || type == 'Attach Image';
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: TextField(
@@ -676,6 +694,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     final checks = <String, bool>{};
     final selections = <String, String?>{};
     final tableValues = <String, List<Map<String, dynamic>>>{};
+    final pendingAttachments = <String, PlatformFile>{};
     for (final f in editable) {
       final key = f['fieldname'].toString();
       final type = f['fieldtype']?.toString() ?? '';
@@ -834,10 +853,12 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                       refresh(() {});
                     },
                     keyboardType: keyboard,
-                    readOnly: isDate || isDateTime || readOnlyNow,
+                    readOnly: isDate || isDateTime || isAttachment || readOnlyNow,
                     minLines: (type == 'Text' || type == 'Long Text') ? 3 : 1,
                     maxLines: (type == 'Text' || type == 'Long Text') ? 5 : 1,
-                    onTap: (isDate || isDateTime) && !readOnlyNow ? () async {
+                    onTap: isAttachment && !readOnlyNow
+                        ? () => chooseAttachment(key, type, refresh)
+                        : (isDate || isDateTime) && !readOnlyNow ? () async {
                       final initial = DateTime.tryParse(controller.text) ?? DateTime.now();
                       final date = await showDatePicker(
                         context: context,
@@ -863,9 +884,15 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     } : null,
                     decoration: InputDecoration(
                       labelText: label,
-                      helperText: canPickLink ? 'اختر سجلاً موجوداً في ERPNext' : isDynamicLink ? 'حدد نوع المرجع أولاً' : requiredNow ? 'حقل إلزامي' : null,
+                      helperText: pendingAttachments[key]?.name ??
+                          (canPickLink ? 'اختر سجلاً موجوداً في ERPNext' : isDynamicLink ? 'حدد نوع المرجع أولاً' : requiredNow ? 'حقل إلزامي' : null),
                       suffixIcon: isDate
                         ? const Icon(Icons.calendar_today_outlined)
+                        : isAttachment ? IconButton(
+                            tooltip: 'اختيار ملف',
+                            onPressed: readOnlyNow ? null : () => chooseAttachment(key, type, refresh),
+                            icon: const Icon(Icons.attach_file),
+                          )
                         : canPickLink ? IconButton(
                             tooltip: 'اختيار سجل',
                             onPressed: readOnlyNow ? null : () async {
@@ -920,7 +947,14 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     continue;
                   }
                   final raw = controllers[key]!.text.trim();
-                  if (requiredNow && raw.isEmpty) throw FormatException('الحقل ' + (f['label']?.toString() ?? key) + ' مطلوب.');
+                  final pendingAttachment = pendingAttachments[key];
+                  if (requiredNow && raw.isEmpty && pendingAttachment != null && source == null) {
+                    throw FormatException('لا يمكن إرفاق ملف إلزامي قبل إنشاء المستند في ERPNext؛ أنشئ المستند أولاً ثم أضف الملف من النموذج.');
+                  }
+                  if (requiredNow && raw.isEmpty && pendingAttachment == null) {
+                    throw FormatException('الحقل ' + (f['label']?.toString() ?? key) + ' مطلوب.');
+                  }
+                  if (pendingAttachment != null && raw.isEmpty) continue;
                   if (raw.isEmpty) {
                     if (source != null && source.containsKey(key)) values[key] = null;
                     continue;
@@ -935,7 +969,36 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     values[key] = raw;
                   }
                 }
-                await widget.api.saveDocTypeDocument(doctype: _doctype, name: source?['name']?.toString(), values: values);
+                final savedDocument = await widget.api.saveDocTypeDocument(
+                  doctype: _doctype,
+                  name: source?['name']?.toString(),
+                  values: values,
+                );
+                final attachmentValues = <String, dynamic>{};
+                final savedName = savedDocument['name']?.toString() ?? source?['name']?.toString() ?? '';
+                for (final entry in pendingAttachments.entries) {
+                  final bytes = entry.value.bytes;
+                  if (savedName.isEmpty || bytes == null || bytes.isEmpty) {
+                    throw const FormatException('تعذر إكمال رفع مرفق الحقل.');
+                  }
+                  final uploaded = await widget.api.uploadDocTypeAttachment(
+                    doctype: _doctype,
+                    name: savedName,
+                    fileName: entry.value.name,
+                    bytes: bytes,
+                    isPrivate: true,
+                  );
+                  final fileUrl = uploaded['file_url']?.toString().trim() ?? '';
+                  if (fileUrl.isEmpty) throw const FormatException('رفع الملف لم يُرجع مسار المرفق من ERPNext.');
+                  attachmentValues[entry.key] = fileUrl;
+                }
+                if (attachmentValues.isNotEmpty) {
+                  await widget.api.saveDocTypeDocument(
+                    doctype: _doctype,
+                    name: savedName,
+                    values: attachmentValues,
+                  );
+                }
                 if (dialog.mounted) Navigator.pop(dialog, true);
               } catch (e) {
                 refresh(() { error = e.toString().replaceFirst('Exception: ', ''); saving = false; });
