@@ -341,7 +341,12 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
     }
     final generation = _sessionGeneration;
     final boundary = '----FrappeMobile${DateTime.now().microsecondsSinceEpoch}';
-    final safeName = fileName.replaceAll(RegExp(r'["\\\\/\\r\\n]'), '_');
+    final safeName = fileName
+        .replaceAll('"', '_')
+        .replaceAll('/', '_')
+        .replaceAll(String.fromCharCode(92), '_')
+        .replaceAll('\\r', '_')
+        .replaceAll('\\n', '_');
     final request = await _client.postUrl(Uri.parse('$_baseUrl/api/method/upload_file'));
     request.followRedirects = false;
     request.headers.contentType = ContentType(
