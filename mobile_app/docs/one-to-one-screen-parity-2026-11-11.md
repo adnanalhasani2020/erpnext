@@ -39,3 +39,6 @@ Specialized mobile workflows retain their richer business logic and must not be 
 ## Navigation alignment — 2026-11-12
 
 The signed-in primary navigation now opens the authenticated Workspace directory rather than a combined sales/purchase/stock/HR shortcut page. The directory follows native ERPNext Workspace grouping and routes each DocType to its dedicated workflow or its own metadata-driven screen. The previous combined transaction overview remains accessible from the dashboard as a separate route; guest mode retains the local sample overview. This preserves existing overview functionality while making the main navigation mirror the installed ERPNext workspace structure.
+
+
+The directory, shared DocType model and generic per-DocType editor are separate libraries: `doctype_workspace_directory_page.dart`, `doctype_workspace_model.dart` and `doctype_workspace_editor_page.dart`. The legacy `doctype_workspace_page.dart` file is retained as a barrel export for compatibility. The directory imports the editor directly, avoiding a cyclic dependency.
