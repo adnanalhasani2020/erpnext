@@ -251,29 +251,44 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
       ['reference_doctype', '=', doctype],
       ['reference_name', '=', name],
     ];
-    final attachments = await fetchDocTypeRows(
-      doctype: 'File',
-      fields: const ['file_name', 'file_url', 'file_size', 'is_private', 'creation'],
-      filters: <List<dynamic>>[
+    Future<List<core.Map<String, dynamic>>> loadRelated(
+      String relatedDoctype,
+      List<String> fields,
+      List<List<dynamic>> filters,
+    ) async {
+      try {
+        return await fetchDocTypeRows(
+          doctype: relatedDoctype,
+          fields: fields,
+          filters: filters,
+          orderBy: 'creation desc',
+        );
+      } catch (_) {
+        // Some roles can read the document but not every timeline DocType.
+        // Keep the other activity sections available under ERPNext permissions.
+        return <core.Map<String, dynamic>>[];
+      }
+    }
+    final attachments = await loadRelated(
+      'File',
+      const ['file_name', 'file_url', 'file_size', 'is_private', 'creation'],
+      <List<dynamic>>[
         ['attached_to_doctype', '=', doctype],
         ['attached_to_name', '=', name],
       ],
-      orderBy: 'creation desc',
     );
-    final comments = await fetchDocTypeRows(
-      doctype: 'Comment',
-      fields: const ['comment_type', 'content', 'comment_by', 'comment_email', 'creation'],
-      filters: reference,
-      orderBy: 'creation desc',
+    final comments = await loadRelated(
+      'Comment',
+      const ['comment_type', 'content', 'comment_by', 'comment_email', 'creation'],
+      reference,
     );
-    final versions = await fetchDocTypeRows(
-      doctype: 'Version',
-      fields: const ['data', 'owner', 'creation'],
-      filters: <List<dynamic>>[
+    final versions = await loadRelated(
+      'Version',
+      const ['data', 'owner', 'creation'],
+      <List<dynamic>>[
         ['ref_doctype', '=', doctype],
         ['docname', '=', name],
       ],
-      orderBy: 'creation desc',
     );
     return <String, List<core.Map<String, dynamic>>>{
       'attachments': attachments,
