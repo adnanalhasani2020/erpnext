@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
 import 'models/serial_batch_tracking.dart';
+import 'workspace_web_page.dart';
 
 core.Map<String, dynamic> buildSalesWorkflowLinePayload({
   required core.Map<String, dynamic>? sourceRow,
@@ -410,7 +411,19 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.standalone ? _label : 'دورة المبيعات')),
+      appBar: AppBar(
+        title: Text(widget.standalone ? _label : 'دورة المبيعات'),
+        actions: [
+          if (widget.initialDoctype != null)
+            IconButton(
+              tooltip: 'فتح قائمة ERPNext الأصلية',
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => WorkspaceWebPage(api: widget.api, title: widget.initialDoctype!, linkType: 'DocTypeList', target: widget.initialDoctype!),
+              )),
+              icon: const Icon(Icons.open_in_browser),
+            ),
+        ],
+      ),
       body: Column(children: [
         if (!widget.standalone) SingleChildScrollView(
           scrollDirection: Axis.horizontal,
