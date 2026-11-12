@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:share_plus/share_plus.dart';
 import 'api/frappe_api.dart';
+import 'workspace_web_page.dart';
 import 'master_data_page.dart';
 import 'models/erp_models.dart';
 
@@ -233,6 +234,7 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
     textDirection: TextDirection.rtl,
     child: Scaffold(
     appBar: AppBar(title: const Text('دليل الأصناف'), actions: [
+      IconButton(tooltip: 'فتح قائمة ERPNext الأصلية', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(api: widget.api, title: 'Item', linkType: 'DocTypeList', target: 'Item'))), icon: const Icon(Icons.open_in_browser)),
       IconButton(tooltip:'مسح باركود', onPressed:_loading?null:_scan, icon:const Icon(Icons.qr_code_scanner)),
       IconButton(tooltip:'تصدير Excel', onPressed:_loading?null:_export, icon:const Icon(Icons.file_download_outlined)),
       PopupMenuButton<String>(onSelected:(v){
