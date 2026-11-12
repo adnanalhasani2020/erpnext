@@ -3,6 +3,7 @@ import 'dart:core';
 import 'dart:core' as core;
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import '../models/erp_models.dart';
 
@@ -18,10 +19,11 @@ part 'reports_api.dart';
 part 'hr_api.dart';
 part 'payroll_api.dart';
 part 'doctype_workspace_api.dart';
+part 'manufacturing_api.dart';
 
 class _DirectHttpOverrides extends HttpOverrides {}
 
-class FrappeApi extends _FrappeApiCore with MasterDataApiMixin, InventoryApiMixin, SalesApiMixin, PurchasesApiMixin, AccountingApiMixin, PaymentsApiMixin, BankReconciliationApiMixin, ReportsApiMixin, HrApiMixin, PayrollApiMixin, DocTypeWorkspaceApiMixin {
+class FrappeApi extends _FrappeApiCore with MasterDataApiMixin, InventoryApiMixin, SalesApiMixin, PurchasesApiMixin, AccountingApiMixin, PaymentsApiMixin, BankReconciliationApiMixin, ReportsApiMixin, HrApiMixin, PayrollApiMixin, DocTypeWorkspaceApiMixin, ManufacturingApiMixin {
   FrappeApi({super.httpClient});
 
   static const int pageSize = 100;
@@ -87,7 +89,7 @@ class FrappeApi extends _FrappeApiCore with MasterDataApiMixin, InventoryApiMixi
       'Customer Group': ['name', 'customer_group_name', 'parent_customer_group', 'is_group', 'disabled'],
       'Territory': ['name', 'territory_name', 'parent_territory', 'is_group', 'disabled'],
       'Sales Person': ['name', 'sales_person_name', 'parent_sales_person', 'commission_rate', 'is_group', 'enabled', 'employee'],
-      'Warehouse': ['name', 'warehouse_name', 'company', 'parent_warehouse', 'is_group', 'disabled'],
+      'Warehouse': ['name', 'warehouse_name', 'company', 'parent_warehouse', 'is_group', 'disabled', 'lft', 'rgt'],
       'Item Group': ['name', 'item_group_name', 'parent_item_group', 'is_group', 'disabled'],
       'UOM': ['name', 'uom_name', 'must_be_whole_number', 'enabled'],
       'Supplier Group': ['name', 'supplier_group_name', 'parent_supplier_group', 'is_group', 'disabled'],

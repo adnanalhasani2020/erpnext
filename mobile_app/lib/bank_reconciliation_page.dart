@@ -5,16 +5,19 @@ import 'package:file_picker/file_picker.dart';
 
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
+import 'workspace_native_destination_page.dart';
 
 class BankReconciliationPage extends StatefulWidget {
   const BankReconciliationPage({
     super.key,
     required this.api,
     required this.companies,
+    this.initialDoctype,
   });
 
   final FrappeApi api;
   final List<ErpCompany> companies;
+  final String? initialDoctype;
 
   @override
   State<BankReconciliationPage> createState() => _BankReconciliationPageState();
@@ -591,12 +594,28 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('التسوية البنكية'),
+        title: Text(widget.initialDoctype == 'Bank Statement Import' ? 'استيراد كشوف البنك' : widget.initialDoctype == 'Bank Transaction' ? 'الحركات البنكية' : 'التسوية البنكية'),
         actions: [
+          if (widget.initialDoctype != null)
+            IconButton(
+              tooltip: 'فتح قائمة المعاملات',
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => WorkspaceNativeDestinationPage(
+                  api: widget.api,
+                  title: widget.initialDoctype!,
+                  linkType: 'DocTypeList',
+                  target: widget.initialDoctype!,
+                ),
+              )),
+              icon: const Icon(Icons.arrow_forward),
+            ),
           IconButton(
-            tooltip: 'تحديث الحركات',
-            onPressed: _loadingAccounts || _loadingTransactions || _matching
-                ? null : _loadTransactions,
+            tooltip: widget.initialDoctype == 'Bank Statement Import' ? 'تحديث سجل الاستيراد' : 'تحديث الحركات',
+            onPressed: _loadingAccounts || _loadingTransactions || _loadingStatementImports || _matching
+                ? null
+                : widget.initialDoctype == 'Bank Statement Import'
+                    ? () => _loadStatementImports()
+                    : _loadTransactions,
             icon: const Icon(Icons.refresh),
           ),
         ],
@@ -651,6 +670,7 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
             },
           ),
           const SizedBox(height: 10),
+          if (widget.initialDoctype != 'Bank Transaction')
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -747,6 +767,7 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
               ]),
             ),
           ),
+          if (widget.initialDoctype != 'Bank Statement Import') ...[
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -871,6 +892,7 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
                 label: Text(_loadingMoreTransactions ? 'جارٍ تحميل المزيد...' : 'تحميل حركات إضافية'),
               ),
             ),
+          ],
         ],
       ),
     );

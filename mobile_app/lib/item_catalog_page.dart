@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:share_plus/share_plus.dart';
 import 'api/frappe_api.dart';
+import 'doctype_workspace_editor_page.dart';
+import 'doctype_workspace_model.dart';
+import 'workspace_native_destination_page.dart';
 import 'master_data_page.dart';
 import 'models/erp_models.dart';
 
@@ -82,15 +85,27 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
     ));
   }
 
-  void _details(String code) => showModalBottomSheet<void>(
-    context: context, isScrollControlled: true, useSafeArea: true, showDragHandle: true,
-    builder: (_) => ItemCatalogDetailsSheet(api: widget.api, itemCode: code));
+  Future<void> _details(String code) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => ItemCatalogDetailsSheet(api: widget.api, itemCode: code),
+    );
+    if (mounted) _load();
+  }
 
   Future<void> _edit([String? code]) async {
-    final saved = await showModalBottomSheet<bool>(
-      context: context, isScrollControlled: true, useSafeArea: true, showDragHandle: true,
-      builder: (_) => _ItemCatalogEditor(api: widget.api, itemCode: code));
-    if (saved == true && mounted) _load();
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => ErpDocTypeWorkspacePage(
+        api: widget.api,
+        definition: const ErpDocTypeDefinition('المخزون', 'الأصناف', 'Item', Icons.inventory_2_outlined),
+        initialDocumentName: code,
+        initialCreate: code == null,
+      ),
+    ));
+    if (mounted) _load();
   }
 
   Future<void> _scan() async {
@@ -233,6 +248,7 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
     textDirection: TextDirection.rtl,
     child: Scaffold(
     appBar: AppBar(title: const Text('دليل الأصناف'), actions: [
+      IconButton(tooltip: 'فتح قائمة الجوال', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceNativeDestinationPage(api: widget.api, title: 'Item', linkType: 'DocTypeList', target: 'Item'))), icon: const Icon(Icons.arrow_forward)),
       IconButton(tooltip:'مسح باركود', onPressed:_loading?null:_scan, icon:const Icon(Icons.qr_code_scanner)),
       IconButton(tooltip:'تصدير Excel', onPressed:_loading?null:_export, icon:const Icon(Icons.file_download_outlined)),
       PopupMenuButton<String>(onSelected:(v){
@@ -357,6 +373,20 @@ class _ItemCatalogDetailsSheetState extends State<ItemCatalogDetailsSheet> {
             Text(widget.itemCode),Text(d['brand']?.toString()??'بدون علامة'),
           ])),
         ]),
+        FilledButton.icon(
+          onPressed: () async {
+            await Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => ErpDocTypeWorkspacePage(
+                api: widget.api,
+                definition: const ErpDocTypeDefinition('المخزون', 'الأصناف', 'Item', Icons.inventory_2_outlined),
+                initialDocumentName: widget.itemCode,
+              ),
+            ));
+            if (mounted) setState(() {});
+          },
+          icon: const Icon(Icons.edit_note),
+          label: const Text('تحرير نموذج الصنف الكامل'),
+        ),
         const Divider(height:28),Text('التفاصيل الكاملة',style:Theme.of(context).textTheme.titleMedium),
         ...labels.entries.where((e)=>d[e.value]!=null&&d[e.value].toString().isNotEmpty)
           .map((e)=>ListTile(dense:true,title:Text(e.key),subtitle:Text(d[e.value].toString()))),
@@ -381,138 +411,6 @@ class _ItemCatalogDetailsSheetState extends State<ItemCatalogDetailsSheet> {
         if(_error!=null)Text(_error!,style:TextStyle(color:Theme.of(context).colorScheme.error)),
       ]);
     }));
-}
-
-class _ItemCatalogEditor extends StatefulWidget {
-  const _ItemCatalogEditor({required this.api,this.itemCode});
-  final FrappeApi api; final String? itemCode;
-  @override
-  State<_ItemCatalogEditor> createState()=>_ItemCatalogEditorState();
-}
-class _ItemCatalogEditorState extends State<_ItemCatalogEditor> {
-  final _form=GlobalKey<FormState>();
-  final Map<String,TextEditingController> _c={};
-  final _barcodeController=TextEditingController();
-  bool _loading=false,_saving=false,_stock=true,_serial=false,_batch=false,_expiry=false,_disabled=false;
-  String? _error;
-  bool get _editing=>widget.itemCode!=null;
-  static const fields={
-    'item_code':'رمز الصنف','item_name':'اسم الصنف','item_group':'مجموعة الأصناف','stock_uom':'وحدة المخزون',
-    'brand':'العلامة التجارية','description':'الوصف','image':'رابط/مسار الصورة','country_of_origin':'بلد المنشأ',
-    'default_item_manufacturer':'المصنع الافتراضي','default_manufacturer_part_no':'رقم قطعة المصنع','weight_per_unit':'وزن الوحدة',
-    'weight_uom':'وحدة الوزن','end_of_life':'تاريخ نهاية الصلاحية','shelf_life_in_days':'مدة الصلاحية بالأيام',
-    'default_material_request_type':'نوع طلب المواد الافتراضي','valuation_method':'طريقة التقييم',
-    'standard_rate':'السعر القياسي',
-  };
-  @override
-  void initState(){super.initState();for(final k in fields.keys){_c[k]=TextEditingController();}if(_editing)_load();}
-  @override
-  void dispose(){for(final c in _c.values){c.dispose();}_barcodeController.dispose();super.dispose();}
-  Future<void> _load() async {
-    setState(()=>_loading=true);
-    try{
-      final d=await widget.api.fetchItemCatalogDocument(widget.itemCode!);
-      if(!mounted)return;
-      for(final e in _c.entries){e.value.text=d[e.key]?.toString()??'';}
-      final codes=d['barcodes'];
-      if(codes is List){_barcodeController.text=codes.whereType<Map>().map((e)=>e['barcode']?.toString()??'').where((e)=>e.isNotEmpty).join('\n');}
-      setState((){
-        _stock=d['is_stock_item']==1||d['is_stock_item']==true;
-        _serial=d['has_serial_no']==1||d['has_serial_no']==true;
-        _batch=d['has_batch_no']==1||d['has_batch_no']==true;
-        _expiry=d['has_expiry_date']==1||d['has_expiry_date']==true;
-        _disabled=d['disabled']==1||d['disabled']==true;
-      });
-    }catch(e){if(mounted)setState(()=>_error=e.toString());}
-    finally{if(mounted)setState(()=>_loading=false);}
-  }
-  Future<void> _chooseReference(String key, String label, String doctype) async {
-    final search=TextEditingController();
-    var rows=<Map<String,dynamic>>[];
-    BuildContext? sheetContext;
-    var busy=false, started=false;
-    String? error;
-    Future<void> load(StateSetter refresh) async {
-      refresh(() { busy=true; error=null; });
-      try {
-        final result=await widget.api.fetchMasterDataRows(doctype:doctype,search:search.text);
-        if(sheetContext?.mounted != true)return;
-        refresh(() {
-          rows=result.where((row) {
-            if(row['disabled']==1||row['disabled']==true)return false;
-            if(doctype=='UOM'&&(row['enabled']==0||row['enabled']==false))return false;
-            if(doctype=='Item Group'&&(row['is_group']==1||row['is_group']==true))return false;
-            if(doctype=='Warehouse'&&(row['is_group']==1||row['is_group']==true))return false;
-            return true;
-          }).toList();
-        });
-      } catch(e) { if(sheetContext?.mounted == true)refresh(()=>error=e.toString().replaceFirst('Exception: ','')); }
-      finally { if(sheetContext?.mounted == true)refresh(()=>busy=false); }
-    }
-    final selected=await showModalBottomSheet<String>(context:context,isScrollControlled:true,useSafeArea:true,
-      builder:(sheetCtx){ sheetContext=sheetCtx; return StatefulBuilder(builder:(context,refresh) {
-        if(!started){started=true;WidgetsBinding.instance.addPostFrameCallback((_) { if(sheetCtx.mounted)load(refresh); });}
-        return Padding(padding:EdgeInsets.fromLTRB(16,12,16,MediaQuery.of(context).viewInsets.bottom+16),
-          child:SizedBox(height:MediaQuery.of(context).size.height*.7,child:Column(children:[
-            Text('اختيار $label',style:Theme.of(context).textTheme.titleLarge),
-            TextField(controller:search,textInputAction:TextInputAction.search,onSubmitted:(_)=>load(refresh),
-              decoration:InputDecoration(labelText:'بحث $label',suffixIcon:IconButton(onPressed:()=>load(refresh),icon:const Icon(Icons.search)))),
-            if(busy)const LinearProgressIndicator(),
-            if(error!=null)Text(error!),
-            Expanded(child:ListView.builder(itemCount:rows.length,itemBuilder:(_,i){
-              final row=rows[i]; final id=row['name']?.toString()??'';
-              final title=(row['item_group_name']??row['uom_name']??row['warehouse_name']??row['supplier_name']??id).toString();
-              return ListTile(title:Text(title),subtitle:Text(id),onTap:()=>Navigator.pop(sheetCtx,id));
-            })),
-          ])));
-      }); });
-    search.dispose();
-    if(selected!=null&&mounted)setState(()=>_c[key]!.text=selected);
-  }
-
-  Future<void> _save() async {
-    if(_saving||!(_form.currentState?.validate()??false))return;
-    if(_serial&&_batch){setState(()=>_error='لا يمكن تفعيل التتبع التسلسلي والدفعات معاً.');return;}
-    setState(()=>_saving=true);
-    try{
-      await widget.api.saveMasterDataDocument(doctype:'Item',name:widget.itemCode,values:{
-        for(final e in _c.entries)e.key:e.value.text.trim(),
-        'is_stock_item':_stock,'has_serial_no':_serial,'has_batch_no':_batch,
-        'has_expiry_date':_expiry,'disabled':_disabled,
-        'barcodes':_barcodeController.text.split(RegExp(r'[\r\n,;]+')).map((v)=>v.trim()).where((v)=>v.isNotEmpty).map((v)=>{'barcode':v}).toList(),
-      });
-      if(mounted)Navigator.pop(context,true);
-    }catch(e){if(mounted)setState(()=>_error=e.toString().replaceFirst('Exception: ',''));}
-    finally{if(mounted)setState(()=>_saving=false);}
-  }
-  @override
-  Widget build(BuildContext context)=>SizedBox(height:MediaQuery.of(context).size.height*.92,
-    child:_loading?const Center(child:CircularProgressIndicator()):Form(key:_form,child:ListView(
-      padding:EdgeInsets.fromLTRB(16,8,16,MediaQuery.of(context).viewInsets.bottom+20),
-      children:[
-        Text(_editing?'تعديل الصنف':'إضافة صنف',style:Theme.of(context).textTheme.titleLarge),
-        if(_error!=null)Text(_error!,style:TextStyle(color:Theme.of(context).colorScheme.error)),
-        ...fields.entries.map((e)=>Padding(padding:const EdgeInsets.only(bottom:9),child:TextFormField(
-          controller:_c[e.key],readOnly:(_editing&&e.key=='item_code')||const {'item_group','stock_uom','weight_uom'}.contains(e.key),
-          onTap:const {'item_group','stock_uom','weight_uom'}.contains(e.key)?(){
-            final refs={'item_group':('مجموعة الأصناف','Item Group'),'stock_uom':('وحدة المخزون','UOM'),
-              'weight_uom':('وحدة الوزن','UOM')};
-            final ref=refs[e.key]!;
-            _chooseReference(e.key,ref.$1,ref.$2);
-          }:null,
-          maxLines:e.key=='description'?3:1,
-          decoration:InputDecoration(labelText:e.value,suffixIcon:const {'item_group','stock_uom','weight_uom'}.contains(e.key)?const Icon(Icons.search):null),
-          validator:const {'item_code','item_name','item_group','stock_uom'}.contains(e.key)
-            ?(v)=>v==null||v.trim().isEmpty?'هذا الحقل مطلوب':null:null))),
-        Padding(padding:const EdgeInsets.only(bottom:9),child:TextFormField(controller:_barcodeController,maxLines:3,decoration:const InputDecoration(labelText:'الباركود (باركود في كل سطر)'))),
-        const Divider(),
-        SwitchListTile(title:const Text('صنف مخزني'),value:_stock,onChanged:(v)=>setState(()=>_stock=v)),
-        SwitchListTile(title:const Text('تتبع تسلسلي'),value:_serial,onChanged:(v){setState(() {_serial=v;if(v)_batch=false;});}),
-        SwitchListTile(title:const Text('تتبع بالدفعات'),value:_batch,onChanged:(v){setState(() {_batch=v;if(v)_serial=false;});}),
-        SwitchListTile(title:const Text('تاريخ انتهاء'),value:_expiry,onChanged:(v)=>setState(()=>_expiry=v)),
-        SwitchListTile(title:const Text('تعطيل الصنف'),value:_disabled,onChanged:(v)=>setState(()=>_disabled=v)),
-        FilledButton.icon(onPressed:_saving?null:_save,icon:const Icon(Icons.save),label:Text(_saving?'جارٍ الحفظ...':'حفظ في ERPNext')),
-      ])));
 }
 
 class _BarcodeScannerPage extends StatefulWidget {

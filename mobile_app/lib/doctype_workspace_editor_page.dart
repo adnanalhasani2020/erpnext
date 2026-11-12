@@ -1,11 +1,18 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:share_plus/share_plus.dart';
 import 'api/frappe_api.dart';
 import 'doctype_workspace_model.dart';
+import 'workspace_native_destination_page.dart';
 
 class ErpDocTypeWorkspacePage extends StatefulWidget {
-  const ErpDocTypeWorkspacePage({super.key, required this.api, required this.definition});
+  const ErpDocTypeWorkspacePage({super.key, required this.api, required this.definition, this.initialDocumentName, this.initialCreate = false});
   final FrappeApi api;
   final ErpDocTypeDefinition definition;
+  final String? initialDocumentName;
+  final bool initialCreate;
   @override
   State<ErpDocTypeWorkspacePage> createState() => _ErpDocTypeWorkspacePageState();
 }
@@ -18,6 +25,8 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
   final Map<String, String> _filters = {};
   final Map<String, String> _filterOperators = {};
   final Map<String, TextEditingController> _filterControllers = {};
+  final Set<String> _selectedNames = <String>{};
+  bool _bulkActionLoading = false;
   String _sortField = 'modified';
   bool _sortDescending = true;
   bool _loading = true, _more = false, _hasMore = false;
@@ -34,6 +43,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
       .map((f) => f['fieldname'].toString()).toList();
     if (!result.contains('name')) result.insert(0, 'name');
     if (!result.contains('modified')) result.add('modified');
+    if (_meta?['is_submittable'] == 1 && !result.contains('docstatus')) result.add('docstatus');
     return result;
   }
 
@@ -73,6 +83,13 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
         }
       });
       await _load();
+      final initialName = widget.initialDocumentName?.trim() ?? '';
+      if (initialName.isNotEmpty && mounted) {
+        final document = await widget.api.fetchDocTypeDocument(doctype: _doctype, name: initialName);
+        if (mounted) await _edit(source: document);
+      } else if (widget.initialCreate && mounted) {
+        await _edit();
+      }
     } catch (e) {
       if (mounted) setState(() { _error = e.toString().replaceFirst('Exception: ', ''); _loading = false; });
     }
@@ -82,7 +99,15 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     if (_meta == null || (_loading && append) || (_more && append)) return;
     final generation = _generation;
     final start = append ? _offset : 0;
-    setState(() { if (append) { _more = true; } else { _loading = true; _error = null; } });
+    setState(() {
+      if (append) {
+        _more = true;
+      } else {
+        _loading = true;
+        _error = null;
+        _selectedNames.clear();
+      }
+    });
     try {
       final fields = _listFields;
       final activeFilters = <List<dynamic>>[];
@@ -116,6 +141,53 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     }
   }
 
+
+  Future<void> _bulkTransition(String action) async {
+    if (_bulkActionLoading || _meta?['is_submittable'] != 1) return;
+    final selectedRows = _rows.where((row) => _selectedNames.contains(row['name']?.toString())).toList();
+    final eligible = selectedRows.where((row) {
+      final status = (row['docstatus'] as num?)?.toInt() ?? -1;
+      return action == 'Submit' ? status == 0 : status == 1;
+    }).map((row) => row['name']?.toString() ?? '').where((name) => name.isNotEmpty).toList();
+    if (eligible.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(action == 'Submit' ? 'ترحيل المستندات المحددة' : 'إلغاء المستندات المحددة'),
+        content: Text('سيُرسل التطبيق ${eligible.length} مستنداً إلى ERPNext لتنفيذ ${action == 'Submit' ? 'الترحيل' : 'الإلغاء'} وفق صلاحيات وقواعد الخادم.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('رجوع')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('تأكيد')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _bulkActionLoading = true);
+    var succeeded = 0;
+    final failures = <String>[];
+    try {
+      for (final name in eligible) {
+        try {
+          await widget.api.transitionDocTypeDocument(doctype: _doctype, name: name, action: action);
+          succeeded++;
+        } catch (error) {
+          if (failures.length < 4) failures.add('$name: ${error.toString().replaceFirst('Exception: ', '')}');
+        }
+      }
+      if (!mounted) return;
+      setState(() => _selectedNames.clear());
+      _generation++;
+      await _load();
+      if (!mounted) return;
+      final message = '${action == 'Submit' ? 'تم ترحيل' : 'تم إلغاء'} $succeeded من ${eligible.length} مستند.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(failures.isEmpty ? message : '$message تعذر تنفيذ بعض العمليات: ${failures.join('؛ ')}'),
+        duration: const Duration(seconds: 7),
+      ));
+    } finally {
+      if (mounted) setState(() => _bulkActionLoading = false);
+    }
+  }
 
   List<String> _filterOperatorsFor(Map<String, dynamic> field) {
     final type = field['fieldtype']?.toString() ?? '';
@@ -442,7 +514,9 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     } : null,
                   ),
                 );
-              }),
+                    }),
+                  ],
+                ),
           ],
         ))),
         actions: [
@@ -568,10 +642,63 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
         f['hidden'] != 1 && f['read_only'] != 1 &&
         !const {'Section Break','Column Break','Tab Break','HTML','Button','Fold','Heading'}.contains(type);
     }).toList();
+    // Preserve the Desk form's Tab Break / Section Break hierarchy in the
+    // mobile editor. Columns are intentionally stacked on narrow screens.
+    final layoutSectionByField = <String, String>{};
+    final hiddenLayoutFields = <String>{};
+    var currentTab = 'عام';
+    var currentSection = '';
+    var hiddenTab = false;
+    var hiddenSection = false;
+    for (final field in _fields) {
+      final type = field['fieldtype']?.toString() ?? '';
+      final label = field['label']?.toString().trim() ?? '';
+      if (type == 'Tab Break') {
+        currentTab = label.isEmpty ? 'عام' : label;
+        currentSection = '';
+        hiddenTab = field['hidden'] == 1 || field['hidden'] == true;
+        hiddenSection = false;
+      } else if (type == 'Section Break') {
+        currentSection = label;
+        hiddenSection = field['hidden'] == 1 || field['hidden'] == true;
+      } else {
+        final key = field['fieldname']?.toString() ?? '';
+        if (key.isNotEmpty) {
+          if (hiddenTab || hiddenSection) hiddenLayoutFields.add(key);
+          layoutSectionByField[key] = [
+            if (currentTab.isNotEmpty) currentTab,
+            if (currentSection.isNotEmpty) currentSection,
+          ].join(' • ');
+        }
+      }
+    }
     final controllers = <String, TextEditingController>{};
     final checks = <String, bool>{};
     final selections = <String, String?>{};
     final tableValues = <String, List<Map<String, dynamic>>>{};
+    final pendingAttachments = <String, PlatformFile>{};
+    Future<void> chooseAttachment(String key, String type, StateSetter refresh) async {
+      try {
+        final picked = await FilePicker.platform.pickFiles(
+          type: type == 'Attach Image' ? FileType.image : FileType.any,
+          allowMultiple: false,
+          withData: true,
+        );
+        if (picked == null || picked.files.isEmpty) return;
+        final file = picked.files.first;
+        if (file.bytes == null || file.bytes!.isEmpty) {
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('تعذر قراءة محتوى الملف المحدد.')),
+          );
+          return;
+        }
+        refresh(() => pendingAttachments[key] = file);
+      } catch (error) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('تعذر اختيار الملف: ${error.toString().replaceFirst('Exception: ', '')}')),
+        );
+      }
+    }
     for (final f in editable) {
       final key = f['fieldname'].toString();
       final type = f['fieldtype']?.toString() ?? '';
@@ -610,6 +737,8 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
       return values;
     }
     bool visibleField(Map<String, dynamic> field) {
+      final key = field['fieldname']?.toString() ?? '';
+      if (hiddenLayoutFields.contains(key) || field['hidden'] == 1 || field['hidden'] == true) return false;
       final rule = field['depends_on']?.toString() ?? '';
       return rule.trim().isEmpty || _evaluateSimpleDocDependency(rule, dependencyValues());
     }
@@ -632,9 +761,31 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (error.isNotEmpty) Text(error, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-            for (final f in editable)
-              if (visibleField(f))
-              Builder(builder: (context) {
+            for (final entry in editable.asMap().entries)
+              if (visibleField(entry.value))
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Builder(builder: (context) {
+                      final field = entry.value;
+                      final key = field['fieldname']?.toString() ?? '';
+                      final section = layoutSectionByField[key] ?? '';
+                      final alreadyShown = section.isNotEmpty && editable.take(entry.key).any((previous) {
+                        final previousKey = previous['fieldname']?.toString() ?? '';
+                        return visibleField(previous) && layoutSectionByField[previousKey] == section;
+                      });
+                      if (section.isEmpty || alreadyShown) return const SizedBox.shrink();
+                      return Padding(
+                        padding: const EdgeInsetsDirectional.fromSTEB(0, 14, 0, 8),
+                        child: Row(children: [
+                          const Icon(Icons.segment, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(section, style: Theme.of(context).textTheme.titleSmall)),
+                        ]),
+                      );
+                    }),
+                    Builder(builder: (context) {
+                final f = entry.value;
                 final key = f['fieldname'].toString();
                 final type = f['fieldtype']?.toString() ?? '';
                 final label = f['label']?.toString() ?? key;
@@ -684,6 +835,8 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 final controller = controllers[key]!;
                 final isDate = type == 'Date';
                 final isDateTime = type == 'Datetime';
+                final isTime = type == 'Time';
+                final isAttachment = type == 'Attach' || type == 'Attach Image';
                 final isLink = type == 'Link' && (f['options']?.toString().trim().isNotEmpty ?? false);
                 final dynamicLinkField = f['options']?.toString() ?? '';
                 final dynamicLinkTarget = selections[dynamicLinkField] ??
@@ -691,6 +844,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     source?[dynamicLinkField]?.toString() ?? '';
                 final isDynamicLink = type == 'Dynamic Link';
                 final canPickLink = isLink || (isDynamicLink && dynamicLinkTarget.trim().isNotEmpty);
+                final isMultiline = const {'Text', 'Long Text', 'Small Text', 'Text Editor', 'Code'}.contains(type);
                 final keyboard = const {'Int','Float','Currency','Percent'}.contains(type)
                     ? const TextInputType.numberWithOptions(decimal: true)
                     : type == 'Email' ? TextInputType.emailAddress
@@ -706,10 +860,29 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                       refresh(() {});
                     },
                     keyboardType: keyboard,
-                    readOnly: isDate || isDateTime || readOnlyNow,
-                    minLines: (type == 'Text' || type == 'Long Text') ? 3 : 1,
-                    maxLines: (type == 'Text' || type == 'Long Text') ? 5 : 1,
-                    onTap: (isDate || isDateTime) && !readOnlyNow ? () async {
+                    readOnly: isDate || isDateTime || isTime || isAttachment || readOnlyNow,
+                    obscureText: type == 'Password',
+                    autocorrect: type != 'Password',
+                    enableSuggestions: type != 'Password',
+                    style: type == 'Code' ? const TextStyle(fontFamily: 'monospace') : null,
+                    minLines: isMultiline ? 3 : 1,
+                    maxLines: isMultiline ? (type == 'Code' ? 8 : 5) : 1,
+                    onTap: isAttachment && !readOnlyNow
+                        ? () => chooseAttachment(key, type, refresh)
+                        : isTime && !readOnlyNow
+                            ? () async {
+                                final parts = controller.text.split(':');
+                                final hour = parts.isNotEmpty ? int.tryParse(parts[0]) ?? 0 : 0;
+                                final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+                                final picked = await showTimePicker(
+                                  context: context,
+                                  initialTime: TimeOfDay(hour: hour.clamp(0, 23).toInt(), minute: minute.clamp(0, 59).toInt()),
+                                );
+                                if (picked == null) return;
+                                controller.text = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}:00';
+                                refresh(() {});
+                              }
+                            : (isDate || isDateTime) && !readOnlyNow ? () async {
                       final initial = DateTime.tryParse(controller.text) ?? DateTime.now();
                       final date = await showDatePicker(
                         context: context,
@@ -735,9 +908,16 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     } : null,
                     decoration: InputDecoration(
                       labelText: label,
-                      helperText: canPickLink ? 'اختر سجلاً موجوداً في ERPNext' : isDynamicLink ? 'حدد نوع المرجع أولاً' : requiredNow ? 'حقل إلزامي' : null,
-                      suffixIcon: isDate
+                      helperText: pendingAttachments[key]?.name ??
+                          (canPickLink ? 'اختر سجلاً موجوداً في ERPNext' : isDynamicLink ? 'حدد نوع المرجع أولاً' : requiredNow ? 'حقل إلزامي' : null),
+                      suffixIcon: isDate || isDateTime
                         ? const Icon(Icons.calendar_today_outlined)
+                        : isTime ? const Icon(Icons.access_time)
+                        : isAttachment ? IconButton(
+                            tooltip: 'اختيار ملف',
+                            onPressed: readOnlyNow ? null : () => chooseAttachment(key, type, refresh),
+                            icon: const Icon(Icons.attach_file),
+                          )
                         : canPickLink ? IconButton(
                             tooltip: 'اختيار سجل',
                             onPressed: readOnlyNow ? null : () async {
@@ -750,7 +930,9 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     ),
                   ),
                 );
-              }),
+                    }),
+                  ],
+                ),
           ],
         ))),
         actions: [
@@ -790,7 +972,15 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     continue;
                   }
                   final raw = controllers[key]!.text.trim();
-                  if (requiredNow && raw.isEmpty) throw FormatException('الحقل ' + (f['label']?.toString() ?? key) + ' مطلوب.');
+                  if (type == 'Password' && raw.isEmpty && source != null) continue;
+                  final pendingAttachment = pendingAttachments[key];
+                  if (requiredNow && raw.isEmpty && pendingAttachment != null && source == null) {
+                    throw FormatException('لا يمكن إرفاق ملف إلزامي قبل إنشاء المستند في ERPNext؛ أنشئ المستند أولاً ثم أضف الملف من النموذج.');
+                  }
+                  if (requiredNow && raw.isEmpty && pendingAttachment == null) {
+                    throw FormatException('الحقل ' + (f['label']?.toString() ?? key) + ' مطلوب.');
+                  }
+                  if (pendingAttachment != null && raw.isEmpty) continue;
                   if (raw.isEmpty) {
                     if (source != null && source.containsKey(key)) values[key] = null;
                     continue;
@@ -805,7 +995,38 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     values[key] = raw;
                   }
                 }
-                await widget.api.saveDocTypeDocument(doctype: _doctype, name: source?['name']?.toString(), values: values);
+                final savedDocument = await widget.api.saveDocTypeDocument(
+                  doctype: _doctype,
+                  name: source?['name']?.toString(),
+                  values: values,
+                );
+                final attachmentValues = <String, dynamic>{};
+                final savedName = savedDocument['name']?.toString() ?? source?['name']?.toString() ?? '';
+                for (final entry in pendingAttachments.entries.toList()) {
+                  final bytes = entry.value.bytes;
+                  if (savedName.isEmpty || bytes == null || bytes.isEmpty) {
+                    throw const FormatException('تعذر إكمال رفع مرفق الحقل.');
+                  }
+                  final uploaded = await widget.api.uploadDocTypeAttachment(
+                    doctype: _doctype,
+                    name: savedName,
+                    fileName: entry.value.name,
+                    bytes: bytes,
+                    isPrivate: true,
+                  );
+                  final fileUrl = uploaded['file_url']?.toString().trim() ?? '';
+                  if (fileUrl.isEmpty) throw const FormatException('رفع الملف لم يُرجع مسار المرفق من ERPNext.');
+                  attachmentValues[entry.key] = fileUrl;
+                  controllers[entry.key]?.text = fileUrl;
+                  pendingAttachments.remove(entry.key);
+                }
+                if (attachmentValues.isNotEmpty) {
+                  await widget.api.saveDocTypeDocument(
+                    doctype: _doctype,
+                    name: savedName,
+                    values: attachmentValues,
+                  );
+                }
                 if (dialog.mounted) Navigator.pop(dialog, true);
               } catch (e) {
                 refresh(() { error = e.toString().replaceFirst('Exception: ', ''); saving = false; });
@@ -818,6 +1039,229 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     );
     for (final c in controllers.values) { c.dispose(); }
     if (saved == true && mounted) { _generation++; await _load(); }
+  }
+
+
+  Future<void> _showActivity(String name) async {
+    final commentController = TextEditingController();
+    Map<String, List<Map<String, dynamic>>> activity = {
+      'attachments': <Map<String, dynamic>>[],
+      'comments': <Map<String, dynamic>>[],
+      'versions': <Map<String, dynamic>>[],
+    };
+    var loading = true;
+    var busy = false;
+    var started = false;
+    BuildContext? activityContext;
+    String? error;
+
+    Future<void> load(StateSetter refresh) async {
+      refresh(() { loading = true; error = null; });
+      try {
+        final result = await widget.api.fetchDocTypeActivity(doctype: _doctype, name: name);
+        if (!mounted || activityContext?.mounted != true) return;
+        refresh(() { activity = result; loading = false; });
+      } catch (e) {
+        if (!mounted || activityContext?.mounted != true) return;
+        refresh(() { error = e.toString().replaceFirst('Exception: ', ''); loading = false; });
+      }
+    }
+
+    await showModalBottomSheet<void>(
+      context: context, isScrollControlled: true, useSafeArea: true, showDragHandle: true,
+      builder: (sheet) => StatefulBuilder(builder: (context, refresh) {
+        activityContext = sheet;
+        if (!started) {
+          started = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) { if (sheet.mounted) load(refresh); });
+        }
+        Future<void> addComment() async {
+          final value = commentController.text.trim();
+          if (value.isEmpty || busy) return;
+          refresh(() { busy = true; error = null; });
+          try {
+            await widget.api.addDocTypeComment(doctype: _doctype, name: name, content: value);
+            commentController.clear();
+            await load(refresh);
+          } catch (e) {
+            refresh(() => error = e.toString().replaceFirst('Exception: ', ''));
+          } finally {
+            if (sheet.mounted) refresh(() => busy = false);
+          }
+        }
+        Future<void> uploadAttachment() async {
+          if (busy) return;
+          try {
+            final picked = await FilePicker.platform.pickFiles(type: FileType.any, allowMultiple: false, withData: true);
+            if (picked == null || picked.files.isEmpty) return;
+            final file = picked.files.single;
+            final bytes = file.bytes;
+            if (bytes == null || bytes.isEmpty) throw const FormatException('تعذر قراءة محتوى الملف المحدد.');
+            refresh(() { busy = true; error = null; });
+            await widget.api.uploadDocTypeAttachment(
+              doctype: _doctype, name: name, fileName: file.name, bytes: bytes,
+            );
+            await load(refresh);
+          } catch (e) {
+            if (sheet.mounted) refresh(() => error = e.toString().replaceFirst('Exception: ', ''));
+          } finally {
+            if (sheet.mounted) refresh(() => busy = false);
+          }
+        }
+
+        Future<void> openAttachment(Map<String, dynamic> file) async {
+          if (busy) return;
+          final fileId = file['name']?.toString().trim() ?? '';
+          if (fileId.isEmpty) {
+            refresh(() => error = 'معرّف المرفق غير متاح من ERPNext.');
+            return;
+          }
+          refresh(() { busy = true; error = null; });
+          try {
+            final bytes = await widget.api.downloadDocTypeAttachment(
+              doctype: _doctype,
+              name: name,
+              fileId: fileId,
+            );
+            if (!sheet.mounted) return;
+            final fileName = file['file_name']?.toString().trim().isNotEmpty == true
+                ? file['file_name'].toString()
+                : fileId;
+            final result = await Share.shareXFiles(
+              [XFile.fromData(
+                Uint8List.fromList(bytes),
+                mimeType: file['content_type']?.toString(),
+                name: fileName,
+              )],
+              fileNameOverrides: [fileName],
+              subject: 'مرفق $_doctype • $name',
+              text: fileName,
+            );
+            if (sheet.mounted && result.status == ShareResultStatus.unavailable) {
+              refresh(() => error = 'تعذر فتح قائمة مشاركة الملف على هذا الجهاز.');
+            }
+          } catch (e) {
+            if (sheet.mounted) {
+              refresh(() => error = e.toString().replaceFirst('Exception: ', ''));
+            }
+          } finally {
+            if (sheet.mounted) refresh(() => busy = false);
+          }
+        }
+
+        final attachments = activity['attachments'] ?? const <Map<String, dynamic>>[];
+        final comments = activity['comments'] ?? const <Map<String, dynamic>>[];
+        final versions = activity['versions'] ?? const <Map<String, dynamic>>[];
+        return SizedBox(
+          height: MediaQuery.of(sheet).size.height * .86,
+          child: Column(children: [
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(16, 4, 16, 12),
+              child: Row(children: [
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('المرفقات وسجل النشاط', style: Theme.of(context).textTheme.titleLarge),
+                  Text('$_doctype • $name', style: Theme.of(context).textTheme.labelSmall),
+                ])),
+                IconButton(tooltip: 'تحديث النشاط', onPressed: loading || busy ? null : () => load(refresh), icon: const Icon(Icons.refresh)),
+              ]),
+            ),
+            if (error != null) Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: MaterialBanner(content: Text(error!), actions: [
+                TextButton(onPressed: () => load(refresh), child: const Text('إعادة المحاولة')),
+              ]),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextField(
+                controller: commentController, minLines: 1, maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: 'إضافة تعليق إلى سجل المستند',
+                  suffixIcon: IconButton(tooltip: 'إرسال التعليق', onPressed: busy ? null : addComment, icon: const Icon(Icons.send)),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 16, 4),
+              child: Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: OutlinedButton.icon(
+                  onPressed: busy ? null : uploadAttachment,
+                  icon: const Icon(Icons.attach_file), label: const Text('إرفاق ملف'),
+                ),
+              ),
+            ),
+            if (loading || busy) const LinearProgressIndicator(),
+            Expanded(child: ListView(children: [
+              ExpansionTile(
+                initiallyExpanded: true,
+                leading: const Icon(Icons.attach_file),
+                title: Text('المرفقات (${attachments.length})'),
+                children: attachments.isEmpty
+                  ? const [ListTile(title: Text('لا توجد مرفقات لهذا المستند.'))]
+                  : attachments.map((file) => ListTile(
+                      leading: const Icon(Icons.insert_drive_file_outlined),
+                      title: Text(file['file_name']?.toString() ?? file['name']?.toString() ?? 'ملف'),
+                      subtitle: Text([
+                        if (file['creation'] != null) file['creation'].toString(),
+                        if (file['file_size'] != null) '${file['file_size']} بايت',
+                        file['is_private'] == 1 || file['is_private'] == true ? 'خاص' : 'عام',
+                      ].join(' • ')),
+                      trailing: IconButton(
+                        tooltip: 'تنزيل ومشاركة المرفق',
+                        onPressed: busy || file['name'] == null
+                            ? null
+                            : () => openAttachment(file),
+                        icon: const Icon(Icons.download_outlined),
+                      ),
+                      onTap: busy || file['name'] == null
+                          ? null
+                          : () => openAttachment(file),
+                    )).toList(),
+              ),
+              ExpansionTile(
+                initiallyExpanded: true,
+                leading: const Icon(Icons.forum_outlined),
+                title: Text('التعليقات (${comments.length})'),
+                children: comments.isEmpty
+                  ? const [ListTile(title: Text('لا توجد تعليقات.'))]
+                  : comments.map((comment) => ListTile(
+                      leading: const Icon(Icons.chat_bubble_outline),
+                      title: Text(comment['comment_by']?.toString() ?? comment['comment_email']?.toString() ?? 'مستخدم'),
+                      subtitle: Text(comment['content']?.toString() ?? ''),
+                      trailing: comment['creation'] == null ? null : Text(comment['creation'].toString(), style: Theme.of(context).textTheme.labelSmall),
+                    )).toList(),
+              ),
+              ExpansionTile(
+                leading: const Icon(Icons.history),
+                title: Text('سجل الإصدارات (${versions.length})'),
+                children: versions.isEmpty
+                  ? const [ListTile(title: Text('لا توجد إصدارات محفوظة لهذا المستند.'))]
+                  : versions.map((version) => ListTile(
+                      leading: const Icon(Icons.history_toggle_off),
+                      title: Text(version['owner']?.toString() ?? 'تعديل'),
+                      subtitle: Text(version['creation']?.toString() ?? ''),
+                      isThreeLine: true,
+                      trailing: const Icon(Icons.info_outline),
+                      onTap: () {
+                        final data = version['data']?.toString() ?? '';
+                        showDialog<void>(
+                          context: context,
+                          builder: (dialog) => AlertDialog(
+                            title: const Text('تفاصيل الإصدار'),
+                            content: SizedBox(width: 520, child: SingleChildScrollView(child: SelectableText(data))),
+                            actions: [TextButton(onPressed: () => Navigator.pop(dialog), child: const Text('إغلاق'))],
+                          ),
+                        );
+                      },
+                    )).toList(),
+              ),
+            ])),
+          ]),
+        );
+      }),
+    );
+    commentController.dispose();
   }
 
   Future<void> _details(String name) async {
@@ -847,6 +1291,26 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 Text(name, style: Theme.of(sheet).textTheme.titleLarge),
                 Text(_doctype + ' • ' + (status == 0 ? 'مسودة' : status == 1 ? 'مرحّل' : 'ملغى')),
               ])),
+              IconButton(
+                tooltip: 'عرض تفاصيل المستند',
+                onPressed: () {
+                  Navigator.pop(sheet);
+                  Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => WorkspaceNativeDestinationPage(
+                      api: widget.api,
+                      title: '${widget.definition.label} • $name',
+                      linkType: 'DocTypeDocument',
+                      target: '$_doctype|$name',
+                    ),
+                  ));
+                },
+                icon: const Icon(Icons.arrow_forward),
+              ),
+              IconButton(
+                tooltip: 'المرفقات وسجل النشاط',
+                onPressed: () { Navigator.pop(sheet); _showActivity(name); },
+                icon: const Icon(Icons.history),
+              ),
             ])),
             Expanded(child: ListView.separated(
               itemCount: fields.length,
@@ -1079,6 +1543,18 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
           Text(_doctype, style: Theme.of(context).textTheme.labelSmall),
         ]),
         actions: [
+          IconButton(
+            tooltip: 'فتح قائمة الجوال',
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => WorkspaceNativeDestinationPage(
+                api: widget.api,
+                title: widget.definition.label,
+                linkType: 'DocTypeList',
+                target: _doctype,
+              ),
+            )),
+            icon: const Icon(Icons.arrow_forward),
+          ),
           IconButton(tooltip: 'إضافة سجل', onPressed: _loading ? null : () => _edit(), icon: const Icon(Icons.add)),
           IconButton(tooltip: 'تحديث', onPressed: _loading ? null : () { _generation++; _load(); }, icon: const Icon(Icons.refresh)),
         ],
@@ -1185,6 +1661,38 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
             ],
           ),
         if (_loading || _more) const LinearProgressIndicator(),
+        if (_selectedNames.isNotEmpty && _meta?['is_submittable'] == 1)
+          Builder(builder: (context) {
+            final selectedRows = _rows.where((row) => _selectedNames.contains(row['name']?.toString())).toList();
+            final draftCount = selectedRows.where((row) => (row['docstatus'] as num?)?.toInt() == 0).length;
+            final submittedCount = selectedRows.where((row) => (row['docstatus'] as num?)?.toInt() == 1).length;
+            return Card(
+              margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text('المحدد: ${_selectedNames.length}'),
+                  Wrap(spacing: 8, children: [
+                    if (draftCount > 0) FilledButton.tonalIcon(
+                      onPressed: _bulkActionLoading ? null : () => _bulkTransition('Submit'),
+                      icon: const Icon(Icons.check_circle_outline),
+                      label: Text('ترحيل ($draftCount)'),
+                    ),
+                    if (submittedCount > 0) OutlinedButton.icon(
+                      onPressed: _bulkActionLoading ? null : () => _bulkTransition('Cancel'),
+                      icon: const Icon(Icons.cancel_outlined),
+                      label: Text('إلغاء ($submittedCount)'),
+                    ),
+                    TextButton(
+                      onPressed: _bulkActionLoading ? null : () => setState(() => _selectedNames.clear()),
+                      child: const Text('مسح التحديد'),
+                    ),
+                  ]),
+                  if (_bulkActionLoading) const LinearProgressIndicator(),
+                ]),
+              ),
+            );
+          }),
         if (_error != null) MaterialBanner(
           content: Text(_error!),
           actions: [TextButton(onPressed: _initialize, child: const Text('إعادة المحاولة'))],
@@ -1210,7 +1718,19 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 leading: Icon(widget.definition.icon),
                 title: Text(row[title]?.toString() ?? row['name']?.toString() ?? '—'),
                 subtitle: Text(subtitle.isEmpty ? row['name']?.toString() ?? '' : subtitle),
-                trailing: const Icon(Icons.chevron_left),
+                trailing: _meta?['is_submittable'] == 1
+                  ? Row(mainAxisSize: MainAxisSize.min, children: [
+                      Checkbox(
+                        value: _selectedNames.contains(row['name']?.toString()),
+                        onChanged: _bulkActionLoading ? null : (selected) => setState(() {
+                          final name = row['name']?.toString() ?? '';
+                          if (name.isEmpty) return;
+                          if (selected == true) { _selectedNames.add(name); } else { _selectedNames.remove(name); }
+                        }),
+                      ),
+                      const Icon(Icons.chevron_left),
+                    ])
+                  : const Icon(Icons.chevron_left),
                 onTap: () => _details(row['name'].toString()),
               );
             },

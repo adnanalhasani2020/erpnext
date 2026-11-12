@@ -1,7 +1,7 @@
-# Specialized Flutter screen parity audit — 2026-11-11
+# Specialized Flutter screen parity audit — 2026-11-12
 
 Repository: `adnanalhasani2020/erpnext`  
-Branch: `feature/flutter-one-to-one-screen-parity`  
+Branch: `feature/flutter-doctype-activity-parity`  
 Audit basis: Flutter source, Frappe API calls and ERPNext workspace/DocType source available in this repository. This is a code-level comparison, not a live-site certification.
 
 ## Status definitions
@@ -20,28 +20,27 @@ Audit basis: Flutter source, Frappe API calls and ERPNext workspace/DocType sour
 | Journal Entries | Journal Entry list, form and document lifecycle | Draft create/edit; multiple account rows; account search; posting date/remark; debit/credit balancing in company currency; foreign-currency exchange rates; cost center/project; submit; cancel; reversal draft | History now paginates 50 records per request and filters drafts, submitted and canceled entries, posting-date range and native Journal Entry voucher type. Missing advanced list filters for account/party and accounting dimensions, reference/party fields on the composer, attachments, comments/timeline, print/PDF and bulk actions. Live GL validation remains required. |
 | Bank Reconciliation | Bank Reconciliation Tool and Bank Statement Import | Bank account selection; CSV/XLS/XLSX/MT940 import through ERPNext; preview/warnings; paginated import-document history; native import status refresh; Data Import Log row outcomes and exceptions; paginated bank transactions; linked voucher candidates; partial/full allocation; closing-balance audit record | Manual statement-row correction, saved matching sessions, every matching heuristic and full Bank Reconciliation Statement report/drill-down parity remain incomplete and require comparison against the installed ERPNext version and bank mappings. |
 | Process Payment Reconciliation | Process Payment Reconciliation form, background queue and Process Payment Reconciliation Log | Dedicated screen with company, party-type and native job-status filters; party/account/date criteria with ERPNext party-account and advance-account defaults; server-validated draft creation/editing; native submit with explicit confirmation; start/resume with server-confirmed Running status, pause and cancel actions; server progress; execution log and allocation-level completion details; the log DocType also has a separate paginated history/detail screen | Requires Accounts Settings auto-reconciliation, scheduler and background workers. Job status can remain Queued when scheduler is inactive. Live permissions, queue behavior, large-volume performance and final GL effects require a configured ERPNext site. |
-| Payment Reconciliation | Payment Reconciliation Tool | Customer/Supplier/Employee, company and receivable/payable account selection; invoice/payment date and amount-range filters; bank/cash account, default advance account, cost center, project, invoice-name and payment-name filters; selectable invoice/payment rows; ERPNext FIFO allocation preview; editable allocation amounts; server-calculated exchange differences; difference account and gain/loss posting date; explicit reconcile action | One party per run; the mobile screen still caps each server result at 500 rows rather than reproducing the Desk unlimited option or Process Payment Reconciliation background batches. Link filters are entered as ERPNext names rather than searchable Link pickers; dynamic accounting-dimension fields are discovered from ERPNext, searched against their linked DocTypes and selected from server results; other Link values are still entered by name rather than searchable pickers. Selected invoice/payment totals are displayed separately by currency, and individual suggested allocations can be removed from the preview. The background Process Payment Reconciliation screen separately exposes the persistent job log and allocation-level progress. Server-side permissions, available balances and final GL effects require live-site validation. |
+| Payment Reconciliation | Payment Reconciliation Tool | Customer/Supplier/Employee, company and receivable/payable account selection; invoice/payment date and amount-range filters; bank/cash account, default advance account, cost center, project, invoice-name and payment-name filters; selectable invoice/payment rows; ERPNext FIFO allocation preview; editable allocation amounts; server-calculated exchange differences; difference account and gain/loss posting date; explicit reconcile action | One party per run; the mobile screen still caps each server result at 500 rows rather than reproducing the Desk unlimited option or Process Payment Reconciliation background batches. Party and advanced Link filters now use metadata-driven server-search pickers; dynamic accounting-dimension fields are discovered from ERPNext, searched against their linked DocTypes and selected from server results. Receivable/payable account choices remain company- and party-type-scoped. Selected invoice/payment totals are displayed separately by currency, and individual suggested allocations can be removed from the preview. The background Process Payment Reconciliation screen separately exposes the persistent job log and allocation-level progress. Server-side permissions, available balances and final GL effects require live-site validation. |
 | Payroll | Payroll Entry and Salary Slip workflows in HRMS | Company-scoped Payroll Entry draft; setup validation; eligible employee fill; persisted employee selection; submit Payroll Entry; inspect generated slips; submit slips; create configured bank entry | Payroll configuration screens (Salary Structure, Salary Structure Assignment, Payroll Settings, salary components and employee eligibility) are not implemented as dedicated workflows. Requires a live, version-matched HRMS site and role-specific permissions before payroll can be certified. |
 | Warehouse Hierarchy | Warehouse tree and Warehouse form | Search; company filter; pagination; parent hierarchy display; expand/collapse for loaded groups; multi-select; bulk enable/disable; safe bulk parent move; create/edit through Master Data | Expand/collapse applies to the currently loaded hierarchy; it does not lazy-load children from the server. No complete Warehouse form inside this screen, no bulk delete (intentionally avoided), and no full warehouse-specific settings/address/territory/report parity. |
-| Sales Dashboard | Sales Analytics / sales dashboard responsibilities | Server-side company/date grouped totals per currency; outstanding amounts; invoice counts; top customers; now includes submitted returns and net sales after returns | Still not equivalent to ERPNext Sales Analytics: no time-series chart, item/group/territory/sales-person breakdown, comparison periods, profitability, target tracking or drill-down links. Top-customer ranking is based on sales invoices before returns. |
+| Sales Analytics | ERPNext Sales Analytics Query Report | Opens through the native metadata-driven Workspace Report screen; report filters, result rows, summary values and supported chart data are sourced from ERPNext | JavaScript-defined report filters and unsupported chart types/advanced chart controls remain incomplete; the removed custom Sales Dashboard is not presented as an equivalent. |
 | Sales Pricing | Item Price and Selling Pricing Rule lists/forms | Price-list selection; paginated Item Price; create/edit price; advanced Pricing Rule scopes, discount/rate/free-item modes, conditions and disable action | Web's complete Pricing Rule form and evaluation precedence must be checked against the installed version. Promotional Schemes are a separate mobile page; combined-rule simulations and full server pricing previews are not part of this screen. |
 | Promotional Schemes | Promotional Scheme list/form | Dedicated mobile workflow exists for selling promotional schemes and their item/group/brand slabs | Full parity for every ERPNext promotional condition, stacking rule, dates, customer/territory conditions and server calculation remains unverified. |
-| Sales Commission | Sales Person and commission configuration | Active non-group Sales Person list; search/pagination; edit base commission rate | This is not a commission accounting/report screen. It does not edit Sales Team allocations already stored on invoices, commission transactions, targets, territory/team hierarchy or inactive/group Sales Persons. Invoice-level Sales Team allocation is handled in the Sales Invoice composer; reports remain ERPNext reports. |
-| Sales Margin Analysis | Pricing and profitability analysis | Estimates margin from selected selling price list, company-scoped current Bin valuation, applicable supported Pricing Rules and Promotional Scheme slabs; currency mismatch is rejected | Estimate only, not ERPNext's posted profitability. Excludes customer/transaction-specific rules, min transaction conditions, tax, overhead, historical cost and some mixed/stacked/warehouse-specific rules. Needs explicit comparison with server-calculated invoice pricing and stock valuation. |
+| Sales Person | Sales Person DocType | Opens its own native metadata-driven list/form, including commission_rate and the other fields returned by the installed ERPNext metadata | The custom commission-only page was removed because it was not the full Sales Person web form. Invoice-level Sales Team allocation remains in the Sales Invoice workflow; commission reports remain separate ERPNext reports. |
 | Sales Invoice Composer | Sales Invoice form and lifecycle | Draft create/edit, item rows, taxes/discounts and payment/party details supported by the dedicated composer; submit and return creation through ERPNext mapper; Sales Team allocation and serial/batch support are present in the project | Every Sales Invoice custom/standard field, payment schedule, dimensions, tax edge case, print/PDF, attachments/timeline and all web actions are not certified. Cancellation/return constraints must be tested against linked documents on a live site. |
 | Sales Workflow | Quotation, Sales Order and Delivery Note lists/forms | Separate DocType-specific flows; draft creation/edit; submit/cancel; conversion through ERPNext mappers; delivery tracking and source-row constraints | Still a reduced mobile form compared with each full Desk form: advanced fields, custom fields, attachments/timeline, all workflow buttons, print/PDF, list filters and bulk actions require per-DocType verification. |
 | HR Workflows | Employee, Attendance, Leave Application, Expense Claim and Salary Slip in HRMS | Standalone route support; employee create/edit/status; attendance draft create/correct/submit; leave application draft/submit; leave types; multi-line Expense Claim and payment; salary slip details; server workflow transitions | Not full HRMS module coverage: Employee Checkin, Shift Type/Assignment, Leave Allocation, Appraisal, Recruitment, Training, payroll configuration and other HRMS workspaces still use generic routes or are absent. Corrections to submitted records and HR-specific reports require dedicated workflows. |
-| Financial Reports | ERPNext standard reports | Mobile report hub invokes supported standard reports and includes aging, statements, valuation and exports | A report hub groups many distinct web reports; it is not one-to-one with each report. Filter/column parity, saved report variants, chart drill-down and report permissions depend on the installed version. |
+| ERPNext Reports | Individual Query Reports | Each visible Workspace Report opens its own native metadata-driven filter/result screen; supported charts, summaries and exports use ERPNext's report response | Saved report variants, arbitrary JavaScript filters, advanced chart interactions and report-specific client scripts remain incomplete. The signed-in report hub was removed. |
 
 ## Changes made in this audit batch
 
 1. Journal Entry history now loads in 50-row pages, offers draft/submitted/canceled status filters and exposes a load-more action instead of silently stopping at the first page.
-2. Chart of Accounts now exposes a server-side Root Type filter (Asset, Liability, Equity, Income, Expense) and indents accounts using parent relationships already loaded in the current result set.
-3. Sales Dashboard now queries submitted return invoices separately, shows return totals and calculates net sales per currency without combining currencies.
+2. Chart of Accounts exposes a server-side Root Type filter and lazy-loads each group's direct child accounts on expansion, retaining ERPNext NestedSet order rather than limiting expansion to the first loaded page.
+3. The custom Sales Dashboard was subsequently removed because its client-side net-sales aggregation was not the ERPNext Sales Analytics Query Report. Sales Analytics now opens as its own native Query Report.
 4. Payment Reconciliation now allows per-allocation amount edits before confirmation, exposes invoice/payment fetch limits (50/100/250/500 up to the API cap of 500), and has a widget test verifying the 500/500 request values and the edited amount passed to ERPNext.
 5. Payroll Entry history now supports server-side name search and document-status filters (draft/submitted/cancelled) while preserving pagination.
 6. Item Catalog Excel import now validates required columns, missing mandatory row data and duplicate item codes before any writes; it asks for confirmation and explains that matching item codes update existing Items.
-7. The DocType directory now routes Account, Journal Entry, Payment Reconciliation, Process Payment Reconciliation and its dedicated log history, Bank Transaction, Bank Statement Import, Warehouse, Sales Person, Item Price, Pricing Rule and Sales Invoice to their specialized mobile workflows instead of the generic DocType editor.
+7. The DocType directory routes Account, Journal Entry, Payment Reconciliation, Process Payment Reconciliation and its dedicated log history, Bank Transaction, Bank Statement Import, Warehouse, Item Price, Pricing Rule and Sales Invoice to their dedicated Flutter workflows where implemented. Sales Person now opens its own metadata-driven DocType screen instead of a partial commission-only page.
 8. The mobile CI analyzer command now uses `--no-fatal-infos`: info diagnostics remain visible, while actual warnings and errors still fail the job. Flutter SDK Material imports remain on the supported `package:flutter/material.dart` path.
 9. Payment Reconciliation now displays selected invoice/payment totals by currency and allows removing individual suggested allocations before confirmation.
 10. A dedicated Process Payment Reconciliation screen now creates and submits native background jobs, supports start/resume/pause/cancel, and reads persistent job progress and allocation logs.
@@ -88,11 +87,126 @@ This is a structural separation pass, not a claim that every business domain is 
 
 - Sales Invoice, Customer and Supplier links now route to dedicated mobile list pages rather than opening the generic DocType editor or a combined overview. Search, pagination, refresh, invoice details, customer editing and party ledgers are retained.
 
-- Every visible Workspace Report link and Report shortcut now opens a separate metadata-driven report screen. It loads Report filter definitions from Frappe and runs the report through the permission-checked native query-report endpoint; report filters and results are no longer restricted to the previous 14-report allowlist. Page, URL, Dashboard and Workspace links open their original Desk destinations in the authenticated WebView. Native report chart rendering, saved report variants, and full filter behavior for JavaScript-defined report filters remain incomplete.
+- Every visible Workspace Report link and Report shortcut opens a native metadata-driven report screen using Frappe's permission-checked query-report endpoint. Page/Dashboard/Workspace links use native Flutter metadata views; external URL shortcuts are not opened in-app. Native report chart rendering, saved report variants, and JavaScript-defined report filters remain incomplete.
 
 
 ## Workspace/report split follow-up — 2026-11-12
 
-The workspace directory now preserves native route options so distinct links to one DocType (for example Credit Note and Debit Note) remain separate, filtered list/form destinations. It prefers Workspace Card Break links when available and uses sidebar Section Breaks for sidebar-only workspaces to avoid duplicating the parallel navigation representations. The directory also provides a direct original-Workspace view so charts and number cards remain reachable through ERPNext Desk while the native Flutter equivalents are not implemented.
+The workspace directory preserves native route options so distinct links to one DocType (for example Credit Note and Debit Note) remain separate filtered list destinations. It prefers Workspace Card Break links when available and uses sidebar Section Breaks for sidebar-only workspaces. Workspace details render static Number Cards, supported Document Type charts and static-filter Quick Lists as native Flutter widgets.
 
-The previous report allowlist has been removed for Workspace links. A standalone report page loads the report's available filter definitions, supports standard field types and server-backed Link lookups, displays returned columns/rows and report summary values, and exports CSV/Excel/PDF. It does not execute arbitrary report JavaScript in Flutter; report JS filters and chart rendering still need full parity work. Page/URL/Dashboard/Workspace destinations use a WebView with same-origin cookies marked HttpOnly for session identifiers and cleared when the view is disposed.
+The previous report allowlist has been removed for Workspace links. A standalone Flutter report page loads report filter definitions, supports standard field types and server-backed Link lookups, displays returned columns/rows and summary values, and exports CSV/Excel/PDF. It does not execute arbitrary report JavaScript; native report charts and JS-defined filters remain gaps. Page/Dashboard/Workspace destinations use native Flutter views only.
+
+
+## Generic DocType and original Desk parity follow-up — 2026-11-12
+
+The metadata-driven DocType list and document detail are native Flutter screens. The generic detail exposes File attachments, Comment timeline and Version history through the authenticated Frappe API. Native list bulk actions, DocType-specific buttons, attachment file opening, JS-defined report filters and native report charts remain gaps; no Desk fallback is embedded.
+
+The Workspace directory now uses actual Workspace record identity for grouping/de-duplication and does not show the previous static 47-entry fallback when the permission-filtered Workspace API is unavailable. The static DocType catalog is retained only to provide Arabic label hints for server-returned links.
+
+## Standalone Workspace route follow-up — 2026-11-12
+
+The Item Price and Pricing Rule Workspace links now pass their exact DocType into the pricing screen. The segmented combined overview, margin-analysis shortcut and promotional-scheme shortcut are hidden in these standalone routes, leaving only the responsibility selected by the Workspace link. The general pricing overview remains unchanged for callers that do not specify a DocType.
+
+The generic DocType activity view lists existing attachments, comments and Version history. Native attachment download/opening remains a gap. Workspace-only records with charts, quick lists, shortcuts or number cards remain visible; supported static charts and Quick Lists are rendered in Flutter, while unsupported widgets show an explicit unsupported state.
+
+## Banking standalone route follow-up — 2026-11-12
+
+Bank Transaction and Bank Statement Import no longer open an undifferentiated combined page from their Workspace links. The exact DocType is passed as the initial route: Bank Transaction focuses on transaction matching/reconciliation, while Bank Statement Import focuses on statement upload and import history. Both expose the corresponding native Flutter DocType list. The general banking reconciliation overview remains available without a specific DocType.
+
+## Original Desk access from specialized workflows — 2026-11-12
+
+The standalone sales, purchasing, stock and HR workflow pages provide direct navigation to the corresponding native Flutter DocType list for the selected responsibility. Controls not implemented in the focused mobile view remain explicit gaps; no Desk page is embedded.
+
+Standalone Chart of Accounts, Journal Entry, Payment Reconciliation, Process Payment Reconciliation and Payroll Entry screens expose direct navigation to their corresponding native Flutter DocType lists.
+
+The dedicated Item Catalog, Warehouse Hierarchy and Promotional Scheme pages expose direct links to their matching native Flutter DocType lists. Sales Person uses its own metadata-driven DocType list and form.
+
+## Native-only navigation policy — 2026-11-12
+
+ERPNext Desk is a behavioral and data reference only. The Flutter app must not embed Desk pages, use WebView, or use an embedded browser as a substitute for an incomplete mobile screen. DocType lists, document details, reports, workspace navigation and supported Number Cards are rendered with Flutter widgets and Frappe API calls. Page/Dashboard definitions that depend on server HTML or JavaScript are not considered complete until their behavior is implemented in native Flutter. External URL shortcuts are not opened in-app. Standard Document Type charts with static filters and Workspace Quick Lists with static filters are rendered natively. Report/custom/dynamic/heatmap charts, Quick List filter editing, and Page/Dashboard-specific interactions remain explicit gaps; they must be implemented from ERPNext metadata and APIs without executing server-provided JavaScript.
+
+
+## Native Page parity follow-up — 2026-11-12
+
+The ERPNext Page links for Stock Summary, Warehouse Capacity Summary and Visual Plant Floor now open dedicated Flutter screens. Stock Summary and Warehouse Capacity Summary use their original whitelisted ERPNext dashboard methods, preserving server-side permission filtering, calculations, filters and sort allowlists. Visual Plant Floor uses the original `get_workstations` method and renders the six Workstation statuses natively. Workstation status images now load through authenticated same-origin image requests. Real-time Workstation status subscription remains an explicit gap. No server-side Page JavaScript or embedded Desk page is used.
+
+
+## Native attachment retrieval — 2026-11-12
+
+The generic DocType activity panel now downloads an attachment through the authenticated Frappe session rather than attempting to open its URL in a browser. Before downloading, the API re-reads the canonical File document and verifies that its attached DocType and document name match the activity panel. The resolved file URL must remain on the configured ERPNext origin; session cookies are never sent to an external host. The returned bytes are handed to the Android share/open chooser using the native share API. The activity query also reads the file MIME type so the receiving application can select an appropriate handler.
+
+This closes the generic DocType attachment retrieval gap for files the current ERPNext user is permitted to read. It does not add a browser or WebView fallback, and it does not change ERPNext file permissions.
+
+
+## Payment Reconciliation Link field parity — 2026-11-12
+
+The Payment Reconciliation screen now reads the virtual DocType's Link/Dynamic Link metadata from ERPNext and uses it to render server-search pickers for Party, bank/cash Account, default advance Account, Cost Center and Project. Invoice name and payment name remain text filters because ERPNext defines those source fields as Data, not Link. The picker resolves the Dynamic Link target from the selected party type, applies the static/company filters supplied by the field metadata, derives searchable display fields from the target DocType metadata, and selects only records returned by the authenticated Frappe resource API. Existing accounting-dimension pickers and the company-/party-scoped receivable/payable account selector remain in place. No local list of business records or hard-coded Link targets is used for the standard fields.
+
+
+## Native-only destination correction — 2026-11-12
+
+External Workspace URL shortcuts are now excluded from the mobile screen directory because they are not ERPNext DocType, Report, Workspace, Dashboard or native Page screens. Custom ERPNext Page destinations without an implemented Flutter counterpart now stop with an explicit unsupported-page state; they are no longer incorrectly fetched and displayed as generic Page DocType records. The three supported Page destinations continue to open their dedicated native Flutter screens. Dashboard records continue through their own native metadata-backed destination. No embedded browser or web screen is introduced.
+
+
+## Mobile-only aggregate screen removal — 2026-11-12
+
+The signed-in dashboard no longer links to a combined Sales/Purchase/Customer/Supplier transaction overview because ERPNext exposes those as separate Workspace responsibilities and the combined page is not a corresponding ERPNext screen. The pricing overview no longer links to the custom margin-estimate page; the estimate is not the native ERPNext Sales Analytics/profitability report and must not be presented as an equivalent. Existing specialized Sales Analytics and ERPNext report routes remain separate.
+
+
+The standalone Sales Margin Analysis widget was removed from the mobile source after its only navigation entry was removed. It was a client-side estimate, not an ERPNext standard screen or report, and is therefore not counted as a supported mobile responsibility.
+
+
+## Workspace nested-link routing correction — 2026-11-12
+
+Opening a Workspace's own Flutter page now preserves the app-shell DocType route resolver for its nested DocType links and Number Card workspace shortcuts. A nested Sales Invoice, Customer, Supplier, Item, Account, Journal Entry, Bank Transaction, Payroll Entry or other specialized DocType therefore opens its existing dedicated Flutter workflow instead of silently falling back to the generic metadata editor. Report links remain on the native report screen; no web view is introduced.
+
+
+## Native parity implementation follow-up — 2026-11-12
+
+- The Account tree now fetches direct child accounts from the authenticated ERPNext Account resource when a group is first expanded. Results are merged by canonical account name and sorted by ERPNext NestedSet `lft` order; subsequent collapse/expand uses the loaded child rows. Company, root-type, disabled and search filters are preserved. This removes the previous loaded-page-only limitation for nested expansion.
+- The generic DocType list now supports multi-select Submit and Cancel for metadata-marked submittable DocTypes. Each selected record is re-read and transitioned through ERPNext's canonical lifecycle endpoint. Failures are collected and reported per batch; no direct status writes are used. This is not a claim that every DocType-specific bulk action is implemented.
+- Dashboard Chart Heatmap visualization now has a native Flutter cell-grid renderer in addition to the existing Bar, Line, Pie, Donut and Percentage renderers. Report-backed/custom charts and dynamic JavaScript filters remain unsupported.
+- Item Catalog now exposes the complete metadata-driven Item form for editing an existing item and creating a new one. The specialized catalog remains the list/stock/price/barcode view; the metadata editor loads the installed Item DocType fields and child-table metadata from ERPNext. Arbitrary client scripts and unsupported field widgets remain outside the mobile implementation.
+- Item Price and Pricing Rule now open as full-screen standalone Flutter routes. The prior pricing page was a bottom-sheet composition and is no longer used as a modal-only screen.
+- The client-side margin estimate was removed because it was not an ERPNext standard screen or authoritative profitability report.
+
+No manual tests were run for this follow-up. The repository's GitHub Actions checks must validate Dart analysis and Android compilation; a live ERPNext/HRMS site is still required for permissions, role-specific workflows, accounting and stock acceptance.
+
+
+## Independent screen follow-up — 2026-11-12
+
+- Warehouse Hierarchy now lazy-loads each group's direct children from the authenticated Warehouse resource on first expansion, preserves the selected company/search filters, merges by canonical Warehouse name and sorts by ERPNext NestedSet `lft`. Nested groups can be expanded independently instead of depending on the first paginated result set.
+- The standalone Pricing Rule route no longer loads or requires Item Price lists. It fetches Pricing Rules independently, hides the Item Price list selector, and permits the ERPNext Pricing Rule's optional `for_price_list` to remain empty. The combined pricing overview still loads the list when opened without a focused Workspace DocType.
+
+
+## Native report chart follow-up — 2026-11-12
+
+Workspace Query Report results now retain the chart object returned by ERPNext and render supported Bar, Line, Pie and Donut charts with native Flutter CustomPainter widgets. Report columns, rows and summary values remain sourced from the same permission-checked query-report response. Unsupported report chart types show an explicit unsupported state; the app does not execute report JavaScript or calculate chart data locally.
+
+
+## Removal of non-parity Sales Dashboard — 2026-11-12
+
+The custom Sales Dashboard route and its guest-overview shortcut were removed because the page aggregated custom totals and was not the ERPNext Sales Analytics report. The actual Sales Analytics Query Report remains accessible through the Workspace directory and runs through the native report API. No client-side summary is presented as a substitute for the ERPNext report.
+
+
+## Report navigation alignment — 2026-11-12
+
+The standalone financial-report hub was removed from signed-in bottom navigation because it combined many separate ERPNext Query Reports into one mobile-only screen. Each report remains available from its actual Workspace link and opens its own native metadata-driven report screen. Guest demo reports remain isolated to guest mode only.
+
+
+## DocField attachment input — 2026-11-12
+
+The generic metadata-driven form now recognizes ERPNext `Attach` and `Attach Image` fields. It uses the device file picker (image-only for Attach Image), stages the selected file until the document is saved, uploads through the authenticated ERPNext `upload_file` endpoint as private by default, and writes the returned `file_url` back to the exact field through the canonical document save method. A required Attach field on a brand-new document is explicitly blocked with an explanation because the document must exist before the attachment can be linked; the user can create the document first and add the required file in edit mode.
+
+
+## Additional DocField control parity — 2026-11-12
+
+The generic form now masks Password values and leaves a blank Password field unchanged when editing, matching ERPNext's password-field behavior. Text, Small Text, Long Text and Text Editor inputs use multiline mobile controls; Code fields use a multiline monospace editor. These remain plain data-entry controls and do not execute server-provided scripts.
+
+
+The generic form also uses the native time picker for ERPNext `Time` fields and stores the selected value in Frappe's `HH:mm:ss` format.
+
+
+## Sales Person screen alignment — 2026-11-12
+
+The partial Sales Commission screen was removed. The Sales Person Workspace link now opens the native metadata-driven Sales Person DocType list/form, so commission_rate and all other installed DocType fields remain available without presenting a commission-only aggregate as if it were the ERPNext web screen.

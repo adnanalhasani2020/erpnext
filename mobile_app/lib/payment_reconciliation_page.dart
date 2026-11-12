@@ -1,8 +1,10 @@
+import 'dart:convert';
 import 'dart:core';
 import 'dart:core' as core;
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
+import 'workspace_native_destination_page.dart';
 import 'models/erp_models.dart';
 
 class PaymentReconciliationPage extends StatefulWidget {
@@ -43,6 +45,7 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
   int _paymentLimit = 50;
   List<core.Map<String, dynamic>> _accounts = const [];
   List<core.Map<String, dynamic>> _dimensionDefinitions = const [];
+  Map<String, core.Map<String, dynamic>> _reconciliationLinkFields = const {};
   final Map<String, TextEditingController> _dimensionControllers = {};
   final Map<String, List<String>> _dimensionOptions = {};
   final Set<String> _searchingDimensionOptions = <String>{};
@@ -181,7 +184,18 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
     final generation = ++_dimensionGeneration;
     setState(() => _loadingDimensions = true);
     try {
-      final definitions = await widget.api.fetchPaymentReconciliationDimensions(company);
+      final results = await Future.wait([
+        widget.api.fetchPaymentReconciliationDimensions(company),
+        widget.api.fetchDocTypeMeta('Payment Reconciliation'),
+      ]);
+      final definitions = results[0] as List<core.Map<String, dynamic>>;
+      final meta = results[1] as core.Map<String, dynamic>;
+      final linkFields = <String, core.Map<String, dynamic>>{
+        for (final raw in (meta['fields'] as List? ?? const []).whereType<core.Map>())
+          if (raw['fieldname'] is String &&
+              (raw['fieldtype'] == 'Link' || raw['fieldtype'] == 'Dynamic Link'))
+            raw['fieldname'].toString(): core.Map<String, dynamic>.from(raw),
+      };
       if (!mounted || generation != _dimensionGeneration || company != _company) return;
       final next = <String, TextEditingController>{};
       for (final definition in definitions) {
@@ -197,6 +211,7 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
           ..clear()
           ..addAll(next);
         _dimensionDefinitions = definitions;
+        _reconciliationLinkFields = linkFields;
         _dimensionOptions.clear();
         _document = null;
       });
@@ -276,6 +291,228 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
     }
     return value;
   }
+
+  List<List<dynamic>> _linkFieldFilters(core.Map<String, dynamic> field) {
+    dynamic raw = field['filters'];
+    if (raw is String && raw.trim().isNotEmpty) {
+      try { raw = jsonDecode(raw); } catch (_) { return const []; }
+    }
+    final filters = <List<dynamic>>[];
+    dynamic resolveValue(dynamic value) {
+      if (value == 'company' || value == 'eval:doc.company' || value == 'eval:doc.company_name') {
+        return _company;
+      }
+      if (value is String && value.startsWith('eval:')) return null;
+      if (value is Map || value is List) return null;
+      return value;
+    }
+    if (raw is Map) {
+      for (final entry in raw.entries) {
+        final value = resolveValue(entry.value);
+        if (value != null && value.toString().trim().isNotEmpty) {
+          filters.add([entry.key.toString(), '=', value]);
+        }
+      }
+    } else if (raw is List) {
+      for (final row in raw) {
+        if (row is! List || row.length < 3) continue;
+        final isDoctypeTuple = row.length >= 4 && row[0]?.toString() == 'Payment Reconciliation';
+        final fieldname = isDoctypeTuple ? row[1] : row[0];
+        final operator = isDoctypeTuple ? row[2] : row[1];
+        final rawValue = row.last;
+        final value = resolveValue(rawValue);
+        if (fieldname != null && operator != null && value != null) {
+          filters.add([fieldname, operator, value]);
+        }
+      }
+    }
+    return filters;
+  }
+
+  Future<void> _pickLinkValue(
+    TextEditingController controller,
+    String label,
+    String fieldname, {
+    String? doctypeOverride,
+  }) async {
+    final field = _reconciliationLinkFields[fieldname];
+    final doctype = (doctypeOverride ?? field?['options']?.toString() ?? '').trim();
+    if (doctype.isEmpty) {
+      setState(() => _error = 'تعذر تحديد نوع السجلات المرتبطة بالحقل $label من بيانات ERPNext.');
+      return;
+    }
+    final filters = field == null ? const <List<dynamic>>[] : _linkFieldFilters(field);
+    final searchController = TextEditingController();
+    var loading = false;
+    var started = false;
+    String? error;
+    var rows = <core.Map<String, dynamic>>[];
+    var requestGeneration = 0;
+
+    try {
+      final selected = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) => StatefulBuilder(
+          builder: (dialogContext, refresh) {
+            Future<void> search() async {
+              if (loading) return;
+              final generation = ++requestGeneration;
+              refresh(() { loading = true; error = null; });
+              try {
+                final targetMeta = await widget.api.fetchDocTypeMeta(doctype);
+                final titleField = targetMeta['title_field']?.toString().trim() ?? '';
+                final targetFields = (targetMeta['fields'] as List? ?? const [])
+                    .whereType<core.Map>()
+                    .toList(growable: false);
+                final searchFields = <String>{
+                  if (titleField.isNotEmpty) titleField,
+                  ...targetFields
+                      .where((item) => item['in_list_view'] == 1 || item['in_list_view'] == true)
+                      .where((item) => const {'Data', 'Link', 'Select', 'Read Only'}.contains(item['fieldtype']))
+                      .map((item) => item['fieldname']?.toString() ?? '')
+                      .where((name) => name.isNotEmpty && name != 'name')
+                      .take(5),
+                }.toList(growable: false);
+                final selectedFields = <String>{'name', ...searchFields}.toList(growable: false);
+                final result = await widget.api.fetchDocTypeRows(
+                  doctype: doctype,
+                  fields: selectedFields,
+                  search: searchController.text.trim(),
+                  searchFields: searchFields,
+                  filters: filters,
+                  orderBy: 'name asc',
+                );
+                if (!dialogContext.mounted || generation != requestGeneration) return;
+                refresh(() {
+                  rows = result.take(40).map((row) => <String, dynamic>{
+                    ...row,
+                    '_picker_title': titleField.isNotEmpty ? (row[titleField] ?? row['name']) : row['name'],
+                  }).toList(growable: false);
+                  loading = false;
+                  started = true;
+                });
+              } catch (e) {
+                if (!dialogContext.mounted || generation != requestGeneration) return;
+                refresh(() { error = e.toString().replaceFirst('Exception: ', ''); loading = false; started = true; });
+              } finally {
+                if (dialogContext.mounted && generation == requestGeneration && loading) {
+                  refresh(() => loading = false);
+                }
+              }
+            }
+
+            if (!started && !loading) {
+              started = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (dialogContext.mounted) search();
+              });
+            }
+            return AlertDialog(
+              title: Text('اختيار $label'),
+              content: SizedBox(
+                width: MediaQuery.of(dialogContext).size.width * 0.82,
+                height: 420,
+                child: Column(
+                  children: [
+                    TextField(
+                      controller: searchController,
+                      autofocus: true,
+                      textInputAction: TextInputAction.search,
+                      onSubmitted: (_) => search(),
+                      decoration: InputDecoration(
+                        labelText: 'بحث في $doctype',
+                        suffixIcon: IconButton(
+                          tooltip: 'بحث',
+                          onPressed: loading ? null : search,
+                          icon: const Icon(Icons.search),
+                        ),
+                      ),
+                    ),
+                    if (loading) const LinearProgressIndicator(),
+                    if (error != null) Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(error!, style: TextStyle(color: Theme.of(dialogContext).colorScheme.error)),
+                    ),
+                    Expanded(
+                      child: rows.isEmpty
+                          ? Center(child: Text(error == null ? 'لا توجد نتائج مطابقة.' : 'تعذر تحميل النتائج.'))
+                          : ListView.builder(
+                              itemCount: rows.length,
+                              itemBuilder: (_, index) {
+                                final row = rows[index];
+                                final name = row['name']?.toString() ?? '';
+                                final title = row['_picker_title']?.toString() ?? name;
+                                return ListTile(
+                                  title: Text(title.isEmpty ? name : title),
+                                  subtitle: title == name ? null : Text(name, textDirection: TextDirection.ltr),
+                                  onTap: name.isEmpty ? null : () => Navigator.of(dialogContext).pop(name),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.of(dialogContext).pop(), child: const Text('إلغاء')),
+              ],
+            );
+          },
+        ),
+      );
+      if (selected != null && mounted) {
+        setState(() {
+          controller.text = selected;
+          _document = null;
+          _error = null;
+        });
+      }
+    } finally {
+      searchController.dispose();
+    }
+  }
+
+  Widget _linkField(
+    TextEditingController controller,
+    String label,
+    String fieldname, {
+    String? doctypeOverride,
+  }) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: TextField(
+      controller: controller,
+      readOnly: true,
+      enabled: !_busy,
+      onTap: _busy ? null : () => _pickLinkValue(
+        controller, label, fieldname, doctypeOverride: doctypeOverride,
+      ),
+      decoration: InputDecoration(
+        labelText: label,
+        isDense: true,
+        suffixIcon: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: 'اختيار من ERPNext',
+              onPressed: _busy ? null : () => _pickLinkValue(
+                controller, label, fieldname, doctypeOverride: doctypeOverride,
+              ),
+              icon: const Icon(Icons.search),
+            ),
+            if (controller.text.isNotEmpty)
+              IconButton(
+                tooltip: 'مسح',
+                onPressed: _busy ? null : () => setState(() {
+                  controller.clear();
+                  _document = null;
+                }),
+                icon: const Icon(Icons.clear),
+              ),
+          ],
+        ),
+      ),
+    ),
+  );
 
   Widget _advancedFilter(TextEditingController controller, String label,
       {bool numeric = false}) => Padding(
@@ -734,7 +971,9 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
     );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('تسوية المدفوعات')),
+      appBar: AppBar(title: const Text('تسوية المدفوعات'), actions: [
+        IconButton(tooltip: 'فتح قائمة الجوال', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceNativeDestinationPage(api: widget.api, title: 'Payment Reconciliation', linkType: 'DocTypeList', target: 'Payment Reconciliation'))), icon: const Icon(Icons.arrow_forward)),
+      ]),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
@@ -774,20 +1013,12 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
               },
             ),
             const SizedBox(height: 10),
-            TextField(
-              controller: _partyController,
-              enabled: !_busy,
-              onChanged: (_) {
-                if (_document != null) setState(() => _document = null);
-              },
-              decoration: InputDecoration(
-                labelText: _partyType == 'Customer'
-                    ? 'رمز العميل'
-                    : _partyType == 'Supplier' ? 'رمز المورد' : 'رمز الموظف',
-                hintText: _partyType == 'Customer'
-                    ? 'مثال: CUST-0001'
-                    : _partyType == 'Supplier' ? 'مثال: SUPP-0001' : 'مثال: HR-EMP-0001',
-              ),
+            _linkField(
+              _partyController,
+              _partyType == 'Customer' ? 'العميل'
+                  : _partyType == 'Supplier' ? 'المورد' : 'الموظف',
+              'party',
+              doctypeOverride: _partyType,
             ),
             const SizedBox(height: 10),
             if (_loadingAccounts || _loadingDimensions) const LinearProgressIndicator(),
@@ -937,10 +1168,10 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
               title: const Text('الفلاتر المتقدمة المطابقة لـ ERPNext'),
               subtitle: const Text('تضييق النتائج حسب الحسابات والمبالغ والمستندات'),
               children: [
-                _advancedFilter(_bankCashAccountController, 'حساب البنك أو النقد'),
-                _advancedFilter(_advanceAccountController, 'حساب الدفعات المقدمة'),
-                _advancedFilter(_costCenterController, 'مركز التكلفة'),
-                _advancedFilter(_projectController, 'المشروع'),
+                _linkField(_bankCashAccountController, 'حساب البنك أو النقد', 'bank_cash_account'),
+                _linkField(_advanceAccountController, 'حساب الدفعات المقدمة', 'default_advance_account'),
+                _linkField(_costCenterController, 'مركز التكلفة', 'cost_center'),
+                _linkField(_projectController, 'المشروع', 'project'),
                 _advancedFilter(_invoiceNameController, 'رقم فاتورة محددة'),
                 _advancedFilter(_paymentNameController, 'رقم دفعة محددة'),
                 Row(children: [

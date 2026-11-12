@@ -4,7 +4,7 @@ import 'models/erp_models.dart';
 import 'widgets/count_card.dart';
 
 class DashboardPage extends StatelessWidget {
-  const DashboardPage({super.key, required this.user, required this.isGuest, required this.busy, required this.onLogout, required this.companies, required this.companiesLoading, required this.companyError, required this.onRefreshCompanies, required this.inventoryLoading, required this.inventoryError, required this.onRefreshInventory, required this.items, required this.warehouses, required this.stockBalances, required this.onOpenDocTypeDirectory, required this.onOpenTransactions});
+  const DashboardPage({super.key, required this.user, required this.isGuest, required this.busy, required this.onLogout, required this.companies, required this.companiesLoading, required this.companyError, required this.onRefreshCompanies, required this.inventoryLoading, required this.inventoryError, required this.onRefreshInventory, required this.items, required this.warehouses, required this.stockBalances, required this.onOpenDocTypeDirectory});
 
   final String? user;
   final bool isGuest;
@@ -21,7 +21,6 @@ class DashboardPage extends StatelessWidget {
   final List<ErpWarehouse> warehouses;
   final List<ErpStockBalance> stockBalances;
   final VoidCallback onOpenDocTypeDirectory;
-  final VoidCallback onOpenTransactions;
 
   @override
   Widget build(BuildContext context) {
@@ -150,15 +149,11 @@ class DashboardPage extends StatelessWidget {
           onTap: isGuest ? null : onOpenDocTypeDirectory,
         )),
         const SizedBox(height: 10),
-        Card(child: ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.receipt_long_outlined)),
-          title: const Text('المعاملات'),
-          subtitle: const Text('عرض فواتير المبيعات والمشتريات والعملاء والموردين'),
-          trailing: const Icon(Icons.chevron_left),
-          onTap: onOpenTransactions,
-        )),
-        const SizedBox(height: 10),
-        Text(isGuest ? 'في وضع الضيف يمكنك استعراض العينات والبحث فيها فقط. سجّل الدخول إلى ERPNext لتفعيل إنشاء المستندات والترحيل والدفعات والتقارير.' : 'يمكنك إنشاء فواتير المبيعات وترحيلها وتسجيل دفعات العملاء وإعداد مسودات المرتجعات من شاشة المعاملات.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
+        Text(isGuest
+          ? 'في وضع الضيف يمكنك استعراض العينات والبحث فيها فقط. سجّل الدخول إلى ERPNext للوصول إلى بياناتك الفعلية.'
+          : 'اختر مساحة العمل ثم افتح نوع المستند المطلوب في شاشة جوال مستقلة.',
+          textAlign: TextAlign.center,
+          style: Theme.of(context).textTheme.bodySmall),
       ],
     );
   }

@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
 import 'doctype_workspace_model.dart';
 import 'doctype_workspace_editor_page.dart';
-import 'workspace_web_page.dart';
+import 'workspace_native_destination_page.dart';
 
-const erpDocTypeDefinitions = <ErpDocTypeDefinition>[
+const erpDocTypeLabelHints = <ErpDocTypeDefinition>[
   ErpDocTypeDefinition('المبيعات', 'عروض الأسعار', 'Quotation', Icons.request_quote_outlined),
   ErpDocTypeDefinition('المبيعات', 'أوامر البيع', 'Sales Order', Icons.shopping_cart_outlined),
   ErpDocTypeDefinition('المبيعات', 'أذون التسليم', 'Delivery Note', Icons.local_shipping_outlined),
@@ -68,7 +68,9 @@ class ErpDocTypeDirectoryPage extends StatefulWidget {
 }
 
 class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
-  List<ErpDocTypeDefinition> _definitions = erpDocTypeDefinitions;
+  List<ErpDocTypeDefinition> _definitions = const [];
+  Map<String, List<Map<String, dynamic>>> _workspaceNumberCards = const {};
+  final Map<String, bool> _workspaceExpandedState = <String, bool>{};
   bool _loading = true;
   String? _directoryError;
 
@@ -89,17 +91,27 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
     }
   }
 
-  static const _workspaceLinkTypes = {'DocType', 'Report', 'Page', 'URL', 'Dashboard', 'Workspace'};
+  static const _workspaceLinkTypes = {'DocType', 'Report', 'Page', 'Dashboard', 'Workspace'};
 
   Future<void> _loadWorkspaceDirectory() async {
     setState(() { _loading = true; _directoryError = null; });
     try {
       final workspaces = await widget.api.fetchWorkspaceDirectory();
       final definitions = <ErpDocTypeDefinition>[];
+      final numberCardsByWorkspace = <String, List<Map<String, dynamic>>>{};
       final seen = <String>{};
       for (final workspace in workspaces) {
         final workspaceTitle = (workspace['title'] ?? workspace['label'] ?? workspace['name'] ?? 'ERPNext').toString();
         final workspaceName = (workspace['name'] ?? workspaceTitle).toString();
+        final rawNumberCards = workspace['number_cards'];
+        if (rawNumberCards is List) {
+          final cards = rawNumberCards
+              .whereType<Map>()
+              .map((card) => Map<String, dynamic>.from(card))
+              .where((card) => (card['number_card_name']?.toString().trim().isNotEmpty ?? false))
+              .toList();
+          if (cards.isNotEmpty) numberCardsByWorkspace[workspaceName] = cards;
+        }
         const workspaceLabels = <String, String>{
           'Accounting': 'المحاسبة',
           'Financial Reports': 'التقارير المالية',
@@ -125,7 +137,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           final supported = _workspaceLinkTypes.contains(linkType);
           final routeOptions = _routeOptions(workspace['route_options']);
           if (supported && target.isNotEmpty &&
-              seen.add('${workspaceTitle}::اختصارات::${linkType}::${target}::${jsonEncode(routeOptions)}')) {
+              seen.add('${workspaceName}::اختصارات::${linkType}::${target}::${jsonEncode(routeOptions)}')) {
             definitions.add(ErpDocTypeDefinition(
               workspaceLabel,
               workspace['title']?.toString() ?? workspace['label']?.toString() ?? target,
@@ -139,16 +151,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           }
           continue;
         }
-        if (workspace['type']?.toString() == 'URL') {
-          final target = (workspace['url'] ?? workspace['link_to'] ?? '').toString().trim();
-          if (target.isNotEmpty && seen.add('${workspaceTitle}::URL::${target}')) {
-            definitions.add(ErpDocTypeDefinition(
-              workspaceLabel, workspace['label']?.toString() ?? target, target,
-              _workspaceIcon(workspaceLabel), 'اختصارات', 'URL', const {}, workspaceName,
-            ));
-          }
-          continue;
-        }
+        // External URL shortcuts are not ERPNext mobile screens and are intentionally omitted.
         final shortcuts = workspace['shortcuts'];
         if (shortcuts is List) {
           for (final rawShortcut in shortcuts) {
@@ -159,7 +162,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
                 (shortcut['hidden'] == 1 || shortcut['hidden'] == true)) continue;
             final doctype = shortcut['link_to']?.toString().trim() ?? '';
             final routeOptions = _routeOptions(shortcut['route_options']);
-            if (doctype.isEmpty || !seen.add('${workspaceTitle}::اختصارات::${shortcutType}::${doctype}::${jsonEncode(routeOptions)}')) continue;
+            if (doctype.isEmpty || !seen.add('${workspaceName}::اختصارات::${shortcutType}::${doctype}::${jsonEncode(routeOptions)}')) continue;
             final label = shortcut['label']?.toString().trim() ?? '';
             definitions.add(ErpDocTypeDefinition(
               workspaceLabel,
@@ -199,7 +202,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           final routeOptions = _routeOptions(link['route_options']);
           if (doctype.isEmpty || !_workspaceLinkTypes.contains(linkType) ||
               (link['hidden'] == 1 || link['hidden'] == true) ||
-              !seen.add('${workspaceTitle}::${currentSection}::${linkType}::${doctype}::${jsonEncode(routeOptions)}')) continue;
+              !seen.add('${workspaceName}::${currentSection}::${linkType}::${doctype}::${jsonEncode(routeOptions)}')) continue;
           const translatedLabels = <String, String>{
             'Credit Note': 'إشعار دائن',
             'Debit Note': 'إشعار مدين',
@@ -229,7 +232,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
               ? (translatedLabels[sourceLabel] ?? sourceLabel)
               : translatedLabels[doctype] ?? (sourceLabel.isNotEmpty ? sourceLabel : doctype);
           if (routeOptions.isEmpty && (sourceLabel.isEmpty || sourceLabel == doctype)) {
-            for (final known in erpDocTypeDefinitions) {
+            for (final known in erpDocTypeLabelHints) {
               if (known.doctype == doctype) { displayLabel = known.label; break; }
             }
           }
@@ -245,9 +248,31 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           ));
         }
       }
+      // Keep workspaces that contain only Desk widgets visible even when they have no DocType links.
+      // The destination remains the original ERPNext Workspace, not a fabricated mobile form.
+      for (final workspace in workspaces) {
+        final workspaceName = (workspace['name'] ?? '').toString().trim();
+        if (workspaceName.isEmpty || definitions.any((item) => item.workspaceName == workspaceName)) continue;
+        final hasDeskWidgets = ['charts', 'number_cards', 'quick_lists', 'shortcuts']
+            .any((key) => workspace[key] is List && (workspace[key] as List).isNotEmpty);
+        if (!hasDeskWidgets) continue;
+        final title = (workspace['title'] ?? workspace['label'] ?? workspaceName).toString();
+        const labels = <String, String>{
+          'Accounting': 'المحاسبة', 'Financial Reports': 'التقارير المالية',
+          'Invoicing': 'الفوترة', 'Payments': 'المدفوعات', 'Assets': 'الأصول',
+          'Buying': 'المشتريات', 'CRM': 'علاقات العملاء', 'Manufacturing': 'التصنيع',
+          'Projects': 'المشاريع', 'Quality': 'الجودة', 'Selling': 'المبيعات',
+          'ERPNext Settings': 'إعدادات النظام', 'Stock': 'المخزون', 'Support': 'الدعم',
+          'Human Resources': 'الموارد البشرية', 'HR': 'الموارد البشرية',
+        };
+        final group = labels[title] ?? title;
+        definitions.add(ErpDocTypeDefinition(group, 'لوحة مساحة العمل', workspaceName,
+          _workspaceIcon(group), 'لوحة مساحة العمل', 'Workspace', const {}, workspaceName));
+      }
       if (!mounted) return;
       setState(() {
-        if (definitions.isNotEmpty) _definitions = definitions;
+        _definitions = definitions;
+        _workspaceNumberCards = numberCardsByWorkspace;
         _loading = false;
       });
     } catch (e) {
@@ -274,9 +299,12 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Keep separate ERPNext Workspace records separate even when their
+    // translated titles happen to be identical (for example, ERPNext and HRMS).
     final groups = <String, List<ErpDocTypeDefinition>>{};
     for (final item in _definitions) {
-      groups.putIfAbsent(item.group, () => []).add(item);
+      final workspaceKey = item.workspaceName.isEmpty ? item.group : item.workspaceName;
+      groups.putIfAbsent(workspaceKey, () => []).add(item);
     }
     return Scaffold(
       appBar: AppBar(title: const Text('مساحات العمل'), actions: [IconButton(tooltip: 'مزامنة شاشات ERPNext', onPressed: _loading ? null : _loadWorkspaceDirectory, icon: const Icon(Icons.sync))]),
@@ -292,34 +320,66 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           if (_directoryError != null) Card(child: ListTile(
             leading: const Icon(Icons.info_outline),
             title: const Text('تعذر مزامنة مساحات العمل'),
-            subtitle: Text('يعرض التطبيق الدليل الاحتياطي. $_directoryError'),
+            subtitle: Text('لم يتم تحميل روابط الشاشات من ERPNext؛ لن يعرض التطبيق قائمة افتراضية غير مؤكدة. $_directoryError'),
             trailing: IconButton(onPressed: _loadWorkspaceDirectory, icon: const Icon(Icons.refresh)),
           )),
+          if (!_loading && _directoryError == null && _definitions.isEmpty)
+            const Card(child: ListTile(
+              leading: Icon(Icons.info_outline),
+              title: Text('لا توجد روابط شاشات متاحة'),
+              subtitle: Text('لم يُرجع ERPNext أي روابط Workspace مرئية لهذا المستخدم.'),
+            )),
           for (final group in groups.entries)
             Builder(builder: (context) {
+              final workspaceLabel = group.value.first.group;
               final sections = <String, List<ErpDocTypeDefinition>>{};
               for (final item in group.value) {
                 sections.putIfAbsent(item.section, () => []).add(item);
               }
+              final numberCards = _workspaceNumberCards[group.key] ?? const <Map<String, dynamic>>[];
+              final initiallyExpanded = workspaceLabel == 'المبيعات' || workspaceLabel == 'المشتريات';
+              final showNumberCards = _workspaceExpandedState[group.key] ?? initiallyExpanded;
               return Card(child: ExpansionTile(
-                initiallyExpanded: group.key == 'المبيعات' || group.key == 'المشتريات',
+                initiallyExpanded: initiallyExpanded,
+                onExpansionChanged: (expanded) {
+                  setState(() => _workspaceExpandedState[group.key] = expanded);
+                },
                 leading: group.value.first.workspaceName.isEmpty
                     ? const Icon(Icons.folder_outlined)
                     : IconButton(
-                        tooltip: 'فتح مساحة العمل الأصلية في ERPNext',
+                        tooltip: 'فتح مساحة العمل',
                         onPressed: () => Navigator.push(context, MaterialPageRoute<void>(
-                          builder: (_) => WorkspaceWebPage(
+                          builder: (_) => WorkspaceNativeDestinationPage(
                             api: widget.api,
                             title: group.key,
                             linkType: 'Workspace',
                             target: group.value.first.workspaceName,
+                            onOpenDefinition: widget.onOpenDefinition,
                           ),
                         )),
-                        icon: const Icon(Icons.open_in_browser),
+                        icon: const Icon(Icons.arrow_forward),
                       ),
-                title: Text(group.key),
+                title: Text(workspaceLabel),
                 subtitle: Text(group.value.length.toString() + ' شاشة'),
                 children: [
+                  if (numberCards.isNotEmpty && showNumberCards)
+                    Padding(
+                      padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 12, 8),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final card in numberCards)
+                            _WorkspaceNumberCard(
+                              api: widget.api,
+                              workspaceName: group.key,
+                              name: card['number_card_name'].toString(),
+                              label: card['label']?.toString() ?? card['number_card_name'].toString(),
+                              onOpenDefinition: widget.onOpenDefinition,
+                            ),
+                        ],
+                      ),
+                    ),
                   for (final section in sections.entries)
                     ExpansionTile(
                       initiallyExpanded: sections.length == 1,
@@ -351,6 +411,103 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
             }),
         ],
       ),
+    );
+  }
+}
+
+
+class _WorkspaceNumberCard extends StatefulWidget {
+  const _WorkspaceNumberCard({
+    required this.api,
+    required this.workspaceName,
+    required this.name,
+    required this.label,
+    this.onOpenDefinition,
+  });
+
+  final FrappeApi api;
+  final String workspaceName;
+  final String name;
+  final String label;
+  final ValueChanged<ErpDocTypeDefinition>? onOpenDefinition;
+
+  @override
+  State<_WorkspaceNumberCard> createState() => _WorkspaceNumberCardState();
+}
+
+class _WorkspaceNumberCardState extends State<_WorkspaceNumberCard> {
+  late Future<double?> _value;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = widget.api.fetchWorkspaceNumberCardValue(widget.name);
+  }
+
+  @override
+  void didUpdateWidget(covariant _WorkspaceNumberCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.api != widget.api || oldWidget.name != widget.name) {
+      _value = widget.api.fetchWorkspaceNumberCardValue(widget.name);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<double?>(
+      future: _value,
+      builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.waiting &&
+            (snapshot.hasError || snapshot.data == null)) {
+          return SizedBox(
+            width: 156,
+            child: Card(
+              margin: EdgeInsets.zero,
+              child: ListTile(
+                dense: true,
+                title: Text(widget.label, maxLines: 2, overflow: TextOverflow.ellipsis),
+                subtitle: const Text('المؤشر غير مدعوم في شاشة الجوال'),
+                trailing: const Icon(Icons.arrow_forward, size: 18),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => WorkspaceNativeDestinationPage(
+                    api: widget.api,
+                    title: widget.label,
+                    linkType: 'Workspace',
+                    target: widget.workspaceName,
+                    onOpenDefinition: widget.onOpenDefinition,
+                  ),
+                )),
+              ),
+            ),
+          );
+        }
+        return SizedBox(
+          width: 156,
+          child: Card(
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(widget.label, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 8),
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    const SizedBox(height: 22, child: LinearProgressIndicator())
+                  else if (snapshot.hasError)
+                    const Icon(Icons.info_outline, size: 20)
+                  else
+                    Text(
+                      snapshot.data?.toString() ?? '—',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

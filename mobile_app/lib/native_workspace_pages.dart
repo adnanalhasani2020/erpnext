@@ -1,0 +1,804 @@
+import 'package:flutter/material.dart';
+
+import 'api/frappe_api.dart';
+import 'doctype_workspace_editor_page.dart';
+import 'doctype_workspace_model.dart';
+import 'models/erp_models.dart';
+import 'widgets/server_link_field.dart';
+
+class StockSummaryNativePage extends StatefulWidget {
+  const StockSummaryNativePage({
+    super.key,
+    required this.api,
+    this.routeOptions = const <String, dynamic>{},
+  });
+  final FrappeApi api;
+  final Map<String, dynamic> routeOptions;
+
+  @override
+  State<StockSummaryNativePage> createState() => _StockSummaryNativePageState();
+}
+
+class _StockSummaryNativePageState extends State<StockSummaryNativePage> {
+  late final TextEditingController _item;
+  late final TextEditingController _warehouse;
+  late final TextEditingController _itemGroup;
+  final _sorts = const <String, String>{
+    'projected_qty': 'الكمية المتوقعة',
+    'reserved_qty': 'الكمية المحجوزة',
+    'reserved_qty_for_production': 'محجوز للإنتاج',
+    'reserved_qty_for_sub_contract': 'محجوز للتصنيع لدى الغير',
+    'reserved_qty_for_production_plan': 'محجوز لخطة الإنتاج',
+    'reserved_stock': 'المخزون المحجوز',
+    'ordered_qty': 'الكمية المطلوبة',
+    'indented_qty': 'الكمية المطلوبة داخلياً',
+    'planned_qty': 'الكمية المخططة',
+    'actual_qty': 'الرصيد الفعلي',
+  };
+  String _sortBy = 'projected_qty';
+  String _sortOrder = 'asc';
+  List<Map<String, dynamic>> _rows = const [];
+  int _start = 0;
+  bool _loading = false;
+  bool _loadingMore = false;
+  bool _hasMore = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    // The ERPNext Stock Summary Page reads these exact route_options.
+    // Preserve them when a Workspace link opens the native Flutter page.
+    _item = TextEditingController(text: widget.routeOptions['item_code']?.toString() ?? '');
+    _warehouse = TextEditingController(text: widget.routeOptions['warehouse']?.toString() ?? '');
+    _itemGroup = TextEditingController(text: widget.routeOptions['item_group']?.toString() ?? '');
+    _load(reset: true);
+  }
+
+  @override
+  void dispose() {
+    _item.dispose();
+    _warehouse.dispose();
+    _itemGroup.dispose();
+    super.dispose();
+  }
+
+  Future<void> _load({bool reset = false}) async {
+    if (_loading || _loadingMore) return;
+    final start = reset ? 0 : _start;
+    setState(() {
+      if (reset) { _rows = const []; _start = 0; _hasMore = false; }
+      if (reset) { _loading = true; } else { _loadingMore = true; }
+      _error = null;
+    });
+    try {
+      final page = await widget.api.fetchStockSummary(
+        itemCode: _item.text,
+        warehouse: _warehouse.text,
+        itemGroup: _itemGroup.text,
+        start: start,
+        sortBy: _sortBy,
+        sortOrder: _sortOrder,
+      );
+      if (!mounted) return;
+      final visible = page.take(20).toList(growable: false);
+      setState(() {
+        _rows = reset ? visible : [..._rows, ...visible];
+        _start = start + visible.length;
+        _hasMore = page.length > 20;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() { _loading = false; _loadingMore = false; });
+    }
+  }
+
+  bool _actionLoading = false;
+
+  Future<void> _createStockEntryFromSummary(core.Map<String, dynamic> row, {required bool move}) async {
+    final itemCode = row['item_code']?.toString() ?? '';
+    final warehouse = row['warehouse']?.toString() ?? '';
+    final actualQty = double.tryParse(row['actual_qty']?.toString() ?? '') ?? 0;
+    final disableQuickEntry = row['disable_quick_entry'] == true || row['disable_quick_entry'] == 1;
+    if (itemCode.isEmpty || warehouse.isEmpty) return;
+    if (move && actualQty <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لا توجد كمية فعلية متاحة لنقلها من هذا المستودع.')),
+      );
+      return;
+    }
+
+    final qtyController = TextEditingController();
+    final rateController = TextEditingController(text: row['valuation_rate']?.toString() ?? '0');
+    final targetController = TextEditingController();
+    core.Map<String, dynamic>? quickValues;
+    if (!disableQuickEntry) {
+      quickValues = await showDialog<core.Map<String, dynamic>>(
+        context: context,
+        builder: (dialogContext) {
+          var error = '';
+          return StatefulBuilder(
+            builder: (context, refresh) => AlertDialog(
+              title: Text(move ? 'نقل الصنف بين المستودعات' : 'إضافة رصيد للصنف'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('الصنف: $itemCode'),
+                    Text('المستودع الحالي: $warehouse'),
+                    if (move)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: ServerLinkField(
+                          api: widget.api,
+                          doctype: 'Warehouse',
+                          label: 'المستودع الهدف',
+                          controller: targetController,
+                          searchFields: const ['name', 'warehouse_name'],
+                          filters: const [['is_group', '=', 0]],
+                          icon: Icons.warehouse_outlined,
+                          onSelected: (value) => targetController.text = value,
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: qtyController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'الكمية', border: OutlineInputBorder()),
+                    ),
+                    if (!move) ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: rateController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: 'معدل التقييم', border: OutlineInputBorder()),
+                      ),
+                    ],
+                    if (error.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(error, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+                FilledButton(
+                  onPressed: () {
+                    final qty = double.tryParse(qtyController.text.trim());
+                    final rate = double.tryParse(rateController.text.trim());
+                    if (qty == null || !qty.isFinite || qty <= 0) {
+                      refresh(() => error = 'أدخل كمية أكبر من صفر.');
+                      return;
+                    }
+                    if (move && qty > actualQty) {
+                      refresh(() => error = 'الكمية تتجاوز الرصيد الفعلي المتاح ($actualQty).');
+                      return;
+                    }
+                    if (move && (targetController.text.trim().isEmpty || targetController.text.trim() == warehouse)) {
+                      refresh(() => error = 'حدد مستودعاً هدفاً مختلفاً عن المستودع الحالي.');
+                      return;
+                    }
+                    if (!move && (rate == null || !rate.isFinite || rate < 0)) {
+                      refresh(() => error = 'أدخل معدل تقييم صحيحاً.');
+                      return;
+                    }
+                    Navigator.pop(dialogContext, <String, dynamic>{
+                      'qty': qty,
+                      if (move) 'targetWarehouse': targetController.text.trim(),
+                      if (!move) 'rate': rate,
+                    });
+                  },
+                  child: const Text('متابعة'),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      if (quickValues == null || !mounted) {
+        qtyController.dispose();
+        rateController.dispose();
+        targetController.dispose();
+        return;
+      }
+      qtyController.dispose();
+      rateController.dispose();
+      targetController.dispose();
+    } else {
+      qtyController.dispose();
+      rateController.dispose();
+      targetController.dispose();
+      quickValues = <String, dynamic>{
+        'qty': 0.0,
+        if (!move) 'rate': 0.0,
+      };
+    }
+
+    setState(() => _actionLoading = true);
+    try {
+      final draft = await widget.api.createStockEntryDraftFromItemDashboard(
+        itemCode: itemCode,
+        sourceWarehouse: move ? warehouse : null,
+        targetWarehouse: move ? quickValues?['targetWarehouse']?.toString() : warehouse,
+        stockEntryType: move ? 'Material Transfer' : 'Material Receipt',
+        qty: (quickValues?['qty'] as num?)?.toDouble(),
+        rate: (quickValues?['rate'] as num?)?.toDouble(),
+      );
+      if (!mounted) return;
+      final definition = ErpDocTypeDefinition(
+        'المخزون',
+        'حركة المخزون',
+        'Stock Entry',
+        Icons.swap_horiz_outlined,
+        'المخزون',
+        'DocType',
+        draft,
+      );
+      await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => ErpDocTypeWorkspacePage(
+          api: widget.api,
+          definition: definition,
+          initialCreate: true,
+        ),
+      ));
+      if (mounted) _load();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تعذر تجهيز حركة المخزون: ${error.toString().replaceFirst('Exception: ', '')}')),
+      );
+    } finally {
+      if (mounted) setState(() => _actionLoading = false);
+    }
+  }
+
+  void _openOrFilterRecord(String doctype, String name, TextEditingController filter) {
+    if (name.trim().isEmpty) return;
+    if (filter.text.trim() == name) {
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ErpDocTypeWorkspacePage(
+        api: widget.api,
+        definition: ErpDocTypeDefinition('المخزون', doctype, doctype, Icons.inventory_2_outlined),
+        initialDocumentName: name,
+      )));
+      return;
+    }
+    filter.text = name;
+    _load(reset: true);
+  }
+
+  String _qty(dynamic value) => value == null ? '—' : value is num ? value.toStringAsFixed(2) : value.toString();
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: const Text('ملخص المخزون'),
+      actions: [IconButton(tooltip: 'تحديث', onPressed: _loading ? null : () => _load(reset: true), icon: const Icon(Icons.refresh))],
+    ),
+    body: ListView(padding: const EdgeInsets.all(12), children: [
+      Card(child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(children: [
+          ServerLinkField(api: widget.api, doctype: 'Item', label: 'الصنف', controller: _item, searchFields: const ['item_name', 'item_group'], icon: Icons.inventory_2_outlined, onSelected: (_) => _load(reset: true)),
+          const SizedBox(height: 8),
+          ServerLinkField(api: widget.api, doctype: 'Warehouse', label: 'المستودع', controller: _warehouse, searchFields: const ['warehouse_name', 'company'], icon: Icons.warehouse_outlined, onSelected: (_) => _load(reset: true)),
+          const SizedBox(height: 8),
+          ServerLinkField(api: widget.api, doctype: 'Item Group', label: 'مجموعة الأصناف', controller: _itemGroup, searchFields: const ['item_group_name'], icon: Icons.category_outlined, onSelected: (_) => _load(reset: true)),
+          const SizedBox(height: 8),
+          Row(children: [
+            Expanded(child: DropdownButtonFormField<String>(
+              initialValue: _sortBy,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'ترتيب حسب'),
+              items: _sorts.entries.map((entry) => DropdownMenuItem(value: entry.key, child: Text(entry.value, overflow: TextOverflow.ellipsis))).toList(),
+              onChanged: (value) { if (value != null) setState(() => _sortBy = value); _load(reset: true); },
+            )),
+            const SizedBox(width: 8),
+            SizedBox(width: 112, child: DropdownButtonFormField<String>(
+              initialValue: _sortOrder,
+              decoration: const InputDecoration(labelText: 'الاتجاه'),
+              items: const [DropdownMenuItem(value: 'asc', child: Text('تصاعدي')), DropdownMenuItem(value: 'desc', child: Text('تنازلي'))],
+              onChanged: (value) { if (value != null) setState(() => _sortOrder = value); _load(reset: true); },
+            )),
+          ]),
+          const SizedBox(height: 10),
+          SizedBox(width: double.infinity, child: FilledButton.icon(
+            onPressed: _loading ? null : () => _load(reset: true),
+            icon: const Icon(Icons.search),
+            label: const Text('تطبيق المرشحات'),
+          )),
+        ]),
+      )),
+      if (_loading) const LinearProgressIndicator(),
+      if (_error != null) Card(child: ListTile(leading: const Icon(Icons.error_outline), title: const Text('تعذر تحميل ملخص المخزون'), subtitle: Text(_error!))),
+      Row(children: [
+        Expanded(child: Text('النتائج: ${_rows.length}', style: Theme.of(context).textTheme.titleSmall)),
+        Text(_sorts[_sortBy] ?? _sortBy, style: Theme.of(context).textTheme.bodySmall),
+      ]),
+      if (_rows.isEmpty && !_loading) const Card(child: ListTile(title: Text('لا توجد أرصدة مطابقة للمرشحات.'))),
+      for (final row in _rows)
+        Card(child: ExpansionTile(
+          leading: const Icon(Icons.inventory_2_outlined),
+          title: Text((row['item_name'] ?? row['item_code'] ?? 'صنف').toString()),
+          subtitle: Text('${row['item_code'] ?? ''} • ${row['warehouse'] ?? ''}'),
+          trailing: Text(_qty(row['actual_qty']), style: Theme.of(context).textTheme.titleSmall),
+          children: [
+            ListTile(
+              title: const Text('الصنف'),
+              trailing: TextButton(
+                onPressed: () => _openOrFilterRecord('Item', (row['item_code'] ?? '').toString(), _item),
+                child: Text((row['item_code'] ?? '—').toString()),
+              ),
+            ),
+            ListTile(
+              title: const Text('المستودع'),
+              trailing: TextButton(
+                onPressed: () => _openOrFilterRecord('Warehouse', (row['warehouse'] ?? '').toString(), _warehouse),
+                child: Text((row['warehouse'] ?? '—').toString()),
+              ),
+            ),
+            _value('الرصيد الفعلي', row['actual_qty'], row['stock_uom']),
+            _value('الكمية المتوقعة', row['projected_qty'], row['stock_uom']),
+            _value('المحجوز', row['reserved_qty'], row['stock_uom']),
+            _value('محجوز للإنتاج', row['reserved_qty_for_production'], row['stock_uom']),
+            _value('محجوز للتصنيع لدى الغير', row['reserved_qty_for_sub_contract'], row['stock_uom']),
+            _value('المخزون المحجوز', row['reserved_stock'], row['stock_uom']),
+            _value('معدل التقييم', row['valuation_rate'], row['stock_uom']),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _loading || _loadingMore || _actionLoading ? null : () => _createStockEntryFromSummary(row, move: false),
+                  icon: const Icon(Icons.add),
+                  label: const Text('إضافة'),
+                ),
+                if ((double.tryParse(row['actual_qty']?.toString() ?? '') ?? 0) > 0)
+                  OutlinedButton.icon(
+                    onPressed: _loading || _loadingMore || _actionLoading ? null : () => _createStockEntryFromSummary(row, move: true),
+                    icon: const Icon(Icons.swap_horiz),
+                    label: const Text('نقل'),
+                  ),
+              ],
+            ),
+          ],
+        )),
+      if (_hasMore || _loadingMore)
+        Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: FilledButton.tonal(
+          onPressed: _loadingMore ? null : () => _load(),
+          child: Text(_loadingMore ? 'جارٍ تحميل المزيد...' : 'تحميل المزيد'),
+        )),
+    ]),
+  );
+
+  Widget _value(String label, dynamic value, String? unit) => ListTile(
+    dense: true,
+    title: Text(label),
+    trailing: Text('${_qty(value)} ${unit ?? ''}'),
+  );
+}
+
+class WarehouseCapacitySummaryNativePage extends StatefulWidget {
+  const WarehouseCapacitySummaryNativePage({
+    super.key,
+    required this.api,
+    this.routeOptions = const <String, dynamic>{},
+  });
+  final FrappeApi api;
+  final Map<String, dynamic> routeOptions;
+
+  @override
+  State<WarehouseCapacitySummaryNativePage> createState() => _WarehouseCapacitySummaryNativePageState();
+}
+
+class _WarehouseCapacitySummaryNativePageState extends State<WarehouseCapacitySummaryNativePage> {
+  final _warehouse = TextEditingController();
+  final _item = TextEditingController();
+  final _parentWarehouse = TextEditingController();
+  List<ErpCompany> _companies = const [];
+  String? _company;
+  String _sortBy = 'stock_capacity';
+  String _sortOrder = 'desc';
+  List<Map<String, dynamic>> _rows = const [];
+  int _start = 0;
+  bool _loading = false;
+  bool _loadingMore = false;
+  bool _hasMore = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _warehouse.text = widget.routeOptions['warehouse']?.toString() ?? '';
+    _item.text = widget.routeOptions['item_code']?.toString() ?? '';
+    _parentWarehouse.text = widget.routeOptions['parent_warehouse']?.toString() ?? '';
+    _company = widget.routeOptions['company']?.toString();
+    _loadCompanies();
+  }
+
+  @override
+  void dispose() {
+    _warehouse.dispose();
+    _item.dispose();
+    _parentWarehouse.dispose();
+    super.dispose();
+  }
+
+  void _openOrFilterRecord(String doctype, String name, TextEditingController filter) {
+    if (name.trim().isEmpty) return;
+    if (filter.text.trim() == name) {
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ErpDocTypeWorkspacePage(
+        api: widget.api,
+        definition: ErpDocTypeDefinition('المخزون', doctype, doctype, Icons.inventory_2_outlined),
+        initialDocumentName: name,
+      )));
+      return;
+    }
+    filter.text = name;
+    _load(reset: true);
+  }
+
+  Future<void> _loadCompanies() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final companies = await widget.api.fetchCompanies();
+      if (!mounted) return;
+      setState(() {
+        _companies = companies;
+        if (_company == null || !companies.any((company) => company.name == _company)) {
+          _company = companies.length == 1 ? companies.first.name : null;
+        }
+        _loading = false;
+      });
+      if (_company != null) await _load(reset: true);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() { _error = error.toString().replaceFirst('Exception: ', ''); _loading = false; });
+    }
+  }
+
+  Future<void> _load({bool reset = false}) async {
+    if (_loading || _loadingMore) return;
+    if (_company == null || _company!.trim().isEmpty) {
+      setState(() => _error = 'اختر الشركة أولاً؛ هذا التقرير يتطلب شركة محددة.');
+      return;
+    }
+    final start = reset ? 0 : _start;
+    setState(() {
+      if (reset) { _rows = const []; _start = 0; _hasMore = false; _loading = true; }
+      else { _loadingMore = true; }
+      _error = null;
+    });
+    try {
+      final page = await widget.api.fetchWarehouseCapacitySummary(
+        company: _company!,
+        warehouse: _warehouse.text,
+        itemCode: _item.text,
+        parentWarehouse: _parentWarehouse.text,
+        start: start,
+        sortBy: _sortBy,
+        sortOrder: _sortOrder,
+      );
+      if (!mounted) return;
+      final visible = page.take(10).toList(growable: false);
+      setState(() {
+        _rows = reset ? visible : [..._rows, ...visible];
+        _start = start + visible.length;
+        _hasMore = page.length > 10;
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() { _loading = false; _loadingMore = false; });
+    }
+  }
+
+  Future<void> _openPutawayRule(core.Map<String, dynamic> row) async {
+    final itemCode = row['item_code']?.toString() ?? '';
+    final warehouse = row['warehouse']?.toString() ?? '';
+    final company = row['company']?.toString() ?? '';
+    if (itemCode.isEmpty || warehouse.isEmpty || company.isEmpty) return;
+    try {
+      final matches = await widget.api.fetchDocTypeRows(
+        doctype: 'Putaway Rule',
+        fields: const ['name'],
+        filters: [
+          ['item_code', '=', itemCode],
+          ['warehouse', '=', warehouse],
+          ['company', '=', company],
+        ],
+        orderBy: 'name asc',
+      );
+      if (!mounted) return;
+      if (matches.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('لم يعثر ERPNext على قاعدة التوجيه المرتبطة بهذه السعة.')),
+        );
+        return;
+      }
+      final name = matches.first['name']?.toString() ?? '';
+      if (name.isEmpty) return;
+      await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => ErpDocTypeWorkspacePage(
+          api: widget.api,
+          definition: const ErpDocTypeDefinition('المخزون', 'قواعد التوجيه', 'Putaway Rule', Icons.rule_outlined),
+          initialDocumentName: name,
+        ),
+      ));
+      if (mounted) _load(reset: true);
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تعذر فتح قاعدة التوجيه: ${error.toString().replaceFirst('Exception: ', '')}')),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: const Text('ملخص سعة المستودعات'),
+      actions: [IconButton(tooltip: 'تحديث', onPressed: _loading ? null : () => _loadCompanies(), icon: const Icon(Icons.refresh))],
+    ),
+    body: ListView(padding: const EdgeInsets.all(12), children: [
+      Card(child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(children: [
+          DropdownButtonFormField<String>(
+            initialValue: _company,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'الشركة *'),
+            items: _companies.map((company) => DropdownMenuItem(value: company.name, child: Text(company.name))).toList(),
+            onChanged: (value) { setState(() => _company = value); _load(reset: true); },
+          ),
+          const SizedBox(height: 8),
+          ServerLinkField(api: widget.api, doctype: 'Warehouse', label: 'المستودع', controller: _warehouse, searchFields: const ['warehouse_name', 'company'], onSelected: (_) => _load(reset: true)),
+          const SizedBox(height: 8),
+          ServerLinkField(api: widget.api, doctype: 'Warehouse', label: 'المستودع الأب (مجموعة)', controller: _parentWarehouse, searchFields: const ['warehouse_name', 'company'], filters: const [['is_group', '=', 1]], icon: Icons.account_tree_outlined, onSelected: (_) => _load(reset: true)),
+          const SizedBox(height: 8),
+          ServerLinkField(api: widget.api, doctype: 'Item', label: 'الصنف', controller: _item, searchFields: const ['item_name', 'item_group'], onSelected: (_) => _load(reset: true)),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            initialValue: _sortBy,
+            decoration: const InputDecoration(labelText: 'ترتيب حسب'),
+            items: const [
+              DropdownMenuItem(value: 'stock_capacity', child: Text('السعة')),
+              DropdownMenuItem(value: 'percent_occupied', child: Text('نسبة الإشغال')),
+              DropdownMenuItem(value: 'actual_qty', child: Text('الرصيد الفعلي')),
+            ],
+            onChanged: (value) { if (value != null) setState(() => _sortBy = value); _load(reset: true); },
+          ),
+          const SizedBox(height: 8),
+          DropdownButtonFormField<String>(
+            initialValue: _sortOrder,
+            decoration: const InputDecoration(labelText: 'اتجاه الترتيب'),
+            items: const [DropdownMenuItem(value: 'asc', child: Text('تصاعدي')), DropdownMenuItem(value: 'desc', child: Text('تنازلي'))],
+            onChanged: (value) { if (value != null) setState(() => _sortOrder = value); _load(reset: true); },
+          ),
+          const SizedBox(height: 10),
+          SizedBox(width: double.infinity, child: FilledButton.icon(onPressed: _loading ? null : () => _load(reset: true), icon: const Icon(Icons.search), label: const Text('تطبيق المرشحات'))),
+        ]),
+      )),
+      if (_loading) const LinearProgressIndicator(),
+      if (_companies.isEmpty && !_loading) const Card(child: ListTile(leading: Icon(Icons.business_outlined), title: Text('لا توجد شركات متاحة'), subtitle: Text('تحقق من صلاحية قراءة Company.'))),
+      if (_error != null) Card(child: ListTile(leading: const Icon(Icons.error_outline), title: const Text('تعذر تحميل السعة'), subtitle: Text(_error!))),
+      for (final row in _rows)
+        Card(child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            TextButton(
+              style: TextButton.styleFrom(alignment: AlignmentDirectional.centerStart, padding: EdgeInsets.zero),
+              onPressed: () => _openOrFilterRecord('Warehouse', (row['warehouse'] ?? '').toString(), _warehouse),
+              child: Text((row['warehouse'] ?? '').toString(), style: Theme.of(context).textTheme.titleMedium),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(alignment: AlignmentDirectional.centerStart, padding: EdgeInsets.zero),
+              onPressed: () => _openOrFilterRecord('Item', (row['item_code'] ?? '').toString(), _item),
+              child: Text((row['item_code'] ?? '').toString(), style: Theme.of(context).textTheme.bodyMedium),
+            ),
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(child: Text('السعة: ${row['stock_capacity'] ?? 0}')),
+              Text('الرصيد: ${row['actual_qty'] ?? 0}'),
+            ]),
+            const SizedBox(height: 6),
+            LinearProgressIndicator(value: ((row['percent_occupied'] as num?)?.toDouble() ?? 0).clamp(0, 100) / 100),
+            const SizedBox(height: 4),
+            Text('الإشغال: ${row['percent_occupied'] ?? 0}% • ${row['company'] ?? ''}', style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 8),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: OutlinedButton.icon(
+                onPressed: _loading ? null : () => _openPutawayRule(row),
+                icon: const Icon(Icons.edit_outlined),
+                label: const Text('تعديل السعة'),
+              ),
+            ),
+          ]),
+        )),
+      if (_rows.isEmpty && !_loading) const Card(child: ListTile(title: Text('لا توجد قواعد سعة مطابقة.'))),
+      if (_hasMore || _loadingMore)
+        Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: FilledButton.tonal(onPressed: _loadingMore ? null : () => _load(), child: Text(_loadingMore ? 'جارٍ تحميل المزيد...' : 'تحميل المزيد'))),
+    ]),
+  );
+}
+
+
+class VisualPlantFloorNativePage extends StatefulWidget {
+  const VisualPlantFloorNativePage({super.key, required this.api});
+  final FrappeApi api;
+
+  @override
+  State<VisualPlantFloorNativePage> createState() => _VisualPlantFloorNativePageState();
+}
+
+class _VisualPlantFloorNativePageState extends State<VisualPlantFloorNativePage> {
+  List<Map<String, dynamic>> _floors = const [];
+  List<Map<String, dynamic>> _types = const [];
+  List<Map<String, dynamic>> _workstations = const [];
+  String? _floor;
+  String? _type;
+  String? _status;
+  bool _loading = true;
+  String? _error;
+
+  static const _statuses = ['Production', 'Off', 'Idle', 'Problem', 'Maintenance', 'Setup'];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFilters();
+  }
+
+  Future<void> _loadFilters() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final results = await Future.wait([
+        widget.api.fetchDocTypeRows(doctype: 'Plant Floor', fields: const ['floor_name', 'company', 'warehouse'], orderBy: 'floor_name asc'),
+        widget.api.fetchDocTypeRows(doctype: 'Workstation Type', fields: const [], orderBy: 'name asc'),
+      ]);
+      if (!mounted) return;
+      final floors = results[0];
+      final types = results[1];
+      setState(() {
+        _floors = floors;
+        _types = types;
+        _floor ??= floors.isNotEmpty ? floors.first['name']?.toString() : null;
+        _loading = false;
+      });
+      if (_floor != null) await _loadWorkstations();
+    } catch (error) {
+      if (!mounted) return;
+      setState(() { _error = error.toString().replaceFirst('Exception: ', ''); _loading = false; });
+    }
+  }
+
+  Future<void> _loadWorkstations() async {
+    if (_floor == null || _floor!.isEmpty) {
+      setState(() => _workstations = const []);
+      return;
+    }
+    setState(() { _loading = true; _error = null; });
+    try {
+      final rows = await widget.api.fetchPlantFloorWorkstations(
+        plantFloor: _floor!,
+        workstationType: _type,
+        workstationStatus: _status,
+      );
+      if (!mounted) return;
+      setState(() { _workstations = rows; _loading = false; });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() { _error = error.toString().replaceFirst('Exception: ', ''); _loading = false; });
+    }
+  }
+
+  Color _statusColor(BuildContext context, String status) {
+    final scheme = Theme.of(context).colorScheme;
+    switch (status) {
+      case 'Production': return Colors.green;
+      case 'Problem': return scheme.error;
+      case 'Maintenance': return Colors.orange;
+      case 'Setup': return scheme.tertiary;
+      default: return scheme.outline;
+    }
+  }
+
+  String _statusLabel(String status) => switch (status) {
+    'Production' => 'إنتاج',
+    'Off' => 'متوقف',
+    'Idle' => 'خامل',
+    'Problem' => 'عطل',
+    'Maintenance' => 'صيانة',
+    'Setup' => 'تجهيز',
+    _ => status,
+  };
+
+  Widget _statusImage(Map<String, dynamic> row, String status) {
+    final path = row['status_image']?.toString().trim() ?? '';
+    final base = Uri.tryParse(widget.api.baseUrl);
+    if (path.isEmpty || base == null) {
+      return CircleAvatar(
+        backgroundColor: _statusColor(context, status).withOpacity(.14),
+        child: Icon(Icons.precision_manufacturing_outlined, color: _statusColor(context, status)),
+      );
+    }
+    final uri = base.resolve(path);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Image.network(
+        uri.toString(),
+        width: 68,
+        height: 68,
+        fit: BoxFit.cover,
+        headers: widget.api.imageRequestHeadersFor(uri.toString()),
+        errorBuilder: (_, __, ___) => CircleAvatar(
+          backgroundColor: _statusColor(context, status).withOpacity(.14),
+          child: Icon(Icons.precision_manufacturing_outlined, color: _statusColor(context, status)),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('أرضية المصنع المرئية'),
+        actions: [IconButton(tooltip: 'تحديث', onPressed: _loading ? null : _loadWorkstations, icon: const Icon(Icons.refresh))],
+      ),
+      body: ListView(padding: const EdgeInsets.all(12), children: [
+        Card(child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(children: [
+            DropdownButtonFormField<String>(
+              initialValue: _floor,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'أرضية المصنع *'),
+              items: _floors.map((row) => DropdownMenuItem(value: row['name']?.toString(), child: Text((row['floor_name'] ?? row['name']).toString()))).toList(),
+              onChanged: (value) { setState(() => _floor = value); _loadWorkstations(); },
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              initialValue: _type,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'نوع المحطة'),
+              items: [const DropdownMenuItem<String>(value: null, child: Text('كل الأنواع')),..._types.map((row) => DropdownMenuItem(value: row['name']?.toString(), child: Text((row['name'] ?? '').toString())))],
+              onChanged: (value) { setState(() => _type = value); _loadWorkstations(); },
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              initialValue: _status,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'الحالة'),
+              items: [const DropdownMenuItem<String>(value: null, child: Text('كل الحالات')),..._statuses.map((status) => DropdownMenuItem(value: status, child: Text(_statusLabel(status))))],
+              onChanged: (value) { setState(() => _status = value); _loadWorkstations(); },
+            ),
+          ]),
+        )),
+        const Card(child: ListTile(
+          leading: Icon(Icons.sync),
+          title: Text('تحديث يدوي للحالات'),
+          subtitle: Text('يعرض حالة Workstation التي يرسلها ERPNext. التحديث اللحظي WebSocket غير مفعّل في نسخة الجوال حالياً.'),
+        )),
+        if (_loading) const LinearProgressIndicator(),
+        if (_error != null) Card(child: ListTile(leading: const Icon(Icons.error_outline), title: const Text('تعذر تحميل أرضية المصنع'), subtitle: Text(_error!))),
+        if (_floor == null && !_loading) const Card(child: ListTile(title: Text('لا توجد أرضيات مصنع متاحة أو لا تملك صلاحية قراءتها.'))),
+        if (_workstations.isEmpty && !_loading && _error == null && _floor != null)
+          const Card(child: ListTile(title: Text('لا توجد محطات عمل مطابقة للمرشحات.'))),
+        for (final row in _workstations)
+          Card(child: ListTile(
+            leading: _statusImage(row, (row['status'] ?? '').toString()),
+            title: Text((row['name'] ?? '').toString()),
+            subtitle: Text((row['description'] ?? '').toString().isEmpty ? 'لا يوجد وصف' : row['description'].toString()),
+            trailing: Chip(
+              backgroundColor: _statusColor(context, (row['status'] ?? '').toString()).withOpacity(.14),
+              label: Text(_statusLabel((row['status'] ?? '').toString())),
+            ),
+          )),
+      ]),
+    );
+  }
+}

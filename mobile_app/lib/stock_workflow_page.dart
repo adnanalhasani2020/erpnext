@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
 import 'models/serial_batch_tracking.dart';
+import 'workspace_native_destination_page.dart';
 
 class StockWorkflowPage extends StatefulWidget {
   const StockWorkflowPage({super.key, required this.api, required this.companies, required this.suppliers, required this.items, required this.warehouses, this.initialItemCode, this.onChanged, this.initialSection});
@@ -1549,7 +1550,14 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
 
   Widget _field(TextEditingController c, String label, {bool number = false}) => Padding(padding: const EdgeInsets.only(bottom: 8), child: TextField(controller: c, keyboardType: number ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text, decoration: InputDecoration(labelText: label)));
   @override Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(widget.initialSection ?? 'عمليات المخزون'), actions: [IconButton(onPressed: load, icon: const Icon(Icons.refresh))]),
+    appBar: AppBar(
+      title: Text(widget.initialSection ?? 'عمليات المخزون'),
+      actions: [
+        if (widget.initialSection != null)
+          IconButton(tooltip: 'فتح قائمة الجوال', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceNativeDestinationPage(api: widget.api, title: widget.initialSection!, linkType: 'DocTypeList', target: widget.initialSection!))), icon: const Icon(Icons.arrow_forward)),
+        IconButton(onPressed: load, icon: const Icon(Icons.refresh)),
+      ],
+    ),
     body: ListView(padding: const EdgeInsets.all(16), children: [
       const Text('الاستلام والصرف والتحويل والجرد تُنفّذ بمستندات ERPNext الرسمية. لا يتم تعديل Bin مباشرة.'),
       const SizedBox(height: 12),

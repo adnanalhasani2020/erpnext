@@ -123,6 +123,7 @@ mixin AccountingApiMixin on _FrappeApiCore {
       String? search,
       String? rootType,
       bool includeDisabled = false,
+      String? parentAccount,
     }) async {
       final normalizedCompany = company.trim();
       if (normalizedCompany.isEmpty) throw const FormatException('حدد الشركة لعرض دليل الحسابات.');
@@ -131,10 +132,11 @@ mixin AccountingApiMixin on _FrappeApiCore {
         baseUrl: _baseUrl,
         resource: 'Account',
         fields: const ['name', 'account_name', 'parent_account', 'account_type',
-          'root_type', 'account_currency', 'company', 'is_group', 'disabled'],
+          'root_type', 'account_currency', 'company', 'is_group', 'disabled', 'lft', 'rgt'],
         filters: [
           ['company', '=', normalizedCompany],
           if (rootType != null && rootType.trim().isNotEmpty) ['root_type', '=', rootType.trim()],
+          if (parentAccount != null && parentAccount.trim().isNotEmpty) ['parent_account', '=', parentAccount.trim()],
           if (!includeDisabled) ['disabled', '=', 0],
         ],
         orFilters: query == null || query.isEmpty ? null : [
