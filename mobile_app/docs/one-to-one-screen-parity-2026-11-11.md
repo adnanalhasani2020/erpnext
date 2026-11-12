@@ -152,3 +152,14 @@ Sales Invoice, Customer and Supplier dedicated directories provide direct access
 ## Native-only mobile navigation — 2026-11-12
 
 The mobile app does not embed ERPNext Desk pages. Workspace, DocType list/detail, and Query Report destinations use Flutter screens and the authenticated Frappe API. ERPNext Web is a reference for responsibilities, fields, permission behavior and business rules only. Page/Dashboard content that depends on server-side HTML or JavaScript is not executed in the mobile app; it must be implemented as a native Flutter screen before it can be considered complete. External URL shortcuts are not opened inside the app. Standard Document Type charts with static filters and Workspace Quick Lists with static filters now load and render natively. Report/custom/dynamic/heatmap charts, interactive Quick List filter editing, and full Page/Dashboard-specific behavior remain explicit gaps.
+
+
+## Native ERPNext Page implementations — 2026-11-12
+
+The three Page links found in the checked-in Manufacturing and Stock workspaces now have native Flutter destinations:
+
+- `stock-balance` → Stock Summary. Uses `erpnext.stock.dashboard.item_dashboard.get_data`, with Item, Warehouse and Item Group filters, the ERPNext sort-field set, and 20-row paging.
+- `warehouse-capacity-summary` → Warehouse Capacity Summary. Uses `erpnext.stock.dashboard.warehouse_capacity_dashboard.get_data`, requires a selected Company, supports Warehouse/Item/Parent Warehouse filters and the web page's three sort fields, and pages 10 rows at a time. ERPNext enforces Item, Putaway Rule, Warehouse and user permissions.
+- `visual-plant-floor` → Visual Plant Floor. Loads permitted Plant Floors and Workstation Types, then uses `erpnext.manufacturing.doctype.workstation.workstation.get_workstations` for server-filtered Workstation status. The native screen has manual refresh; real-time Workstation subscriptions and the web page's status images are not yet implemented.
+
+These routes do not load the Page DocType's HTML/JavaScript and do not open Desk pages.

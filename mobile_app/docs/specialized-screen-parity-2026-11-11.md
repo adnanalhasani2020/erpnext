@@ -125,3 +125,8 @@ The dedicated Item Catalog, Warehouse Hierarchy, Sales Commission and Promotiona
 ## Native-only navigation policy — 2026-11-12
 
 ERPNext Desk is a behavioral and data reference only. The Flutter app must not embed Desk pages, use WebView, or use an embedded browser as a substitute for an incomplete mobile screen. DocType lists, document details, reports, workspace navigation and supported Number Cards are rendered with Flutter widgets and Frappe API calls. Page/Dashboard definitions that depend on server HTML or JavaScript are not considered complete until their behavior is implemented in native Flutter. External URL shortcuts are not opened in-app. Standard Document Type charts with static filters and Workspace Quick Lists with static filters are rendered natively. Report/custom/dynamic/heatmap charts, Quick List filter editing, and Page/Dashboard-specific interactions remain explicit gaps; they must be implemented from ERPNext metadata and APIs without executing server-provided JavaScript.
+
+
+## Native Page parity follow-up — 2026-11-12
+
+The ERPNext Page links for Stock Summary, Warehouse Capacity Summary and Visual Plant Floor now open dedicated Flutter screens. Stock Summary and Warehouse Capacity Summary use their original whitelisted ERPNext dashboard methods, preserving server-side permission filtering, calculations, filters and sort allowlists. Visual Plant Floor uses the original `get_workstations` method and renders the six Workstation statuses natively. Remaining Visual Plant Floor differences are real-time status subscription and status-image rendering; both remain explicit gaps. No server-side Page JavaScript or embedded Desk page is used.
