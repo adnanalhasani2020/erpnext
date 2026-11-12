@@ -113,3 +113,7 @@ The generic DocType activity view now opens existing attachments through the ori
 ## Banking standalone route follow-up — 2026-11-12
 
 Bank Transaction and Bank Statement Import no longer open an undifferentiated combined page from their Workspace links. The exact DocType is passed as the initial route: Bank Transaction focuses on transaction matching/reconciliation, while Bank Statement Import focuses on statement upload and import history. Both expose the original ERPNext Desk list for native actions. The general banking reconciliation overview remains available without a specific DocType.
+
+## Original Desk access from specialized workflows — 2026-11-12
+
+The standalone sales, purchasing, stock and HR workflow pages now provide direct navigation to the matching original ERPNext Desk list for the selected DocType. This preserves the native Desk action surface for controls not implemented in the focused mobile view, without changing the underlying API workflow or adding mobile-only business actions.
