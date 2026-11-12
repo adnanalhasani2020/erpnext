@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
 import 'doctype_workspace_model.dart';
-import 'doctype_workspace_page.dart';
+import 'doctype_workspace_editor_page.dart';
 
 const erpDocTypeDefinitions = <ErpDocTypeDefinition>[
   ErpDocTypeDefinition('المبيعات', 'عروض الأسعار', 'Quotation', Icons.request_quote_outlined),
