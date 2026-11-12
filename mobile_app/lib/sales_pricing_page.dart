@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
 import 'sales_margin_analysis_page.dart';
 import 'promotional_schemes_page.dart';
+import 'workspace_web_page.dart';
 
 class SalesPricingPage extends StatefulWidget {
   const SalesPricingPage({super.key, required this.api, this.initialDoctype});
@@ -822,6 +823,19 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                   child: Text(widget.initialDoctype == 'Pricing Rule' ? 'قواعد خصومات البيع' : 'أسعار الأصناف',
                       style: Theme.of(context).textTheme.titleLarge),
                 ),
+                if (widget.initialDoctype != null)
+                  IconButton(
+                    tooltip: 'فتح شاشة ERPNext الأصلية',
+                    onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                      builder: (_) => WorkspaceWebPage(
+                        api: widget.api,
+                        title: widget.initialDoctype!,
+                        linkType: 'DocTypeList',
+                        target: widget.initialDoctype!,
+                      ),
+                    )),
+                    icon: const Icon(Icons.open_in_browser),
+                  ),
                 IconButton(
                   tooltip: 'تحديث',
                   onPressed: _loading || _loadingLists ? null : _loadPriceLists,
