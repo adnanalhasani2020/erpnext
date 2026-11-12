@@ -40,9 +40,25 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
       final parsed = Uri.tryParse(target);
       return parsed != null && parsed.hasScheme ? parsed : base.resolve(target);
     }
-    String scrub(String value) => value.toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
-        .replaceAll(RegExp(r'^-+|-+
+    String scrub(String value) {
+      var slug = value.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-');
+      while (slug.startsWith('-')) {
+        slug = slug.substring(1);
+      }
+      while (slug.endsWith('-')) {
+        slug = slug.substring(0, slug.length - 1);
+      }
+      return slug;
+    }
+    final route = switch (widget.linkType) {
+      'Dashboard' => 'app/dashboard-view/',
+      'Workspace' => 'app/',
+      _ => 'app/',
+    };
+    final routeName = widget.linkType == 'Workspace' || widget.linkType == 'Dashboard'
+        ? scrub(target)
+        : target;
+    return base.resolve(route + Uri.encodeComponent(routeName));
   }
 
   bool _sameOrigin(Uri left, Uri right) =>
