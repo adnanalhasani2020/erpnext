@@ -890,16 +890,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
     }
   }
 
-  Widget _pageHeader(String title, String subtitle, IconData icon) => Row(children: [
-    CircleAvatar(child: Icon(icon)),
-    const SizedBox(width: 12),
-    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-      Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
-    ])),
-    IconButton(tooltip: 'تحديث البيانات', onPressed: _isGuest || _inventoryLoading ? null : _loadInventory, icon: const Icon(Icons.refresh)),
-  ]);
-
   Widget _guestDemoBanner() => const GuestDemoBanner();
 
   bool _requireServerAccess(String feature) {
