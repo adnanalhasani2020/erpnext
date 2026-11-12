@@ -132,7 +132,7 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
   @override
   void dispose() {
     // Do not retain an authenticated Desk session after leaving this screen.
-    unawaited(_cookieManager.clearCookies());
+    unawaited(_cookieManager.clearCookies().then((_) {}));
     super.dispose();
   }
 
