@@ -616,7 +616,7 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
     final titleField = meta['title_field']?.toString().trim() ?? '';
     final fields = <String>['name', 'modified'];
     if (titleField.isNotEmpty && metaFields.contains(titleField)) fields.add(titleField);
-    for (final field in const ['status', 'docstatus']) {
+    for (final field in const ['status', 'workflow_state', 'docstatus']) {
       if (metaFields.contains(field)) fields.add(field);
     }
     dynamic rawFilters = quickList['quick_list_filter'];
