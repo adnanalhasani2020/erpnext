@@ -51,6 +51,7 @@ void main() {
       expect(workspaces.single['links'], isA<List>());
       expect(workspaces.single['shortcuts'], isA<List>());
       expect(requestedPaths, [
+        '/api/method/frappe.desk.desktop.get_workspace_sidebar_items',
         '/api/method/frappe.sessions.get',
         '/api/resource/Workspace/Selling',
       ]);
@@ -71,7 +72,7 @@ void main() {
         if (request.uri.path == '/api/method/frappe.desk.desktop.get_workspace_sidebar_items') {
           request.response.write(jsonEncode({
             'message': {
-              'workspace_pages': [
+              'pages': [
                 {'name': 'Stock', 'title': 'Stock'},
               ],
             },
@@ -92,7 +93,6 @@ void main() {
       expect(workspaces.single['name'], 'Stock');
       expect(requestedPaths, [
         '/api/method/frappe.desk.desktop.get_workspace_sidebar_items',
-        '/api/method/frappe.sessions.get',
         '/api/resource/Workspace/Stock',
       ]);
     } finally {
