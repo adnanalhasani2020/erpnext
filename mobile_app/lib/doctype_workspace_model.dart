@@ -7,8 +7,9 @@ class ErpDocTypeDefinition {
     this.doctype,
     this.icon, [
     this.section = 'عام',
+    this.linkType = 'DocType',
   ]);
 
-  final String group, label, doctype, section;
+  final String group, label, doctype, section, linkType;
   final IconData icon;
 }
