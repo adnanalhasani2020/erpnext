@@ -1203,7 +1203,22 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ));
   }
 
+  void _openWorkspaceReport(String reportName) {
+    if (!_requireServerAccess('تشغيل التقرير')) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => FinancialReportsPage(
+        api: _api,
+        companies: _companies,
+        initialReportName: reportName,
+      ),
+    ));
+  }
+
   void _openDocTypeDefinition(ErpDocTypeDefinition item) {
+    if (item.linkType == 'Report') {
+      _openWorkspaceReport(item.doctype);
+      return;
+    }
     switch (item.doctype) {
       case 'Item':
         _openMasterData();
