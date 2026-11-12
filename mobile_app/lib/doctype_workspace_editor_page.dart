@@ -833,16 +833,17 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     var loading = true;
     var busy = false;
     var started = false;
+    BuildContext? activityContext;
     String? error;
 
     Future<void> load(StateSetter refresh) async {
       refresh(() { loading = true; error = null; });
       try {
         final result = await widget.api.fetchDocTypeActivity(doctype: _doctype, name: name);
-        if (!mounted) return;
+        if (!mounted || activityContext?.mounted != true) return;
         refresh(() { activity = result; loading = false; });
       } catch (e) {
-        if (!mounted) return;
+        if (!mounted || activityContext?.mounted != true) return;
         refresh(() { error = e.toString().replaceFirst('Exception: ', ''); loading = false; });
       }
     }
@@ -850,6 +851,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     await showModalBottomSheet<void>(
       context: context, isScrollControlled: true, useSafeArea: true, showDragHandle: true,
       builder: (sheet) => StatefulBuilder(builder: (context, refresh) {
+        activityContext = sheet;
         if (!started) {
           started = true;
           WidgetsBinding.instance.addPostFrameCallback((_) { if (sheet.mounted) load(refresh); });
