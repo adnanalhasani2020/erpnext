@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
+import 'doctype_workspace_model.dart';
 export 'doctype_workspace_directory_page.dart';
+export 'doctype_workspace_model.dart';
 
 class ErpDocTypeWorkspacePage extends StatefulWidget {
   const ErpDocTypeWorkspacePage({super.key, required this.api, required this.definition});
