@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -36,6 +37,7 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
   List<Map<String, dynamic>> _filters = const [];
   List<dynamic> _columns = const [];
   List<dynamic> _summary = const [];
+  Map<String, dynamic>? _chart;
   List<Map<String, dynamic>> _rows = const [];
   bool _loadingDefinition = true;
   bool _running = false;
@@ -472,6 +474,7 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
       _rows = const [];
       _columns = const [];
       _summary = const [];
+      _chart = null;
     });
     try {
       final result = await widget.api.runStandardReport(
@@ -501,6 +504,9 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
         _columns = columns;
         _rows = rows;
         _summary = result['report_summary'] is List ? result['report_summary'] as List : const [];
+        _chart = result['chart'] is Map
+            ? Map<String, dynamic>.from(result['chart'] as Map)
+            : null;
       });
     } catch (error) {
       if (!mounted || generation != _generation) return;
@@ -725,6 +731,10 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
                     ],
                   ),
                 ],
+                if (_chart != null) ...[
+                  const SizedBox(height: 16),
+                  _ReportChartPanel(chart: _chart!),
+                ],
                 if (_rows.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   Row(
@@ -763,4 +773,161 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
             ),
     );
   }
+}
+
+
+class _ReportChartPanel extends StatelessWidget {
+  const _ReportChartPanel({required this.chart});
+  final Map<String, dynamic> chart;
+
+  @override
+  Widget build(BuildContext context) {
+    final data = chart['data'] is Map ? Map<String, dynamic>.from(chart['data'] as Map) : <String, dynamic>{};
+    final labels = (data['labels'] as List? ?? const []).map((value) => value.toString()).toList();
+    final datasets = (data['datasets'] as List? ?? const []).whereType<Map>().map((raw) {
+      final row = Map<String, dynamic>.from(raw);
+      final values = (row['values'] as List? ?? const []).map((value) {
+        final number = value is num ? value.toDouble() : double.tryParse(value?.toString() ?? '');
+        return number != null && number.isFinite ? number : 0.0;
+      }).toList();
+      return _ReportChartSeries(row['name']?.toString() ?? '', values);
+    }).where((series) => series.values.isNotEmpty).toList();
+    final type = (chart['type'] ?? chart['chart_type'] ?? '').toString().toLowerCase();
+    final supported = const {'bar', 'line', 'pie', 'donut'}.contains(type);
+    if (!supported || labels.isEmpty || datasets.isEmpty) {
+      return Card(
+        child: ListTile(
+          leading: const Icon(Icons.insert_chart_outlined),
+          title: Text(chart['title']?.toString() ?? 'مخطط التقرير'),
+          subtitle: const Text('نوع المخطط أو بياناته لا يدعمان العرض الأصلي حالياً.'),
+        ),
+      );
+    }
+    final colors = <Color>[
+      Theme.of(context).colorScheme.primary,
+      Theme.of(context).colorScheme.secondary,
+      Theme.of(context).colorScheme.tertiary,
+      Theme.of(context).colorScheme.error,
+    ];
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(chart['title']?.toString() ?? 'مخطط التقرير', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 220,
+            width: double.infinity,
+            child: CustomPaint(
+              painter: _ReportChartPainter(type: type, labels: labels, series: datasets, colors: colors,
+                surface: Theme.of(context).colorScheme.surface, outline: Theme.of(context).colorScheme.outlineVariant),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: [
+              for (var index = 0; index < datasets.length; index++)
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  Container(width: 9, height: 9, decoration: BoxDecoration(color: colors[index % colors.length], shape: BoxShape.circle)),
+                  const SizedBox(width: 5),
+                  Text(datasets[index].name.isEmpty ? 'السلسلة ${index + 1}' : datasets[index].name,
+                    style: Theme.of(context).textTheme.bodySmall),
+                ]),
+            ],
+          ),
+        ]),
+      ),
+    );
+  }
+}
+
+class _ReportChartSeries {
+  const _ReportChartSeries(this.name, this.values);
+  final String name;
+  final List<double> values;
+}
+
+class _ReportChartPainter extends CustomPainter {
+  const _ReportChartPainter({
+    required this.type,
+    required this.labels,
+    required this.series,
+    required this.colors,
+    required this.surface,
+    required this.outline,
+  });
+  final String type;
+  final List<String> labels;
+  final List<_ReportChartSeries> series;
+  final List<Color> colors;
+  final Color surface;
+  final Color outline;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.isEmpty || series.isEmpty) return;
+    if (type == 'pie' || type == 'donut') {
+      final values = series.first.values.take(labels.length).map((value) => math.max(0.0, value).toDouble()).toList();
+      final total = values.fold<double>(0, (sum, value) => sum + value);
+      if (total <= 0) return;
+      final diameter = math.min(size.width, size.height).toDouble() * .88;
+      final rect = Rect.fromCenter(center: Offset(size.width / 2, size.height / 2),
+        width: diameter, height: diameter);
+      var start = -math.pi / 2;
+      for (var index = 0; index < values.length; index++) {
+        final sweep = values[index] / total * math.pi * 2;
+        canvas.drawArc(rect, start, sweep, true, Paint()..color = colors[index % colors.length]);
+        start += sweep;
+      }
+      if (type == 'donut') canvas.drawCircle(rect.center, diameter * .24, Paint()..color = surface);
+      return;
+    }
+    final values = series.expand((row) => row.values.take(labels.length)).toList();
+    if (values.isEmpty) return;
+    final minimum = math.min(0.0, values.reduce((a, b) => a < b ? a : b)).toDouble();
+    final maximum = math.max(0.0, values.reduce((a, b) => a > b ? a : b)).toDouble();
+    final range = maximum - minimum;
+    if (range <= 0) return;
+    double yFor(double value) => size.height - ((value - minimum) / range) * (size.height - 8) - 4;
+    final zeroY = yFor(0);
+    canvas.drawLine(Offset(0, zeroY), Offset(size.width, zeroY), Paint()..color = outline..strokeWidth = 1);
+    final count = labels.length;
+    final slot = size.width / count;
+    if (type == 'bar') {
+      final groupWidth = slot * .78;
+      final barWidth = groupWidth / series.length;
+      for (var seriesIndex = 0; seriesIndex < series.length; seriesIndex++) {
+        final row = series[seriesIndex];
+        for (var index = 0; index < count && index < row.values.length; index++) {
+          final valueY = yFor(row.values[index]);
+          final left = index * slot + (slot - groupWidth) / 2 + seriesIndex * barWidth;
+          final top = math.min(valueY, zeroY).toDouble();
+          final height = (valueY - zeroY).abs();
+          canvas.drawRRect(RRect.fromRectAndRadius(
+            Rect.fromLTWH(left, top, barWidth * .88, height), const Radius.circular(3)),
+            Paint()..color = colors[seriesIndex % colors.length]);
+        }
+      }
+      return;
+    }
+    for (var seriesIndex = 0; seriesIndex < series.length; seriesIndex++) {
+      final row = series[seriesIndex];
+      if (row.values.isEmpty) continue;
+      final path = Path();
+      for (var index = 0; index < row.values.length && index < count; index++) {
+        final point = Offset(count <= 1 ? size.width / 2 : index / (count - 1) * size.width, yFor(row.values[index]));
+        if (index == 0) { path.moveTo(point.dx, point.dy); } else { path.lineTo(point.dx, point.dy); }
+        canvas.drawCircle(point, 3, Paint()..color = colors[seriesIndex % colors.length]);
+      }
+      canvas.drawPath(path, Paint()..color = colors[seriesIndex % colors.length]
+        ..strokeWidth = 2.5..style = PaintingStyle.stroke);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _ReportChartPainter oldDelegate) =>
+      oldDelegate.type != type || oldDelegate.labels != labels || oldDelegate.series != series ||
+      oldDelegate.colors != colors || oldDelegate.surface != surface || oldDelegate.outline != outline;
 }
