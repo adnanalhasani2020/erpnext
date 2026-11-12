@@ -109,3 +109,7 @@ The Workspace directory now uses actual Workspace record identity for grouping/d
 The Item Price and Pricing Rule Workspace links now pass their exact DocType into the pricing screen. The segmented combined overview, margin-analysis shortcut and promotional-scheme shortcut are hidden in these standalone routes, leaving only the responsibility selected by the Workspace link. The general pricing overview remains unchanged for callers that do not specify a DocType.
 
 The generic DocType activity view now opens existing attachments through the original same-origin ERPNext Desk WebView. Workspace-only records with charts, quick lists, shortcuts or number cards are retained in the directory even when no document/report links exist; unsupported native widgets continue to use the original Workspace page.
+
+## Banking standalone route follow-up — 2026-11-12
+
+Bank Transaction and Bank Statement Import no longer open an undifferentiated combined page from their Workspace links. The exact DocType is passed as the initial route: Bank Transaction focuses on transaction matching/reconciliation, while Bank Statement Import focuses on statement upload and import history. Both expose the original ERPNext Desk list for native actions. The general banking reconciliation overview remains available without a specific DocType.
