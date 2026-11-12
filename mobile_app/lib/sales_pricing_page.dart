@@ -809,40 +809,35 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: MediaQuery.of(context).size.height * .92,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-            16, 8, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.initialDoctype == 'Pricing Rule' ? 'قواعد خصومات البيع' : 'أسعار الأصناف'),
+        actions: [
+          if (widget.initialDoctype != null)
+            IconButton(
+              tooltip: 'فتح قائمة الجوال',
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => WorkspaceNativeDestinationPage(
+                  api: widget.api,
+                  title: widget.initialDoctype!,
+                  linkType: 'DocTypeList',
+                  target: widget.initialDoctype!,
+                ),
+              )),
+              icon: const Icon(Icons.list_alt_outlined),
+            ),
+          IconButton(
+            tooltip: 'تحديث',
+            onPressed: _loading || _loadingLists ? null : _loadPriceLists,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: EdgeInsets.fromLTRB(16, 8, 16, MediaQuery.of(context).viewInsets.bottom + 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(widget.initialDoctype == 'Pricing Rule' ? 'قواعد خصومات البيع' : 'أسعار الأصناف',
-                      style: Theme.of(context).textTheme.titleLarge),
-                ),
-                if (widget.initialDoctype != null)
-                  IconButton(
-                    tooltip: 'فتح شاشة ERPNext الأصلية',
-                    onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                      builder: (_) => WorkspaceNativeDestinationPage(
-                        api: widget.api,
-                        title: widget.initialDoctype!,
-                        linkType: 'DocTypeList',
-                        target: widget.initialDoctype!,
-                      ),
-                    )),
-                    icon: const Icon(Icons.arrow_forward),
-                  ),
-                IconButton(
-                  tooltip: 'تحديث',
-                  onPressed: _loading || _loadingLists ? null : _loadPriceLists,
-                  icon: const Icon(Icons.refresh),
-                ),
-              ],
-            ),
             if (widget.initialDoctype == null) const Text(
               'إدارة أسعار الأصناف وقواعد خصومات البيع داخل ERPNext وفق صلاحيات المستخدم.',
             ),
