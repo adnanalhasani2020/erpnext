@@ -91,7 +91,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
     }
   }
 
-  static const _workspaceLinkTypes = {'DocType', 'Report', 'Page', 'URL', 'Dashboard', 'Workspace'};
+  static const _workspaceLinkTypes = {'DocType', 'Report', 'Page', 'Dashboard', 'Workspace'};
 
   Future<void> _loadWorkspaceDirectory() async {
     setState(() { _loading = true; _directoryError = null; });
@@ -151,16 +151,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           }
           continue;
         }
-        if (workspace['type']?.toString() == 'URL') {
-          final target = (workspace['url'] ?? workspace['link_to'] ?? '').toString().trim();
-          if (target.isNotEmpty && seen.add('${workspaceName}::URL::${target}')) {
-            definitions.add(ErpDocTypeDefinition(
-              workspaceLabel, workspace['label']?.toString() ?? target, target,
-              _workspaceIcon(workspaceLabel), 'اختصارات', 'URL', const {}, workspaceName,
-            ));
-          }
-          continue;
-        }
+        // External URL shortcuts are not ERPNext mobile screens and are intentionally omitted.
         final shortcuts = workspace['shortcuts'];
         if (shortcuts is List) {
           for (final rawShortcut in shortcuts) {
