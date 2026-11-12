@@ -8,7 +8,6 @@ import 'sales_workflow_page.dart';
 import 'purchase_workflow_page.dart';
 import 'stock_workflow_page.dart';
 import 'invoice_action_policy.dart';
-import 'financial_reports_page.dart';
 import 'workspace_report_page.dart';
 import 'workspace_native_destination_page.dart';
 import 'sales_pricing_page.dart';
@@ -852,13 +851,14 @@ class _MobileHomePageState extends State<MobileHomePage> {
       bottomNavigationBar: _user == null ? null : NavigationBar(
         selectedIndex: _selectedTab,
         onDestinationSelected: (index) => setState(() => _selectedTab = index),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'الرئيسية'),
-          NavigationDestination(icon: Icon(Icons.sell_outlined), selectedIcon: Icon(Icons.sell), label: 'الأصناف'),
-          NavigationDestination(icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2), label: 'الأرصدة'),
-          NavigationDestination(icon: Icon(Icons.warehouse_outlined), selectedIcon: Icon(Icons.warehouse), label: 'المستودعات'),
-          NavigationDestination(icon: Icon(Icons.apps_outlined), selectedIcon: Icon(Icons.apps), label: 'مساحات العمل'),
-          NavigationDestination(icon: Icon(Icons.assessment_outlined), selectedIcon: Icon(Icons.assessment), label: 'التقارير'),
+        destinations: [
+          const NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'الرئيسية'),
+          const NavigationDestination(icon: Icon(Icons.sell_outlined), selectedIcon: Icon(Icons.sell), label: 'الأصناف'),
+          const NavigationDestination(icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2), label: 'الأرصدة'),
+          const NavigationDestination(icon: Icon(Icons.warehouse_outlined), selectedIcon: Icon(Icons.warehouse), label: 'المستودعات'),
+          const NavigationDestination(icon: Icon(Icons.apps_outlined), selectedIcon: Icon(Icons.apps), label: 'مساحات العمل'),
+          if (_isGuest)
+            const NavigationDestination(icon: Icon(Icons.assessment_outlined), selectedIcon: Icon(Icons.assessment), label: 'تقارير تجريبية'),
         ],
       ),
     );
@@ -872,7 +872,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       case 2: return _buildStockPage();
       case 3: return _buildWarehousesPage();
       case 4: return _isGuest ? _buildSalesPage() : ErpDocTypeDirectoryPage(api: _api, onOpenDefinition: _openDocTypeDefinition);
-      case 5: return _isGuest ? const GuestReportsPage() : FinancialReportsPage(api: _api, companies: _companies);
+      case 5: return _isGuest ? const GuestReportsPage() : ErpDocTypeDirectoryPage(api: _api, onOpenDefinition: _openDocTypeDefinition);
       default: return DashboardPage(
         user: _user,
         isGuest: _isGuest,
