@@ -5,6 +5,7 @@ import 'api/frappe_api.dart';
 import 'doctype_workspace_editor_page.dart';
 import 'doctype_workspace_model.dart';
 import 'models/erp_models.dart';
+import 'native_workspace_pages.dart';
 import 'workspace_report_page.dart';
 
 /// Native Flutter destination for ERPNext Desk links.
@@ -44,6 +45,10 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
   }
 
   Future<void> _load() async {
+    if (widget.linkType == 'Page' && const {'stock-balance', 'warehouse-capacity-summary', 'visual-plant-floor'}.contains(widget.target)) {
+      if (mounted) setState(() { _loading = false; _error = null; });
+      return;
+    }
     setState(() { _loading = true; _error = null; });
     try {
       if (widget.linkType == 'Workspace') {
@@ -234,6 +239,15 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.linkType == 'Page' && widget.target == 'stock-balance') {
+      return StockSummaryNativePage(api: widget.api);
+    }
+    if (widget.linkType == 'Page' && widget.target == 'warehouse-capacity-summary') {
+      return WarehouseCapacitySummaryNativePage(api: widget.api);
+    }
+    if (widget.linkType == 'Page' && widget.target == 'visual-plant-floor') {
+      return VisualPlantFloorNativePage(api: widget.api);
+    }
     if (widget.linkType == 'DocTypeList' || widget.linkType == 'DocType') {
       return ErpDocTypeWorkspacePage(api: widget.api, definition: ErpDocTypeDefinition('ERPNext', widget.title, widget.target, Icons.list_alt_outlined, 'عام', 'DocType', widget.routeOptions));
     }

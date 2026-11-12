@@ -18,10 +18,11 @@ part 'reports_api.dart';
 part 'hr_api.dart';
 part 'payroll_api.dart';
 part 'doctype_workspace_api.dart';
+part 'manufacturing_api.dart';
 
 class _DirectHttpOverrides extends HttpOverrides {}
 
-class FrappeApi extends _FrappeApiCore with MasterDataApiMixin, InventoryApiMixin, SalesApiMixin, PurchasesApiMixin, AccountingApiMixin, PaymentsApiMixin, BankReconciliationApiMixin, ReportsApiMixin, HrApiMixin, PayrollApiMixin, DocTypeWorkspaceApiMixin {
+class FrappeApi extends _FrappeApiCore with MasterDataApiMixin, InventoryApiMixin, SalesApiMixin, PurchasesApiMixin, AccountingApiMixin, PaymentsApiMixin, BankReconciliationApiMixin, ReportsApiMixin, HrApiMixin, PayrollApiMixin, DocTypeWorkspaceApiMixin, ManufacturingApiMixin {
   FrappeApi({super.httpClient});
 
   static const int pageSize = 100;
