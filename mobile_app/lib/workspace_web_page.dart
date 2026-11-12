@@ -257,7 +257,7 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
   @override
   Widget build(BuildContext context) {
     if (widget.linkType == 'Page' && widget.target == 'stock-balance') {
-      return StockSummaryNativePage(api: widget.api);
+      return StockSummaryNativePage(api: widget.api, routeOptions: widget.routeOptions);
     }
     if (widget.linkType == 'Page' && widget.target == 'warehouse-capacity-summary') {
       return WarehouseCapacitySummaryNativePage(api: widget.api);
