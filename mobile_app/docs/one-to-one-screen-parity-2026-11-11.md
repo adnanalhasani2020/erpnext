@@ -42,3 +42,8 @@ The signed-in primary navigation now opens the authenticated Workspace directory
 
 
 The directory, shared DocType model and generic per-DocType editor are separate libraries: `doctype_workspace_directory_page.dart`, `doctype_workspace_model.dart` and `doctype_workspace_editor_page.dart`. The legacy `doctype_workspace_page.dart` file is retained as a barrel export for compatibility. The directory imports the editor directly, avoiding a cyclic dependency.
+
+
+## Workspace grouping and visibility update — 2026-11-12
+
+Workspace discovery uses Frappe's permission-aware Desk endpoint (v16 `get_workspaces`, v15 `get_workspace_sidebar_items` fallback), not an unrestricted Workspace resource enumeration. The mobile directory retains native Workspace order and Card Break groupings, hides hidden cards, and presents DocType shortcuts separately. API coverage was added for both supported endpoint variants.
