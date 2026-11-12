@@ -87,3 +87,5 @@ This is a structural separation pass, not a claim that every business domain is 
 - Workspace detail links retain native Card Break sections; hidden cards are skipped, and DocType shortcuts are presented in a distinct "اختصارات" section. The API test covers v16 discovery and the v15 fallback.
 
 - Sales Invoice, Customer and Supplier links now route to dedicated mobile list pages rather than opening the generic DocType editor or a combined overview. Search, pagination, refresh, invoice details, customer editing and party ledgers are retained.
+
+- Supported Workspace Report links and Report shortcuts route to the financial report screen with the requested report preselected. Custom reports outside the mobile report allowlist, Page links and external URL links remain outside this mobile route set.
