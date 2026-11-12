@@ -85,9 +85,16 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
     ));
   }
 
-  void _details(String code) => showModalBottomSheet<void>(
-    context: context, isScrollControlled: true, useSafeArea: true, showDragHandle: true,
-    builder: (_) => ItemCatalogDetailsSheet(api: widget.api, itemCode: code));
+  Future<void> _details(String code) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => ItemCatalogDetailsSheet(api: widget.api, itemCode: code),
+    );
+    if (mounted) _load();
+  }
 
   Future<void> _edit([String? code]) async {
     await Navigator.of(context).push(MaterialPageRoute<void>(
@@ -367,13 +374,16 @@ class _ItemCatalogDetailsSheetState extends State<ItemCatalogDetailsSheet> {
           ])),
         ]),
         FilledButton.icon(
-          onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-            builder: (_) => ErpDocTypeWorkspacePage(
-              api: widget.api,
-              definition: const ErpDocTypeDefinition('المخزون', 'الأصناف', 'Item', Icons.inventory_2_outlined),
-              initialDocumentName: widget.itemCode,
-            ),
-          )),
+          onPressed: () async {
+            await Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => ErpDocTypeWorkspacePage(
+                api: widget.api,
+                definition: const ErpDocTypeDefinition('المخزون', 'الأصناف', 'Item', Icons.inventory_2_outlined),
+                initialDocumentName: widget.itemCode,
+              ),
+            ));
+            if (mounted) setState(() {});
+          },
           icon: const Icon(Icons.edit_note),
           label: const Text('تحرير نموذج الصنف الكامل'),
         ),
