@@ -838,6 +838,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     source?[dynamicLinkField]?.toString() ?? '';
                 final isDynamicLink = type == 'Dynamic Link';
                 final canPickLink = isLink || (isDynamicLink && dynamicLinkTarget.trim().isNotEmpty);
+                final isMultiline = const {'Text', 'Long Text', 'Small Text', 'Text Editor', 'Code'}.contains(type);
                 final keyboard = const {'Int','Float','Currency','Percent'}.contains(type)
                     ? const TextInputType.numberWithOptions(decimal: true)
                     : type == 'Email' ? TextInputType.emailAddress
@@ -857,8 +858,9 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     obscureText: type == 'Password',
                     autocorrect: type != 'Password',
                     enableSuggestions: type != 'Password',
-                    minLines: (type == 'Text' || type == 'Long Text') ? 3 : 1,
-                    maxLines: (type == 'Text' || type == 'Long Text') ? 5 : 1,
+                    style: type == 'Code' ? const TextStyle(fontFamily: 'monospace') : null,
+                    minLines: isMultiline ? 3 : 1,
+                    maxLines: isMultiline ? (type == 'Code' ? 8 : 5) : 1,
                     onTap: isAttachment && !readOnlyNow
                         ? () => chooseAttachment(key, type, refresh)
                         : (isDate || isDateTime) && !readOnlyNow ? () async {
