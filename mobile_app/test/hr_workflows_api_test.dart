@@ -334,6 +334,90 @@ void main() {
       );
     });
 
+    test('rejects invalid leave application draft edits before network access', () async {
+      await expectLater(
+        api.updateLeaveApplicationDraft(
+          name: 'LEAVE-001', company: 'Company A',
+          leaveType: 'Annual Leave', fromDate: '2026-11-17',
+          toDate: '2026-11-15',
+        ),
+        throwsA(isA<FormatException>()),
+      );
+      await expectLater(
+        api.updateLeaveApplicationDraft(
+          name: ' ', company: 'Company A',
+          leaveType: 'Annual Leave', fromDate: '2026-11-15',
+          toDate: '2026-11-17',
+        ),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('updates only a verified Leave Application draft and confirms the saved document', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final calls = <String>[];
+      Map<String, dynamic>? savedPayload;
+      server.listen((request) async {
+        final body = await utf8.decoder.bind(request).join();
+        final path = request.uri.pathSegments.join('/');
+        calls.add('${request.method} $path');
+        request.response.headers.contentType = ContentType.json;
+        if (request.method == 'GET' && path.endsWith('Leave Application/LEAVE-001')) {
+          request.response.write(jsonEncode({'data': {
+            'doctype': 'Leave Application', 'name': 'LEAVE-001',
+            'company': 'Company A', 'employee': 'EMP-001',
+            'leave_type': 'Annual Leave', 'from_date': '2026-11-10',
+            'to_date': '2026-11-11', 'description': 'Old reason',
+            'docstatus': 0,
+          }}));
+        } else if (request.method == 'GET' && path.endsWith('Employee/EMP-001')) {
+          request.response.write(jsonEncode({'data': {
+            'doctype': 'Employee', 'name': 'EMP-001',
+            'company': 'Company A', 'status': 'Active',
+          }}));
+        } else if (request.method == 'GET' && path.endsWith('Leave Type/Annual Leave')) {
+          request.response.write(jsonEncode({'data': {
+            'doctype': 'Leave Type', 'name': 'Annual Leave',
+          }}));
+        } else if (request.method == 'POST' && path.endsWith('/frappe.client.save')) {
+          final payload = jsonDecode(body) as Map<String, dynamic>;
+          savedPayload = Map<String, dynamic>.from(payload['doc'] as Map<String, dynamic>);
+          request.response.write(jsonEncode({'message': {
+            ...savedPayload!,
+            'doctype': 'Leave Application',
+            'name': 'LEAVE-001',
+            'company': 'Company A',
+            'docstatus': 0,
+            'leave_type': 'Annual Leave',
+            'from_date': '2026-11-15',
+            'to_date': '2026-11-17',
+            'description': 'Updated reason',
+          }}));
+        } else {
+          request.response.statusCode = HttpStatus.notFound;
+          request.response.write(jsonEncode({'message': 'Not found'}));
+        }
+        await request.response.close();
+      });
+      final client = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+      try {
+        final result = await client.updateLeaveApplicationDraft(
+          name: 'LEAVE-001', company: 'Company A',
+          leaveType: 'Annual Leave', fromDate: '2026-11-15',
+          toDate: '2026-11-17', description: 'Updated reason',
+        );
+        expect(result['name'], 'LEAVE-001');
+        expect(result['docstatus'], 0);
+        expect(result['from_date'], '2026-11-15');
+        expect(savedPayload?['employee'], 'EMP-001');
+        expect(savedPayload?['company'], 'Company A');
+        expect(calls.any((call) => call.contains('frappe.client.save')), isTrue);
+      } finally {
+        client.dispose();
+        await server.close(force: true);
+      }
+    });
+
     test('rejects non-positive expense amounts before network access', () async {
       await expectLater(
         api.createExpenseClaimDraft(
