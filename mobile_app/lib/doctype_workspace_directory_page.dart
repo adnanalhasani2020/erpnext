@@ -107,12 +107,19 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           if (workspace['links'] is List) ...(workspace['links'] as List),
           if (workspace['sidebar_items'] is List) ...(workspace['sidebar_items'] as List),
         ];
+        var currentSection = 'عام';
         for (final raw in links) {
           if (raw is! Map) continue;
           final link = Map<String, dynamic>.from(raw);
+          final linkType = link['type']?.toString() ?? '';
+          if (linkType == 'Card Break' || linkType == 'Section Break' || linkType == 'Header') {
+            final heading = link['label']?.toString().trim() ?? '';
+            if (heading.isNotEmpty) currentSection = heading;
+            continue;
+          }
           final doctype = link['link_to']?.toString().trim() ?? '';
           if (doctype.isEmpty || link['link_type']?.toString() != 'DocType' ||
-              (link['hidden'] == 1 || link['hidden'] == true) || link['type'] == 'Section Break' || !seen.add('${workspaceTitle}::${doctype}')) continue;
+              (link['hidden'] == 1 || link['hidden'] == true) || !seen.add('${workspaceTitle}::${currentSection}::${doctype}')) continue;
           const translatedLabels = <String, String>{
             'Payment Request': 'طلبات الدفع',
             'Payment Order': 'أوامر الدفع',
@@ -145,6 +152,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
             displayLabel,
             doctype,
             _workspaceIcon(workspaceLabel),
+            currentSection,
           ));
         }
       }
@@ -199,31 +207,46 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
             trailing: IconButton(onPressed: _loadWorkspaceDirectory, icon: const Icon(Icons.refresh)),
           )),
           for (final group in groups.entries)
-            Card(child: ExpansionTile(
-              initiallyExpanded: group.key == 'المبيعات' || group.key == 'المشتريات',
-              leading: const Icon(Icons.folder_outlined),
-              title: Text(group.key),
-              subtitle: Text(group.value.length.toString() + ' شاشة'),
-              children: [
-                for (final item in group.value)
-                  ListTile(
-                    leading: Icon(item.icon),
-                    title: Text(item.label),
-                    subtitle: Text(item.doctype, textDirection: TextDirection.ltr),
-                    trailing: const Icon(Icons.chevron_left),
-                    onTap: () {
-                      final open = widget.onOpenDefinition;
-                      if (open != null) {
-                        open(item);
-                        return;
-                      }
-                      Navigator.push(context, MaterialPageRoute<void>(
-                        builder: (_) => ErpDocTypeWorkspacePage(api: widget.api, definition: item),
-                      ));
-                    },
-                  ),
-              ],
-            )),
+            Builder(builder: (context) {
+              final sections = <String, List<ErpDocTypeDefinition>>{};
+              for (final item in group.value) {
+                sections.putIfAbsent(item.section, () => []).add(item);
+              }
+              return Card(child: ExpansionTile(
+                initiallyExpanded: group.key == 'المبيعات' || group.key == 'المشتريات',
+                leading: const Icon(Icons.folder_outlined),
+                title: Text(group.key),
+                subtitle: Text(group.value.length.toString() + ' شاشة'),
+                children: [
+                  for (final section in sections.entries)
+                    ExpansionTile(
+                      initiallyExpanded: sections.length == 1,
+                      leading: const Icon(Icons.view_agenda_outlined),
+                      title: Text(section.key),
+                      subtitle: Text(section.value.length.toString() + ' مستند'),
+                      children: [
+                        for (final item in section.value)
+                          ListTile(
+                            leading: Icon(item.icon),
+                            title: Text(item.label),
+                            subtitle: Text(item.doctype, textDirection: TextDirection.ltr),
+                            trailing: const Icon(Icons.chevron_left),
+                            onTap: () {
+                              final open = widget.onOpenDefinition;
+                              if (open != null) {
+                                open(item);
+                                return;
+                              }
+                              Navigator.push(context, MaterialPageRoute<void>(
+                                builder: (_) => ErpDocTypeWorkspacePage(api: widget.api, definition: item),
+                              ));
+                            },
+                          ),
+                      ],
+                    ),
+                ],
+              ));
+            }),
         ],
       ),
     );
