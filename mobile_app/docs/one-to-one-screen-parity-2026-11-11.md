@@ -146,3 +146,5 @@ Bank Transaction and Bank Statement Import now pass their exact Workspace DocTyp
 ## Specialized workflow Desk fallback — 2026-11-12
 
 Standalone Quotation/Sales Order/Delivery Note, Purchase Order/Purchase Invoice, stock DocType, and HR DocType routes now expose a direct link to the matching original ERPNext Desk list. This keeps native list actions and any server-installed DocType-specific behavior reachable without combining the mobile responsibilities or recreating web-only behavior in Flutter.
+
+Sales Invoice, Customer and Supplier dedicated directories now also provide direct access to their matching original Desk lists, in addition to their existing Flutter detail/edit/ledger actions.
