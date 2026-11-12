@@ -74,7 +74,7 @@ This is a structural separation pass, not a claim that every business domain is 
 
 ## Code organization update — 2026-11-12 (continued)
 
-- ERPNext Workspace discovery and directory rendering now live in `doctype_workspace_directory_page.dart`; the metadata-driven individual DocType list/form editor remains in `doctype_workspace_page.dart`. The latter re-exports the directory API to preserve existing imports and routes.
+- ERPNext Workspace discovery and directory rendering now live in `doctype_workspace_directory_page.dart`; the metadata-driven individual DocType list/form editor now lives in `doctype_workspace_editor_page.dart`; `doctype_workspace_page.dart` is a compatibility export. The latter re-exports the directory API to preserve existing imports and routes.
 - Guest-mode sample reports now live in `guest_reports_page.dart`, with the reusable guest-data banner in the same file. The app shell only selects the page and supplies the shared banner to the transaction overview.
 - The app shell no longer owns the guest report layout. Its obsolete widget imports and unused error-card helper were removed after the extraction.
 - The workspace directory continues to mirror the authenticated site's visible Workspace groups and DocType links. Dedicated mobile workflows remain mapped by DocType; generic metadata editing is only the fallback for DocTypes without a specialized workflow.
