@@ -26,6 +26,9 @@ import 'warehouse_list_page.dart';
 import 'item_list_page.dart';
 import 'stock_balances_page.dart';
 import 'sales_overview_page.dart';
+import 'sales_invoices_page.dart';
+import 'customer_directory_page.dart';
+import 'supplier_directory_page.dart';
 import 'doctype_workspace_page.dart';
 import 'models/erp_models.dart';
 import 'login_page.dart';
@@ -1096,10 +1099,81 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ));
   }
 
+  void _openSalesInvoices() {
+    if (!_requireServerAccess('فواتير المبيعات')) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => SalesInvoicesPage(
+        loading: _salesLoading,
+        error: _salesError,
+        invoices: _salesInvoices,
+        search: _salesInvoiceSearch,
+        searchController: _salesInvoiceSearchController,
+        searching: _searchingSalesInvoices,
+        hasMore: _salesInvoicesHasMore,
+        loadingMore: _loadingMoreSalesInvoices,
+        onRefresh: _loadSales,
+        onSearch: _searchSalesInvoices,
+        onLoadMore: _loadMoreSalesInvoices,
+        onOpenInvoice: (name) => _showInvoiceDetails('Sales Invoice', name),
+        onCreateInvoice: () => _openSalesInvoiceComposer(),
+      ),
+    ));
+  }
+
+  void _openCustomerDirectory() {
+    if (!_requireServerAccess('العملاء')) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => CustomerDirectoryPage(
+        loading: _salesLoading,
+        error: _salesError,
+        customers: _customers,
+        search: _customerSearch,
+        searchController: _customerSearchController,
+        searching: _searchingCustomers,
+        hasMore: _customersHasMore,
+        loadingMore: _loadingMoreCustomers,
+        onRefresh: _loadSales,
+        onSearch: _searchCustomers,
+        onLoadMore: _loadMoreCustomers,
+        onEdit: _editCustomerProfile,
+        onOpenLedger: _showCustomerLedger,
+      ),
+    ));
+  }
+
+  void _openSupplierDirectory() {
+    if (!_requireServerAccess('الموردون')) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => SupplierDirectoryPage(
+        loading: _purchaseLoading,
+        error: _purchaseError,
+        suppliers: _suppliers,
+        search: _supplierSearch,
+        searchController: _supplierSearchController,
+        searching: _searchingSuppliers,
+        hasMore: _suppliersHasMore,
+        loadingMore: _loadingMoreSuppliers,
+        onRefresh: _loadPurchases,
+        onSearch: _searchSuppliers,
+        onLoadMore: _loadMoreSuppliers,
+        onOpenLedger: _showSupplierLedger,
+      ),
+    ));
+  }
+
   void _openDocTypeDefinition(ErpDocTypeDefinition item) {
     switch (item.doctype) {
       case 'Item':
         _openMasterData();
+        return;
+      case 'Sales Invoice':
+        _openSalesInvoices();
+        return;
+      case 'Customer':
+        _openCustomerDirectory();
+        return;
+      case 'Supplier':
+        _openSupplierDirectory();
         return;
       case 'Account':
         _openChartOfAccounts();
@@ -1129,9 +1203,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
       case 'Item Price':
       case 'Pricing Rule':
         _openSalesPricing();
-        return;
-      case 'Sales Invoice':
-        _openSalesInvoiceComposer();
         return;
       case 'Quotation':
       case 'Sales Order':
