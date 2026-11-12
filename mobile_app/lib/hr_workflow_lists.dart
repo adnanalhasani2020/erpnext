@@ -54,12 +54,13 @@ class HrEmployeeList extends StatelessWidget {
 }
 
 class HrDocumentList extends StatelessWidget {
-  const HrDocumentList({super.key, required this.rows, required this.doctype, required this.loading, required this.saving, required this.hasMore, required this.loadingMore, required this.onLoadMore, required this.onEditAttendance, required this.onSubmit, required this.onWorkflow});
+  const HrDocumentList({super.key, required this.rows, required this.doctype, required this.loading, required this.saving, required this.hasMore, required this.loadingMore, required this.onLoadMore, required this.onEditAttendance, required this.onEditLeaveApplication, required this.onSubmit, required this.onWorkflow});
   final List<HrRecord> rows;
   final String doctype;
   final bool loading, saving, hasMore, loadingMore;
   final VoidCallback onLoadMore;
   final ValueChanged<HrRecord> onEditAttendance;
+  final ValueChanged<HrRecord> onEditLeaveApplication;
   final void Function(String, HrRecord) onSubmit;
   final void Function(String, HrRecord) onWorkflow;
 
@@ -87,6 +88,8 @@ class HrDocumentList extends StatelessWidget {
           trailing: Row(mainAxisSize: MainAxisSize.min, children: [
             if (draft && doctype == 'Attendance')
               IconButton(tooltip: 'تصحيح مسودة الحضور', onPressed: saving ? null : () => onEditAttendance(row), icon: const Icon(Icons.edit_outlined)),
+            if (draft && doctype == 'Leave Application')
+              IconButton(tooltip: 'تعديل مسودة طلب الإجازة', onPressed: saving ? null : () => onEditLeaveApplication(row), icon: const Icon(Icons.edit_outlined)),
             if (draft)
               IconButton(tooltip: 'إرسال المسودة', onPressed: saving ? null : () => onSubmit(doctype, row), icon: const Icon(Icons.send_outlined)),
             IconButton(tooltip: 'إجراءات سير العمل حسب صلاحيات ERPNext', onPressed: saving ? null : () => onWorkflow(doctype, row), icon: const Icon(Icons.rule_outlined)),
