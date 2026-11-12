@@ -834,7 +834,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                         target: widget.initialDoctype!,
                       ),
                     )),
-                    icon: const Icon(Icons.open_in_browser),
+                    icon: const Icon(Icons.arrow_forward),
                   ),
                 IconButton(
                   tooltip: 'تحديث',

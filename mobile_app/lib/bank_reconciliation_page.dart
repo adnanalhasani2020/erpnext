@@ -607,7 +607,7 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
                   target: widget.initialDoctype!,
                 ),
               )),
-              icon: const Icon(Icons.open_in_browser),
+              icon: const Icon(Icons.arrow_forward),
             ),
           IconButton(
             tooltip: widget.initialDoctype == 'Bank Statement Import' ? 'تحديث سجل الاستيراد' : 'تحديث الحركات',

@@ -25,7 +25,7 @@ class SalesInvoicesPage extends StatelessWidget {
       invoice.id.toLowerCase().contains(query) || invoice.customerName.toLowerCase().contains(query)).toList(growable: false);
     return Scaffold(
       appBar: AppBar(title: const Text('فواتير المبيعات'), actions: [
-        if (onOpenDesk != null) IconButton(tooltip: 'فتح قائمة ERPNext الأصلية', onPressed: onOpenDesk, icon: const Icon(Icons.open_in_browser)),
+        if (onOpenDesk != null) IconButton(tooltip: 'فتح قائمة الجوال', onPressed: onOpenDesk, icon: const Icon(Icons.arrow_forward)),
         IconButton(tooltip: 'تحديث', onPressed: loading ? null : () => onRefresh(), icon: const Icon(Icons.refresh)),
       ]),
       floatingActionButton: FloatingActionButton.extended(onPressed: loading ? null : onCreateInvoice,

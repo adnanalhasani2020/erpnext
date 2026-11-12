@@ -161,11 +161,11 @@ class _SalesCommissionPageState extends State<SalesCommissionPage> {
                       style: Theme.of(context).textTheme.titleLarge),
                 ),
                 IconButton(
-                  tooltip: 'فتح قائمة ERPNext الأصلية',
+                  tooltip: 'فتح قائمة الجوال',
                   onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => WorkspaceWebPage(api: widget.api, title: 'Sales Person', linkType: 'DocTypeList', target: 'Sales Person'),
                   )),
-                  icon: const Icon(Icons.open_in_browser),
+                  icon: const Icon(Icons.arrow_forward),
                 ),
                 IconButton(
                   tooltip: 'تحديث',

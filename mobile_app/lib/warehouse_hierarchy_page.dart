@@ -251,7 +251,7 @@ class _WarehouseHierarchyPageState extends State<WarehouseHierarchyPage> {
       appBar: AppBar(
         title: const Text('شجرة المستودعات'),
         actions: [
-          IconButton(tooltip: 'فتح قائمة ERPNext الأصلية', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(api: widget.api, title: 'Warehouse', linkType: 'DocTypeList', target: 'Warehouse'))), icon: const Icon(Icons.open_in_browser)),IconButton(onPressed: _loading || _loadingMore ? null : _manageWarehouses, tooltip: 'إدارة المستودعات', icon: const Icon(Icons.edit_note)), IconButton(onPressed: _loading || _loadingMore ? null : () => _load(), tooltip: 'تحديث', icon: const Icon(Icons.refresh))],
+          IconButton(tooltip: 'فتح قائمة الجوال', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(api: widget.api, title: 'Warehouse', linkType: 'DocTypeList', target: 'Warehouse'))), icon: const Icon(Icons.arrow_forward)),IconButton(onPressed: _loading || _loadingMore ? null : _manageWarehouses, tooltip: 'إدارة المستودعات', icon: const Icon(Icons.edit_note)), IconButton(onPressed: _loading || _loadingMore ? null : () => _load(), tooltip: 'تحديث', icon: const Icon(Icons.refresh))],
       ),
       body: Column(children: [
         Padding(

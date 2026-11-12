@@ -234,7 +234,7 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
     textDirection: TextDirection.rtl,
     child: Scaffold(
     appBar: AppBar(title: const Text('دليل الأصناف'), actions: [
-      IconButton(tooltip: 'فتح قائمة ERPNext الأصلية', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(api: widget.api, title: 'Item', linkType: 'DocTypeList', target: 'Item'))), icon: const Icon(Icons.open_in_browser)),
+      IconButton(tooltip: 'فتح قائمة الجوال', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(api: widget.api, title: 'Item', linkType: 'DocTypeList', target: 'Item'))), icon: const Icon(Icons.arrow_forward)),
       IconButton(tooltip:'مسح باركود', onPressed:_loading?null:_scan, icon:const Icon(Icons.qr_code_scanner)),
       IconButton(tooltip:'تصدير Excel', onPressed:_loading?null:_export, icon:const Icon(Icons.file_download_outlined)),
       PopupMenuButton<String>(onSelected:(v){

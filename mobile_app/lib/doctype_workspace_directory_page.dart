@@ -356,7 +356,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
                 leading: group.value.first.workspaceName.isEmpty
                     ? const Icon(Icons.folder_outlined)
                     : IconButton(
-                        tooltip: 'فتح مساحة العمل الأصلية في ERPNext',
+                        tooltip: 'فتح مساحة العمل',
                         onPressed: () => Navigator.push(context, MaterialPageRoute<void>(
                           builder: (_) => WorkspaceWebPage(
                             api: widget.api,
@@ -365,7 +365,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
                             target: group.value.first.workspaceName,
                           ),
                         )),
-                        icon: const Icon(Icons.open_in_browser),
+                        icon: const Icon(Icons.arrow_forward),
                       ),
                 title: Text(workspaceLabel),
                 subtitle: Text(group.value.length.toString() + ' شاشة'),
@@ -471,8 +471,8 @@ class _WorkspaceNumberCardState extends State<_WorkspaceNumberCard> {
               child: ListTile(
                 dense: true,
                 title: Text(widget.label, maxLines: 2, overflow: TextOverflow.ellipsis),
-                subtitle: const Text('عرض في مساحة العمل الأصلية'),
-                trailing: const Icon(Icons.open_in_browser, size: 18),
+                subtitle: const Text('المؤشر غير مدعوم في شاشة الجوال'),
+                trailing: const Icon(Icons.arrow_forward, size: 18),
                 onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
                   builder: (_) => WorkspaceWebPage(
                     api: widget.api,

@@ -10,7 +10,6 @@ import 'package:printing/printing.dart';
 
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
-import 'workspace_web_page.dart';
 
 class WorkspaceReportPage extends StatefulWidget {
   const WorkspaceReportPage({
@@ -645,18 +644,6 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
       appBar: AppBar(
         title: Text(widget.reportName),
         actions: [
-          IconButton(
-            tooltip: 'فتح التقرير الأصلي في ERPNext Web',
-            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-              builder: (_) => WorkspaceWebPage(
-                api: widget.api,
-                title: widget.reportName,
-                linkType: 'Report',
-                target: widget.reportName,
-              ),
-            )),
-            icon: const Icon(Icons.open_in_browser),
-          ),
           IconButton(
             tooltip: 'تحديث تعريف التقرير',
             onPressed: _loadingDefinition || _running ? null : _loadDefinition,

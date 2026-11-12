@@ -1092,7 +1092,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 Text(_doctype + ' • ' + (status == 0 ? 'مسودة' : status == 1 ? 'مرحّل' : 'ملغى')),
               ])),
               IconButton(
-                tooltip: 'فتح المستند في ERPNext Web',
+                tooltip: 'عرض تفاصيل المستند',
                 onPressed: () {
                   Navigator.pop(sheet);
                   Navigator.of(context).push(MaterialPageRoute<void>(
@@ -1104,7 +1104,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     ),
                   ));
                 },
-                icon: const Icon(Icons.open_in_browser),
+                icon: const Icon(Icons.arrow_forward),
               ),
               IconButton(
                 tooltip: 'المرفقات وسجل النشاط',
@@ -1344,7 +1344,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
         ]),
         actions: [
           IconButton(
-            tooltip: 'فتح قائمة ERPNext الأصلية',
+            tooltip: 'فتح قائمة الجوال',
             onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
               builder: (_) => WorkspaceWebPage(
                 api: widget.api,
@@ -1353,7 +1353,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 target: _doctype,
               ),
             )),
-            icon: const Icon(Icons.open_in_browser),
+            icon: const Icon(Icons.arrow_forward),
           ),
           IconButton(tooltip: 'إضافة سجل', onPressed: _loading ? null : () => _edit(), icon: const Icon(Icons.add)),
           IconButton(tooltip: 'تحديث', onPressed: _loading ? null : () { _generation++; _load(); }, icon: const Icon(Icons.refresh)),

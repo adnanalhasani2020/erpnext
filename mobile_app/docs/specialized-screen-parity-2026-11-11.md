@@ -121,3 +121,7 @@ The standalone sales, purchasing, stock and HR workflow pages now provide direct
 Standalone Chart of Accounts, Journal Entry, Payment Reconciliation, Process Payment Reconciliation and Payroll Entry screens now also expose direct links to their matching original ERPNext Desk lists. This keeps native server-defined actions available alongside the focused mobile workflows.
 
 The dedicated Item Catalog, Warehouse Hierarchy, Sales Commission and Promotional Scheme pages now also expose direct links to their matching ERPNext Desk lists, keeping native Desk actions available from the specialized mobile routes.
+
+## Native-only navigation policy — 2026-11-12
+
+ERPNext Desk is a behavioral and data reference only. The Flutter app must not embed Desk pages, use WebView, or use an embedded browser as a substitute for an incomplete mobile screen. DocType lists, document details, reports, workspace navigation and supported Number Cards are rendered with Flutter widgets and Frappe API calls. Page/Dashboard definitions that depend on server HTML or JavaScript are not considered complete until their behavior is implemented in native Flutter. External URL shortcuts are not opened in-app. Native charts, quick-list row retrieval, and Page/Dashboard-specific interactions remain explicit gaps; they must be implemented from the corresponding ERPNext metadata and APIs without executing server-provided JavaScript.

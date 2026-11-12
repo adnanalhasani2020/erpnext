@@ -736,7 +736,7 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
 
     return Scaffold(
       appBar: AppBar(title: const Text('تسوية المدفوعات'), actions: [
-        IconButton(tooltip: 'فتح قائمة ERPNext الأصلية', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(api: widget.api, title: 'Payment Reconciliation', linkType: 'DocTypeList', target: 'Payment Reconciliation'))), icon: const Icon(Icons.open_in_browser)),
+        IconButton(tooltip: 'فتح قائمة الجوال', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(api: widget.api, title: 'Payment Reconciliation', linkType: 'DocTypeList', target: 'Payment Reconciliation'))), icon: const Icon(Icons.arrow_forward)),
       ]),
       body: ListView(
         padding: const EdgeInsets.all(16),

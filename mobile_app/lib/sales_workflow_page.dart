@@ -416,11 +416,11 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
         actions: [
           if (widget.initialDoctype != null)
             IconButton(
-              tooltip: 'فتح قائمة ERPNext الأصلية',
+              tooltip: 'فتح قائمة الجوال',
               onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
                 builder: (_) => WorkspaceWebPage(api: widget.api, title: widget.initialDoctype!, linkType: 'DocTypeList', target: widget.initialDoctype!),
               )),
-              icon: const Icon(Icons.open_in_browser),
+              icon: const Icon(Icons.arrow_forward),
             ),
         ],
       ),

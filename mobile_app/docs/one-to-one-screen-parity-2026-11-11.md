@@ -148,3 +148,7 @@ Bank Transaction and Bank Statement Import now pass their exact Workspace DocTyp
 Standalone Quotation/Sales Order/Delivery Note, Purchase Order/Purchase Invoice, stock DocType, and HR DocType routes now expose a direct link to the matching original ERPNext Desk list. This keeps native list actions and any server-installed DocType-specific behavior reachable without combining the mobile responsibilities or recreating web-only behavior in Flutter.
 
 Sales Invoice, Customer and Supplier dedicated directories now also provide direct access to their matching original Desk lists, in addition to their existing Flutter detail/edit/ledger actions.
+
+## Native-only mobile navigation — 2026-11-12
+
+The mobile app does not embed ERPNext Desk pages. Workspace, DocType list/detail, and Query Report destinations use Flutter screens and the authenticated Frappe API. ERPNext Web is a reference for responsibilities, fields, permission behavior and business rules only. Page/Dashboard content that depends on server-side HTML or JavaScript is not executed in the mobile app; it must be implemented as a native Flutter screen before it can be considered complete. External URL shortcuts are not opened inside the app. Native chart and quick-list data rendering remain explicit implementation gaps rather than being replaced by WebView.

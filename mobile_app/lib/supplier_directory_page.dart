@@ -26,7 +26,7 @@ class SupplierDirectoryPage extends StatelessWidget {
       supplier.id.toLowerCase().contains(query) || supplier.name.toLowerCase().contains(query)).toList(growable: false);
     return Scaffold(
       appBar: AppBar(title: const Text('الموردون'), actions: [
-        if (onOpenDesk != null) IconButton(tooltip: 'فتح قائمة ERPNext الأصلية', onPressed: onOpenDesk, icon: const Icon(Icons.open_in_browser)),
+        if (onOpenDesk != null) IconButton(tooltip: 'فتح قائمة الجوال', onPressed: onOpenDesk, icon: const Icon(Icons.arrow_forward)),
         IconButton(tooltip: 'تحديث', onPressed: loading ? null : () => onRefresh(), icon: const Icon(Icons.refresh)),
       ]),
       body: RefreshIndicator(

@@ -1554,7 +1554,7 @@ class _StockWorkflowPageState extends State<StockWorkflowPage> {
       title: Text(widget.initialSection ?? 'عمليات المخزون'),
       actions: [
         if (widget.initialSection != null)
-          IconButton(tooltip: 'فتح قائمة ERPNext الأصلية', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(api: widget.api, title: widget.initialSection!, linkType: 'DocTypeList', target: widget.initialSection!))), icon: const Icon(Icons.open_in_browser)),
+          IconButton(tooltip: 'فتح قائمة الجوال', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(api: widget.api, title: widget.initialSection!, linkType: 'DocTypeList', target: widget.initialSection!))), icon: const Icon(Icons.arrow_forward)),
         IconButton(onPressed: load, icon: const Icon(Icons.refresh)),
       ],
     ),

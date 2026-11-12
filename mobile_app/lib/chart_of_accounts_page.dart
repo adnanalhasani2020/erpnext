@@ -273,7 +273,7 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('دليل الحسابات'), actions: [
-      IconButton(tooltip: 'فتح قائمة ERPNext الأصلية', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(api: widget.api, title: 'Account', linkType: 'DocTypeList', target: 'Account'))), icon: const Icon(Icons.open_in_browser)),
+      IconButton(tooltip: 'فتح قائمة الجوال', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(api: widget.api, title: 'Account', linkType: 'DocTypeList', target: 'Account'))), icon: const Icon(Icons.arrow_forward)),
       IconButton(onPressed: loading ? null : () => load(), icon: const Icon(Icons.refresh)),
       IconButton(onPressed: company == null || loading || loadingMore ? null : () => showAccountEditor(),
         tooltip: 'إضافة حساب', icon: const Icon(Icons.add)),
