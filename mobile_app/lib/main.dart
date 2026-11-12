@@ -848,7 +848,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         ),
       ),
       bottomNavigationBar: _user == null ? null : NavigationBar(
-        selectedIndex: _selectedTab,
+        selectedIndex: _selectedTab.clamp(0, _isGuest ? 5 : 4).toInt(),
         onDestinationSelected: (index) => setState(() => _selectedTab = index),
         destinations: [
           const NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'الرئيسية'),
