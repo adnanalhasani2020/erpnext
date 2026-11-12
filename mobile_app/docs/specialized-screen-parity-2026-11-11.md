@@ -147,3 +147,8 @@ The Payment Reconciliation screen now reads the virtual DocType's Link/Dynamic L
 ## Native-only destination correction — 2026-11-12
 
 External Workspace URL shortcuts are now excluded from the mobile screen directory because they are not ERPNext DocType, Report, Workspace, Dashboard or native Page screens. Custom ERPNext Page destinations without an implemented Flutter counterpart now stop with an explicit unsupported-page state; they are no longer incorrectly fetched and displayed as generic Page DocType records. The three supported Page destinations continue to open their dedicated native Flutter screens. Dashboard records continue through their own native metadata-backed destination. No embedded browser or web screen is introduced.
+
+
+## Mobile-only aggregate screen removal — 2026-11-12
+
+The signed-in dashboard no longer links to a combined Sales/Purchase/Customer/Supplier transaction overview because ERPNext exposes those as separate Workspace responsibilities and the combined page is not a corresponding ERPNext screen. The pricing overview no longer links to the custom margin-estimate page; the estimate is not the native ERPNext Sales Analytics/profitability report and must not be presented as an equivalent. Existing specialized Sales Analytics and ERPNext report routes remain separate.
