@@ -831,6 +831,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 final controller = controllers[key]!;
                 final isDate = type == 'Date';
                 final isDateTime = type == 'Datetime';
+                final isTime = type == 'Time';
                 final isLink = type == 'Link' && (f['options']?.toString().trim().isNotEmpty ?? false);
                 final dynamicLinkField = f['options']?.toString() ?? '';
                 final dynamicLinkTarget = selections[dynamicLinkField] ??
@@ -854,7 +855,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                       refresh(() {});
                     },
                     keyboardType: keyboard,
-                    readOnly: isDate || isDateTime || isAttachment || readOnlyNow,
+                    readOnly: isDate || isDateTime || isTime || isAttachment || readOnlyNow,
                     obscureText: type == 'Password',
                     autocorrect: type != 'Password',
                     enableSuggestions: type != 'Password',
@@ -863,7 +864,20 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     maxLines: isMultiline ? (type == 'Code' ? 8 : 5) : 1,
                     onTap: isAttachment && !readOnlyNow
                         ? () => chooseAttachment(key, type, refresh)
-                        : (isDate || isDateTime) && !readOnlyNow ? () async {
+                        : isTime && !readOnlyNow
+                            ? () async {
+                                final parts = controller.text.split(':');
+                                final hour = parts.isNotEmpty ? int.tryParse(parts[0]) ?? 0 : 0;
+                                final minute = parts.length > 1 ? int.tryParse(parts[1]) ?? 0 : 0;
+                                final picked = await showTimePicker(
+                                  context: context,
+                                  initialTime: TimeOfDay(hour: hour.clamp(0, 23).toInt(), minute: minute.clamp(0, 59).toInt()),
+                                );
+                                if (picked == null) return;
+                                controller.text = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}:00';
+                                refresh(() {});
+                              }
+                            : (isDate || isDateTime) && !readOnlyNow ? () async {
                       final initial = DateTime.tryParse(controller.text) ?? DateTime.now();
                       final date = await showDatePicker(
                         context: context,
@@ -891,8 +905,9 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                       labelText: label,
                       helperText: pendingAttachments[key]?.name ??
                           (canPickLink ? 'اختر سجلاً موجوداً في ERPNext' : isDynamicLink ? 'حدد نوع المرجع أولاً' : requiredNow ? 'حقل إلزامي' : null),
-                      suffixIcon: isDate
+                      suffixIcon: isDate || isDateTime
                         ? const Icon(Icons.calendar_today_outlined)
+                        : isTime ? const Icon(Icons.access_time)
                         : isAttachment ? IconButton(
                             tooltip: 'اختيار ملف',
                             onPressed: readOnlyNow ? null : () => chooseAttachment(key, type, refresh),
