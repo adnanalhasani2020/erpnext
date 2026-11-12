@@ -3,6 +3,7 @@ import 'dart:core' as core;
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
+import 'workspace_web_page.dart';
 import 'models/erp_models.dart';
 
 class PromotionalSchemesPage extends StatefulWidget {
@@ -335,6 +336,7 @@ class _PromotionalSchemesPageState extends State<PromotionalSchemesPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('المخططات الترويجية'), actions: [
+      IconButton(tooltip: 'فتح قائمة ERPNext الأصلية', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(api: widget.api, title: 'Promotional Scheme', linkType: 'DocTypeList', target: 'Promotional Scheme'))), icon: const Icon(Icons.open_in_browser)),
       IconButton(onPressed: _loading ? null : () => _load(), icon: const Icon(Icons.refresh)),
     ]),
     floatingActionButton: FloatingActionButton.extended(
