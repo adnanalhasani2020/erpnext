@@ -9,9 +9,10 @@ import 'sales_margin_analysis_page.dart';
 import 'promotional_schemes_page.dart';
 
 class SalesPricingPage extends StatefulWidget {
-  const SalesPricingPage({super.key, required this.api});
+  const SalesPricingPage({super.key, required this.api, this.initialDoctype});
 
   final FrappeApi api;
+  final String? initialDoctype;
 
   @override
   State<SalesPricingPage> createState() => _SalesPricingPageState();
@@ -37,6 +38,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
   @override
   void initState() {
     super.initState();
+    _showDiscounts = widget.initialDoctype == 'Pricing Rule';
     _loadPriceLists();
   }
 
@@ -59,6 +61,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
         _selectedPriceList = lists.isEmpty ? null : lists.first['name']?.toString();
       });
       if (_selectedPriceList != null) await _loadPrices();
+      if (_showDiscounts) await _loadDiscounts();
     } catch (error) {
       if (mounted) {
         setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
@@ -816,7 +819,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
             Row(
               children: [
                 Expanded(
-                  child: Text('إدارة أسعار البيع',
+                  child: Text(widget.initialDoctype == 'Pricing Rule' ? 'قواعد خصومات البيع' : 'أسعار الأصناف',
                       style: Theme.of(context).textTheme.titleLarge),
                 ),
                 IconButton(
@@ -826,11 +829,11 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                 ),
               ],
             ),
-            const Text(
+            if (widget.initialDoctype == null) const Text(
               'إدارة أسعار الأصناف وقواعد خصومات البيع داخل ERPNext وفق صلاحيات المستخدم.',
             ),
-            const SizedBox(height: 8),
-            SegmentedButton<bool>(
+            if (widget.initialDoctype == null) const SizedBox(height: 8),
+            if (widget.initialDoctype == null) SegmentedButton<bool>(
               segments: const [
                 ButtonSegment(value: false, label: Text('أسعار الأصناف')),
                 ButtonSegment(value: true, label: Text('قواعد الخصم')),
@@ -842,7 +845,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                 if (next && _discountRules.isEmpty) _loadDiscounts();
               },
             ),
-            if (_selectedPriceList != null) Align(
+            if (widget.initialDoctype == null && _selectedPriceList != null) Align(
               alignment: AlignmentDirectional.centerStart,
               child: OutlinedButton.icon(
                 onPressed: _loading || _saving ? null : () {
@@ -854,7 +857,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                 label: const Text('تحليل أثر الخصومات على هامش الربح'),
               ),
             ),
-            Align(
+            if (widget.initialDoctype == null) Align(
               alignment: AlignmentDirectional.centerStart,
               child: OutlinedButton.icon(
                 onPressed: _loading || _saving ? null : () {
