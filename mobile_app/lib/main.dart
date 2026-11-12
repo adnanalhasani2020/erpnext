@@ -9,6 +9,7 @@ import 'purchase_workflow_page.dart';
 import 'stock_workflow_page.dart';
 import 'invoice_action_policy.dart';
 import 'financial_reports_page.dart';
+import 'workspace_report_page.dart';
 import 'sales_pricing_page.dart';
 import 'sales_commission_page.dart';
 import 'sales_dashboard_page.dart';
@@ -1206,10 +1207,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
   void _openWorkspaceReport(String reportName) {
     if (!_requireServerAccess('تشغيل التقرير')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => FinancialReportsPage(
+      builder: (_) => WorkspaceReportPage(
         api: _api,
         companies: _companies,
-        initialReportName: reportName,
+        reportName: reportName,
       ),
     ));
   }
