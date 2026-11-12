@@ -51,6 +51,18 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
       final parsed = Uri.tryParse(target);
       return parsed != null && parsed.hasScheme ? parsed : base.resolve(target);
     }
+    if (widget.linkType == 'DocTypeDocument') {
+      final separator = target.indexOf('|');
+      if (separator <= 0 || separator == target.length - 1) {
+        throw const FormatException('وجهة مستند ERPNext غير صالحة.');
+      }
+      final doctype = _workspaceSlug(target.substring(0, separator));
+      final documentName = target.substring(separator + 1);
+      if (doctype.isEmpty || documentName.trim().isEmpty) {
+        throw const FormatException('وجهة مستند ERPNext غير صالحة.');
+      }
+      return base.resolve('app/$doctype/${Uri.encodeComponent(documentName)}');
+    }
     final route = switch (widget.linkType) {
       'Dashboard' => 'app/dashboard-view/',
       'Workspace' => 'app/',
