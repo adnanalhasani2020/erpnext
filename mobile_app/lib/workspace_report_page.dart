@@ -1,4 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:excel/excel.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
 
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
@@ -488,6 +496,120 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
     }
   }
 
+  Future<void> _copyReportCsv() async {
+    if (_columns.isEmpty || _rows.isEmpty) return;
+    String cell(dynamic value) => '"' + (value?.toString() ?? '').replaceAll('"', '""') + '"';
+    final headers = List.generate(_columns.length, (index) =>
+      cell(_columnLabel(_columns[index], index))).join(',');
+    final lines = <String>[headers];
+    for (final row in _rows) {
+      lines.add(List.generate(_columns.length, (index) =>
+        cell(row[_columnKey(_columns[index], index)])).join(','));
+    }
+    await Clipboard.setData(ClipboardData(text: lines.join('\n')));
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('تم نسخ التقرير كاملاً: ${_rows.length} صف.')),
+    );
+  }
+
+  Future<void> _shareReportXlsx() async {
+    if (_columns.isEmpty || _rows.isEmpty) return;
+    try {
+      final workbook = Excel.createExcel();
+      final sheet = workbook['Report'];
+      sheet.appendRow(List.generate(_columns.length, (index) =>
+        TextCellValue(_columnLabel(_columns[index], index))));
+      for (final row in _rows) {
+        sheet.appendRow(List.generate(_columns.length, (index) =>
+          TextCellValue(row[_columnKey(_columns[index], index)]?.toString() ?? '')));
+      }
+      for (var index = 0; index < _columns.length; index++) {
+        sheet.setColumnAutoFit(index);
+      }
+      final bytes = workbook.encode();
+      if (bytes == null || bytes.isEmpty) {
+        throw const FormatException('تعذر إنشاء ملف Excel من بيانات التقرير.');
+      }
+      final safeName = widget.reportName.replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_');
+      await Share.shareXFiles(
+        [XFile.fromData(Uint8List.fromList(bytes),
+          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          name: '$safeName.xlsx')],
+        fileNameOverrides: ['$safeName.xlsx'],
+        subject: 'ERPNext • ${widget.reportName}',
+        text: 'تقرير ${widget.reportName} • ${_rows.length} صف',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تعذر تصدير Excel: ${error.toString().replaceFirst('Exception: ', '')}')),
+      );
+    }
+  }
+
+  Future<void> _shareReportPdf() async {
+    if (_columns.isEmpty || _rows.isEmpty) return;
+    if (_rows.length > 3000) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('التقرير كبير لملف PDF؛ استخدم تصدير Excel لجميع الصفوف.')),
+      );
+      return;
+    }
+    try {
+      final arabicFont = await PdfGoogleFonts.notoNaskhArabicRegular();
+      final arabicBold = await PdfGoogleFonts.notoNaskhArabicBold();
+      final document = pw.Document();
+      document.addPage(pw.MultiPage(
+        pageFormat: PdfPageFormat.a4,
+        theme: pw.ThemeData.withFont(base: arabicFont, bold: arabicBold),
+        build: (_) => [
+          pw.Directionality(
+            textDirection: pw.TextDirection.rtl,
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+              children: [
+                pw.Text(widget.reportName, style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+                pw.SizedBox(height: 10),
+                ..._rows.asMap().entries.map((entry) {
+                  final values = <String>[];
+                  for (var index = 0; index < _columns.length; index++) {
+                    final value = entry.value[_columnKey(_columns[index], index)];
+                    if (value != null && value.toString().trim().isNotEmpty) {
+                      values.add('${_columnLabel(_columns[index], index)}: ${value.toString()}');
+                    }
+                  }
+                  return pw.Container(
+                    width: double.infinity,
+                    padding: const pw.EdgeInsets.symmetric(vertical: 5, horizontal: 3),
+                    decoration: const pw.BoxDecoration(
+                      border: pw.Border(bottom: pw.BorderSide(color: PdfColors.grey300, width: 0.4)),
+                    ),
+                    child: pw.Text('${entry.key + 1}. ${values.join('   •   ')}',
+                      style: const pw.TextStyle(fontSize: 9)),
+                  );
+                }),
+              ],
+            ),
+          ),
+        ],
+      ));
+      final bytes = await document.save();
+      final safeName = widget.reportName.replaceAll(RegExp(r'[^A-Za-z0-9_-]+'), '_');
+      await Share.shareXFiles(
+        [XFile.fromData(Uint8List.fromList(bytes), mimeType: 'application/pdf', name: '$safeName.pdf')],
+        fileNameOverrides: ['$safeName.pdf'],
+        subject: 'ERPNext • ${widget.reportName}',
+        text: 'تقرير ${widget.reportName} • ${_rows.length} صف',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تعذر تصدير PDF: ${error.toString().replaceFirst('Exception: ', '')}')),
+      );
+    }
+  }
+
   String _columnKey(dynamic column, int index) {
     if (column is Map) {
       return (column['fieldname'] ?? column['label'] ?? 'column_$index').toString();
@@ -591,7 +713,14 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
                 ],
                 if (_rows.isNotEmpty) ...[
                   const SizedBox(height: 16),
-                  Text('النتائج: ${_rows.length}', style: Theme.of(context).textTheme.titleMedium),
+                  Row(
+                    children: [
+                      Expanded(child: Text('النتائج: ${_rows.length}', style: Theme.of(context).textTheme.titleMedium)),
+                      IconButton(tooltip: 'نسخ CSV', onPressed: _copyReportCsv, icon: const Icon(Icons.copy_all)),
+                      IconButton(tooltip: 'Excel', onPressed: _shareReportXlsx, icon: const Icon(Icons.table_view_outlined)),
+                      IconButton(tooltip: 'PDF', onPressed: _shareReportPdf, icon: const Icon(Icons.picture_as_pdf_outlined)),
+                    ],
+                  ),
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: DataTable(
