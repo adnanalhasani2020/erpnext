@@ -158,10 +158,14 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
             ));
           }
         }
-        final links = <dynamic>[
-          if (workspace['links'] is List) ...(workspace['links'] as List),
-          if (workspace['sidebar_items'] is List) ...(workspace['sidebar_items'] as List),
-        ];
+        final workspaceLinks = workspace['links'];
+        final sidebarItems = workspace['sidebar_items'];
+        // Workspace page cards and the sidebar are two parallel navigation
+        // representations. Prefer the page's Card Break grouping when present;
+        // use sidebar Section Breaks only for sidebar-only workspaces.
+        final links = workspaceLinks is List && workspaceLinks.isNotEmpty
+            ? List<dynamic>.from(workspaceLinks)
+            : sidebarItems is List ? List<dynamic>.from(sidebarItems) : <dynamic>[];
         var currentSection = 'عام';
         var hiddenCard = false;
         for (final raw in links) {
