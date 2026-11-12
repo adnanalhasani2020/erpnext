@@ -396,9 +396,6 @@ class _NativeDashboardChartState extends State<_NativeDashboardChart> {
         return ListTile(leading: const Icon(Icons.bar_chart), title: Text(widget.label), subtitle: const Text('لا توجد بيانات ضمن المرشحات الحالية.'));
       }
       final visualType = definition['type']?.toString() ?? 'Bar';
-      if (visualType == 'Heatmap') {
-        return ListTile(leading: const Icon(Icons.grid_on), title: Text(widget.label), subtitle: const Text('عرض Heatmap الأصلي لم يُنفّذ بعد في Flutter.'));
-      }
       final seriesValues = datasets.map((dataset) => dataset['values'] as List<double>).toList(growable: false);
       final seriesNames = datasets.map((dataset) => dataset['name'] as String).toList(growable: false);
       return Padding(
@@ -471,6 +468,30 @@ class _WorkspaceChartPainter extends CustomPainter {
     for (var i = 0; i < 4; i++) {
       final y = 8 + (size.height - 20) * i / 3;
       canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+    }
+    if (visualType == 'Heatmap') {
+      final pointCount = seriesValues.map((series) => series.length).fold<int>(0, (a, b) => a > b ? a : b);
+      if (pointCount == 0) return;
+      final cellWidth = size.width / pointCount;
+      final cellHeight = size.height / seriesValues.length;
+      for (var seriesIndex = 0; seriesIndex < seriesValues.length; seriesIndex++) {
+        final series = seriesValues[seriesIndex];
+        for (var pointIndex = 0; pointIndex < series.length; pointIndex++) {
+          final normalized = range == 0 ? .5 : ((series[pointIndex] - minValue) / range).clamp(0.0, 1.0);
+          final opacity = .12 + normalized * .82;
+          final rect = Rect.fromLTWH(
+            pointIndex * cellWidth + 1,
+            seriesIndex * cellHeight + 1,
+            (cellWidth - 2).clamp(0.0, cellWidth),
+            (cellHeight - 2).clamp(0.0, cellHeight),
+          );
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(rect, const Radius.circular(3)),
+            Paint()..color = palette[seriesIndex % palette.length].withOpacity(opacity),
+          );
+        }
+      }
+      return;
     }
     if (visualType == 'Pie' || visualType == 'Donut' || visualType == 'Percentage') {
       final pieValues = seriesValues.first;
