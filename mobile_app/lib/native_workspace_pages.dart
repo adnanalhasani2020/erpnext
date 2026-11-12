@@ -415,6 +415,32 @@ class _VisualPlantFloorNativePageState extends State<VisualPlantFloorNativePage>
     _ => status,
   };
 
+  Widget _statusImage(Map<String, dynamic> row, String status) {
+    final path = row['status_image']?.toString().trim() ?? '';
+    final base = Uri.tryParse(widget.api.baseUrl);
+    if (path.isEmpty || base == null) {
+      return CircleAvatar(
+        backgroundColor: _statusColor(context, status).withOpacity(.14),
+        child: Icon(Icons.precision_manufacturing_outlined, color: _statusColor(context, status)),
+      );
+    }
+    final uri = base.resolve(path);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: Image.network(
+        uri.toString(),
+        width: 68,
+        height: 68,
+        fit: BoxFit.cover,
+        headers: widget.api.imageRequestHeadersFor(uri.toString()),
+        errorBuilder: (_, __, ___) => CircleAvatar(
+          backgroundColor: _statusColor(context, status).withOpacity(.14),
+          child: Icon(Icons.precision_manufacturing_outlined, color: _statusColor(context, status)),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final counts = <String, int>{for (final status in _statuses) status: _workstations.where((row) => row['status'] == status).length};
@@ -469,10 +495,7 @@ class _VisualPlantFloorNativePageState extends State<VisualPlantFloorNativePage>
           const Card(child: ListTile(title: Text('لا توجد محطات عمل مطابقة للمرشحات.'))),
         for (final row in _workstations)
           Card(child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: _statusColor(context, (row['status'] ?? '').toString()).withOpacity(.14),
-              child: Icon(Icons.precision_manufacturing_outlined, color: _statusColor(context, (row['status'] ?? '').toString())),
-            ),
+            leading: _statusImage(row, (row['status'] ?? '').toString()),
             title: Text((row['name'] ?? '').toString()),
             subtitle: Text((row['description'] ?? '').toString().isEmpty ? 'لا يوجد وصف' : row['description'].toString()),
             trailing: Chip(
