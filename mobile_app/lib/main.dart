@@ -1101,6 +1101,18 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ));
   }
 
+  void _openOriginalDocTypeList(String doctype) {
+    if (!_requireServerAccess(doctype)) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => WorkspaceWebPage(
+        api: _api,
+        title: doctype,
+        linkType: 'DocTypeList',
+        target: doctype,
+      ),
+    ));
+  }
+
   void _openSalesInvoices() {
     if (!_requireServerAccess('فواتير المبيعات')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
@@ -1130,6 +1142,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
             await _showInvoiceDetails('Sales Invoice', name);
             if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
           },
+          onOpenDesk: () => _openOriginalDocTypeList('Sales Invoice'),
           onCreateInvoice: () async {
             await _openSalesInvoiceComposer();
             if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
@@ -1169,6 +1182,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
             if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
           },
           onOpenLedger: _showCustomerLedger,
+          onOpenDesk: () => _openOriginalDocTypeList('Customer'),
         ),
       ),
     ));
@@ -1200,6 +1214,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
             if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
           },
           onOpenLedger: _showSupplierLedger,
+          onOpenDesk: () => _openOriginalDocTypeList('Supplier'),
         ),
       ),
     ));
