@@ -198,7 +198,7 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
             parentAccount: name,
           );
           children.addAll(page);
-          if (page.length < FrappeApi.pageSize) break;
+          if (page.length < 200) break;
           start += page.length;
         }
         if (!mounted || generation != _treeGeneration) return;
