@@ -70,6 +70,7 @@ class ErpDocTypeDirectoryPage extends StatefulWidget {
 class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
   List<ErpDocTypeDefinition> _definitions = const [];
   Map<String, List<Map<String, dynamic>>> _workspaceNumberCards = const {};
+  final Set<String> _expandedWorkspaceKeys = <String>{};
   bool _loading = true;
   String? _directoryError;
 
@@ -324,8 +325,19 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
                 sections.putIfAbsent(item.section, () => []).add(item);
               }
               final numberCards = _workspaceNumberCards[group.key] ?? const <Map<String, dynamic>>[];
+              final initiallyExpanded = workspaceLabel == 'المبيعات' || workspaceLabel == 'المشتريات';
+              final showNumberCards = initiallyExpanded || _expandedWorkspaceKeys.contains(group.key);
               return Card(child: ExpansionTile(
-                initiallyExpanded: workspaceLabel == 'المبيعات' || workspaceLabel == 'المشتريات',
+                initiallyExpanded: initiallyExpanded,
+                onExpansionChanged: (expanded) {
+                  setState(() {
+                    if (expanded) {
+                      _expandedWorkspaceKeys.add(group.key);
+                    } else {
+                      _expandedWorkspaceKeys.remove(group.key);
+                    }
+                  });
+                },
                 leading: group.value.first.workspaceName.isEmpty
                     ? const Icon(Icons.folder_outlined)
                     : IconButton(
@@ -343,7 +355,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
                 title: Text(workspaceLabel),
                 subtitle: Text(group.value.length.toString() + ' شاشة'),
                 children: [
-                  if (numberCards.isNotEmpty)
+                  if (numberCards.isNotEmpty && showNumberCards)
                     Padding(
                       padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 12, 8),
                       child: Wrap(
