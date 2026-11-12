@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile_app/hr_workflow_lists.dart';
+import 'package:erpnext_mobile/hr_workflow_lists.dart';
 
 void main() {
   testWidgets('employee list delegates edits and pagination', (tester) async {
