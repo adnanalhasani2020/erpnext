@@ -50,3 +50,5 @@ Workspace discovery uses Frappe's permission-aware Desk endpoint (v16 `frappe.se
 
 
 Sales Invoice, Customer and Supplier now have dedicated mobile list pages with server-backed search/pagination and their existing details, editing and ledger actions. The combined transactions overview remains an optional dashboard route rather than the destination for these individual Workspace links.
+
+Workspace Report links and Report shortcuts for the supported standard report allowlist now open the financial reports page with the report preselected. Custom Report, Page and URL links are not yet implemented as standalone mobile destinations.
