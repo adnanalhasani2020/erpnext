@@ -799,7 +799,9 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     ),
                   ),
                 );
-              }),
+                    }),
+                  ],
+                ),
           ],
         ))),
         actions: [
