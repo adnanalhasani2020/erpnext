@@ -11,7 +11,6 @@ import 'invoice_action_policy.dart';
 import 'workspace_report_page.dart';
 import 'workspace_native_destination_page.dart';
 import 'sales_pricing_page.dart';
-import 'sales_commission_page.dart';
 import 'payment_reconciliation_page.dart';
 import 'process_payment_reconciliation_page.dart';
 import 'process_payment_reconciliation_log_page.dart';
@@ -1016,17 +1015,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
     onRefresh: _loadInventory,
   );
 
-  void _openSalesCommissions() {
-    if (!_requireServerAccess('العمولات')) return;
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (_) => SalesCommissionPage(api: _api),
-    );
-  }
-
   void _openBankReconciliation({String? doctype}) {
     if (!_requireServerAccess('التسوية البنكية')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
@@ -1273,9 +1261,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
         return;
       case 'Warehouse':
         _openWarehouseHierarchy();
-        return;
-      case 'Sales Person':
-        _openSalesCommissions();
         return;
       case 'Item Price':
       case 'Pricing Rule':
@@ -1776,7 +1761,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
     onOpenChartOfAccounts: _openChartOfAccounts,
     onOpenJournalEntries: _openJournalEntries,
     onOpenMasterData: _openMasterData,
-    onOpenSalesCommissions: _openSalesCommissions,
     onOpenSalesInvoiceComposer: _openSalesInvoiceComposer,
     onSearchSalesInvoices: _searchSalesInvoices,
     onSearchCustomers: _searchCustomers,
