@@ -444,7 +444,9 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     } : null,
                   ),
                 );
-              }),
+                    }),
+                  ],
+                ),
           ],
         ))),
         actions: [
@@ -570,6 +572,29 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
         f['hidden'] != 1 && f['read_only'] != 1 &&
         !const {'Section Break','Column Break','Tab Break','HTML','Button','Fold','Heading'}.contains(type);
     }).toList();
+    // Preserve the Desk form's Tab Break / Section Break hierarchy in the
+    // mobile editor. Columns are intentionally stacked on narrow screens.
+    final layoutSectionByField = <String, String>{};
+    var currentTab = 'عام';
+    var currentSection = '';
+    for (final field in _fields) {
+      final type = field['fieldtype']?.toString() ?? '';
+      final label = field['label']?.toString().trim() ?? '';
+      if (type == 'Tab Break') {
+        currentTab = label.isEmpty ? 'عام' : label;
+        currentSection = '';
+      } else if (type == 'Section Break') {
+        currentSection = label;
+      } else {
+        final key = field['fieldname']?.toString() ?? '';
+        if (key.isNotEmpty) {
+          layoutSectionByField[key] = [
+            if (currentTab.isNotEmpty) currentTab,
+            if (currentSection.isNotEmpty) currentSection,
+          ].join(' • ');
+        }
+      }
+    }
     final controllers = <String, TextEditingController>{};
     final checks = <String, bool>{};
     final selections = <String, String?>{};
@@ -634,9 +659,31 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (error.isNotEmpty) Text(error, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-            for (final f in editable)
-              if (visibleField(f))
-              Builder(builder: (context) {
+            for (var fieldIndex = 0; fieldIndex < editable.length; fieldIndex++)
+              if (visibleField(editable[fieldIndex]))
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Builder(builder: (context) {
+                      final field = editable[fieldIndex];
+                      final key = field['fieldname']?.toString() ?? '';
+                      final section = layoutSectionByField[key] ?? '';
+                      final alreadyShown = section.isNotEmpty && editable.take(fieldIndex).any((previous) {
+                        final previousKey = previous['fieldname']?.toString() ?? '';
+                        return visibleField(previous) && layoutSectionByField[previousKey] == section;
+                      });
+                      if (section.isEmpty || alreadyShown) return const SizedBox.shrink();
+                      return Padding(
+                        padding: const EdgeInsetsDirectional.fromSTEB(0, 14, 0, 8),
+                        child: Row(children: [
+                          const Icon(Icons.segment, size: 18),
+                          const SizedBox(width: 8),
+                          Expanded(child: Text(section, style: Theme.of(context).textTheme.titleSmall)),
+                        ]),
+                      );
+                    }),
+                    Builder(builder: (context) {
+                final f = editable[fieldIndex];
                 final key = f['fieldname'].toString();
                 final type = f['fieldtype']?.toString() ?? '';
                 final label = f['label']?.toString() ?? key;
