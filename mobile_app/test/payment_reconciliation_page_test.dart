@@ -24,6 +24,39 @@ void main() {
           request.uri.pathSegments.join('/').endsWith('/payment_reconciliation.get_queries_for_dimension_filters')) {
         request.response.write(jsonEncode({'message': []}));
       } else if (request.method == 'GET' &&
+          request.uri.path == '/api/method/frappe.desk.form.load.getdoctype') {
+        final doctype = request.uri.queryParameters['doctype'];
+        final fields = doctype == 'Payment Reconciliation'
+            ? [
+                {'fieldname': 'party', 'fieldtype': 'Dynamic Link', 'options': 'party_type'},
+                {'fieldname': 'bank_cash_account', 'fieldtype': 'Link', 'options': 'Account', 'filters': {'company': 'company'}},
+                {'fieldname': 'default_advance_account', 'fieldtype': 'Link', 'options': 'Account', 'filters': {'company': 'company'}},
+                {'fieldname': 'cost_center', 'fieldtype': 'Link', 'options': 'Cost Center', 'filters': {'company': 'company'}},
+                {'fieldname': 'project', 'fieldtype': 'Link', 'options': 'Project'},
+                {'fieldname': 'invoice_name', 'fieldtype': 'Link', 'options': 'Sales Invoice'},
+                {'fieldname': 'payment_name', 'fieldtype': 'Link', 'options': 'Payment Entry'},
+              ]
+            : [
+                {'fieldname': 'customer_name', 'fieldtype': 'Data', 'in_list_view': 1},
+              ];
+        request.response.write(jsonEncode({
+          'message': {
+            'docs': [{
+              'doctype': 'DocType',
+              'name': doctype,
+              'title_field': doctype == 'Customer' ? 'customer_name' : '',
+              'fields': fields,
+            }],
+          },
+        }));
+      } else if (request.method == 'GET' && request.uri.path == '/api/resource/Customer') {
+        request.response.write(jsonEncode({
+          'data': [
+            {'name': 'CUS-1', 'customer_name': 'Customer One', 'docstatus': 0, 'modified': '2026-11-01'},
+            {'name': 'CUS-2', 'customer_name': 'Customer Two', 'docstatus': 0, 'modified': '2026-11-02'},
+          ],
+        }));
+      } else if (request.method == 'GET' &&
           request.uri.pathSegments.length == 3 &&
           request.uri.pathSegments[2] == 'Account') {
         request.response.write(jsonEncode({
@@ -100,6 +133,10 @@ void main() {
       await tester.pumpAndSettle();
 
       final partyField = find.byType(TextField).first;
+      await tester.tap(partyField);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('CUS-1').last);
+      await tester.pumpAndSettle();
       final limits = find.byType(DropdownButtonFormField<int>);
       expect(limits, findsNWidgets(2));
       await tester.tap(limits.at(0));
@@ -110,7 +147,6 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('500').last);
       await tester.pumpAndSettle();
-      await tester.enterText(partyField, 'CUS-1');
       await tester.tap(find.text('جلب الفواتير والمدفوعات غير المسواة'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('معاينة التوزيع التلقائي حسب الأقدمية'));
@@ -126,7 +162,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('معاينة التخصيصات (1)'), findsOneWidget);
 
-      await tester.enterText(partyField, 'CUS-2');
+      await tester.tap(partyField);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('CUS-2').last);
       await tester.pumpAndSettle();
       expect(find.text('معاينة التخصيصات (1)'), findsNothing);
       expect(find.text('تأكيد التخصيص وترحيل التسوية'), findsNothing);
