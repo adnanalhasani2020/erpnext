@@ -95,6 +95,166 @@ class _StockSummaryNativePageState extends State<StockSummaryNativePage> {
     }
   }
 
+  bool _actionLoading = false;
+
+  Future<void> _createStockEntryFromSummary(core.Map<String, dynamic> row, {required bool move}) async {
+    final itemCode = row['item_code']?.toString() ?? '';
+    final warehouse = row['warehouse']?.toString() ?? '';
+    final actualQty = double.tryParse(row['actual_qty']?.toString() ?? '') ?? 0;
+    final disableQuickEntry = row['disable_quick_entry'] == true || row['disable_quick_entry'] == 1;
+    if (itemCode.isEmpty || warehouse.isEmpty) return;
+    if (move && actualQty <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('لا توجد كمية فعلية متاحة لنقلها من هذا المستودع.')),
+      );
+      return;
+    }
+
+    final qtyController = TextEditingController();
+    final rateController = TextEditingController(text: row['valuation_rate']?.toString() ?? '0');
+    final targetController = TextEditingController();
+    core.Map<String, dynamic>? quickValues;
+    if (!disableQuickEntry) {
+      quickValues = await showDialog<core.Map<String, dynamic>>(
+        context: context,
+        builder: (dialogContext) {
+          var error = '';
+          return StatefulBuilder(
+            builder: (context, refresh) => AlertDialog(
+              title: Text(move ? 'نقل الصنف بين المستودعات' : 'إضافة رصيد للصنف'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('الصنف: $itemCode'),
+                    Text('المستودع الحالي: $warehouse'),
+                    if (move)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 12),
+                        child: ServerLinkField(
+                          api: widget.api,
+                          doctype: 'Warehouse',
+                          label: 'المستودع الهدف',
+                          controller: targetController,
+                          searchFields: const ['name', 'warehouse_name'],
+                          filters: const [['is_group', '=', 0]],
+                          icon: Icons.warehouse_outlined,
+                          onSelected: (value) => targetController.text = value,
+                        ),
+                      ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: qtyController,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      decoration: const InputDecoration(labelText: 'الكمية', border: OutlineInputBorder()),
+                    ),
+                    if (!move) ...[
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: rateController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: const InputDecoration(labelText: 'معدل التقييم', border: OutlineInputBorder()),
+                      ),
+                    ],
+                    if (error.isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      Text(error, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('إلغاء')),
+                FilledButton(
+                  onPressed: () {
+                    final qty = double.tryParse(qtyController.text.trim());
+                    final rate = double.tryParse(rateController.text.trim());
+                    if (qty == null || !qty.isFinite || qty <= 0) {
+                      refresh(() => error = 'أدخل كمية أكبر من صفر.');
+                      return;
+                    }
+                    if (move && qty > actualQty) {
+                      refresh(() => error = 'الكمية تتجاوز الرصيد الفعلي المتاح ($actualQty).');
+                      return;
+                    }
+                    if (move && (targetController.text.trim().isEmpty || targetController.text.trim() == warehouse)) {
+                      refresh(() => error = 'حدد مستودعاً هدفاً مختلفاً عن المستودع الحالي.');
+                      return;
+                    }
+                    if (!move && (rate == null || !rate.isFinite || rate < 0)) {
+                      refresh(() => error = 'أدخل معدل تقييم صحيحاً.');
+                      return;
+                    }
+                    Navigator.pop(dialogContext, <String, dynamic>{
+                      'qty': qty,
+                      if (move) 'targetWarehouse': targetController.text.trim(),
+                      if (!move) 'rate': rate,
+                    });
+                  },
+                  child: const Text('متابعة'),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+      if (quickValues == null || !mounted) {
+        qtyController.dispose();
+        rateController.dispose();
+        targetController.dispose();
+        return;
+      }
+      qtyController.dispose();
+      rateController.dispose();
+      targetController.dispose();
+    } else {
+      qtyController.dispose();
+      rateController.dispose();
+      targetController.dispose();
+      quickValues = <String, dynamic>{
+        'qty': 0.0,
+        if (!move) 'rate': 0.0,
+      };
+    }
+
+    setState(() => _actionLoading = true);
+    try {
+      final draft = await widget.api.createStockEntryDraftFromItemDashboard(
+        itemCode: itemCode,
+        sourceWarehouse: move ? warehouse : null,
+        targetWarehouse: move ? quickValues?['targetWarehouse']?.toString() : warehouse,
+        stockEntryType: move ? 'Material Transfer' : 'Material Receipt',
+        qty: (quickValues?['qty'] as num?)?.toDouble(),
+        rate: (quickValues?['rate'] as num?)?.toDouble(),
+      );
+      if (!mounted) return;
+      final definition = ErpDocTypeDefinition(
+        'المخزون',
+        'حركة المخزون',
+        'Stock Entry',
+        Icons.swap_horiz_outlined,
+        'المخزون',
+        'DocType',
+        draft,
+      );
+      await Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => ErpDocTypeWorkspacePage(
+          api: widget.api,
+          definition: definition,
+          initialCreate: true,
+        ),
+      ));
+      if (mounted) _load();
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('تعذر تجهيز حركة المخزون: ${error.toString().replaceFirst('Exception: ', '')}')),
+      );
+    } finally {
+      if (mounted) setState(() => _actionLoading = false);
+    }
+  }
+
   void _openOrFilterRecord(String doctype, String name, TextEditingController filter) {
     if (name.trim().isEmpty) return;
     if (filter.text.trim() == name) {
@@ -186,6 +346,23 @@ class _StockSummaryNativePageState extends State<StockSummaryNativePage> {
             _value('محجوز للتصنيع لدى الغير', row['reserved_qty_for_sub_contract'], row['stock_uom']),
             _value('المخزون المحجوز', row['reserved_stock'], row['stock_uom']),
             _value('معدل التقييم', row['valuation_rate'], row['stock_uom']),
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: _actionLoading ? null : () => _createStockEntryFromSummary(row, move: false),
+                  icon: const Icon(Icons.add),
+                  label: const Text('إضافة'),
+                ),
+                if ((double.tryParse(row['actual_qty']?.toString() ?? '') ?? 0) > 0)
+                  OutlinedButton.icon(
+                    onPressed: _actionLoading ? null : () => _createStockEntryFromSummary(row, move: true),
+                    icon: const Icon(Icons.swap_horiz),
+                    label: const Text('نقل'),
+                  ),
+              ],
+            ),
           ],
         )),
       if (_hasMore || _loadingMore)

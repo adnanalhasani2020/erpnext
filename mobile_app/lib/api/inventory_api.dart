@@ -922,6 +922,60 @@ mixin InventoryApiMixin on _FrappeApiCore {
       if (rows is! List) throw Exception('استجابة سجل الحركات غير متوقعة.');
       return rows.whereType<core.Map<String, dynamic>>().toList(growable: false);
     }
+  Future<core.Map<String, dynamic>> createStockEntryDraftFromItemDashboard({
+    required String itemCode,
+    String? sourceWarehouse,
+    String? targetWarehouse,
+    String? stockEntryType,
+    double? qty,
+    double? rate,
+  }) async {
+    final item = itemCode.trim();
+    if (item.isEmpty) throw const FormatException('حدد الصنف لإنشاء حركة المخزون.');
+    if (sourceWarehouse != null && sourceWarehouse.trim().isEmpty) sourceWarehouse = null;
+    if (targetWarehouse != null && targetWarehouse.trim().isEmpty) targetWarehouse = null;
+    if (sourceWarehouse != null && targetWarehouse != null && sourceWarehouse == targetWarehouse) {
+      throw const FormatException('مستودع المصدر والهدف يجب أن يكونا مختلفين.');
+    }
+    if (qty != null && (!qty.isFinite || qty < 0)) {
+      throw const FormatException('كمية حركة المخزون غير صحيحة.');
+    }
+    if (rate != null && (!rate.isFinite || rate < 0)) {
+      throw const FormatException('معدل التقييم غير صحيح.');
+    }
+    final args = <String, dynamic>{
+      'item_code': item,
+      if (sourceWarehouse != null) 'source_warehouse': sourceWarehouse,
+      if (targetWarehouse != null) 'target_warehouse': targetWarehouse,
+      if (stockEntryType != null && stockEntryType.trim().isNotEmpty) 'stock_entry_type': stockEntryType.trim(),
+      if (qty != null) 'qty': qty,
+      if (rate != null) 'rate': rate,
+    };
+    final generation = _sessionGeneration;
+    final response = await _sendJson(
+      'POST',
+      '/api/method/erpnext.stock.dashboard.item_dashboard.make_stock_entry',
+      args,
+    );
+    if (generation != _sessionGeneration) {
+      throw Exception('تغيرت جلسة ERPNext أثناء تجهيز حركة المخزون.');
+    }
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تجهيز حركة المخزون من ERPNext.'));
+    }
+    final document = data['message'];
+    if (document is! core.Map) {
+      throw const FormatException('ERPNext لم يُرجع مسودة Stock Entry صالحة.');
+    }
+    final draft = core.Map<String, dynamic>.from(document);
+    if (draft['doctype']?.toString() != 'Stock Entry' || draft['company'] == null ||
+        draft['items'] is! List || (draft['items'] as List).isEmpty) {
+      throw const FormatException('مسودة Stock Entry التي أعادها ERPNext غير مكتملة.');
+    }
+    return draft;
+  }
+
   Future<List<core.Map<String, dynamic>>> fetchStockSummary({
     String? itemCode,
     String? warehouse,
