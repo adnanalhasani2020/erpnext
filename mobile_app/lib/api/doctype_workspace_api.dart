@@ -407,6 +407,83 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
     }
   }
 
+  /// Downloads an attachment only after re-reading its canonical File record
+  /// and verifying that ERPNext attached it to the requested document.
+  /// The URL is restricted to the configured ERPNext origin; authenticated
+  /// cookies are sent only to that origin.
+  Future<List<int>> downloadDocTypeAttachment({
+    required String doctype,
+    required String name,
+    required String fileId,
+  }) async {
+    if (doctype.trim().isEmpty || name.trim().isEmpty || fileId.trim().isEmpty) {
+      throw const FormatException('المستند ومعرّف المرفق مطلوبان.');
+    }
+    if (_guestMode) {
+      throw const FormatException('وضع الضيف للقراءة فقط؛ سجّل الدخول لتنزيل المرفقات.');
+    }
+    final generation = _sessionGeneration;
+    final file = await fetchDocTypeDocument(doctype: 'File', name: fileId.trim());
+    if (generation != _sessionGeneration) {
+      throw const HttpException('تغيرت جلسة ERPNext أثناء التحقق من المرفق.');
+    }
+    if (file['attached_to_doctype']?.toString() != doctype ||
+        file['attached_to_name']?.toString() != name) {
+      throw const FormatException('هذا الملف غير مرتبط بالمستند المطلوب.');
+    }
+    final fileUrl = file['file_url']?.toString().trim() ?? '';
+    if (fileUrl.isEmpty) throw const FormatException('عنوان تنزيل المرفق غير متاح.');
+    final base = Uri.parse(_baseUrl);
+    final uri = base.resolve(fileUrl);
+    final sameOrigin = uri.scheme == base.scheme &&
+        uri.host == base.host &&
+        uri.port == base.port &&
+        uri.userInfo.isEmpty;
+    if (!sameOrigin || !const {'http', 'https'}.contains(uri.scheme)) {
+      throw const FormatException('عنوان المرفق خارج خادم ERPNext؛ تم منع إرساله مع بيانات الجلسة.');
+    }
+    final request = await _client.getUrl(uri);
+    if (generation != _sessionGeneration) {
+      request.abort();
+      throw const HttpException('تغيرت جلسة ERPNext قبل تنزيل المرفق.');
+    }
+    request.followRedirects = false;
+    if (_cookies.isNotEmpty) {
+      request.headers.set(
+        HttpHeaders.cookieHeader,
+        _cookies.entries.map((entry) => '${entry.key}=${entry.value}').join('; '),
+      );
+    }
+    final response = await request.close().timeout(const Duration(seconds: 60));
+    if (generation != _sessionGeneration) {
+      throw const HttpException('تم تجاهل تنزيل مرفق من جلسة سابقة.');
+    }
+    _captureCookies(response);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      await response.drain<void>();
+      throw HttpException(
+        response.statusCode >= 300 && response.statusCode < 400
+            ? 'أعاد خادم ERPNext تحويلة غير متوقعة لتنزيل الملف.'
+            : 'رفض ERPNext تنزيل المرفق (HTTP ${response.statusCode}).',
+      );
+    }
+    final mimeType = response.headers.contentType?.mimeType.toLowerCase() ?? '';
+    if (mimeType == 'text/html' || mimeType == 'application/xhtml+xml') {
+      await response.drain<void>();
+      throw const FormatException('أعاد الخادم صفحة HTML بدلاً من محتوى المرفق؛ تحقق من الجلسة والصلاحية.');
+    }
+    final builder = BytesBuilder(copy: false);
+    await for (final chunk in response.timeout(const Duration(seconds: 60))) {
+      builder.add(chunk);
+    }
+    if (generation != _sessionGeneration) {
+      throw const HttpException('تم تجاهل محتوى مرفق من جلسة سابقة.');
+    }
+    final bytes = builder.takeBytes();
+    if (bytes.isEmpty) throw const FormatException('الملف الذي أعاده ERPNext فارغ.');
+    return bytes;
+  }
+
   Future<core.Map<String, dynamic>> uploadDocTypeAttachment({
     required String doctype,
     required String name,
