@@ -376,7 +376,7 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
       validator: requiredField
           ? (value) => value == null || value.trim().isEmpty ? 'هذا الحقل مطلوب' : null
           : null,
-      onChanged: (value) => _values[fieldname] = value,
+      onChanged: (value) => setState(() => _values[fieldname] = value),
     );
   }
 
