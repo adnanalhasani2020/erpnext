@@ -451,11 +451,17 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                   final key = field['fieldname'].toString();
                   final type = field['fieldtype']?.toString() ?? '';
                   if (type == 'Table' || type == 'Table MultiSelect') {
+                    if (requiredNow && (tableValues[key]?.isEmpty ?? true)) throw FormatException('الحقل ' + (f['label']?.toString() ?? key) + ' مطلوب.');
                     values[key] = tableValues[key] ?? <Map<String, dynamic>>[];
                     continue;
                   }
+                  final liveValues = dependencyValues();
+                  if (!visibleField(f) || readOnlyField(f)) continue;
+                  final requiredNow = requiredField(f);
                   if (type == 'Check') {
-                    values[key] = checks[key] == true ? 1 : 0;
+                    final checked = checks[key] == true;
+                    if (requiredNow && !checked) throw FormatException('الحقل ' + (f['label']?.toString() ?? key) + ' مطلوب.');
+                    values[key] = checked ? 1 : 0;
                     continue;
                   }
                   if (type == 'Select') {
@@ -664,16 +670,14 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     onChanged: (_) {
                       final hasDynamicDependents = editable.any((field) =>
                         field['fieldtype'] == 'Dynamic Link' && field['options']?.toString() == key);
-                      if (hasDynamicDependents) {
-                        clearDependentDynamicLinks(key);
-                        refresh(() {});
-                      }
+                      if (hasDynamicDependents) clearDependentDynamicLinks(key);
+                      refresh(() {});
                     },
                     keyboardType: keyboard,
-                    readOnly: isDate || isDateTime,
+                    readOnly: isDate || isDateTime || readOnlyNow,
                     minLines: (type == 'Text' || type == 'Long Text') ? 3 : 1,
                     maxLines: (type == 'Text' || type == 'Long Text') ? 5 : 1,
-                    onTap: isDate || isDateTime ? () async {
+                    onTap: (isDate || isDateTime) && !readOnlyNow ? () async {
                       final initial = DateTime.tryParse(controller.text) ?? DateTime.now();
                       final date = await showDatePicker(
                         context: context,
@@ -703,7 +707,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                         ? const Icon(Icons.calendar_today_outlined)
                         : canPickLink ? IconButton(
                             tooltip: 'اختيار سجل',
-                            onPressed: () async {
+                            onPressed: readOnlyNow ? null : () async {
                               final target = isLink ? f['options'].toString() : dynamicLinkTarget.trim();
                               final selected = await _pickLinkValue(target);
                               if (selected != null) controller.text = selected;
@@ -736,7 +740,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                   }
                   if (type == 'Select') {
                     final selected = selections[key]?.trim() ?? '';
-                    if (requiredField(f) && selected.isEmpty) {
+                    if (requiredNow && selected.isEmpty) {
                       throw FormatException('الحقل ' + (f['label']?.toString() ?? key) + ' مطلوب.');
                     }
                     if (selected.isNotEmpty) values[key] = selected;
@@ -744,7 +748,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     continue;
                   }
                   final raw = controllers[key]!.text.trim();
-                  if (requiredField(f) && raw.isEmpty) throw FormatException('الحقل ' + (f['label']?.toString() ?? key) + ' مطلوب.');
+                  if (requiredNow && raw.isEmpty) throw FormatException('الحقل ' + (f['label']?.toString() ?? key) + ' مطلوب.');
                   if (raw.isEmpty) {
                     if (source != null && source.containsKey(key)) values[key] = null;
                     continue;
