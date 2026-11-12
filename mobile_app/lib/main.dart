@@ -24,7 +24,8 @@ import 'payroll_page.dart';
 import 'warehouse_hierarchy_page.dart';
 import 'doctype_workspace_page.dart';
 import 'models/erp_models.dart';
-import 'widgets/count_card.dart';
+import 'login_page.dart';
+import 'dashboard_page.dart';
 import 'widgets/load_more_button.dart';
 import 'widgets/server_search_field.dart';
 import 'customer_ledger_sheet.dart';
@@ -827,7 +828,18 @@ class _MobileHomePageState extends State<MobileHomePage> {
       body: SafeArea(
         child: AnimatedSwitcher(
           duration: const Duration(milliseconds: 220),
-          child: _user == null ? _buildLogin() : _buildSelectedPage(),
+          child: _user == null ? LoginPage(
+            formKey: _loginFormKey,
+            urlController: _urlController,
+            userController: _userController,
+            passwordController: _passwordController,
+            busy: _busy,
+            showPassword: _showPassword,
+            error: _error,
+            onLogin: _login,
+            onContinueAsGuest: _continueAsGuest,
+            onTogglePassword: () => setState(() => _showPassword = !_showPassword),
+          ) : _buildSelectedPage(),
         ),
       ),
       bottomNavigationBar: _user == null ? null : NavigationBar(
@@ -1913,290 +1925,5 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ]);
   }
 
-  Widget _buildLogin() {
-    final scheme = Theme.of(context).colorScheme;
-    return Center(
-      key: const ValueKey('login'),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 440),
-          child: Form(
-            key: _loginFormKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                CircleAvatar(
-                  radius: 42,
-                  backgroundColor: scheme.primaryContainer,
-                  child: Icon(Icons.inventory_2_outlined, size: 42, color: scheme.onPrimaryContainer),
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  'ERPNext للجوال',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'سجّل الدخول لبيانات شركتك، أو ادخل كضيف لاستكشاف التطبيق دون خادم أو حساب.',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-                const SizedBox(height: 28),
-                TextFormField(
-                  controller: _urlController,
-                  enabled: !_busy,
-                  keyboardType: TextInputType.url,
-                  textDirection: TextDirection.ltr,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: 'رابط خادم ERPNext',
-                    hintText: 'https://erp.example.com',
-                    prefixIcon: Icon(Icons.link),
-                    helperText: 'استخدم رابط HTTPS الخاص بنظامك.',
-                  ),
-                  validator: (value) => (value ?? '').trim().isEmpty
-                      ? 'أدخل رابط خادم ERPNext.'
-                      : null,
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _userController,
-                  enabled: !_busy,
-                  textDirection: TextDirection.ltr,
-                  autocorrect: false,
-                  enableSuggestions: false,
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  decoration: const InputDecoration(
-                    labelText: 'اسم المستخدم أو البريد',
-                    prefixIcon: Icon(Icons.person_outline),
-                  ),
-                  validator: (value) => (value ?? '').trim().isEmpty
-                      ? 'أدخل اسم المستخدم أو البريد الإلكتروني.'
-                      : null,
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _passwordController,
-                  enabled: !_busy,
-                  obscureText: !_showPassword,
-                  textInputAction: TextInputAction.done,
-                  decoration: InputDecoration(
-                    labelText: 'كلمة المرور',
-                    prefixIcon: const Icon(Icons.lock_outline),
-                    suffixIcon: IconButton(
-                      tooltip: _showPassword ? 'إخفاء كلمة المرور' : 'إظهار كلمة المرور',
-                      onPressed: _busy ? null : () => setState(() => _showPassword = !_showPassword),
-                      icon: Icon(_showPassword ? Icons.visibility_off_outlined : Icons.visibility_outlined),
-                    ),
-                  ),
-                  validator: (value) => (value ?? '').isEmpty
-                      ? 'أدخل كلمة المرور.'
-                      : null,
-                  onFieldSubmitted: (_) { if (!_busy) _login(); },
-                ),
-                if (_error != null) ...[
-                  const SizedBox(height: 14),
-                  Semantics(
-                    liveRegion: true,
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: scheme.errorContainer,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Icon(Icons.error_outline, color: scheme.onErrorContainer),
-                          const SizedBox(width: 8),
-                          Expanded(child: Text(_error!, style: TextStyle(color: scheme.onErrorContainer))),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 22),
-                FilledButton.icon(
-                  onPressed: _busy ? null : _login,
-                  icon: _busy
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.login),
-                  label: Text(_busy ? 'جارٍ الاتصال بالخادم...' : 'تسجيل الدخول'),
-                ),
-                const SizedBox(height: 10),
-                OutlinedButton.icon(
-                  onPressed: _busy ? null : _continueAsGuest,
-                  icon: const Icon(Icons.visibility_outlined),
-                  label: const Text('الدخول كضيف دون خادم أو حساب'),
-                ),
-                const SizedBox(height: 16),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Icon(Icons.shield_outlined, color: scheme.primary),
-                        const SizedBox(width: 10),
-                        const Expanded(
-                          child: Text(
-                            'تُرسل بيانات الدخول إلى خادمك مباشرة. لا يحفظ التطبيق كلمة المرور أو ملفات الجلسة على الجهاز؛ تنتهي الجلسة عند تسجيل الخروج أو إغلاق التطبيق.',
-                            style: TextStyle(fontSize: 12),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
-  Widget _buildDashboard() {
-    final scheme = Theme.of(context).colorScheme;
-    return ListView(
-      key: const ValueKey('dashboard'),
-      padding: const EdgeInsets.all(20),
-      children: [
-        Row(children: [
-          const CircleAvatar(child: Icon(Icons.business)),
-          const SizedBox(width: 12),
-          Expanded(child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('لوحة التحكم', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-              Text(_user ?? ''),
-            ],
-          )),
-          IconButton(tooltip: 'تسجيل الخروج', onPressed: _busy ? null : _logout, icon: const Icon(Icons.logout)),
-        ]),
-        const SizedBox(height: 24),
-        if (_isGuest)
-          Card(
-            color: scheme.tertiaryContainer,
-            child: const ListTile(
-              leading: Icon(Icons.visibility_outlined),
-              title: Text('وضع الضيف المحلي — بيانات تجريبية فقط'),
-              subtitle: Text('أنت داخل التطبيق دون خادم أو حساب. الأسماء والأرصدة والفواتير المعروضة عينات وهمية للتجربة فقط؛ لا تحفظ عملياتك ولا تتصل ببيانات حقيقية.'),
-            ),
-          ),
-        Card(
-          color: scheme.primaryContainer,
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Icon(Icons.cloud_done_outlined, size: 30),
-              const SizedBox(height: 10),
-              Text(_isGuest ? 'تم فتح وضع الضيف' : 'تم الاتصال بخادم ERPNext', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-              const SizedBox(height: 5),
-              Text(_isGuest ? 'تم الدخول محلياً دون إرسال أي طلب إلى خادم. كل الأرقام والسجلات المعروضة بيانات توضيحية وليست حقيقية.' : 'تسجيل الدخول والتحقق من الجلسة يعملان عبر واجهة Frappe API.'),
-            ]),
-          ),
-        ),
-        const SizedBox(height: 18),
-        Row(children: [
-          Expanded(child: Text(_isGuest ? 'الشركة التجريبية' : 'شركات النظام', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))),
-          IconButton(tooltip: 'تحديث الشركات', onPressed: _isGuest || _companiesLoading ? null : _loadCompanies, icon: const Icon(Icons.refresh)),
-        ]),
-        if (_companiesLoading)
-          const LinearProgressIndicator()
-        else if (_companyError != null)
-          Card(child: Padding(padding: const EdgeInsets.all(14), child: Text(_companyError!, style: TextStyle(color: scheme.error))))
-        else if (_companies.isEmpty)
-          const Card(child: ListTile(leading: Icon(Icons.info_outline), title: Text('لا توجد شركات ظاهرة لهذا المستخدم'), subtitle: Text('قد لا توجد شركات أو قد تكون صلاحية القراءة محدودة.')))
-        else ...[
-          Text('تم جلب ${_companies.length} شركة من الخادم.'),
-          ..._companies.map((company) => Card(child: ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.business_outlined)),
-            title: Text(company.name),
-            subtitle: company.abbr == null ? null : Text('الاختصار: ${company.abbr}'),
-          ))),
-        ],
-
-        const SizedBox(height: 18),
-        Row(children: [
-          Expanded(child: Text('بيانات المخزون', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold))),
-          IconButton(tooltip: 'تحديث بيانات المخزون', onPressed: _isGuest || _inventoryLoading ? null : _loadInventory, icon: const Icon(Icons.refresh)),
-        ]),
-        if (_inventoryLoading)
-          const LinearProgressIndicator(),
-        if (_inventoryError != null)
-          Card(child: Padding(padding: const EdgeInsets.all(14), child: Text(_inventoryError!, style: TextStyle(color: scheme.error)))),
-        ...[
-          Row(children: [
-            Expanded(child: CountCard(label: 'الأصناف', count: _items.length, icon: Icons.inventory_2_outlined)),
-            const SizedBox(width: 10),
-            Expanded(child: CountCard(label: 'المستودعات', count: _warehouses.length, icon: Icons.warehouse_outlined)),
-          ]),
-          if (_items.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text('أحدث الأصناف', style: Theme.of(context).textTheme.titleSmall),
-            ..._items.take(8).map((item) => ListTile(
-              dense: true,
-              leading: const Icon(Icons.sell_outlined),
-              title: Text(item.name),
-              subtitle: Text([item.code, if (item.group != null) item.group!, if (item.stockUom != null) item.stockUom!].join(' • ')),
-            )),
-          ],
-
-          if (_stockBalances.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Text('أرصدة الأصناف حسب المستودع', style: Theme.of(context).textTheme.titleSmall),
-            ..._stockBalances.take(30).map((balance) => ListTile(
-              dense: true,
-              leading: const Icon(Icons.inventory_outlined),
-              title: Text(balance.itemCode),
-              subtitle: Text(balance.warehouse),
-              trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(balance.actualQty.toStringAsFixed(2), style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-                Text(balance.stockUom ?? '—', style: Theme.of(context).textTheme.bodySmall),
-              ]),
-            )),
-            if (_stockBalances.length > 30) Text('يُعرض أول 30 رصيداً من أصل ${_stockBalances.length}.'),
-          ] else ...[
-            const SizedBox(height: 8),
-            const Text('لا توجد أرصدة فعلية غير صفرية ظاهرة للمستخدم.'),
-          ],
-
-          if (_warehouses.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Text('المستودعات', style: Theme.of(context).textTheme.titleSmall),
-            ..._warehouses.take(8).map((warehouse) => ListTile(
-              dense: true,
-              leading: const Icon(Icons.warehouse_outlined),
-              title: Text(warehouse.name),
-              subtitle: warehouse.company == null ? null : Text(warehouse.company!),
-            )),
-          ],
-        ],
-        const SizedBox(height: 18),
-        Card(child: ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.dashboard_customize_outlined)),
-          title: const Text('شاشات ERPNext المستقلة'),
-          subtitle: const Text('كل نوع مستند في شاشة جوال مستقلة'),
-          trailing: const Icon(Icons.chevron_left),
-          onTap: _isGuest ? null : _openDocTypeDirectory,
-        )),
-        const SizedBox(height: 10),
-        Card(child: ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.receipt_long_outlined)),
-          title: const Text('المعاملات'),
-          subtitle: const Text('عرض فواتير المبيعات والمشتريات والعملاء والموردين'),
-          trailing: const Icon(Icons.chevron_left),
-          onTap: () => setState(() => _selectedTab = 4),
-        )),
-        const SizedBox(height: 10),
-        Text(_isGuest ? 'في وضع الضيف يمكنك استعراض العينات والبحث فيها فقط. سجّل الدخول إلى ERPNext لتفعيل إنشاء المستندات والترحيل والدفعات والتقارير.' : 'يمكنك إنشاء فواتير المبيعات وترحيلها وتسجيل دفعات العملاء وإعداد مسودات المرتجعات من شاشة المعاملات.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
-      ],
-    );
-  }
 }
