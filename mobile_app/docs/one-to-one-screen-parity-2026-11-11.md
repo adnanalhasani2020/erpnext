@@ -97,3 +97,8 @@ Workspace links of type Page, URL, Dashboard and Workspace are no longer silentl
 The standalone metadata-driven DocType detail view now provides a dedicated activity panel for attachments, comments and version history. Attachments are selected from the device and uploaded to the current ERPNext document using the native upload endpoint, with private visibility as the default. The API verifies that the returned File record is attached to the exact DocType/document before reporting success. Comments are added through ERPNext's Desk comment method; Version history is read from the native Version DocType and exposes the stored version payload for inspection. Activity categories load independently so a role lacking permission to one related DocType can still use the other available sections. The app does not grant permissions or bypass server authorization.
 
 This closes the generic editor's first attachment/comment/version gap only. Specialized business forms still require individual comparison for their own timeline, print, attachment and action controls; list bulk actions, arbitrary client-script buttons and report-builder parity remain open.
+
+
+## Original Desk form fallback — 2026-11-12
+
+The generic DocType detail panel now exposes the exact ERPNext Desk form for the selected record through the authenticated, same-origin WebView. This is the parity path for DocType-specific buttons, client-script behavior and form controls that cannot be safely recreated from static DocField metadata. The mobile metadata editor remains a separate route for supported native field editing; the Desk route is the original web form, not a new mobile-only workflow.
