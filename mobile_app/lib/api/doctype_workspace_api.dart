@@ -265,11 +265,16 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
     // to the original Workspace WebView instead.
     final rawDynamicFilters = card['dynamic_filters_json'];
     dynamic decodedDynamicFilters = rawDynamicFilters;
-    if (rawDynamicFilters is String && rawDynamicFilters.trim().isNotEmpty) {
-      try {
-        decodedDynamicFilters = jsonDecode(rawDynamicFilters);
-      } catch (_) {
-        return null;
+    if (rawDynamicFilters is String) {
+      final raw = rawDynamicFilters.trim();
+      if (raw.isEmpty) {
+        decodedDynamicFilters = null;
+      } else {
+        try {
+          decodedDynamicFilters = jsonDecode(raw);
+        } catch (_) {
+          return null;
+        }
       }
     }
     final hasDynamicFilters = decodedDynamicFilters is List
