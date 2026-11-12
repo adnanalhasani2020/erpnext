@@ -1204,20 +1204,21 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ));
   }
 
-  void _openWorkspaceReport(String reportName) {
+  void _openWorkspaceReport(String reportName, {Map<String, dynamic> initialFilters = const {}}) {
     if (!_requireServerAccess('تشغيل التقرير')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => WorkspaceReportPage(
         api: _api,
         companies: _companies,
         reportName: reportName,
+        initialFilters: initialFilters,
       ),
     ));
   }
 
   void _openDocTypeDefinition(ErpDocTypeDefinition item) {
     if (item.linkType == 'Report') {
-      _openWorkspaceReport(item.doctype);
+      _openWorkspaceReport(item.doctype, initialFilters: item.routeOptions);
       return;
     }
     if (item.routeOptions.isNotEmpty) {
