@@ -103,6 +103,21 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           'HR': 'الموارد البشرية',
         };
         final workspaceLabel = workspaceLabels[workspaceTitle] ?? workspaceTitle;
+        if (workspace['type']?.toString() == 'Link' &&
+            workspace['link_type']?.toString() == 'DocType') {
+          final linkedDocType = workspace['link_to']?.toString().trim() ?? '';
+          if (linkedDocType.isNotEmpty && seen.add('${workspaceTitle}::اختصارات::${linkedDocType}')) {
+            definitions.add(ErpDocTypeDefinition(
+              workspaceLabel,
+              workspace['title']?.toString() ?? workspace['label']?.toString() ?? linkedDocType,
+              linkedDocType,
+              _workspaceIcon(workspaceLabel),
+              'اختصارات',
+            ));
+          }
+          continue;
+        }
+        if (workspace['type']?.toString() == 'URL') continue;
         final shortcuts = workspace['shortcuts'];
         if (shortcuts is List) {
           for (final rawShortcut in shortcuts) {
