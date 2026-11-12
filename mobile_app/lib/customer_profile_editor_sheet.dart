@@ -15,7 +15,7 @@ class CustomerProfileEditorSheet extends StatefulWidget {
 
   final FrappeApi api;
   final ErpCustomer customer;
-  final VoidCallback onSaved;
+  final Future<void> Function() onSaved;
 
   @override
   State<CustomerProfileEditorSheet> createState() =>
@@ -111,7 +111,7 @@ class _CustomerProfileEditorSheetState
         },
       );
       if (!mounted) return;
-      widget.onSaved();
+      await widget.onSaved();
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('تم تحديث ملف العميل في ERPNext.')),
