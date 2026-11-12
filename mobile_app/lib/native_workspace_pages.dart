@@ -174,8 +174,13 @@ class _StockSummaryNativePageState extends State<StockSummaryNativePage> {
 }
 
 class WarehouseCapacitySummaryNativePage extends StatefulWidget {
-  const WarehouseCapacitySummaryNativePage({super.key, required this.api});
+  const WarehouseCapacitySummaryNativePage({
+    super.key,
+    required this.api,
+    this.routeOptions = const <String, dynamic>{},
+  });
   final FrappeApi api;
+  final Map<String, dynamic> routeOptions;
 
   @override
   State<WarehouseCapacitySummaryNativePage> createState() => _WarehouseCapacitySummaryNativePageState();
@@ -199,6 +204,10 @@ class _WarehouseCapacitySummaryNativePageState extends State<WarehouseCapacitySu
   @override
   void initState() {
     super.initState();
+    _warehouse.text = widget.routeOptions['warehouse']?.toString() ?? '';
+    _item.text = widget.routeOptions['item_code']?.toString() ?? '';
+    _parentWarehouse.text = widget.routeOptions['parent_warehouse']?.toString() ?? '';
+    _company = widget.routeOptions['company']?.toString();
     _loadCompanies();
   }
 
@@ -217,7 +226,9 @@ class _WarehouseCapacitySummaryNativePageState extends State<WarehouseCapacitySu
       if (!mounted) return;
       setState(() {
         _companies = companies;
-        if (_company == null && companies.length == 1) _company = companies.first.name;
+        if (_company == null || !companies.any((company) => company.name == _company)) {
+          _company = companies.length == 1 ? companies.first.name : null;
+        }
         _loading = false;
       });
       if (_company != null) await _load(reset: true);
