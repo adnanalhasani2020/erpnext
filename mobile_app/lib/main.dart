@@ -22,6 +22,7 @@ import 'journal_entries_page.dart';
 import 'hr_workflows_page.dart';
 import 'payroll_page.dart';
 import 'warehouse_hierarchy_page.dart';
+import 'warehouse_list_page.dart';
 import 'doctype_workspace_page.dart';
 import 'models/erp_models.dart';
 import 'login_page.dart';
@@ -1113,56 +1114,29 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ]);
   }
 
-  Widget _buildWarehousesPage() {
-    final query = _warehouseSearch.trim().toLowerCase();
-    final filtered = _warehouses.where((warehouse) =>
-      warehouse.name.toLowerCase().contains(query) || warehouse.id.toLowerCase().contains(query) ||
-      (warehouse.company ?? '').toLowerCase().contains(query)
-    ).toList(growable: false);
-    return ListView(padding: const EdgeInsets.all(18), children: [
-      if (_isGuest) _guestDemoBanner(),
-      _pageHeader('المستودعات', 'المستودعات الفعلية المتاحة للمستخدم', Icons.warehouse_outlined),
-      const SizedBox(height: 16),
-      ServerSearchField(
-        controller: _warehouseSearchController,
-        label: 'بحث في المستودعات أو الشركة',
-        onSearch: _searchWarehouses,
-        loading: _searchingWarehouses ,
-        buttonLabel: _isGuest ? 'بحث محلي' : 'بحث في الخادم'
-      ),
-      const SizedBox(height: 10),
-      Align(
-        alignment: AlignmentDirectional.centerStart,
-        child: OutlinedButton.icon(
-          onPressed: _isGuest || _inventoryLoading ? null : _openWarehouseHierarchy,
-          icon: const Icon(Icons.account_tree_outlined),
-          label: const Text('عرض شجرة المستودعات'),
-        ),
-      ),
-      Text('${filtered.length} مستودع من ${_warehouses.length} مستودع محمّل'),
-      if (_inventoryLoading) const LinearProgressIndicator(),
-      if (_inventoryError != null) _errorCard(_inventoryError!),
-      if (filtered.isEmpty && !_inventoryLoading)
-        const Card(child: ListTile(title: Text('لا توجد مستودعات مطابقة'))),
-      ...filtered.map((warehouse) {
-        final count = _stockBalances.where((row) => row.warehouse == warehouse.id).length;
-        return Card(child: ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.warehouse_outlined)),
-          title: Text(warehouse.name),
-          subtitle: Text('${warehouse.company ?? 'شركة غير محددة'} • $count أرصدة'),
-          onTap: () {
-            setState(() => _selectedTab = 2);
-            _searchStockBalances(
-              _stockSearchController.text,
-              updateWarehouse: true,
-              warehouse: warehouse.id,
-            );
-          },
-        ));
-      }),
-      if (_warehousesHasMore || _loadingMoreWarehouses) Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: FilledButton.tonal(onPressed: _loadingMoreWarehouses ? null : _loadMoreWarehouses, child: Text(_loadingMoreWarehouses ? 'جارٍ تحميل المزيد...' : 'تحميل المزيد من المستودعات'))),
-    ]);
-  }
+  Widget _buildWarehousesPage() => WarehouseListPage(
+    warehouses: _warehouses,
+    search: _warehouseSearch,
+    searchController: _warehouseSearchController,
+    searching: _searchingWarehouses,
+    guest: _isGuest,
+    loading: _inventoryLoading,
+    error: _inventoryError,
+    stockBalances: _stockBalances,
+    hasMore: _warehousesHasMore,
+    loadingMore: _loadingMoreWarehouses,
+    onSearch: _searchWarehouses,
+    onOpenHierarchy: _openWarehouseHierarchy,
+    onSelectWarehouse: (warehouse) {
+      setState(() => _selectedTab = 2);
+      _searchStockBalances(
+        _stockSearchController.text,
+        updateWarehouse: true,
+        warehouse: warehouse.id,
+      );
+    },
+    onLoadMore: _loadMoreWarehouses,
+  );
 
   void _openSalesCommissions() {
     if (!_requireServerAccess('العمولات')) return;
