@@ -13,7 +13,8 @@ class SalesInvoicesPage extends StatelessWidget {
   final List<ErpSalesInvoice> invoices;
   final String search;
   final TextEditingController searchController;
-  final VoidCallback onRefresh, onLoadMore, onCreateInvoice;
+  final Future<void> Function() onRefresh;
+  final VoidCallback onLoadMore, onCreateInvoice;
   final ValueChanged<String> onSearch, onOpenInvoice;
 
   @override
@@ -23,12 +24,12 @@ class SalesInvoicesPage extends StatelessWidget {
       invoice.id.toLowerCase().contains(query) || invoice.customerName.toLowerCase().contains(query)).toList(growable: false);
     return Scaffold(
       appBar: AppBar(title: const Text('فواتير المبيعات'), actions: [
-        IconButton(tooltip: 'تحديث', onPressed: loading ? null : onRefresh, icon: const Icon(Icons.refresh)),
+        IconButton(tooltip: 'تحديث', onPressed: loading ? null : () => onRefresh(), icon: const Icon(Icons.refresh)),
       ]),
       floatingActionButton: FloatingActionButton.extended(onPressed: loading ? null : onCreateInvoice,
         icon: const Icon(Icons.add), label: const Text('فاتورة جديدة')),
       body: RefreshIndicator(
-        onRefresh: () async => onRefresh(),
+        onRefresh: onRefresh,
         child: ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 92), children: [
           ServerSearchField(controller: searchController, label: 'بحث برقم الفاتورة أو العميل', onSearch: onSearch, loading: searching),
           if (loading) const LinearProgressIndicator(),
