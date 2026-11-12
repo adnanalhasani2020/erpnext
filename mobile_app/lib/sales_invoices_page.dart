@@ -7,7 +7,7 @@ class SalesInvoicesPage extends StatelessWidget {
   const SalesInvoicesPage({super.key, required this.loading, required this.error, required this.invoices,
     required this.search, required this.searchController, required this.searching, required this.hasMore,
     required this.loadingMore, required this.onRefresh, required this.onSearch, required this.onLoadMore,
-    required this.onOpenInvoice, required this.onCreateInvoice});
+    required this.onOpenInvoice, required this.onCreateInvoice, this.onOpenDesk});
   final bool loading, searching, hasMore, loadingMore;
   final String? error;
   final List<ErpSalesInvoice> invoices;
@@ -16,6 +16,7 @@ class SalesInvoicesPage extends StatelessWidget {
   final Future<void> Function() onRefresh;
   final VoidCallback onLoadMore, onCreateInvoice;
   final ValueChanged<String> onSearch, onOpenInvoice;
+  final VoidCallback? onOpenDesk;
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +25,7 @@ class SalesInvoicesPage extends StatelessWidget {
       invoice.id.toLowerCase().contains(query) || invoice.customerName.toLowerCase().contains(query)).toList(growable: false);
     return Scaffold(
       appBar: AppBar(title: const Text('فواتير المبيعات'), actions: [
+        if (onOpenDesk != null) IconButton(tooltip: 'فتح قائمة ERPNext الأصلية', onPressed: onOpenDesk, icon: const Icon(Icons.open_in_browser)),
         IconButton(tooltip: 'تحديث', onPressed: loading ? null : () => onRefresh(), icon: const Icon(Icons.refresh)),
       ]),
       floatingActionButton: FloatingActionButton.extended(onPressed: loading ? null : onCreateInvoice,
