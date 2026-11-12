@@ -3,6 +3,7 @@ import 'dart:core';
 import 'dart:core' as core;
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import '../models/erp_models.dart';
 
