@@ -853,7 +853,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
           NavigationDestination(icon: Icon(Icons.sell_outlined), selectedIcon: Icon(Icons.sell), label: 'الأصناف'),
           NavigationDestination(icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2), label: 'الأرصدة'),
           NavigationDestination(icon: Icon(Icons.warehouse_outlined), selectedIcon: Icon(Icons.warehouse), label: 'المستودعات'),
-          NavigationDestination(icon: Icon(Icons.receipt_long_outlined), selectedIcon: Icon(Icons.receipt_long), label: 'المعاملات'),
+          NavigationDestination(icon: Icon(Icons.apps_outlined), selectedIcon: Icon(Icons.apps), label: 'مساحات العمل'),
           NavigationDestination(icon: Icon(Icons.assessment_outlined), selectedIcon: Icon(Icons.assessment), label: 'التقارير'),
         ],
       ),
@@ -867,7 +867,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       case 1: return _buildItemsPage();
       case 2: return _buildStockPage();
       case 3: return _buildWarehousesPage();
-      case 4: return _buildSalesPage();
+      case 4: return _isGuest ? _buildSalesPage() : ErpDocTypeDirectoryPage(api: _api, onOpenDefinition: _openDocTypeDefinition);
       case 5: return _isGuest ? const GuestReportsPage() : FinancialReportsPage(api: _api, companies: _companies);
       default: return DashboardPage(
         user: _user,
@@ -885,9 +885,18 @@ class _MobileHomePageState extends State<MobileHomePage> {
         warehouses: _warehouses,
         stockBalances: _stockBalances,
         onOpenDocTypeDirectory: _openDocTypeDirectory,
-        onOpenTransactions: () => setState(() => _selectedTab = 4),
+        onOpenTransactions: _openSalesOverview,
       );
     }
+  }
+
+  void _openSalesOverview() {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => Scaffold(
+        appBar: AppBar(title: const Text('ملخص المعاملات')),
+        body: _buildSalesPage(),
+      ),
+    ));
   }
 
   Widget _guestDemoBanner() => const GuestDemoBanner();
