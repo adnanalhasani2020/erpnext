@@ -41,6 +41,7 @@ void main() {
       loadingMore: false,
       onLoadMore: () {},
       onEditAttendance: (value) => edited = value,
+      onEditLeaveApplication: (_) {},
       onSubmit: (doctype, value) => submittedType = doctype,
       onWorkflow: (doctype, value) => workflowType = doctype,
     ))));
@@ -50,6 +51,37 @@ void main() {
     expect(edited?['name'], 'ATT-001');
     expect(submittedType, 'Attendance');
     expect(workflowType, 'Attendance');
+  });
+
+
+  testWidgets('leave application list exposes draft edit, submit and workflow callbacks', (tester) async {
+    Map<String, dynamic>? edited;
+    String? submittedType;
+    final row = <String, dynamic>{
+      'name': 'LEAVE-001',
+      'employee_name': 'موظف',
+      'leave_type': 'Annual Leave',
+      'from_date': '2026-11-15',
+      'to_date': '2026-11-17',
+      'docstatus': 0,
+    };
+    await tester.pumpWidget(MaterialApp(home: Scaffold(body: HrDocumentList(
+      rows: [row],
+      doctype: 'Leave Application',
+      loading: false,
+      saving: false,
+      hasMore: false,
+      loadingMore: false,
+      onLoadMore: () {},
+      onEditAttendance: (_) {},
+      onEditLeaveApplication: (value) => edited = value,
+      onSubmit: (doctype, value) => submittedType = doctype,
+      onWorkflow: (doctype, value) {},
+    ))));
+    await tester.tap(find.byTooltip('تعديل مسودة طلب الإجازة'));
+    await tester.tap(find.byTooltip('إرسال المسودة'));
+    expect(edited?['name'], 'LEAVE-001');
+    expect(submittedType, 'Leave Application');
   });
 
   testWidgets('expense claim only offers payment for approved submitted unpaid claims', (tester) async {
