@@ -51,7 +51,7 @@ Workspace discovery uses Frappe's permission-aware Desk endpoint (v16 `frappe.se
 
 Sales Invoice, Customer and Supplier now have dedicated mobile list pages with server-backed search/pagination and their existing details, editing and ledger actions. The combined transactions overview remains an optional dashboard route rather than the destination for these individual Workspace links.
 
-Workspace Report links and Report shortcuts for the supported standard report allowlist now open the financial reports page with the report preselected. Custom Report, Page and URL links are not yet implemented as standalone mobile destinations.
+Every visible Workspace Report link and Report shortcut now opens its own metadata-driven report screen. The screen loads filter definitions through Frappe `frappe.desk.query_report.get_script`, renders the returned filter fields (including server-search Link/Dynamic Link selectors), and runs the selected report through the permission-checked native query-report endpoint; the former hard-coded 14-report allowlist has been removed. Page links, URL links, Workspace/Dashboard links, and Workspace charts/number cards are still not native Flutter destinations.
 
 ## Direct access to standalone party and invoice directories — 2026-11-12
 
@@ -76,3 +76,12 @@ Payroll setup data (cost centers, payable accounts and bank accounts), payroll-e
 ## Generic DocField dependency handling — 2026-11-12
 
 The metadata-driven editor now reacts to simple `depends_on` field-presence/negation and equality/inequality rules (including `&&` and `||`), applies the corresponding `mandatory_depends_on` required check, and honors `read_only_depends_on` for the same supported expression subset. Form values refresh dependent visibility while the user edits. The evaluator intentionally does not execute arbitrary JavaScript from `eval:` or client scripts; unsupported expressions are left visible/editable and ERPNext remains the final validator. This is a bounded parity improvement, not full Form API/client-script parity.
+
+
+## Workspace screen separation and native route options — 2026-11-12
+
+The workspace directory now preserves each visible DocType and Report link from the permission-filtered workspace data. It uses the Workspace page's native Card Break groups when present and falls back to sidebar Section Break groups only for workspaces that do not define page links, avoiding duplicate navigation entries from the parallel page/sidebar structures. Native `route_options` are retained as part of link identity and applied to the resulting DocType/report screen. This keeps distinct web routes such as Credit Note and Debit Note separate even when they point to the same underlying Sales Invoice or Purchase Invoice DocType; route options also prefill the matching create form.
+
+Every Report link now routes to a standalone report page that retrieves its available filter metadata from Frappe, supports the declared filter field types and server-backed Link lookups, and invokes the same report through ERPNext's permission-checked report API. The older financial-report overview remains available as a separate app navigation destination. No new business DocTypes or workspace links are fabricated.
+
+Remaining workspace parity: Page and URL links, Workspace/Dashboard links, and native Workspace chart/number-card content still do not have Flutter equivalents. HRMS workspace definitions are supplied by the installed HRMS site and cannot be certified from this ERPNext-only repository snapshot.
