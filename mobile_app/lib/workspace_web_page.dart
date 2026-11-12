@@ -69,7 +69,7 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
       'Report' => 'app/query-report/',
       _ => 'app/',
     };
-    final routeName = widget.linkType == 'Workspace' || widget.linkType == 'Dashboard'
+    final routeName = widget.linkType == 'Workspace' || widget.linkType == 'Dashboard' || widget.linkType == 'Report'
         ? _workspaceSlug(target)
         : target;
     return base.resolve(route + Uri.encodeComponent(routeName));
