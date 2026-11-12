@@ -521,27 +521,27 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
       return andParts.every((part) => _evaluateSimpleDocDependency(part, values));
     }
 
-    String? operator;
-    var operatorIndex = -1;
+    String? comparisonOperator;
+    var comparisonOperatorIndex = -1;
     for (final candidate in const ['===', '!==', '==', '!=']) {
       final index = rule.indexOf(candidate);
       if (index >= 0) {
-        operator = candidate;
-        operatorIndex = index;
+        comparisonOperator = candidate;
+        comparisonOperatorIndex = index;
         break;
       }
     }
-    if (operator != null) {
-      var field = rule.substring(0, operatorIndex).trim();
+    if (comparisonOperator != null) {
+      var field = rule.substring(0, comparisonOperatorIndex).trim();
       if (field.startsWith('doc.')) field = field.substring(4);
-      var expected = rule.substring(operatorIndex + operator.length).trim();
+      var expected = rule.substring(comparisonOperatorIndex + comparisonOperator.length).trim();
       if (expected.length >= 2 &&
           ((expected.startsWith("'") && expected.endsWith("'")) ||
            (expected.startsWith('"') && expected.endsWith('"')))) {
         expected = expected.substring(1, expected.length - 1);
       }
       final equal = values[field]?.toString() == expected;
-      return operator.startsWith('!') ? !equal : equal;
+      return comparisonOperator.startsWith('!') ? !equal : equal;
     }
 
     var negate = false;
