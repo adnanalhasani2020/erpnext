@@ -5,17 +5,22 @@ import 'models/erp_models.dart';
 import 'widgets/server_link_field.dart';
 
 class StockSummaryNativePage extends StatefulWidget {
-  const StockSummaryNativePage({super.key, required this.api});
+  const StockSummaryNativePage({
+    super.key,
+    required this.api,
+    this.routeOptions = const <String, dynamic>{},
+  });
   final FrappeApi api;
+  final Map<String, dynamic> routeOptions;
 
   @override
   State<StockSummaryNativePage> createState() => _StockSummaryNativePageState();
 }
 
 class _StockSummaryNativePageState extends State<StockSummaryNativePage> {
-  final _item = TextEditingController();
-  final _warehouse = TextEditingController();
-  final _itemGroup = TextEditingController();
+  late final TextEditingController _item;
+  late final TextEditingController _warehouse;
+  late final TextEditingController _itemGroup;
   final _sorts = const <String, String>{
     'projected_qty': 'الكمية المتوقعة',
     'reserved_qty': 'الكمية المحجوزة',
@@ -40,6 +45,11 @@ class _StockSummaryNativePageState extends State<StockSummaryNativePage> {
   @override
   void initState() {
     super.initState();
+    // The ERPNext Stock Summary Page reads these exact route_options.
+    // Preserve them when a Workspace link opens the native Flutter page.
+    _item = TextEditingController(text: widget.routeOptions['item_code']?.toString() ?? '');
+    _warehouse = TextEditingController(text: widget.routeOptions['warehouse']?.toString() ?? '');
+    _itemGroup = TextEditingController(text: widget.routeOptions['item_group']?.toString() ?? '');
     _load(reset: true);
   }
 
