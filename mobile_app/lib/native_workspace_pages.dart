@@ -429,11 +429,10 @@ class _WarehouseCapacitySummaryNativePageState extends State<WarehouseCapacitySu
   void _openOrFilterRecord(String doctype, String name, TextEditingController filter) {
     if (name.trim().isEmpty) return;
     if (filter.text.trim() == name) {
-      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceNativeDestinationPage(
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ErpDocTypeWorkspacePage(
         api: widget.api,
-        title: name,
-        linkType: 'DocTypeDocument',
-        target: '$doctype|$name',
+        definition: ErpDocTypeDefinition('المخزون', doctype, doctype, Icons.inventory_2_outlined),
+        initialDocumentName: name,
       )));
       return;
     }
