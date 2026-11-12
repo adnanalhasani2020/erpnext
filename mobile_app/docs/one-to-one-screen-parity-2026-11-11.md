@@ -4,7 +4,7 @@ See also: [specialized screen-by-screen parity audit](specialized-screen-parity-
 
 ## Workspace discovery
 
-The mobile directory now reads visible `Workspace` records from the connected ERPNext site using the authenticated Frappe resource API. It extracts only visible links whose `link_type` is `DocType`, groups them by their native Workspace, and de-duplicates repeated links within each Workspace while preserving the same DocType when it appears in another Workspace. This makes the directory follow the installed ERPNext version, custom workspaces and installed HRMS workspace links rather than a hard-coded list alone. A static 47-entry fallback remains available when the account cannot read Workspace metadata.
+The mobile directory now reads visible `Workspace` records from the connected ERPNext site using the authenticated Frappe resource API. It extracts only visible links whose `link_type` is `DocType`, groups them by their native Workspace, and de-duplicates repeated links within each Workspace while preserving the same DocType when it appears in another Workspace. This makes the directory follow the installed ERPNext version, custom workspaces and installed HRMS workspace links rather than a hard-coded list. If the permission-filtered Workspace metadata cannot be read, the app shows an error instead of presenting unverified fallback screens.
 
 ## Dedicated mobile routes
 
@@ -112,3 +112,8 @@ Each metadata-driven Workspace Report screen now also links to that exact ERPNex
 ## Workspace identity preservation — 2026-11-12
 
 Workspace grouping and link de-duplication now use the actual Workspace record name as the identity key, while retaining its translated title for display. Two separate ERPNext/HRMS workspaces with identical translated titles therefore remain separate groups, and the same DocType link is de-duplicated only within its own Workspace rather than being dropped across distinct workspaces.
+
+
+## No fabricated Workspace fallback — 2026-11-12
+
+The authenticated Workspace directory no longer populates its visible screen list from the static 47-entry label catalog when the server cannot return Workspace metadata. The static definitions are used only to translate labels for links actually returned by ERPNext. If the permission-filtered Workspace API fails or returns no visible links, the app shows the corresponding error/empty state and does not invent screen destinations.
