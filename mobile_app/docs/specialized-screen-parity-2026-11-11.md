@@ -85,3 +85,5 @@ This is a structural separation pass, not a claim that every business domain is 
 
 - Workspace discovery now calls the permission-aware Desk endpoint first: `frappe.desk.desktop.get_workspaces` (ERPNext/Frappe v16), then falls back to `get_workspace_sidebar_items` (v15). It no longer enumerates all Workspace records with a broad resource query, avoiding exposure of hidden or another user's private workspaces.
 - Workspace detail links retain native Card Break sections; hidden cards are skipped, and DocType shortcuts are presented in a distinct "اختصارات" section. The API test covers v16 discovery and the v15 fallback.
+
+- Sales Invoice, Customer and Supplier links now route to dedicated mobile list pages rather than opening the generic DocType editor or a combined overview. Search, pagination, refresh, invoice details, customer editing and party ledgers are retained.
