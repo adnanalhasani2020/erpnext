@@ -183,3 +183,5 @@ Workspace Quick Lists now request and display the workflow_state field when the 
 ## Native Workspace chart series follow-up — 2026-11-12
 
 Standard static-filter Dashboard Charts now render every returned data series in native Flutter Bar and Line charts, with distinct series colors and a legend. Pie/Donut/Percentage charts continue to use the first returned dataset as required by their category-value layout. Report/custom/dynamic/heatmap sources remain explicitly unsupported rather than executing server JavaScript.
+
+Native Page route options are now forwarded through the app-shell route for both Stock Summary and Warehouse Capacity Summary. Warehouse Capacity Summary preloads the original Company, Warehouse, Item and Parent Warehouse filters from the Desk route options, while retaining ERPNext's server-side group-warehouse validation and sort allowlist.
