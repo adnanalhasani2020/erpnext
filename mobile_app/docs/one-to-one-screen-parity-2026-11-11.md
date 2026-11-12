@@ -107,3 +107,8 @@ The generic DocType detail panel now exposes the exact ERPNext Desk form for the
 ## Original Desk report fallback — 2026-11-12
 
 Each metadata-driven Workspace Report screen now also links to that exact ERPNext Desk Query Report route. This keeps the Flutter filter/result view available while providing the original web chart rendering, JavaScript-defined filter behavior and any installed report-specific controls without attempting to execute arbitrary server-provided JavaScript in the mobile client.
+
+
+## Workspace identity preservation — 2026-11-12
+
+Workspace grouping and link de-duplication now use the actual Workspace record name as the identity key, while retaining its translated title for display. Two separate ERPNext/HRMS workspaces with identical translated titles therefore remain separate groups, and the same DocType link is de-duplicated only within its own Workspace rather than being dropped across distinct workspaces.
