@@ -894,7 +894,24 @@ class _MobileHomePageState extends State<MobileHomePage> {
       case 3: return _buildWarehousesPage();
       case 4: return _buildSalesPage();
       case 5: return _isGuest ? _buildGuestReportsPage() : FinancialReportsPage(api: _api, companies: _companies);
-      default: return _buildDashboard();
+      default: return DashboardPage(
+        user: _user,
+        isGuest: _isGuest,
+        busy: _busy,
+        onLogout: _logout,
+        companies: _companies,
+        companiesLoading: _companiesLoading,
+        companyError: _companyError,
+        onRefreshCompanies: _loadCompanies,
+        inventoryLoading: _inventoryLoading,
+        inventoryError: _inventoryError,
+        onRefreshInventory: _loadInventory,
+        items: _items,
+        warehouses: _warehouses,
+        stockBalances: _stockBalances,
+        onOpenDocTypeDirectory: _openDocTypeDirectory,
+        onOpenTransactions: () => setState(() => _selectedTab = 4),
+      );
     }
   }
 
