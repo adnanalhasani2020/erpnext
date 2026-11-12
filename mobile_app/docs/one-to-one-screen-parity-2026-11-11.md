@@ -117,3 +117,8 @@ Workspace grouping and link de-duplication now use the actual Workspace record n
 ## No fabricated Workspace fallback — 2026-11-12
 
 The authenticated Workspace directory no longer populates its visible screen list from the static 47-entry label catalog when the server cannot return Workspace metadata. The static definitions are used only to translate labels for links actually returned by ERPNext. If the permission-filtered Workspace API fails or returns no visible links, the app shows the corresponding error/empty state and does not invent screen destinations.
+
+
+## Original Desk list fallback — 2026-11-12
+
+Every metadata-driven DocType list now exposes the corresponding original ERPNext Desk list route in the authenticated same-origin WebView. This preserves native list-view bulk actions, custom list scripts and installed list controls where Flutter's generic metadata list does not have a safe metadata-driven equivalent. The native list remains a separate screen and continues to use server-side filters, sorting and pagination.
