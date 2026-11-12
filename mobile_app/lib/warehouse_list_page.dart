@@ -20,6 +20,7 @@ class WarehouseListPage extends StatelessWidget {
     required this.onOpenHierarchy,
     required this.onSelectWarehouse,
     required this.onLoadMore,
+    required this.onRefresh,
   });
 
   final List<ErpWarehouse> warehouses;
@@ -36,6 +37,7 @@ class WarehouseListPage extends StatelessWidget {
   final VoidCallback onOpenHierarchy;
   final ValueChanged<ErpWarehouse> onSelectWarehouse;
   final VoidCallback onLoadMore;
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -59,7 +61,7 @@ class WarehouseListPage extends StatelessWidget {
           Text('المستودعات', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
           Text('المستودعات الفعلية المتاحة للمستخدم', style: Theme.of(context).textTheme.bodySmall),
         ])),
-        IconButton(tooltip: 'تحديث البيانات', onPressed: guest || loading ? null : onLoadMore, icon: const Icon(Icons.refresh)),
+        IconButton(tooltip: 'تحديث البيانات', onPressed: guest || loading ? null : onRefresh, icon: const Icon(Icons.refresh)),
       ]),
       const SizedBox(height: 16),
       ServerSearchField(
