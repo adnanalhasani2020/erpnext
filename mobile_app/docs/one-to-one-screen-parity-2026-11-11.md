@@ -173,3 +173,9 @@ The generic DocType activity panel now retrieves attachment bytes through the au
 ## Stock Summary route options — 2026-11-12
 
 The native Stock Summary Page now receives and applies the same `warehouse`, `item_code` and `item_group` route options that the ERPNext web page reads from `frappe.route_options`. Workspace shortcuts and linked destinations therefore retain their preselected filters when opened in Flutter.
+
+## Native activity and Workspace status follow-up — 2026-11-12
+
+Generic DocType activity attachments now open through the Android native share/open chooser after the API re-reads the File record, confirms its exact parent DocType/document, and restricts authenticated download requests to the configured ERPNext origin. The activity list includes the File MIME type; no browser or WebView is used.
+
+Workspace Quick Lists now request and display the workflow_state field when the target DocType metadata exposes it, alongside its standard status and modified timestamp. The field is not assumed or fabricated when the installed DocType does not define it.
