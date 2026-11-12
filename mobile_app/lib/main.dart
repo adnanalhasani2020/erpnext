@@ -13,7 +13,6 @@ import 'workspace_report_page.dart';
 import 'workspace_native_destination_page.dart';
 import 'sales_pricing_page.dart';
 import 'sales_commission_page.dart';
-import 'sales_dashboard_page.dart';
 import 'payment_reconciliation_page.dart';
 import 'process_payment_reconciliation_page.dart';
 import 'process_payment_reconciliation_log_page.dart';
@@ -1056,13 +1055,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ));
   }
 
-  void _openSalesDashboard() {
-    if (!_requireServerAccess('مؤشرات المبيعات')) return;
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => SalesDashboardPage(api: _api, companies: _companies),
-    ));
-  }
-
   void _openChartOfAccounts() {
     if (!_requireServerAccess('دليل الحسابات')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
@@ -1776,7 +1768,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
     onOpenSalesWorkflow: _openSalesWorkflow,
     onOpenPurchaseWorkflow: _openPurchaseWorkflow,
     onOpenStockWorkflow: _openStockWorkflow,
-    onOpenSalesDashboard: _openSalesDashboard,
     onOpenBankReconciliation: _openBankReconciliation,
     onOpenPayroll: _openPayroll,
     onOpenHrWorkflows: _openHrWorkflows,

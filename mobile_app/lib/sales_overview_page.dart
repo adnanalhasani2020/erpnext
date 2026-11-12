@@ -20,7 +20,7 @@ class SalesOverviewPage extends StatelessWidget {
     required this.onLoadSales, required this.onLoadPurchases,
     required this.onOpenSalesInvoices, required this.onOpenCustomers, required this.onOpenSuppliers,
     required this.onOpenSalesWorkflow, required this.onOpenPurchaseWorkflow, required this.onOpenStockWorkflow,
-    required this.onOpenSalesDashboard, required this.onOpenBankReconciliation, required this.onOpenPayroll, required this.onOpenHrWorkflows,
+    required this.onOpenBankReconciliation, required this.onOpenPayroll, required this.onOpenHrWorkflows,
     required this.onOpenPaymentReconciliation, required this.onOpenSalesPricing, required this.onOpenChartOfAccounts, required this.onOpenJournalEntries,
     required this.onOpenMasterData, required this.onOpenSalesCommissions, required this.onOpenSalesInvoiceComposer,
     required this.onSearchSalesInvoices, required this.onSearchCustomers, required this.onSearchPurchaseInvoices, required this.onSearchSuppliers,
@@ -45,7 +45,7 @@ class SalesOverviewPage extends StatelessWidget {
   final void Function({String? doctype}) onOpenSalesWorkflow;
   final Future<void> Function({String? section, String? initialInvoiceName}) onOpenPurchaseWorkflow;
   final Future<void> Function({String? initialItemCode, String? section}) onOpenStockWorkflow;
-  final VoidCallback onOpenSalesDashboard, onOpenBankReconciliation, onOpenPayroll, onOpenPaymentReconciliation;
+  final VoidCallback onOpenBankReconciliation, onOpenPayroll, onOpenPaymentReconciliation;
   final void Function({String? doctype}) onOpenHrWorkflows;
   final VoidCallback onOpenSalesPricing, onOpenChartOfAccounts, onOpenJournalEntries, onOpenMasterData, onOpenSalesCommissions, onOpenSalesInvoiceComposer;
   final ValueChanged<String> onSearchSalesInvoices, onSearchCustomers, onSearchPurchaseInvoices, onSearchSuppliers;
@@ -79,7 +79,6 @@ class SalesOverviewPage extends StatelessWidget {
           OutlinedButton.icon(onPressed:guest||purchaseLoading?null:()=>onOpenPurchaseWorkflow(section:item.$1),icon:const Icon(Icons.open_in_new),label:Text(item.$2)),
         for(final item in const [('Stock Entry','حركات المخزون'),('Purchase Receipt','إيصالات الشراء'),('Stock Reconciliation','الجرد والتسوية'),('Pick List','قوائم الالتقاط'),('Batch','تتبع الدفعات'),('Serial No','تتبع الأرقام التسلسلية'),('Item Reorder','تنبيهات إعادة الطلب')])
           OutlinedButton.icon(onPressed:guest||inventoryLoading?null:()=>onOpenStockWorkflow(section:item.$1),icon:const Icon(Icons.open_in_new),label:Text(item.$2)),
-        OutlinedButton.icon(onPressed:guest||salesLoading?null:onOpenSalesDashboard,icon:const Icon(Icons.insights_outlined),label:const Text('مؤشرات المبيعات')),
         OutlinedButton.icon(onPressed:guest||salesLoading||purchaseLoading?null:onOpenBankReconciliation,icon:const Icon(Icons.account_balance_outlined),label:const Text('التسوية البنكية')),
         OutlinedButton.icon(onPressed:guest||salesLoading?null:onOpenPayroll,icon:const Icon(Icons.payments_outlined),label:const Text('دورة الرواتب')),
         for(final item in const [('Employee','الموظفون'),('Attendance','الحضور'),('Leave Application','طلبات الإجازة'),('Expense Claim','مطالبات المصروفات'),('Salary Slip','قسائم الرواتب')])
