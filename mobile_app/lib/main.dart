@@ -1241,6 +1241,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
           title: item.label,
           linkType: item.linkType,
           target: item.doctype,
+          routeOptions: item.routeOptions,
         ),
       ));
       return;
