@@ -168,3 +168,8 @@ These routes do not load the Page DocType's HTML/JavaScript and do not open Desk
 ## Native attachment download — 2026-11-12
 
 The generic DocType activity panel now retrieves attachment bytes through the authenticated Frappe session. It re-reads the canonical File document, confirms the exact parent DocType and document name, and rejects any file URL outside the configured ERPNext origin before issuing the download request. The bytes are passed to the Android share/open chooser with the server-provided MIME type. This does not use WebView or send session cookies to external hosts. Inline in-app preview remains outside this implementation.
+
+
+## Stock Summary route options — 2026-11-12
+
+The native Stock Summary Page now receives and applies the same `warehouse`, `item_code` and `item_group` route options that the ERPNext web page reads from `frappe.route_options`. Workspace shortcuts and linked destinations therefore retain their preselected filters when opened in Flutter.
