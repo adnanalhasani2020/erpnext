@@ -595,6 +595,77 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
   }
 
 
+  Future<void> _editLeaveApplication(core.Map<String, dynamic> row) async {
+    final id = row['name']?.toString().trim() ?? '';
+    final company = _company ?? '';
+    if (id.isEmpty || company.isEmpty) return;
+    List<core.Map<String, dynamic>> leaveTypes;
+    try {
+      leaveTypes = await widget.api.fetchLeaveTypes();
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      return;
+    }
+    if (!mounted) return;
+    final employee = row['employee']?.toString() ?? '';
+    final fromDate = TextEditingController(text: row['from_date']?.toString() ?? '');
+    final toDate = TextEditingController(text: row['to_date']?.toString() ?? '');
+    final description = TextEditingController(text: row['description']?.toString() ?? '');
+    final existingType = row['leave_type']?.toString();
+    final availableTypes = leaveTypes.map((type) => type['name']?.toString()).whereType<String>().toSet();
+    if (existingType == null || !availableTypes.contains(existingType)) {
+      fromDate.dispose(); toDate.dispose(); description.dispose();
+      _showMessage('نوع الإجازة الحالي غير متاح ضمن الأنواع المقروءة من ERPNext؛ لم نغير بيانات الطلب.');
+      return;
+    }
+    String? selectedLeaveType = existingType;
+    final formKey = GlobalKey<FormState>();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(builder: (context, refresh) => AlertDialog(
+        title: Text('تعديل مسودة طلب الإجازة $id'),
+        content: Form(key: formKey, child: SingleChildScrollView(child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextFormField(initialValue: employee, readOnly: true, decoration: const InputDecoration(labelText: 'رقم الموظف')),
+            DropdownButtonFormField<String>(
+              initialValue: selectedLeaveType, isExpanded: true,
+              decoration: const InputDecoration(labelText: 'نوع الإجازة'),
+              items: leaveTypes.map((type) => DropdownMenuItem(value: type['name']?.toString(), child: Text(type['name']?.toString() ?? ''))).toList(),
+              onChanged: (value) => refresh(() => selectedLeaveType = value),
+              validator: (value) => value == null || value.isEmpty ? 'حدد نوع الإجازة' : null,
+            ),
+            TextFormField(controller: fromDate, decoration: const InputDecoration(labelText: 'من تاريخ YYYY-MM-DD'), validator: _dateRequired),
+            TextFormField(controller: toDate, decoration: const InputDecoration(labelText: 'إلى تاريخ YYYY-MM-DD'), validator: _dateRequired),
+            TextFormField(controller: description, maxLines: 3, decoration: const InputDecoration(labelText: 'السبب / ملاحظات')),
+            const SizedBox(height: 8),
+            const Text('التعديل متاح للمسودات فقط. سيعيد ERPNext التحقق من رصيد الإجازات والسياسات ومسار الموافقات.'),
+          ],
+        ))),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('إلغاء')),
+          FilledButton(onPressed: () {
+            if (!(formKey.currentState?.validate() ?? false)) return;
+            final from = DateTime.tryParse(fromDate.text.trim());
+            final to = DateTime.tryParse(toDate.text.trim());
+            if (from != null && to != null && to.isBefore(from)) return;
+            Navigator.pop(dialogContext, true);
+          }, child: const Text('حفظ المسودة')),
+        ],
+      )),
+    );
+    if (confirmed == true && mounted) {
+      await _runSave(() async {
+        await widget.api.updateLeaveApplicationDraft(
+          name: id, company: company, leaveType: selectedLeaveType ?? '',
+          fromDate: fromDate.text, toDate: toDate.text, description: description.text,
+        );
+        if (mounted) { _showMessage('تم تحديث مسودة طلب الإجازة $id.'); await _load(); }
+      });
+    }
+    fromDate.dispose(); toDate.dispose(); description.dispose();
+  }
+
   Future<void> _createExpenseClaim() async {
     final employee = TextEditingController();
     final date = TextEditingController(text: DateTime.now().toIso8601String().substring(0, 10));
@@ -966,14 +1037,14 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
           ),
         Expanded(child: widget.standalone ? switch (_tabs.index) {
           0 => HrEmployeeList(rows: _employees, loading: _loading, saving: _saving, onEdit: _editEmployee, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore),
-          1 => HrDocumentList(rows: _attendance, doctype: 'Attendance', loading: _loading, saving: _saving, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onEditAttendance: _editAttendance, onSubmit: _submit, onWorkflow: _runWorkflowAction),
-          2 => HrDocumentList(rows: _leaveApplications, doctype: 'Leave Application', loading: _loading, saving: _saving, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onEditAttendance: _editAttendance, onSubmit: _submit, onWorkflow: _runWorkflowAction),
+          1 => HrDocumentList(rows: _attendance, doctype: 'Attendance', loading: _loading, saving: _saving, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onEditAttendance: _editAttendance, onEditLeaveApplication: _editLeaveApplication, onSubmit: _submit, onWorkflow: _runWorkflowAction),
+          2 => HrDocumentList(rows: _leaveApplications, doctype: 'Leave Application', loading: _loading, saving: _saving, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onEditAttendance: _editAttendance, onEditLeaveApplication: _editLeaveApplication, onSubmit: _submit, onWorkflow: _runWorkflowAction),
           3 => HrExpenseClaimList(rows: _expenseClaims, loading: _loading, saving: _saving, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onSubmit: _submit, onPay: _payExpenseClaim, onWorkflow: _runWorkflowAction),
           _ => HrSalarySlipList(rows: _salarySlips, loading: _loading, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onView: _viewSalarySlip),
         } : TabBarView(controller: _tabs, children: [
           HrEmployeeList(rows: _employees, loading: _loading, saving: _saving, onEdit: _editEmployee, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore),
-          HrDocumentList(rows: _attendance, doctype: 'Attendance', loading: _loading, saving: _saving, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onEditAttendance: _editAttendance, onSubmit: _submit, onWorkflow: _runWorkflowAction),
-          HrDocumentList(rows: _leaveApplications, doctype: 'Leave Application', loading: _loading, saving: _saving, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onEditAttendance: _editAttendance, onSubmit: _submit, onWorkflow: _runWorkflowAction),
+          HrDocumentList(rows: _attendance, doctype: 'Attendance', loading: _loading, saving: _saving, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onEditAttendance: _editAttendance, onEditLeaveApplication: _editLeaveApplication, onSubmit: _submit, onWorkflow: _runWorkflowAction),
+          HrDocumentList(rows: _leaveApplications, doctype: 'Leave Application', loading: _loading, saving: _saving, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onEditAttendance: _editAttendance, onEditLeaveApplication: _editLeaveApplication, onSubmit: _submit, onWorkflow: _runWorkflowAction),
           HrExpenseClaimList(rows: _expenseClaims, loading: _loading, saving: _saving, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onSubmit: _submit, onPay: _payExpenseClaim, onWorkflow: _runWorkflowAction),
           HrSalarySlipList(rows: _salarySlips, loading: _loading, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onView: _viewSalarySlip),
         ])),
