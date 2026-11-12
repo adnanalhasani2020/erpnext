@@ -274,7 +274,7 @@ class _WarehouseCapacitySummaryNativePageState extends State<WarehouseCapacitySu
           const SizedBox(height: 8),
           ServerLinkField(api: widget.api, doctype: 'Warehouse', label: 'المستودع', controller: _warehouse, searchFields: const ['warehouse_name', 'company'], onSelected: (_) => _load(reset: true)),
           const SizedBox(height: 8),
-          ServerLinkField(api: widget.api, doctype: 'Warehouse', label: 'المستودع الأب (مجموعة)', controller: _parentWarehouse, searchFields: const ['warehouse_name', 'company'], filters: const [['is_group', '=', 1], ['disabled', '=', 0]], icon: Icons.account_tree_outlined, onSelected: (_) => _load(reset: true)),
+          ServerLinkField(api: widget.api, doctype: 'Warehouse', label: 'المستودع الأب (مجموعة)', controller: _parentWarehouse, searchFields: const ['warehouse_name', 'company'], filters: const [['is_group', '=', 1]], icon: Icons.account_tree_outlined, onSelected: (_) => _load(reset: true)),
           const SizedBox(height: 8),
           ServerLinkField(api: widget.api, doctype: 'Item', label: 'الصنف', controller: _item, searchFields: const ['item_name', 'item_group'], onSelected: (_) => _load(reset: true)),
           const SizedBox(height: 8),
