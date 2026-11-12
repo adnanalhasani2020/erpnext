@@ -51,7 +51,7 @@ Workspace discovery uses Frappe's permission-aware Desk endpoint (v16 `frappe.se
 
 Sales Invoice, Customer and Supplier now have dedicated mobile list pages with server-backed search/pagination and their existing details, editing and ledger actions. The combined transactions overview remains an optional dashboard route rather than the destination for these individual Workspace links.
 
-Every visible Workspace Report link and Report shortcut now opens its own metadata-driven report screen. The screen loads filter definitions through Frappe `frappe.desk.query_report.get_script`, renders the returned filter fields (including server-search Link/Dynamic Link selectors), and runs the selected report through the permission-checked native query-report endpoint; the former hard-coded 14-report allowlist has been removed. Page links, URL links, Workspace/Dashboard links, and Workspace charts/number cards are still not native Flutter destinations.
+Every visible Workspace Report link and Report shortcut now opens its own metadata-driven report screen. The screen loads filter definitions through Frappe `frappe.desk.query_report.get_script`, renders the returned filter fields (including server-search Link/Dynamic Link selectors), and runs the selected report through the permission-checked native query-report endpoint; the former hard-coded 14-report allowlist has been removed. Page, URL, Dashboard and Workspace links now open their original ERPNext Desk destination in a session-bound WebView; same-origin session cookies are supplied from the in-memory API session and cleared when the WebView screen is disposed. Workspace charts, number cards and quick-list content still do not have native Flutter equivalents.
 
 ## Direct access to standalone party and invoice directories — 2026-11-12
 
@@ -84,4 +84,9 @@ The workspace directory now preserves each visible DocType and Report link from 
 
 Every Report link now routes to a standalone report page that retrieves its available filter metadata from Frappe, supports the declared filter field types and server-backed Link lookups, and invokes the same report through ERPNext's permission-checked report API. The older financial-report overview remains available as a separate app navigation destination. No new business DocTypes or workspace links are fabricated.
 
-Remaining workspace parity: Page and URL links, Workspace/Dashboard links, and native Workspace chart/number-card content still do not have Flutter equivalents. HRMS workspace definitions are supplied by the installed HRMS site and cannot be certified from this ERPNext-only repository snapshot.
+Remaining workspace parity: native Workspace chart, number-card and quick-list content still do not have Flutter equivalents. Page/URL/Dashboard/Workspace links are available through the original Desk WebView rather than native Flutter controls. HRMS workspace definitions are supplied by the installed HRMS site and cannot be certified from this ERPNext-only repository snapshot.
+
+
+## Native Desk Page destinations — 2026-11-12
+
+Workspace links of type Page, URL, Dashboard and Workspace are no longer silently omitted from the mobile directory. They open the corresponding original Desk route in a WebView rather than a fabricated Flutter implementation. The WebView starts with the active in-memory Frappe cookies scoped to the configured ERPNext origin and clears its cookie store when the destination screen is disposed. Non-HTTP(S) navigation and insecure cross-origin HTTP navigation are blocked. This preserves existing web functionality while native equivalents are not available; Workspace charts, number cards and quick lists remain separate parity gaps.
