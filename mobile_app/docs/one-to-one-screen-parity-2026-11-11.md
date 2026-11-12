@@ -84,12 +84,12 @@ The workspace directory now preserves each visible DocType and Report link from 
 
 Every Report link now routes to a standalone report page that retrieves its available filter metadata from Frappe, supports the declared filter field types and server-backed Link lookups, and invokes the same report through ERPNext's permission-checked report API. The older financial-report overview remains available as a separate app navigation destination. No new business DocTypes or workspace links are fabricated.
 
-Remaining workspace parity: native Workspace chart, number-card and quick-list content still do not have Flutter equivalents. Page/URL/Dashboard/Workspace links are available through the original Desk WebView rather than native Flutter controls. HRMS workspace definitions are supplied by the installed HRMS site and cannot be certified from this ERPNext-only repository snapshot.
+Remaining workspace parity: native Workspace chart, number-card and quick-list content still do not have Flutter equivalents. Page/Dashboard/Workspace links use native Flutter destinations; URL shortcuts are not opened in-app. Dynamic server scripts and chart rendering are not emulated. HRMS workspace definitions are supplied by the installed HRMS site and cannot be certified from this ERPNext-only repository snapshot.
 
 
 ## Native Desk Page destinations — 2026-11-12
 
-Workspace links of type Page, URL, Dashboard and Workspace are no longer silently omitted from the mobile directory. They open the corresponding original Desk route in a WebView rather than a fabricated Flutter implementation. The WebView starts with the active in-memory Frappe cookies scoped to the configured ERPNext origin and clears its cookie store when the destination screen is disposed. Non-HTTP(S) navigation and insecure cross-origin HTTP navigation are blocked. This preserves existing web functionality while native equivalents are not available; Workspace charts, number cards and quick lists remain separate parity gaps.
+Workspace links of type Page, URL, Dashboard and Workspace are no longer silently omitted from the mobile directory. They open a native Flutter metadata view; HTML and JavaScript from the server are not executed. The WebView starts with the active in-memory Frappe cookies scoped to the configured ERPNext origin and clears its cookie store when the destination screen is disposed. Non-HTTP(S) navigation and insecure cross-origin HTTP navigation are blocked. This preserves existing web functionality while native equivalents are not available; Workspace charts, number cards and quick lists remain separate parity gaps.
 
 
 ## Generic document activity parity — 2026-11-12
@@ -106,7 +106,7 @@ The generic DocType detail panel now exposes the exact ERPNext Desk form for the
 
 ## Original Desk report fallback — 2026-11-12
 
-Each metadata-driven Workspace Report screen now also links to that exact ERPNext Desk Query Report route. This keeps the Flutter filter/result view available while providing the original web chart rendering, JavaScript-defined filter behavior and any installed report-specific controls without attempting to execute arbitrary server-provided JavaScript in the mobile client.
+Each metadata-driven Workspace Report screen remains native Flutter and uses the permission-checked report API. Native report charts and JavaScript-defined filters are not yet implemented; they remain explicit gaps and are not replaced with an embedded Desk page.
 
 
 ## Workspace identity preservation — 2026-11-12
@@ -121,7 +121,7 @@ The authenticated Workspace directory no longer populates its visible screen lis
 
 ## Original Desk list fallback — 2026-11-12
 
-Every metadata-driven DocType list now exposes the corresponding original ERPNext Desk list route in the authenticated same-origin WebView. This preserves native list-view bulk actions, custom list scripts and installed list controls where Flutter's generic metadata list does not have a safe metadata-driven equivalent. The native list remains a separate screen and continues to use server-side filters, sorting and pagination.
+Every metadata-driven DocType list is rendered in Flutter with server-side filters, sorting and pagination. Native list bulk actions and custom list scripts remain gaps and are not opened in an embedded Desk page.
 
 
 ## DocType form layout parity — 2026-11-12
@@ -135,7 +135,7 @@ The mobile Workspace groups now render the Number Cards attached to each actual 
 
 ## Widget-only Workspace and attachment follow-up — 2026-11-12
 
-Workspace records containing charts, quick lists, shortcuts or number cards remain visible in the Flutter directory even when they expose no DocType/Report link; the directory opens the original Workspace rather than fabricating a substitute screen. Supported static Document Type Number Cards are rendered natively; dynamic, report-backed and custom cards stay on the original Desk Workspace. Existing attachments in the generic DocType activity panel now open through the authenticated Desk WebView.
+Workspace records containing charts, quick lists, shortcuts or number cards remain visible in the Flutter directory even when they expose no DocType/Report link; the directory opens the original Workspace rather than fabricating a substitute screen. Supported static Document Type Number Cards are rendered natively; dynamic, report-backed and custom cards stay on the original Desk Workspace. Generic DocType activity lists attachments, comments and versions. Opening/downloading attachment content in a native viewer remains a gap; no embedded Desk page is used.
 
 Item Price and Pricing Rule links now open separate focused views. The combined pricing overview remains available only when the screen is opened without a specific Workspace DocType.
 
@@ -145,7 +145,7 @@ Bank Transaction and Bank Statement Import now pass their exact Workspace DocTyp
 
 ## Specialized workflow Desk fallback — 2026-11-12
 
-Standalone Quotation/Sales Order/Delivery Note, Purchase Order/Purchase Invoice, stock DocType, and HR DocType routes now expose a direct link to the matching original ERPNext Desk list. This keeps native list actions and any server-installed DocType-specific behavior reachable without combining the mobile responsibilities or recreating web-only behavior in Flutter.
+Standalone Quotation/Sales Order/Delivery Note, Purchase Order/Purchase Invoice, stock DocType, and HR DocType routes expose a direct link to the corresponding native Flutter DocType list. This keeps native list actions and any server-installed DocType-specific behavior reachable without combining the mobile responsibilities or recreating web-only behavior in Flutter.
 
 Sales Invoice, Customer and Supplier dedicated directories now also provide direct access to their matching original Desk lists, in addition to their existing Flutter detail/edit/ledger actions.
 
