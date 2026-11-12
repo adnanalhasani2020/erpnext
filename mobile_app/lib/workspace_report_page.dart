@@ -80,6 +80,10 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
         if (type == 'Check') {
           _values[fieldname] = initial == 1 || initial == true ||
               initial?.toString() == '1';
+        } else if (type == 'MultiSelectList') {
+          _values[fieldname] = initial is List
+              ? initial.map((value) => value.toString()).toList()
+              : <String>[];
         } else {
           final text = initial?.toString() ?? '';
           _values[fieldname] = text;
@@ -307,7 +311,30 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
       );
     }
 
-    if (type == 'Select' && _options(filter).isNotEmpty) {
+    if (type == 'MultiSelectList' && _options(filter).isNotEmpty) {
+      final selected = (_values[fieldname] as List? ?? const []).map((value) => value.toString()).toSet();
+      return InputDecorator(
+        decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
+        child: Wrap(
+          spacing: 6,
+          runSpacing: 4,
+          children: [
+            for (final option in _options(filter))
+              FilterChip(
+                label: Text(option),
+                selected: selected.contains(option),
+                onSelected: (checked) => setState(() {
+                  final next = Set<String>.from(selected);
+                  if (checked) { next.add(option); } else { next.remove(option); }
+                  _values[fieldname] = next.toList();
+                }),
+              ),
+          ],
+        ),
+      );
+    }
+
+    if ((type == 'Select' || type == 'Autocomplete') && _options(filter).isNotEmpty) {
       final options = _options(filter);
       final current = _values[fieldname]?.toString();
       return DropdownButtonFormField<String>(
@@ -385,6 +412,10 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
     final type = filter['fieldtype']?.toString() ?? '';
     final value = _values[fieldname];
     if (type == 'Check') return value == true ? 1 : 0;
+    if (type == 'MultiSelectList') {
+      final selected = (value as List? ?? const []).where((item) => item.toString().isNotEmpty).toList();
+      return selected.isEmpty ? null : selected;
+    }
     if (value == null || value.toString().trim().isEmpty) return null;
     if (type == 'Int') return int.tryParse(value.toString());
     if (const {'Float', 'Currency', 'Percent', 'Rating'}.contains(type)) {
