@@ -66,6 +66,7 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
     final route = switch (widget.linkType) {
       'Dashboard' => 'app/dashboard-view/',
       'Workspace' => 'app/',
+      'Report' => 'app/query-report/',
       _ => 'app/',
     };
     final routeName = widget.linkType == 'Workspace' || widget.linkType == 'Dashboard'
