@@ -132,3 +132,9 @@ The generic mobile editor now preserves the installed DocType metadata's Tab Bre
 ## Workspace Number Card values — 2026-11-12
 
 The mobile Workspace groups now render the Number Cards attached to each actual Workspace record. Standard Document Type cards with static filters call ERPNext's permission-checked `number_card.get_result` method and display the server-calculated value. Report/custom cards and cards with dynamic JavaScript filter expressions are not approximated or evaluated in Flutter; their card tile links to the original Workspace WebView. This keeps card values aligned with ERPNext and avoids inventing a mobile calculation.
+
+## Widget-only Workspace and attachment follow-up — 2026-11-12
+
+Workspace records containing charts, quick lists, shortcuts or number cards remain visible in the Flutter directory even when they expose no DocType/Report link; the directory opens the original Workspace rather than fabricating a substitute screen. Supported static Document Type Number Cards are rendered natively; dynamic, report-backed and custom cards stay on the original Desk Workspace. Existing attachments in the generic DocType activity panel now open through the authenticated Desk WebView.
+
+Item Price and Pricing Rule links now open separate focused views. The combined pricing overview remains available only when the screen is opened without a specific Workspace DocType.
