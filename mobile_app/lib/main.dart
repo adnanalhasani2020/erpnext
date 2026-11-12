@@ -1220,6 +1220,13 @@ class _MobileHomePageState extends State<MobileHomePage> {
       _openWorkspaceReport(item.doctype);
       return;
     }
+    if (item.routeOptions.isNotEmpty) {
+      if (!_requireServerAccess(item.label)) return;
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => ErpDocTypeWorkspacePage(api: _api, definition: item),
+      ));
+      return;
+    }
     switch (item.doctype) {
       case 'Item':
         _openMasterData();
