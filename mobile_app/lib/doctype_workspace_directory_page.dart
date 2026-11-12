@@ -69,6 +69,7 @@ class ErpDocTypeDirectoryPage extends StatefulWidget {
 
 class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
   List<ErpDocTypeDefinition> _definitions = const [];
+  Map<String, List<Map<String, dynamic>>> _workspaceNumberCards = const {};
   bool _loading = true;
   String? _directoryError;
 
@@ -96,10 +97,20 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
     try {
       final workspaces = await widget.api.fetchWorkspaceDirectory();
       final definitions = <ErpDocTypeDefinition>[];
+      final numberCardsByWorkspace = <String, List<Map<String, dynamic>>>{};
       final seen = <String>{};
       for (final workspace in workspaces) {
         final workspaceTitle = (workspace['title'] ?? workspace['label'] ?? workspace['name'] ?? 'ERPNext').toString();
         final workspaceName = (workspace['name'] ?? workspaceTitle).toString();
+        final rawNumberCards = workspace['number_cards'];
+        if (rawNumberCards is List) {
+          final cards = rawNumberCards
+              .whereType<Map>()
+              .map((card) => Map<String, dynamic>.from(card))
+              .where((card) => (card['number_card_name']?.toString().trim().isNotEmpty ?? false))
+              .toList();
+          if (cards.isNotEmpty) numberCardsByWorkspace[workspaceName] = cards;
+        }
         const workspaceLabels = <String, String>{
           'Accounting': 'المحاسبة',
           'Financial Reports': 'التقارير المالية',
@@ -247,7 +258,8 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
       }
       if (!mounted) return;
       setState(() {
-        if (definitions.isNotEmpty) _definitions = definitions;
+        _definitions = definitions;
+        _workspaceNumberCards = numberCardsByWorkspace;
         _loading = false;
       });
     } catch (e) {
@@ -311,6 +323,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
               for (final item in group.value) {
                 sections.putIfAbsent(item.section, () => []).add(item);
               }
+              final numberCards = _workspaceNumberCards[group.key] ?? const <Map<String, dynamic>>[];
               return Card(child: ExpansionTile(
                 initiallyExpanded: workspaceLabel == 'المبيعات' || workspaceLabel == 'المشتريات',
                 leading: group.value.first.workspaceName.isEmpty
@@ -330,6 +343,22 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
                 title: Text(workspaceLabel),
                 subtitle: Text(group.value.length.toString() + ' شاشة'),
                 children: [
+                  if (numberCards.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsetsDirectional.fromSTEB(12, 8, 12, 8),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          for (final card in numberCards)
+                            _WorkspaceNumberCard(
+                              api: widget.api,
+                              name: card['number_card_name'].toString(),
+                              label: card['label']?.toString() ?? card['number_card_name'].toString(),
+                            ),
+                        ],
+                      ),
+                    ),
                   for (final section in sections.entries)
                     ExpansionTile(
                       initiallyExpanded: sections.length == 1,
@@ -361,6 +390,76 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
             }),
         ],
       ),
+    );
+  }
+}
+
+
+class _WorkspaceNumberCard extends StatefulWidget {
+  const _WorkspaceNumberCard({
+    required this.api,
+    required this.name,
+    required this.label,
+  });
+
+  final FrappeApi api;
+  final String name;
+  final String label;
+
+  @override
+  State<_WorkspaceNumberCard> createState() => _WorkspaceNumberCardState();
+}
+
+class _WorkspaceNumberCardState extends State<_WorkspaceNumberCard> {
+  late Future<double?> _value;
+
+  @override
+  void initState() {
+    super.initState();
+    _value = widget.api.fetchWorkspaceNumberCardValue(widget.name);
+  }
+
+  @override
+  void didUpdateWidget(covariant _WorkspaceNumberCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.api != widget.api || oldWidget.name != widget.name) {
+      _value = widget.api.fetchWorkspaceNumberCardValue(widget.name);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<double?>(
+      future: _value,
+      builder: (context, snapshot) {
+        if (snapshot.hasData && snapshot.data == null) return const SizedBox.shrink();
+        return SizedBox(
+          width: 156,
+          child: Card(
+            margin: EdgeInsets.zero,
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(widget.label, maxLines: 2, overflow: TextOverflow.ellipsis),
+                  const SizedBox(height: 8),
+                  if (snapshot.connectionState == ConnectionState.waiting)
+                    const SizedBox(height: 22, child: LinearProgressIndicator())
+                  else if (snapshot.hasError)
+                    const Icon(Icons.info_outline, size: 20)
+                  else
+                    Text(
+                      snapshot.data?.toString() ?? '—',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
