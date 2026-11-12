@@ -494,13 +494,15 @@ class _WorkspaceChartPainter extends CustomPainter {
       for (var seriesIndex = 0; seriesIndex < seriesValues.length; seriesIndex++) {
         final series = seriesValues[seriesIndex];
         for (var pointIndex = 0; pointIndex < series.length; pointIndex++) {
-          final normalized = range == 0 ? .5 : ((series[pointIndex] - minValue) / range).clamp(0.0, 1.0);
-          final opacity = .12 + normalized * .82;
+          final normalized = range == 0
+              ? .5
+              : ((series[pointIndex] - minValue) / range).clamp(0.0, 1.0).toDouble();
+          final opacity = (.12 + normalized * .82).toDouble();
           final rect = Rect.fromLTWH(
             pointIndex * cellWidth + 1,
             seriesIndex * cellHeight + 1,
-            (cellWidth - 2).clamp(0.0, cellWidth),
-            (cellHeight - 2).clamp(0.0, cellHeight),
+            (cellWidth - 2).clamp(0.0, cellWidth).toDouble(),
+            (cellHeight - 2).clamp(0.0, cellHeight).toDouble(),
           );
           canvas.drawRRect(
             RRect.fromRectAndRadius(rect, const Radius.circular(3)),
