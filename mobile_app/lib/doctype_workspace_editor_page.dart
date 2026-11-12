@@ -1138,7 +1138,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 onPressed: () {
                   Navigator.pop(sheet);
                   Navigator.of(context).push(MaterialPageRoute<void>(
-                    builder: (_) => WorkspaceWebPage(
+                    builder: (_) => WorkspaceNativeDestinationPage(
                       api: widget.api,
                       title: '${widget.definition.label} • $name',
                       linkType: 'DocTypeDocument',
@@ -1388,7 +1388,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
           IconButton(
             tooltip: 'فتح قائمة الجوال',
             onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-              builder: (_) => WorkspaceWebPage(
+              builder: (_) => WorkspaceNativeDestinationPage(
                 api: widget.api,
                 title: widget.definition.label,
                 linkType: 'DocTypeList',

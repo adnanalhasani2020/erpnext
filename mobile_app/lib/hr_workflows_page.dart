@@ -990,7 +990,7 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
         title: Text(widget.standalone ? switch (_tabs.index) { 0 => 'الموظفون', 1 => 'الحضور', 2 => 'طلبات الإجازة', 3 => 'مطالبات المصروفات', _ => 'قسائم الرواتب' } : 'الموارد البشرية'),
         actions: [
           if (widget.initialDoctype != null)
-            IconButton(tooltip: 'فتح قائمة الجوال', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(api: widget.api, title: widget.initialDoctype!, linkType: 'DocTypeList', target: widget.initialDoctype!))), icon: const Icon(Icons.arrow_forward)),
+            IconButton(tooltip: 'فتح قائمة الجوال', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceNativeDestinationPage(api: widget.api, title: widget.initialDoctype!, linkType: 'DocTypeList', target: widget.initialDoctype!))), icon: const Icon(Icons.arrow_forward)),
           IconButton(onPressed: _loading ? null : _load, tooltip: 'تحديث', icon: const Icon(Icons.refresh)),
           if (_tabs.index == 2)
             IconButton(

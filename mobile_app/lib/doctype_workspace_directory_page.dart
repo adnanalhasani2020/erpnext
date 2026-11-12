@@ -358,7 +358,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
                     : IconButton(
                         tooltip: 'فتح مساحة العمل',
                         onPressed: () => Navigator.push(context, MaterialPageRoute<void>(
-                          builder: (_) => WorkspaceWebPage(
+                          builder: (_) => WorkspaceNativeDestinationPage(
                             api: widget.api,
                             title: group.key,
                             linkType: 'Workspace',
@@ -474,7 +474,7 @@ class _WorkspaceNumberCardState extends State<_WorkspaceNumberCard> {
                 subtitle: const Text('المؤشر غير مدعوم في شاشة الجوال'),
                 trailing: const Icon(Icons.arrow_forward, size: 18),
                 onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                  builder: (_) => WorkspaceWebPage(
+                  builder: (_) => WorkspaceNativeDestinationPage(
                     api: widget.api,
                     title: widget.label,
                     linkType: 'Workspace',

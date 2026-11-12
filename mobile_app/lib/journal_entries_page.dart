@@ -309,7 +309,7 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('القيود اليومية'), actions: [
-      IconButton(tooltip: 'فتح قائمة الجوال', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(api: widget.api, title: 'Journal Entry', linkType: 'DocTypeList', target: 'Journal Entry'))), icon: const Icon(Icons.arrow_forward)),
+      IconButton(tooltip: 'فتح قائمة الجوال', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceNativeDestinationPage(api: widget.api, title: 'Journal Entry', linkType: 'DocTypeList', target: 'Journal Entry'))), icon: const Icon(Icons.arrow_forward)),
     ]),
     body: ListView(padding: const EdgeInsets.all(14), children: [
       DropdownButtonFormField<String>(

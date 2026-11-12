@@ -361,7 +361,7 @@ class _PayrollPageState extends State<PayrollPage> {
       appBar: AppBar(
         title: const Text('دورة الرواتب'),
         actions: [
-          IconButton(tooltip: 'فتح قائمة الجوال', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(api: widget.api, title: 'Payroll Entry', linkType: 'DocTypeList', target: 'Payroll Entry'))), icon: const Icon(Icons.arrow_forward)),
+          IconButton(tooltip: 'فتح قائمة الجوال', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceNativeDestinationPage(api: widget.api, title: 'Payroll Entry', linkType: 'DocTypeList', target: 'Payroll Entry'))), icon: const Icon(Icons.arrow_forward)),
           IconButton(
             tooltip: 'تحديث الدورات',
             onPressed: _loadingEntries || _loadingMoreEntries || _saving ? null : _loadEntries,

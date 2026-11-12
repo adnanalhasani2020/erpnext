@@ -827,7 +827,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                   IconButton(
                     tooltip: 'فتح شاشة ERPNext الأصلية',
                     onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                      builder: (_) => WorkspaceWebPage(
+                      builder: (_) => WorkspaceNativeDestinationPage(
                         api: widget.api,
                         title: widget.initialDoctype!,
                         linkType: 'DocTypeList',

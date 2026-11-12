@@ -1104,7 +1104,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
   void _openOriginalDocTypeList(String doctype) {
     if (!_requireServerAccess(doctype)) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => WorkspaceWebPage(
+      builder: (_) => WorkspaceNativeDestinationPage(
         api: _api,
         title: doctype,
         linkType: 'DocTypeList',
@@ -1236,7 +1236,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     if (const {'Page', 'URL', 'Dashboard', 'Workspace'}.contains(item.linkType)) {
       if (!_requireServerAccess(item.label)) return;
       Navigator.of(context).push(MaterialPageRoute<void>(
-        builder: (_) => WorkspaceWebPage(
+        builder: (_) => WorkspaceNativeDestinationPage(
           api: _api,
           title: item.label,
           linkType: item.linkType,

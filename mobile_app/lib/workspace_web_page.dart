@@ -10,8 +10,8 @@ import 'workspace_report_page.dart';
 
 /// Native Flutter destination for ERPNext Desk links.
 /// ERPNext Web is consulted for metadata and server-side business rules only.
-class WorkspaceWebPage extends StatefulWidget {
-  const WorkspaceWebPage({super.key, required this.api, required this.title, required this.linkType, required this.target, this.routeOptions = const {}});
+class WorkspaceNativeDestinationPage extends StatefulWidget {
+  const WorkspaceNativeDestinationPage({super.key, required this.api, required this.title, required this.linkType, required this.target, this.routeOptions = const {}});
   final FrappeApi api;
   final String title;
   final String linkType;
@@ -19,10 +19,10 @@ class WorkspaceWebPage extends StatefulWidget {
   final Map<String, dynamic> routeOptions;
 
   @override
-  State<WorkspaceWebPage> createState() => _WorkspaceWebPageState();
+  State<WorkspaceNativeDestinationPage> createState() => _WorkspaceNativeDestinationPageState();
 }
 
-class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
+class _WorkspaceNativeDestinationPageState extends State<WorkspaceNativeDestinationPage> {
   bool _loading = true;
   String? _error;
   Map<String, dynamic>? _workspace;
@@ -111,7 +111,7 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
       }
       return;
     }
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceNativeDestinationPage(
       api: widget.api,
       title: (link['label'] ?? target).toString(),
       linkType: type,
@@ -523,7 +523,7 @@ class _NativeQuickListState extends State<_NativeQuickList> {
               if (row['modified'] != null) row['modified'].toString(),
             ].join(' • ')),
             trailing: const Icon(Icons.chevron_left),
-            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceNativeDestinationPage(
               api: widget.api,
               title: label,
               linkType: 'DocTypeDocument',
@@ -533,4 +533,11 @@ class _NativeQuickListState extends State<_NativeQuickList> {
       ]);
     },
   );
+}
+
+
+/// Backward-compatible name for old call sites; it still renders native Flutter only.
+@Deprecated('Use WorkspaceNativeDestinationPage')
+class WorkspaceWebPage extends WorkspaceNativeDestinationPage {
+  const WorkspaceWebPage({super.key, required super.api, required super.title, required super.linkType, required super.target, super.routeOptions = const {}});
 }

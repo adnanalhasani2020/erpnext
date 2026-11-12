@@ -163,7 +163,7 @@ class _SalesCommissionPageState extends State<SalesCommissionPage> {
                 IconButton(
                   tooltip: 'فتح قائمة الجوال',
                   onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                    builder: (_) => WorkspaceWebPage(api: widget.api, title: 'Sales Person', linkType: 'DocTypeList', target: 'Sales Person'),
+                    builder: (_) => WorkspaceNativeDestinationPage(api: widget.api, title: 'Sales Person', linkType: 'DocTypeList', target: 'Sales Person'),
                   )),
                   icon: const Icon(Icons.arrow_forward),
                 ),

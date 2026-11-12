@@ -1174,7 +1174,7 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
       title: Text(widget.initialSection == 'Purchase Order' ? 'أوامر الشراء' : widget.initialSection == 'Purchase Invoice' ? 'فواتير المشتريات' : widget.initialSection == 'Payment Entry' ? 'دفعات الموردين' : widget.initialSection == 'Supplier Ledger' ? 'سجل دفعات الموردين' : 'إدارة المشتريات'),
       actions: [
         if (widget.initialSection != null && const {'Purchase Order', 'Purchase Invoice'}.contains(widget.initialSection))
-          IconButton(tooltip: 'فتح قائمة الجوال', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(api: widget.api, title: widget.initialSection!, linkType: 'DocTypeList', target: widget.initialSection!))), icon: const Icon(Icons.arrow_forward)),
+          IconButton(tooltip: 'فتح قائمة الجوال', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceNativeDestinationPage(api: widget.api, title: widget.initialSection!, linkType: 'DocTypeList', target: widget.initialSection!))), icon: const Icon(Icons.arrow_forward)),
         IconButton(onPressed: load, icon: const Icon(Icons.refresh)),
       ],
     ),
