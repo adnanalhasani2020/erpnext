@@ -46,7 +46,7 @@ The directory, shared DocType model and generic per-DocType editor are separate 
 
 ## Workspace grouping and visibility update — 2026-11-12
 
-Workspace discovery uses Frappe's permission-aware Desk endpoint (v16 `get_workspaces`, v15 `get_workspace_sidebar_items` fallback), not an unrestricted Workspace resource enumeration. The mobile directory retains native Workspace order and Card Break groupings, hides hidden cards, and presents DocType shortcuts separately. API coverage was added for both supported endpoint variants.
+Workspace discovery uses Frappe's permission-aware Desk endpoint (v16 `frappe.sessions.get` boot data, v15 `get_workspace_sidebar_items` fallback), not an unrestricted Workspace resource enumeration. The mobile directory retains native Workspace order and Card Break groupings, hides hidden cards, and presents DocType shortcuts separately. API coverage was added for both supported endpoint variants.
 
 
 Sales Invoice, Customer and Supplier now have dedicated mobile list pages with server-backed search/pagination and their existing details, editing and ledger actions. The combined transactions overview remains an optional dashboard route rather than the destination for these individual Workspace links.
