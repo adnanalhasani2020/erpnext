@@ -455,7 +455,6 @@ class _VisualPlantFloorNativePageState extends State<VisualPlantFloorNativePage>
 
   @override
   Widget build(BuildContext context) {
-    final counts = <String, int>{for (final status in _statuses) status: _workstations.where((row) => row['status'] == status).length};
     return Scaffold(
       appBar: AppBar(
         title: const Text('أرضية المصنع المرئية'),
@@ -498,11 +497,6 @@ class _VisualPlantFloorNativePageState extends State<VisualPlantFloorNativePage>
         if (_loading) const LinearProgressIndicator(),
         if (_error != null) Card(child: ListTile(leading: const Icon(Icons.error_outline), title: const Text('تعذر تحميل أرضية المصنع'), subtitle: Text(_error!))),
         if (_floor == null && !_loading) const Card(child: ListTile(title: Text('لا توجد أرضيات مصنع متاحة أو لا تملك صلاحية قراءتها.'))),
-        if (_workstations.isNotEmpty)
-          Wrap(spacing: 6, runSpacing: 6, children: _statuses.where((status) => counts[status]! > 0).map((status) => Chip(
-            avatar: CircleAvatar(backgroundColor: _statusColor(context, status), radius: 6),
-            label: Text('${_statusLabel(status)}: ${counts[status]}'),
-          )).toList()),
         if (_workstations.isEmpty && !_loading && _error == null && _floor != null)
           const Card(child: ListTile(title: Text('لا توجد محطات عمل مطابقة للمرشحات.'))),
         for (final row in _workstations)
