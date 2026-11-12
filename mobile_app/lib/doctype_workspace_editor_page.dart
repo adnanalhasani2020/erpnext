@@ -1,5 +1,8 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:share_plus/share_plus.dart';
 import 'api/frappe_api.dart';
 import 'doctype_workspace_model.dart';
 import 'workspace_web_page.dart';
@@ -948,6 +951,46 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
           }
         }
 
+        Future<void> openAttachment(Map<String, dynamic> file) async {
+          if (busy) return;
+          final fileId = file['name']?.toString().trim() ?? '';
+          if (fileId.isEmpty) {
+            refresh(() => error = 'معرّف المرفق غير متاح من ERPNext.');
+            return;
+          }
+          refresh(() { busy = true; error = null; });
+          try {
+            final bytes = await widget.api.downloadDocTypeAttachment(
+              doctype: _doctype,
+              name: name,
+              fileId: fileId,
+            );
+            if (!sheet.mounted) return;
+            final fileName = file['file_name']?.toString().trim().isNotEmpty == true
+                ? file['file_name'].toString()
+                : fileId;
+            final result = await Share.shareXFiles(
+              [XFile.fromData(
+                Uint8List.fromList(bytes),
+                mimeType: file['content_type']?.toString(),
+                name: fileName,
+              )],
+              fileNameOverrides: [fileName],
+              subject: 'مرفق $_doctype • $name',
+              text: fileName,
+            );
+            if (sheet.mounted && result.status == ShareResultStatus.unavailable) {
+              refresh(() => error = 'تعذر فتح قائمة مشاركة الملف على هذا الجهاز.');
+            }
+          } catch (e) {
+            if (sheet.mounted) {
+              refresh(() => error = e.toString().replaceFirst('Exception: ', ''));
+            }
+          } finally {
+            if (sheet.mounted) refresh(() => busy = false);
+          }
+        }
+
         final attachments = activity['attachments'] ?? const <Map<String, dynamic>>[];
         final comments = activity['comments'] ?? const <Map<String, dynamic>>[];
         final versions = activity['versions'] ?? const <Map<String, dynamic>>[];
@@ -1006,17 +1049,16 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                         if (file['file_size'] != null) '${file['file_size']} بايت',
                         file['is_private'] == 1 || file['is_private'] == true ? 'خاص' : 'عام',
                       ].join(' • ')),
-                      trailing: file['file_url']?.toString().trim().isNotEmpty == true ? const Icon(Icons.open_in_new) : null,
-                      onTap: file['file_url']?.toString().trim().isNotEmpty == true
-                          ? () => Navigator.of(context).push(MaterialPageRoute<void>(
-                              builder: (_) => WorkspaceWebPage(
-                                api: widget.api,
-                                title: file['file_name']?.toString() ?? 'مرفق المستند',
-                                linkType: 'URL',
-                                target: file['file_url'].toString(),
-                              ),
-                            ))
-                          : null,
+                      trailing: IconButton(
+                        tooltip: 'تنزيل ومشاركة المرفق',
+                        onPressed: busy || file['name'] == null
+                            ? null
+                            : () => openAttachment(file),
+                        icon: const Icon(Icons.download_outlined),
+                      ),
+                      onTap: busy || file['name'] == null
+                          ? null
+                          : () => openAttachment(file),
                     )).toList(),
               ),
               ExpansionTile(
