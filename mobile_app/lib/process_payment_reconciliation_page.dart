@@ -3,6 +3,7 @@ import 'dart:core' as core;
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
+import 'workspace_web_page.dart';
 import 'models/erp_models.dart';
 
 class ProcessPaymentReconciliationPage extends StatefulWidget {
@@ -513,6 +514,7 @@ class _ProcessPaymentReconciliationPageState
       appBar: AppBar(
         title: const Text('التسوية الآلية للمدفوعات'),
         actions: [
+          IconButton(tooltip: 'فتح قائمة ERPNext الأصلية', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(api: widget.api, title: 'Process Payment Reconciliation', linkType: 'DocTypeList', target: 'Process Payment Reconciliation'))), icon: const Icon(Icons.open_in_browser)),
           IconButton(
             tooltip: 'تحديث المهام',
             onPressed: _loading || _loadingMore ? null : () => _load(),
