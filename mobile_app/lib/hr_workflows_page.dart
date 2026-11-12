@@ -971,11 +971,11 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
           3 => HrExpenseClaimList(rows: _expenseClaims, loading: _loading, saving: _saving, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onSubmit: _submit, onPay: _payExpenseClaim, onWorkflow: _runWorkflowAction),
           _ => HrSalarySlipList(rows: _salarySlips, loading: _loading, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onView: _viewSalarySlip),
         } : TabBarView(controller: _tabs, children: [
-          _employeeList(),
-          _documentList(_attendance, 'Attendance'),
-          _documentList(_leaveApplications, 'Leave Application'),
-          _expenseList(),
-          _salaryList(),
+          HrEmployeeList(rows: _employees, loading: _loading, saving: _saving, onEdit: _editEmployee, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore),
+          HrDocumentList(rows: _attendance, doctype: 'Attendance', loading: _loading, saving: _saving, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onEditAttendance: _editAttendance, onSubmit: _submit, onWorkflow: _runWorkflowAction),
+          HrDocumentList(rows: _leaveApplications, doctype: 'Leave Application', loading: _loading, saving: _saving, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onEditAttendance: _editAttendance, onSubmit: _submit, onWorkflow: _runWorkflowAction),
+          HrExpenseClaimList(rows: _expenseClaims, loading: _loading, saving: _saving, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onSubmit: _submit, onPay: _payExpenseClaim, onWorkflow: _runWorkflowAction),
+          HrSalarySlipList(rows: _salarySlips, loading: _loading, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onView: _viewSalarySlip),
         ])),
       ]),
     );
