@@ -58,6 +58,10 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
       await _cookieManager.clearCookies();
       final target = _resolveTarget();
       final base = Uri.parse(widget.api.baseUrl);
+      if (!const {'http', 'https'}.contains(target.scheme) ||
+          (target.scheme == 'http' && (base.scheme != 'http' || !_sameOrigin(target, base)))) {
+        throw const FormatException('عنوان صفحة الويب غير آمن أو غير مدعوم.');
+      }
       if (_sameOrigin(target, base)) {
         final cookieHeader = widget.api.imageRequestHeaders['Cookie'] ?? '';
         for (final part in cookieHeader.split(';')) {
