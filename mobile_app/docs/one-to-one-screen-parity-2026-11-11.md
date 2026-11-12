@@ -51,7 +51,7 @@ Workspace discovery uses Frappe's permission-aware Desk endpoint (v16 `frappe.se
 
 Sales Invoice, Customer and Supplier now have dedicated mobile list pages with server-backed search/pagination and their existing details, editing and ledger actions. The combined transactions overview remains an optional dashboard route rather than the destination for these individual Workspace links.
 
-Every visible Workspace Report link and Report shortcut now opens its own metadata-driven report screen. The screen loads filter definitions through Frappe `frappe.desk.query_report.get_script`, renders the returned filter fields (including server-search Link/Dynamic Link selectors), and runs the selected report through the permission-checked native query-report endpoint; the former hard-coded 14-report allowlist has been removed. Page, URL, Dashboard and Workspace links now open their original ERPNext Desk destination in a session-bound WebView; same-origin session cookies are supplied from the in-memory API session and cleared when the WebView screen is disposed. Workspace charts, number cards and quick-list content still do not have native Flutter equivalents.
+Every visible Workspace Report link and Report shortcut now opens its own metadata-driven report screen. The screen loads filter definitions through Frappe `frappe.desk.query_report.get_script`, renders the returned filter fields (including server-search Link/Dynamic Link selectors), and runs the selected report through the permission-checked native query-report endpoint; the former hard-coded 14-report allowlist has been removed. Page, URL, Dashboard and Workspace links now open their original ERPNext Desk destination in a session-bound WebView; same-origin session cookies are supplied from the in-memory API session and cleared when the WebView screen is disposed. Workspace Number Cards of type Document Type with static filters now load their value through the native Number Card API; report/custom cards and cards with dynamic JavaScript filters remain on the original Workspace route. Workspace charts and quick-list content still do not have native Flutter equivalents.
 
 ## Direct access to standalone party and invoice directories — 2026-11-12
 
@@ -127,3 +127,8 @@ Every metadata-driven DocType list now exposes the corresponding original ERPNex
 ## DocType form layout parity — 2026-11-12
 
 The generic mobile editor now preserves the installed DocType metadata's Tab Break and Section Break grouping as stacked section headings, matching the web form's information hierarchy on a narrow screen. Column Break fields are kept in a single mobile column rather than being dropped. Hidden tabs/sections suppress their contained fields, in addition to each field's own hidden and dependency rules. No new fields or sections are created by the mobile app.
+
+
+## Workspace Number Card values — 2026-11-12
+
+The mobile Workspace groups now render the Number Cards attached to each actual Workspace record. Standard Document Type cards with static filters call ERPNext's permission-checked `number_card.get_result` method and display the server-calculated value. Report/custom cards and cards with dynamic JavaScript filter expressions are not approximated or evaluated in Flutter; their card tile links to the original Workspace WebView. This keeps card values aligned with ERPNext and avoids inventing a mobile calculation.
