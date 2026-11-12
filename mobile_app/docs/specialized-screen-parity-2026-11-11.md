@@ -142,3 +142,8 @@ This closes the generic DocType attachment retrieval gap for files the current E
 ## Payment Reconciliation Link field parity — 2026-11-12
 
 The Payment Reconciliation screen now reads the virtual DocType's Link/Dynamic Link metadata from ERPNext and uses it to render server-search pickers for Party, bank/cash Account, default advance Account, Cost Center and Project. Invoice name and payment name remain text filters because ERPNext defines those source fields as Data, not Link. The picker resolves the Dynamic Link target from the selected party type, applies the static/company filters supplied by the field metadata, derives searchable display fields from the target DocType metadata, and selects only records returned by the authenticated Frappe resource API. Existing accounting-dimension pickers and the company-/party-scoped receivable/payable account selector remain in place. No local list of business records or hard-coded Link targets is used for the standard fields.
+
+
+## Native-only destination correction — 2026-11-12
+
+External Workspace URL shortcuts are now excluded from the mobile screen directory because they are not ERPNext DocType, Report, Workspace, Dashboard or native Page screens. Custom ERPNext Page destinations without an implemented Flutter counterpart now stop with an explicit unsupported-page state; they are no longer incorrectly fetched and displayed as generic Page DocType records. The three supported Page destinations continue to open their dedicated native Flutter screens. Dashboard records continue through their own native metadata-backed destination. No embedded browser or web screen is introduced.
