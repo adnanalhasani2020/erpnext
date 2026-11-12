@@ -13,7 +13,8 @@ class CustomerDirectoryPage extends StatelessWidget {
   final List<ErpCustomer> customers;
   final String search;
   final TextEditingController searchController;
-  final VoidCallback onRefresh, onLoadMore;
+  final Future<void> Function() onRefresh;
+  final VoidCallback onLoadMore;
   final ValueChanged<String> onSearch;
   final ValueChanged<ErpCustomer> onEdit, onOpenLedger;
 
@@ -24,10 +25,10 @@ class CustomerDirectoryPage extends StatelessWidget {
       customer.id.toLowerCase().contains(query) || customer.name.toLowerCase().contains(query)).toList(growable: false);
     return Scaffold(
       appBar: AppBar(title: const Text('العملاء'), actions: [
-        IconButton(tooltip: 'تحديث', onPressed: loading ? null : onRefresh, icon: const Icon(Icons.refresh)),
+        IconButton(tooltip: 'تحديث', onPressed: loading ? null : () => onRefresh(), icon: const Icon(Icons.refresh)),
       ]),
       body: RefreshIndicator(
-        onRefresh: () async => onRefresh(),
+        onRefresh: onRefresh,
         child: ListView(padding: const EdgeInsets.all(16), children: [
           ServerSearchField(controller: searchController, label: 'بحث باسم العميل أو رقمه', onSearch: onSearch, loading: searching),
           if (loading) const LinearProgressIndicator(),
