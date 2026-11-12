@@ -306,14 +306,18 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
     if (doctype.trim().isEmpty || name.trim().isEmpty || text.isEmpty) {
       throw const FormatException('المستند ونص التعليق مطلوبان.');
     }
+    // Frappe v15/v16 requires these two arguments in the method signature;
+    // the server derives the authoritative identity from the authenticated session.
+    final user = await currentUser();
     final response = await _sendJson(
       'POST',
-      '/api/method/frappe.desk.form.save.add_comment',
+      '/api/method/frappe.desk.form.utils.add_comment',
       {
         'reference_doctype': doctype,
         'reference_name': name,
         'content': text,
-        'comment_type': 'Comment',
+        'comment_email': user,
+        'comment_by': user,
       },
     );
     final data = _decode(response.body);
