@@ -86,6 +86,9 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     try {
       final fields = _listFields;
       final activeFilters = <List<dynamic>>[];
+      for (final entry in widget.definition.routeOptions.entries) {
+        activeFilters.add([entry.key, '=', entry.value]);
+      }
       for (final field in _filterFields) {
         final key = field['fieldname'].toString();
         final value = _filters[key]?.trim() ?? '';
