@@ -185,3 +185,10 @@ Workspace Quick Lists now request and display the workflow_state field when the 
 Standard static-filter Dashboard Charts now render every returned data series in native Flutter Bar and Line charts, with distinct series colors and a legend. Pie/Donut/Percentage charts continue to use the first returned dataset as required by their category-value layout. Report/custom/dynamic/heatmap sources remain explicitly unsupported rather than executing server JavaScript.
 
 Native Page route options are now forwarded through the app-shell route for both Stock Summary and Warehouse Capacity Summary. Warehouse Capacity Summary preloads the original Company, Warehouse, Item and Parent Warehouse filters from the Desk route options, while retaining ERPNext's server-side group-warehouse validation and sort allowlist.
+
+## Workspace rendering parity follow-up — 2026-11-12
+
+- The nested native Workspace destination now respects hidden Card Break/Section Break groups and hidden shortcut records, matching the visibility rules already used by the Workspace directory.
+- Native Dashboard Chart value labels now include every returned dataset/category pair. Previously, the chart painter drew multiple series but the textual values below the chart showed only the first series.
+- A source-level comparison against the checked-in ERPNext Desk Page scripts identified remaining Page action gaps: Stock Summary's Desk list exposes permission-gated Move/Add actions that create Stock Entry drafts through `erpnext.stock.dashboard.item_dashboard.make_stock_entry`; Warehouse Capacity Summary exposes a permission-gated Edit Capacity action that opens the matching Putaway Rule. The current native pages do not yet reproduce these actions. They must be implemented through the same ERPNext methods and native Flutter document routes, with server permissions authoritative; do not replace them with direct Bin/Putaway Rule writes.
+- Visual Plant Floor still lacks the Desk page's realtime subscription behavior; the native implementation currently relies on manual refresh.
