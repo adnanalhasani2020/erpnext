@@ -31,7 +31,7 @@ Other DocTypes open their own independent metadata-driven screen. The route pres
 
 ## Remaining form parity
 
-The generic editor now provides type-aware Check, Select, Date, Datetime (date plus time), numeric and server-search Link inputs. Dynamic Link pickers refresh when their target DocType changes. The list screen follows ERPNext `in_list_view` metadata for columns, supports server-side sorting by metadata fields and keeps each DocType link distinct inside its own Workspace. Table and Table MultiSelect fields now use native row-by-row add/edit/delete dialogs backed by child DocType metadata, including recursively editable nested child tables; the parent document saves the child rows through Frappe. Dynamic Link target selection is available. The generic editor now evaluates simple metadata dependencies (`depends_on`, `mandatory_depends_on`, and `read_only_depends_on`) when they are direct field-presence/negation rules and simple equality/inequality conditions joined with `&&` or `||`; arbitrary JavaScript `eval:` expressions, compound comparisons, formulas and client scripts are deliberately not emulated and remain server-validated. The generic document detail now exposes ERPNext-backed attachments, comments and Version history: files upload through the native `upload_file` endpoint as private attachments by default; comments use the native Desk comment method; File, Comment and Version records are read separately so missing read permission for one activity type does not hide the others. List-view bulk actions, report-builder screens and DocType-specific buttons still require dedicated work or the original Desk destination. A screen directory entry is not a claim that every form control on the ERPNext Desk has been reproduced.
+The generic editor now provides type-aware Check, Select, Date, Datetime (date plus time), numeric and server-search Link inputs. Dynamic Link pickers refresh when their target DocType changes. The list screen follows ERPNext `in_list_view` metadata for columns, supports server-side sorting by metadata fields and keeps each DocType link distinct inside its own Workspace. Table and Table MultiSelect fields now use native row-by-row add/edit/delete dialogs backed by child DocType metadata, including recursively editable nested child tables; the parent document saves the child rows through Frappe. Dynamic Link target selection is available. The generic editor now evaluates simple metadata dependencies (`depends_on`, `mandatory_depends_on`, and `read_only_depends_on`) when they are direct field-presence/negation rules and simple equality/inequality conditions joined with `&&` or `||`; arbitrary JavaScript `eval:` expressions, compound comparisons, formulas and client scripts are deliberately not emulated and remain server-validated. The generic document detail now exposes ERPNext-backed attachments, comments and Version history: files upload through the native `upload_file` endpoint as private attachments by default; comments use the native Desk comment method; File, Comment and Version records are read separately so missing read permission for one activity type does not hide the others. List-view bulk actions, report-builder screens and DocType-specific buttons still require dedicated native Flutter work. A screen directory entry is not a claim that every form control on the ERPNext Desk has been reproduced.
 
 Specialized mobile workflows retain their richer business logic and must not be replaced by generic metadata editing. Live permission/workflow/GL/stock acceptance requires a version-matched ERPNext + HRMS site and role-specific test accounts.
 
@@ -99,9 +99,9 @@ The standalone metadata-driven DocType detail view now provides a dedicated acti
 This closes the generic editor's first attachment/comment/version gap only. Specialized business forms still require individual comparison for their own timeline, print, attachment and action controls; list bulk actions, arbitrary client-script buttons and report-builder parity remain open.
 
 
-## Original Desk form fallback — 2026-11-12
+## Native DocType detail boundaries — 2026-11-12
 
-The generic DocType detail panel now exposes the exact ERPNext Desk form for the selected record through the authenticated, same-origin WebView. This is the parity path for DocType-specific buttons, client-script behavior and form controls that cannot be safely recreated from static DocField metadata. The mobile metadata editor remains a separate route for supported native field editing; the Desk route is the original web form, not a new mobile-only workflow.
+The generic DocType detail panel is a native Flutter view backed by the selected record and DocType metadata. It does not embed the ERPNext Desk form. DocType-specific buttons, client-script behavior and unsupported field controls remain explicit native implementation gaps.
 
 
 ## Original Desk report fallback — 2026-11-12
@@ -119,9 +119,9 @@ Workspace grouping and link de-duplication now use the actual Workspace record n
 The authenticated Workspace directory no longer populates its visible screen list from the static 47-entry label catalog when the server cannot return Workspace metadata. The static definitions are used only to translate labels for links actually returned by ERPNext. If the permission-filtered Workspace API fails or returns no visible links, the app shows the corresponding error/empty state and does not invent screen destinations.
 
 
-## Original Desk list fallback — 2026-11-12
+## Native DocType list boundaries — 2026-11-12
 
-Every metadata-driven DocType list now exposes the corresponding original ERPNext Desk list route in the authenticated same-origin WebView. This preserves native list-view bulk actions, custom list scripts and installed list controls where Flutter's generic metadata list does not have a safe metadata-driven equivalent. The native list remains a separate screen and continues to use server-side filters, sorting and pagination.
+Every metadata-driven DocType list is rendered in Flutter with server-side filters, sorting and pagination. Native list bulk actions and custom list scripts remain gaps and are not replaced by an embedded Desk list.
 
 
 ## DocType form layout parity — 2026-11-12
@@ -131,7 +131,7 @@ The generic mobile editor now preserves the installed DocType metadata's Tab Bre
 
 ## Workspace Number Card values — 2026-11-12
 
-The mobile Workspace groups now render the Number Cards attached to each actual Workspace record. Standard Document Type cards with static filters call ERPNext's permission-checked `number_card.get_result` method and display the server-calculated value. Report/custom cards and cards with dynamic JavaScript filter expressions are not approximated or evaluated in Flutter; their card tile links to the original Workspace WebView. This keeps card values aligned with ERPNext and avoids inventing a mobile calculation.
+The mobile Workspace groups render Number Cards attached to each actual Workspace record. Standard Document Type cards with static filters call ERPNext's permission-checked `number_card.get_result` method and display the server-calculated value. Report/custom cards and cards with dynamic JavaScript filters show an unsupported state until a native equivalent is implemented.
 
 ## Widget-only Workspace and attachment follow-up — 2026-11-12
 
@@ -141,14 +141,14 @@ Item Price and Pricing Rule links now open separate focused views. The combined 
 
 ## Banking Workspace route separation — 2026-11-12
 
-Bank Transaction and Bank Statement Import now pass their exact Workspace DocType into the banking page. The standalone Bank Transaction route shows transaction matching and balance reconciliation; the standalone Bank Statement Import route shows statement upload and import history. The combined reconciliation overview remains available when opened without a specific Workspace DocType, and each standalone view links to its original Desk list.
+Bank Transaction and Bank Statement Import now pass their exact Workspace DocType into the banking page. The standalone Bank Transaction route shows transaction matching and balance reconciliation; the standalone Bank Statement Import route shows statement upload and import history. The combined reconciliation overview remains available when opened without a specific Workspace DocType, and each standalone view links to its corresponding native Flutter list.
 
 ## Specialized workflow Desk fallback — 2026-11-12
 
-Standalone Quotation/Sales Order/Delivery Note, Purchase Order/Purchase Invoice, stock DocType, and HR DocType routes now expose a direct link to the matching original ERPNext Desk list. This keeps native list actions and any server-installed DocType-specific behavior reachable without combining the mobile responsibilities or recreating web-only behavior in Flutter.
+Standalone Quotation/Sales Order/Delivery Note, Purchase Order/Purchase Invoice, stock DocType, and HR DocType routes expose direct navigation to their corresponding native Flutter lists. This preserves independent mobile responsibilities without embedding the Desk list.
 
-Sales Invoice, Customer and Supplier dedicated directories now also provide direct access to their matching original Desk lists, in addition to their existing Flutter detail/edit/ledger actions.
+Sales Invoice, Customer and Supplier dedicated directories provide direct access to their matching native Flutter list routes, in addition to their existing detail/edit/ledger actions.
 
 ## Native-only mobile navigation — 2026-11-12
 
-The mobile app does not embed ERPNext Desk pages. Workspace, DocType list/detail, and Query Report destinations use Flutter screens and the authenticated Frappe API. ERPNext Web is a reference for responsibilities, fields, permission behavior and business rules only. Page/Dashboard content that depends on server-side HTML or JavaScript is not executed in the mobile app; it must be implemented as a native Flutter screen before it can be considered complete. External URL shortcuts are not opened inside the app. Native chart and quick-list data rendering remain explicit implementation gaps rather than being replaced by WebView.
+The mobile app does not embed ERPNext Desk pages. Workspace, DocType list/detail, and Query Report destinations use Flutter screens and the authenticated Frappe API. ERPNext Web is a reference for responsibilities, fields, permission behavior and business rules only. Page/Dashboard content that depends on server-side HTML or JavaScript is not executed in the mobile app; it must be implemented as a native Flutter screen before it can be considered complete. External URL shortcuts are not opened inside the app. Standard Document Type charts with static filters and Workspace Quick Lists with static filters now load and render natively. Report/custom/dynamic/heatmap charts, interactive Quick List filter editing, and full Page/Dashboard-specific behavior remain explicit gaps.

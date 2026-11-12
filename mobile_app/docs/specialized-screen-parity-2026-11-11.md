@@ -112,16 +112,16 @@ The generic DocType activity view lists existing attachments, comments and Versi
 
 ## Banking standalone route follow-up — 2026-11-12
 
-Bank Transaction and Bank Statement Import no longer open an undifferentiated combined page from their Workspace links. The exact DocType is passed as the initial route: Bank Transaction focuses on transaction matching/reconciliation, while Bank Statement Import focuses on statement upload and import history. Both expose the original ERPNext Desk list for native actions. The general banking reconciliation overview remains available without a specific DocType.
+Bank Transaction and Bank Statement Import no longer open an undifferentiated combined page from their Workspace links. The exact DocType is passed as the initial route: Bank Transaction focuses on transaction matching/reconciliation, while Bank Statement Import focuses on statement upload and import history. Both expose the corresponding native Flutter DocType list. The general banking reconciliation overview remains available without a specific DocType.
 
 ## Original Desk access from specialized workflows — 2026-11-12
 
-The standalone sales, purchasing, stock and HR workflow pages now provide direct navigation to the matching original ERPNext Desk list for the selected DocType. This preserves the native Desk action surface for controls not implemented in the focused mobile view, without changing the underlying API workflow or adding mobile-only business actions.
+The standalone sales, purchasing, stock and HR workflow pages provide direct navigation to the corresponding native Flutter DocType list for the selected responsibility. Controls not implemented in the focused mobile view remain explicit gaps; no Desk page is embedded.
 
 Standalone Chart of Accounts, Journal Entry, Payment Reconciliation, Process Payment Reconciliation and Payroll Entry screens expose direct navigation to their corresponding native Flutter DocType lists.
 
-The dedicated Item Catalog, Warehouse Hierarchy, Sales Commission and Promotional Scheme pages now also expose direct links to their matching ERPNext Desk lists, keeping native Desk actions available from the specialized mobile routes.
+The dedicated Item Catalog, Warehouse Hierarchy, Sales Commission and Promotional Scheme pages expose direct links to their matching native Flutter DocType lists.
 
 ## Native-only navigation policy — 2026-11-12
 
-ERPNext Desk is a behavioral and data reference only. The Flutter app must not embed Desk pages, use WebView, or use an embedded browser as a substitute for an incomplete mobile screen. DocType lists, document details, reports, workspace navigation and supported Number Cards are rendered with Flutter widgets and Frappe API calls. Page/Dashboard definitions that depend on server HTML or JavaScript are not considered complete until their behavior is implemented in native Flutter. External URL shortcuts are not opened in-app. Native charts, quick-list row retrieval, and Page/Dashboard-specific interactions remain explicit gaps; they must be implemented from the corresponding ERPNext metadata and APIs without executing server-provided JavaScript.
+ERPNext Desk is a behavioral and data reference only. The Flutter app must not embed Desk pages, use WebView, or use an embedded browser as a substitute for an incomplete mobile screen. DocType lists, document details, reports, workspace navigation and supported Number Cards are rendered with Flutter widgets and Frappe API calls. Page/Dashboard definitions that depend on server HTML or JavaScript are not considered complete until their behavior is implemented in native Flutter. External URL shortcuts are not opened in-app. Standard Document Type charts with static filters and Workspace Quick Lists with static filters are rendered natively. Report/custom/dynamic/heatmap charts, Quick List filter editing, and Page/Dashboard-specific interactions remain explicit gaps; they must be implemented from ERPNext metadata and APIs without executing server-provided JavaScript.
