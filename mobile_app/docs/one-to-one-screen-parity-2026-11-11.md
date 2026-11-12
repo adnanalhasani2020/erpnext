@@ -31,7 +31,7 @@ Other DocTypes open their own independent metadata-driven screen. The route pres
 
 ## Remaining form parity
 
-The generic editor now provides type-aware Check, Select, Date, Datetime (date plus time), numeric and server-search Link inputs. Dynamic Link pickers refresh when their target DocType changes. The list screen follows ERPNext `in_list_view` metadata for columns, supports server-side sorting by metadata fields and keeps each DocType link distinct inside its own Workspace. Table and Table MultiSelect fields now use native row-by-row add/edit/delete dialogs backed by child DocType metadata; the parent document saves the child rows through Frappe. Nested child tables, full dynamic-link controls, formula/dependency/visibility rules, attachments, comments/timeline, version history, list-view bulk actions, report-builder screens and every DocType-specific button still require dedicated work. A screen directory entry is not a claim that every form control on the ERPNext Desk has been reproduced.
+The generic editor now provides type-aware Check, Select, Date, Datetime (date plus time), numeric and server-search Link inputs. Dynamic Link pickers refresh when their target DocType changes. The list screen follows ERPNext `in_list_view` metadata for columns, supports server-side sorting by metadata fields and keeps each DocType link distinct inside its own Workspace. Table and Table MultiSelect fields now use native row-by-row add/edit/delete dialogs backed by child DocType metadata, including recursively editable nested child tables; the parent document saves the child rows through Frappe. Dynamic Link target selection is available. The generic editor now evaluates simple metadata dependencies (`depends_on`, `mandatory_depends_on`, and `read_only_depends_on`) when they are direct field-presence/negation rules and simple equality/inequality conditions joined with `&&` or `||`; arbitrary JavaScript `eval:` expressions, compound comparisons, formulas and client scripts are deliberately not emulated and remain server-validated. Attachments, comments/timeline, version history, list-view bulk actions, report-builder screens and every DocType-specific button still require dedicated work. A screen directory entry is not a claim that every form control on the ERPNext Desk has been reproduced.
 
 Specialized mobile workflows retain their richer business logic and must not be replaced by generic metadata editing. Live permission/workflow/GL/stock acceptance requires a version-matched ERPNext + HRMS site and role-specific test accounts.
 
@@ -51,7 +51,7 @@ Workspace discovery uses Frappe's permission-aware Desk endpoint (v16 `frappe.se
 
 Sales Invoice, Customer and Supplier now have dedicated mobile list pages with server-backed search/pagination and their existing details, editing and ledger actions. The combined transactions overview remains an optional dashboard route rather than the destination for these individual Workspace links.
 
-Workspace Report links and Report shortcuts for the supported standard report allowlist now open the financial reports page with the report preselected. Custom Report, Page and URL links are not yet implemented as standalone mobile destinations.
+Every visible Workspace Report link and Report shortcut now opens its own metadata-driven report screen. The screen loads filter definitions through Frappe `frappe.desk.query_report.get_script`, renders the returned filter fields (including server-search Link/Dynamic Link selectors), and runs the selected report through the permission-checked native query-report endpoint; the former hard-coded 14-report allowlist has been removed. Page, URL, Dashboard and Workspace links now open their original ERPNext Desk destination in a session-bound WebView; same-origin session cookies are supplied from the in-memory API session and cleared when the WebView screen is disposed. Workspace charts, number cards and quick-list content still do not have native Flutter equivalents.
 
 ## Direct access to standalone party and invoice directories — 2026-11-12
 
@@ -71,3 +71,22 @@ Added a dedicated edit action for draft Leave Application rows. The editor loads
 ## Payroll session-bound loading safety — 2026-11-12
 
 Payroll setup data (cost centers, payable accounts and bank accounts), payroll-entry list pages, pagination, entry details, and post-action refreshes now capture the Frappe API session generation. Responses from an earlier signed-in session are ignored; stale setup/list requests cannot overwrite data for a newly selected company or account, and their loading indicators are finalized without applying stale records. Payroll draft creation and submit/slip-submit/bank-entry feedback also verify that the initiating session remains active before presenting results. This is client-side stale-response protection, not a substitute for server authorization; each ERPNext request continues to enforce the authenticated user's permissions.
+
+
+## Generic DocField dependency handling — 2026-11-12
+
+The metadata-driven editor now reacts to simple `depends_on` field-presence/negation and equality/inequality rules (including `&&` and `||`), applies the corresponding `mandatory_depends_on` required check, and honors `read_only_depends_on` for the same supported expression subset. Form values refresh dependent visibility while the user edits. The evaluator intentionally does not execute arbitrary JavaScript from `eval:` or client scripts; unsupported expressions are left visible/editable and ERPNext remains the final validator. This is a bounded parity improvement, not full Form API/client-script parity.
+
+
+## Workspace screen separation and native route options — 2026-11-12
+
+The workspace directory now preserves each visible DocType and Report link from the permission-filtered workspace data. It uses the Workspace page's native Card Break groups when present and falls back to sidebar Section Break groups only for workspaces that do not define page links, avoiding duplicate navigation entries from the parallel page/sidebar structures. Native `route_options` are retained as part of link identity and applied to the resulting DocType/report screen. This keeps distinct web routes such as Credit Note and Debit Note separate even when they point to the same underlying Sales Invoice or Purchase Invoice DocType; route options also prefill the matching create form.
+
+Every Report link now routes to a standalone report page that retrieves its available filter metadata from Frappe, supports the declared filter field types and server-backed Link lookups, and invokes the same report through ERPNext's permission-checked report API. The older financial-report overview remains available as a separate app navigation destination. No new business DocTypes or workspace links are fabricated.
+
+Remaining workspace parity: native Workspace chart, number-card and quick-list content still do not have Flutter equivalents. Page/URL/Dashboard/Workspace links are available through the original Desk WebView rather than native Flutter controls. HRMS workspace definitions are supplied by the installed HRMS site and cannot be certified from this ERPNext-only repository snapshot.
+
+
+## Native Desk Page destinations — 2026-11-12
+
+Workspace links of type Page, URL, Dashboard and Workspace are no longer silently omitted from the mobile directory. They open the corresponding original Desk route in a WebView rather than a fabricated Flutter implementation. The WebView starts with the active in-memory Frappe cookies scoped to the configured ERPNext origin and clears its cookie store when the destination screen is disposed. Non-HTTP(S) navigation and insecure cross-origin HTTP navigation are blocked. This preserves existing web functionality while native equivalents are not available; Workspace charts, number cards and quick lists remain separate parity gaps.

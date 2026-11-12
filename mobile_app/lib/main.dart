@@ -9,6 +9,8 @@ import 'purchase_workflow_page.dart';
 import 'stock_workflow_page.dart';
 import 'invoice_action_policy.dart';
 import 'financial_reports_page.dart';
+import 'workspace_report_page.dart';
+import 'workspace_web_page.dart';
 import 'sales_pricing_page.dart';
 import 'sales_commission_page.dart';
 import 'sales_dashboard_page.dart';
@@ -1203,20 +1205,40 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ));
   }
 
-  void _openWorkspaceReport(String reportName) {
+  void _openWorkspaceReport(String reportName, {Map<String, dynamic> initialFilters = const {}}) {
     if (!_requireServerAccess('تشغيل التقرير')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => FinancialReportsPage(
+      builder: (_) => WorkspaceReportPage(
         api: _api,
         companies: _companies,
-        initialReportName: reportName,
+        reportName: reportName,
+        initialFilters: initialFilters,
       ),
     ));
   }
 
   void _openDocTypeDefinition(ErpDocTypeDefinition item) {
+    if (const {'Page', 'URL', 'Dashboard', 'Workspace'}.contains(item.linkType)) {
+      if (!_requireServerAccess(item.label)) return;
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => WorkspaceWebPage(
+          api: _api,
+          title: item.label,
+          linkType: item.linkType,
+          target: item.doctype,
+        ),
+      ));
+      return;
+    }
     if (item.linkType == 'Report') {
-      _openWorkspaceReport(item.doctype);
+      _openWorkspaceReport(item.doctype, initialFilters: item.routeOptions);
+      return;
+    }
+    if (item.routeOptions.isNotEmpty) {
+      if (!_requireServerAccess(item.label)) return;
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => ErpDocTypeWorkspacePage(api: _api, definition: item),
+      ));
       return;
     }
     switch (item.doctype) {

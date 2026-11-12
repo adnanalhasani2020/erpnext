@@ -86,6 +86,9 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     try {
       final fields = _listFields;
       final activeFilters = <List<dynamic>>[];
+      for (final entry in widget.definition.routeOptions.entries) {
+        activeFilters.add([entry.key, '=', entry.value]);
+      }
       for (final field in _filterFields) {
         final key = field['fieldname'].toString();
         final value = _filters[key]?.trim() ?? '';
@@ -289,16 +292,21 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
             'name','owner','creation','modified','modified_by','docstatus','idx',
             'parent','parenttype','parentfield'
           }.contains(key) && field['hidden'] != 1 && field['read_only'] != 1 &&
-            !const {'Section Break','Column Break','Tab Break','HTML','Button','Fold','Heading','Table','Table MultiSelect'}.contains(type);
+            !const {'Section Break','Column Break','Tab Break','HTML','Button','Fold','Heading'}.contains(type);
         }).toList();
     final controllers = <String, TextEditingController>{};
     final checks = <String, bool>{};
     final selections = <String, String?>{};
+    final tableValues = <String, List<Map<String, dynamic>>>{};
     for (final field in fields) {
       final key = field['fieldname'].toString();
       final type = field['fieldtype']?.toString() ?? '';
-      final initial = source?[key] ?? field['default'];
-      if (type == 'Check') {
+      final initial = source?[key] ?? widget.definition.routeOptions[key] ?? field['default'];
+      if (type == 'Table' || type == 'Table MultiSelect') {
+        tableValues[key] = initial is List
+            ? initial.whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList()
+            : <Map<String, dynamic>>[];
+      } else if (type == 'Check') {
         checks[key] = initial == 1 || initial == true || initial?.toString() == '1';
       } else if (type == 'Select') {
         selections[key] = initial?.toString();
@@ -327,6 +335,24 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 final key = field['fieldname'].toString();
                 final type = field['fieldtype']?.toString() ?? '';
                 final label = field['label']?.toString() ?? key;
+                if (type == 'Table' || type == 'Table MultiSelect') {
+                  final count = tableValues[key]?.length ?? 0;
+                  return Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.table_rows_outlined),
+                      title: Text(label),
+                      subtitle: Text('$count صف'),
+                      trailing: const Icon(Icons.edit_outlined),
+                      onTap: () async {
+                        final updated = await _editChildTable(
+                          field,
+                          tableValues[key] ?? <Map<String, dynamic>>[],
+                        );
+                        if (updated != null) refresh(() => tableValues[key] = updated);
+                      },
+                    ),
+                  );
+                }
                 if (type == 'Check') {
                   return CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
@@ -429,6 +455,10 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 for (final field in fields) {
                   final key = field['fieldname'].toString();
                   final type = field['fieldtype']?.toString() ?? '';
+                  if (type == 'Table' || type == 'Table MultiSelect') {
+                    values[key] = tableValues[key] ?? <Map<String, dynamic>>[];
+                    continue;
+                  }
                   if (type == 'Check') {
                     values[key] = checks[key] == true ? 1 : 0;
                     continue;
@@ -479,6 +509,57 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     return result;
   }
 
+
+  bool _evaluateSimpleDocDependency(String? expression, Map<String, dynamic> values) {
+    var rule = expression?.trim() ?? '';
+    if (rule.isEmpty) return true;
+    if (rule.startsWith('eval:')) rule = rule.substring(5).trim();
+
+    final orParts = rule.split('||');
+    if (orParts.length > 1) {
+      return orParts.any((part) => _evaluateSimpleDocDependency(part, values));
+    }
+    final andParts = rule.split('&&');
+    if (andParts.length > 1) {
+      return andParts.every((part) => _evaluateSimpleDocDependency(part, values));
+    }
+
+    String? comparisonOperator;
+    var comparisonOperatorIndex = -1;
+    for (final candidate in const ['===', '!==', '==', '!=']) {
+      final index = rule.indexOf(candidate);
+      if (index >= 0) {
+        comparisonOperator = candidate;
+        comparisonOperatorIndex = index;
+        break;
+      }
+    }
+    if (comparisonOperator != null) {
+      var field = rule.substring(0, comparisonOperatorIndex).trim();
+      if (field.startsWith('doc.')) field = field.substring(4);
+      var expected = rule.substring(comparisonOperatorIndex + comparisonOperator.length).trim();
+      if (expected.length >= 2 &&
+          ((expected.startsWith("'") && expected.endsWith("'")) ||
+           (expected.startsWith('"') && expected.endsWith('"')))) {
+        expected = expected.substring(1, expected.length - 1);
+      }
+      final equal = values[field]?.toString() == expected;
+      return comparisonOperator.startsWith('!') ? !equal : equal;
+    }
+
+    var negate = false;
+    if (rule.startsWith('!')) {
+      negate = true;
+      rule = rule.substring(1).trim();
+    }
+    if (rule.startsWith('doc.')) rule = rule.substring(4);
+    if (rule.contains(' ')) return true;
+    final value = values[rule];
+    final truthy = value != null && value != false && value != 0 &&
+        value.toString().isNotEmpty && value.toString() != '0';
+    return negate ? !truthy : truthy;
+  }
+
   Future<void> _edit({Map<String, dynamic>? source}) async {
     final editable = _fields.where((f) {
       final key = f['fieldname']?.toString() ?? '';
@@ -515,6 +596,32 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
       }
     }
 
+
+    Map<String, dynamic> dependencyValues() {
+      final values = <String, dynamic>{...?source};
+      for (final field in editable) {
+        final key = field['fieldname'].toString();
+        final type = field['fieldtype']?.toString() ?? '';
+        if (type == 'Check') values[key] = checks[key] == true ? 1 : 0;
+        else if (type == 'Select') values[key] = selections[key];
+        else if (type == 'Table' || type == 'Table MultiSelect') values[key] = tableValues[key];
+        else values[key] = controllers[key]?.text ?? source?[key];
+      }
+      return values;
+    }
+    bool visibleField(Map<String, dynamic> field) {
+      final rule = field['depends_on']?.toString() ?? '';
+      return rule.trim().isEmpty || _evaluateSimpleDocDependency(rule, dependencyValues());
+    }
+    bool requiredField(Map<String, dynamic> field) {
+      final rule = field['mandatory_depends_on']?.toString() ?? '';
+      return field['reqd'] == 1 || (rule.trim().isNotEmpty && _evaluateSimpleDocDependency(rule, dependencyValues()));
+    }
+    bool readOnlyField(Map<String, dynamic> field) {
+      final rule = field['read_only_depends_on']?.toString() ?? '';
+      return field['read_only'] == 1 || (rule.trim().isNotEmpty && _evaluateSimpleDocDependency(rule, dependencyValues()));
+    }
+
     String error = '';
     bool saving = false;
     final saved = await showDialog<bool>(
@@ -526,10 +633,13 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
           children: [
             if (error.isNotEmpty) Text(error, style: TextStyle(color: Theme.of(context).colorScheme.error)),
             for (final f in editable)
+              if (visibleField(f))
               Builder(builder: (context) {
                 final key = f['fieldname'].toString();
                 final type = f['fieldtype']?.toString() ?? '';
                 final label = f['label']?.toString() ?? key;
+                final requiredNow = requiredField(f);
+                final readOnlyNow = readOnlyField(f);
                 final options = (f['options']?.toString() ?? '').split('\n').where((v) => v.trim().isNotEmpty).toList();
                 if (type == 'Table' || type == 'Table MultiSelect') {
                   final count = tableValues[key]?.length ?? 0;
@@ -539,7 +649,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                       title: Text(label),
                       subtitle: Text('${count} صف'),
                       trailing: const Icon(Icons.edit_outlined),
-                      onTap: saving ? null : () async {
+                      onTap: saving || readOnlyNow ? null : () async {
                         final updated = await _editChildTable(f, tableValues[key] ?? <Map<String, dynamic>>[]);
                         if (updated != null) refresh(() => tableValues[key] = updated);
                       },
@@ -551,7 +661,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     contentPadding: EdgeInsets.zero,
                     title: Text(label),
                     value: checks[key] ?? false,
-                    onChanged: (value) => refresh(() => checks[key] = value ?? false),
+                    onChanged: saving || readOnlyNow ? null : (value) => refresh(() => checks[key] = value ?? false),
                   );
                 }
                 if (type == 'Select' && options.isNotEmpty) {
@@ -564,7 +674,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                       isExpanded: true,
                       decoration: InputDecoration(labelText: label),
                       items: items.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
-                      onChanged: (value) {
+                      onChanged: saving || readOnlyNow ? null : (value) {
                       clearDependentDynamicLinks(key);
                       refresh(() => selections[key] = value);
                     },
@@ -592,16 +702,14 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     onChanged: (_) {
                       final hasDynamicDependents = editable.any((field) =>
                         field['fieldtype'] == 'Dynamic Link' && field['options']?.toString() == key);
-                      if (hasDynamicDependents) {
-                        clearDependentDynamicLinks(key);
-                        refresh(() {});
-                      }
+                      if (hasDynamicDependents) clearDependentDynamicLinks(key);
+                      refresh(() {});
                     },
                     keyboardType: keyboard,
-                    readOnly: isDate || isDateTime,
+                    readOnly: isDate || isDateTime || readOnlyNow,
                     minLines: (type == 'Text' || type == 'Long Text') ? 3 : 1,
                     maxLines: (type == 'Text' || type == 'Long Text') ? 5 : 1,
-                    onTap: isDate || isDateTime ? () async {
+                    onTap: (isDate || isDateTime) && !readOnlyNow ? () async {
                       final initial = DateTime.tryParse(controller.text) ?? DateTime.now();
                       final date = await showDatePicker(
                         context: context,
@@ -623,18 +731,19 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                       controller.text = isDateTime
                         ? '${formattedDate} ${chosen.hour.toString().padLeft(2, '0')}:${chosen.minute.toString().padLeft(2, '0')}:00'
                         : formattedDate;
+                      refresh(() {});
                     } : null,
                     decoration: InputDecoration(
                       labelText: label,
-                      helperText: canPickLink ? 'اختر سجلاً موجوداً في ERPNext' : isDynamicLink ? 'حدد نوع المرجع أولاً' : f['reqd'] == 1 ? 'حقل إلزامي' : null,
+                      helperText: canPickLink ? 'اختر سجلاً موجوداً في ERPNext' : isDynamicLink ? 'حدد نوع المرجع أولاً' : requiredNow ? 'حقل إلزامي' : null,
                       suffixIcon: isDate
                         ? const Icon(Icons.calendar_today_outlined)
                         : canPickLink ? IconButton(
                             tooltip: 'اختيار سجل',
-                            onPressed: () async {
+                            onPressed: readOnlyNow ? null : () async {
                               final target = isLink ? f['options'].toString() : dynamicLinkTarget.trim();
                               final selected = await _pickLinkValue(target);
-                              if (selected != null) controller.text = selected;
+                              if (selected != null) { controller.text = selected; refresh(() {}); }
                             },
                             icon: const Icon(Icons.search),
                           ) : null,
@@ -654,17 +763,26 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 for (final f in editable) {
                   final key = f['fieldname'].toString();
                   final type = f['fieldtype']?.toString() ?? '';
+                  if (!visibleField(f) || readOnlyField(f)) continue;
+                  final requiredNow = requiredField(f);
                   if (type == 'Table' || type == 'Table MultiSelect') {
+                    if (requiredNow && (tableValues[key]?.isEmpty ?? true)) {
+                      throw FormatException('الحقل ' + (f['label']?.toString() ?? key) + ' مطلوب.');
+                    }
                     values[key] = tableValues[key] ?? <Map<String, dynamic>>[];
                     continue;
                   }
                   if (type == 'Check') {
-                    values[key] = checks[key] == true ? 1 : 0;
+                    final checked = checks[key] == true;
+                    if (requiredNow && !checked) {
+                      throw FormatException('الحقل ' + (f['label']?.toString() ?? key) + ' مطلوب.');
+                    }
+                    values[key] = checked ? 1 : 0;
                     continue;
                   }
                   if (type == 'Select') {
                     final selected = selections[key]?.trim() ?? '';
-                    if (f['reqd'] == 1 && selected.isEmpty) {
+                    if (requiredNow && selected.isEmpty) {
                       throw FormatException('الحقل ' + (f['label']?.toString() ?? key) + ' مطلوب.');
                     }
                     if (selected.isNotEmpty) values[key] = selected;
@@ -672,7 +790,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     continue;
                   }
                   final raw = controllers[key]!.text.trim();
-                  if (f['reqd'] == 1 && raw.isEmpty) throw FormatException('الحقل ' + (f['label']?.toString() ?? key) + ' مطلوب.');
+                  if (requiredNow && raw.isEmpty) throw FormatException('الحقل ' + (f['label']?.toString() ?? key) + ' مطلوب.');
                   if (raw.isEmpty) {
                     if (source != null && source.containsKey(key)) values[key] = null;
                     continue;
