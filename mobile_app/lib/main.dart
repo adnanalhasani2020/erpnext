@@ -890,18 +890,8 @@ class _MobileHomePageState extends State<MobileHomePage> {
         warehouses: _warehouses,
         stockBalances: _stockBalances,
         onOpenDocTypeDirectory: _openDocTypeDirectory,
-        onOpenTransactions: _openSalesOverview,
       );
     }
-  }
-
-  void _openSalesOverview() {
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => Scaffold(
-        appBar: AppBar(title: const Text('ملخص المعاملات')),
-        body: _buildSalesPage(),
-      ),
-    ));
   }
 
   Widget _guestDemoBanner() => const GuestDemoBanner();
