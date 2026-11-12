@@ -154,3 +154,8 @@ The signed-in dashboard no longer links to a combined Sales/Purchase/Customer/Su
 
 
 The standalone Sales Margin Analysis widget was removed from the mobile source after its only navigation entry was removed. It was a client-side estimate, not an ERPNext standard screen or report, and is therefore not counted as a supported mobile responsibility.
+
+
+## Workspace nested-link routing correction — 2026-11-12
+
+Opening a Workspace's own Flutter page now preserves the app-shell DocType route resolver for its nested DocType links and Number Card workspace shortcuts. A nested Sales Invoice, Customer, Supplier, Item, Account, Journal Entry, Bank Transaction, Payroll Entry or other specialized DocType therefore opens its existing dedicated Flutter workflow instead of silently falling back to the generic metadata editor. Report links remain on the native report screen; no web view is introduced.
