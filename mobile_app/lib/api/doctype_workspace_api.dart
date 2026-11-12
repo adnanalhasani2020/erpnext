@@ -258,12 +258,21 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
       List<List<dynamic>> filters,
     ) async {
       try {
-        return await fetchDocTypeRows(
-          doctype: relatedDoctype,
-          fields: fields,
-          filters: filters,
-          orderBy: 'creation desc',
-        );
+        final rows = <core.Map<String, dynamic>>[];
+        var start = 0;
+        while (true) {
+          final page = await fetchDocTypeRows(
+            doctype: relatedDoctype,
+            fields: fields,
+            filters: filters,
+            orderBy: 'creation desc',
+            start: start,
+          );
+          rows.addAll(page);
+          if (page.length < FrappeApi.pageSize) break;
+          start += page.length;
+        }
+        return rows;
       } catch (_) {
         // Some roles can read the document but not every timeline DocType.
         // Keep the other activity sections available under ERPNext permissions.
