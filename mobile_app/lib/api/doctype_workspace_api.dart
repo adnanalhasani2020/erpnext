@@ -342,7 +342,7 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
     }
     final attachments = await loadRelated(
       'File',
-      const ['file_name', 'file_url', 'file_size', 'is_private', 'creation'],
+      const ['file_name', 'file_url', 'file_size', 'content_type', 'is_private', 'creation'],
       <List<dynamic>>[
         ['attached_to_doctype', '=', doctype],
         ['attached_to_name', '=', name],
