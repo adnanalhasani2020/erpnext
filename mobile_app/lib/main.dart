@@ -30,9 +30,7 @@ import 'doctype_workspace_page.dart';
 import 'models/erp_models.dart';
 import 'login_page.dart';
 import 'dashboard_page.dart';
-import 'widgets/count_card.dart';
-import 'widgets/load_more_button.dart';
-import 'widgets/server_search_field.dart';
+import 'guest_reports_page.dart';
 import 'customer_ledger_sheet.dart';
 import 'supplier_ledger_sheet.dart';
 import 'customer_profile_editor_sheet.dart';
@@ -863,34 +861,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
   }
 
 
-  Widget _buildGuestReportsPage() => ListView(
-    padding: const EdgeInsets.all(18),
-    children: [
-      _guestDemoBanner(),
-      _pageHeader('التقارير', 'ملخصات مالية تجريبية محلية', Icons.assessment_outlined),
-      const SizedBox(height: 12),
-      const Card(child: ListTile(
-        leading: Icon(Icons.account_balance_wallet_outlined),
-        title: Text('ذمم العملاء التجريبية'),
-        subtitle: Text('25,000 ر.ي — مبلغ متبقٍ على فواتير عينة'),
-      )),
-      const Card(child: ListTile(
-        leading: Icon(Icons.local_shipping_outlined),
-        title: Text('ذمم الموردين التجريبية'),
-        subtitle: Text('150,000 ر.ي — مبلغ متبقٍ على فواتير عينة'),
-      )),
-      const Card(child: ListTile(
-        leading: Icon(Icons.bar_chart_outlined),
-        title: Text('تقرير الأرباح والخسائر'),
-        subtitle: Text('عرض توضيحي فقط؛ لا يمثل بيانات محاسبية حقيقية.'),
-      )),
-      const Card(child: ListTile(
-        leading: Icon(Icons.inventory_2_outlined),
-        title: Text('تقييم المخزون'),
-        subtitle: Text('القيم المعروضة عينات افتراضية بعملة الريال اليمني.'),
-      )),
-    ],
-  );
 
   Widget _buildSelectedPage() {
     switch (_selectedTab) {
@@ -898,7 +868,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       case 2: return _buildStockPage();
       case 3: return _buildWarehousesPage();
       case 4: return _buildSalesPage();
-      case 5: return _isGuest ? _buildGuestReportsPage() : FinancialReportsPage(api: _api, companies: _companies);
+      case 5: return _isGuest ? const GuestReportsPage() : FinancialReportsPage(api: _api, companies: _companies);
       default: return DashboardPage(
         user: _user,
         isGuest: _isGuest,
@@ -930,19 +900,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     IconButton(tooltip: 'تحديث البيانات', onPressed: _isGuest || _inventoryLoading ? null : _loadInventory, icon: const Icon(Icons.refresh)),
   ]);
 
-  Widget _errorCard(String message) => Card(
-    child: Padding(padding: const EdgeInsets.all(14), child: Text(message, style: TextStyle(color: Theme.of(context).colorScheme.error))),
-  );
-
-  Widget _guestDemoBanner() => Card(
-    color: Theme.of(context).colorScheme.tertiaryContainer,
-    child: const ListTile(
-      dense: true,
-      leading: Icon(Icons.science_outlined),
-      title: Text('بيانات تجريبية محلية'),
-      subtitle: Text('هذه سجلات وهمية للاستعراض فقط. لا يوجد اتصال بالخادم ولا يمكن حفظ معاملات حقيقية.'),
-    ),
-  );
+  Widget _guestDemoBanner() => const GuestDemoBanner();
 
   bool _requireServerAccess(String feature) {
     if (!_isGuest) return true;
