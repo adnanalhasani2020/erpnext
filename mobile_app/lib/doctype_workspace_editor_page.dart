@@ -854,6 +854,9 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     },
                     keyboardType: keyboard,
                     readOnly: isDate || isDateTime || isAttachment || readOnlyNow,
+                    obscureText: type == 'Password',
+                    autocorrect: type != 'Password',
+                    enableSuggestions: type != 'Password',
                     minLines: (type == 'Text' || type == 'Long Text') ? 3 : 1,
                     maxLines: (type == 'Text' || type == 'Long Text') ? 5 : 1,
                     onTap: isAttachment && !readOnlyNow
@@ -947,6 +950,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     continue;
                   }
                   final raw = controllers[key]!.text.trim();
+                  if (type == 'Password' && raw.isEmpty && source != null) continue;
                   final pendingAttachment = pendingAttachments[key];
                   if (requiredNow && raw.isEmpty && pendingAttachment != null && source == null) {
                     throw FormatException('لا يمكن إرفاق ملف إلزامي قبل إنشاء المستند في ERPNext؛ أنشئ المستند أولاً ثم أضف الملف من النموذج.');
