@@ -25,6 +25,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
   DateTime _to = DateTime.now();
   List<core.Map<String, dynamic>> _currencyTotals = const [];
   Map<String, List<core.Map<String, dynamic>>> _topCustomersByCurrency = const {};
+  Map<String, List<core.Map<String, dynamic>>> _monthlyTotalsByCurrency = const {};
   int _totalInvoices = 0;
   bool _loading = false;
   String? _error;
@@ -68,11 +69,23 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
       if (!mounted || generation != _requestGeneration) return;
       final rawTotals = summary['currency_totals'];
       final rawTop = summary['top_customers_by_currency'];
+      final rawMonthly = summary['monthly_totals_by_currency'];
       final top = <String, List<core.Map<String, dynamic>>>{};
+      final monthly = <String, List<core.Map<String, dynamic>>>{};
       if (rawTop is core.Map) {
         for (final entry in rawTop.entries) {
           if (entry.value is List) {
             top[entry.key.toString()] = (entry.value as List)
+                .whereType<core.Map<String, dynamic>>()
+                .map((row) => core.Map<String, dynamic>.from(row))
+                .toList(growable: false);
+          }
+        }
+      }
+      if (rawMonthly is core.Map) {
+        for (final entry in rawMonthly.entries) {
+          if (entry.value is List) {
+            monthly[entry.key.toString()] = (entry.value as List)
                 .whereType<core.Map<String, dynamic>>()
                 .map((row) => core.Map<String, dynamic>.from(row))
                 .toList(growable: false);
@@ -86,6 +99,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                 .toList(growable: false)
             : const [];
         _topCustomersByCurrency = top;
+        _monthlyTotalsByCurrency = monthly;
         _totalInvoices = int.tryParse(summary['total_invoices']?.toString() ?? '') ?? 0;
       });
     } catch (error) {
@@ -93,6 +107,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
       setState(() {
         _currencyTotals = const [];
         _topCustomersByCurrency = const {};
+        _monthlyTotalsByCurrency = const {};
         _totalInvoices = 0;
         _error = error.toString().replaceFirst('Exception: ', '');
       });
@@ -228,9 +243,54 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
                         children: [
                           Text(currency, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                           const SizedBox(height: 8),
-                          _line('إجمالي المبيعات', _number(data['total']).toStringAsFixed(2)),
-                          _line('المبالغ المستحقة', _number(data['outstanding']).toStringAsFixed(2)),
-                          _line('عدد الفواتير', data['invoice_count']?.toString() ?? '0'),
+                          _line('إجمالي فواتير البيع', _number(data['total']).toStringAsFixed(2)),
+                          _line('المرتجعات / الإشعارات الدائنة', _number(data['return_total']).toStringAsFixed(2)),
+                          _line('صافي المبيعات بعد المرتجعات', _number(data['net_total']).toStringAsFixed(2)),
+                          _line('المبالغ المستحقة على فواتير البيع', _number(data['outstanding']).toStringAsFixed(2)),
+                          _line('فواتير البيع', data['invoice_count']?.toString() ?? '0'),
+                          _line('فواتير المرتجعات', data['return_invoice_count']?.toString() ?? '0'),
+                        ],
+                      ),
+                    ),
+                  );
+                }),
+              const SizedBox(height: 12),
+              Text('الاتجاه الشهري للمبيعات حسب العملة', style: Theme.of(context).textTheme.titleMedium),
+              if (_monthlyTotalsByCurrency.isEmpty)
+                const Card(child: ListTile(title: Text('لا توجد بيانات شهرية للفترة المحددة.')))
+              else
+                ..._monthlyTotalsByCurrency.entries.map((group) {
+                  final rows = group.value;
+                  final maximum = rows.fold<double>(
+                    0,
+                    (value, row) => _number(row['net_total']).abs() > value
+                        ? _number(row['net_total']).abs() : value,
+                  );
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(group.key, style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
+                          const SizedBox(height: 8),
+                          ...rows.map((row) {
+                            final net = _number(row['net_total']);
+                            final ratio = maximum <= 0 ? 0.0 : (net.abs() / maximum).clamp(0.0, 1.0).toDouble();
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Text(row['month']?.toString() ?? ''),
+                                  LinearProgressIndicator(value: ratio),
+                                  _line('المبيعات', _number(row['total']).toStringAsFixed(2)),
+                                  _line('المرتجعات', _number(row['return_total']).toStringAsFixed(2)),
+                                  _line('الصافي', net.toStringAsFixed(2)),
+                                ],
+                              ),
+                            );
+                          }),
                         ],
                       ),
                     ),
@@ -261,7 +321,7 @@ class _SalesDashboardPageState extends State<SalesDashboardPage> {
               const Padding(
                 padding: EdgeInsets.only(top: 8),
                 child: Text(
-                  'المصدر: تجميعات خادمية من فواتير المبيعات المرحلة في ERPNext. لا تشمل المرتجعات، ولا يتم جمع عملات مختلفة معاً.',
+                  'المصدر: تجميعات خادمية من فواتير البيع والمرتجعات المرحلة في ERPNext. صافي المبيعات = إجمالي البيع ناقص قيمة المرتجعات. تبقى كل عملة مستقلة، وترتيب أعلى العملاء مبني على فواتير البيع قبل المرتجعات.',
                   style: TextStyle(fontSize: 12),
                 ),
               ),

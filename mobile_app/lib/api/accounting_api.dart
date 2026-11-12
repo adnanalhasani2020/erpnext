@@ -121,6 +121,7 @@ mixin AccountingApiMixin on _FrappeApiCore {
       required String company,
       int start = 0,
       String? search,
+      String? rootType,
       bool includeDisabled = false,
     }) async {
       final normalizedCompany = company.trim();
@@ -133,6 +134,7 @@ mixin AccountingApiMixin on _FrappeApiCore {
           'root_type', 'account_currency', 'company', 'is_group', 'disabled'],
         filters: [
           ['company', '=', normalizedCompany],
+          if (rootType != null && rootType.trim().isNotEmpty) ['root_type', '=', rootType.trim()],
           if (!includeDisabled) ['disabled', '=', 0],
         ],
         orFilters: query == null || query.isEmpty ? null : [
@@ -231,13 +233,42 @@ mixin AccountingApiMixin on _FrappeApiCore {
       return core.Map<String, dynamic>.from(saved);
     }
 
-  Future<List<core.Map<String, dynamic>>> fetchJournalEntryDrafts({required String company, int start = 0, String? search}) async {
+  Future<List<core.Map<String, dynamic>>> fetchJournalEntryDrafts({
+      required String company,
+      int start = 0,
+      String? search,
+      int? docStatus,
+      String? fromDate,
+      String? toDate,
+      String? voucherType,
+    }) async {
       final normalized = company.trim();
-      if (normalized.isEmpty) throw const FormatException('حدد الشركة أولاً.');
+      if (normalized.isEmpty || start < 0) throw const FormatException('حدد الشركة ونطاق التحميل الصحيح.');
+      String? validateDate(String? raw, String label) {
+        final value = raw?.trim() ?? '';
+        if (value.isEmpty) return null;
+        final parsed = DateTime.tryParse(value);
+        if (parsed == null || parsed.toIso8601String().substring(0, 10) != value) {
+          throw FormatException('$label غير صحيح. استخدم YYYY-MM-DD.');
+        }
+        return value;
+      }
+      final from = validateDate(fromDate, 'تاريخ البداية');
+      final to = validateDate(toDate, 'تاريخ النهاية');
+      if (from != null && to != null && from.compareTo(to) > 0) {
+        throw const FormatException('تاريخ بداية الفلتر يجب ألا يتجاوز تاريخ نهايته.');
+      }
       final query = search?.trim() ?? '';
+      final selectedVoucherType = voucherType?.trim() ?? '';
       final uri = FrappeApi.buildResourcePageUri(baseUrl: _baseUrl, resource: 'Journal Entry',
-        fields: const ['name', 'posting_date', 'company', 'total_debit', 'total_credit', 'user_remark', 'docstatus'],
-        filters: [['company', '=', normalized], ['docstatus', 'in', [0, 1]],],
+        fields: const ['name', 'posting_date', 'company', 'voucher_type', 'total_debit', 'total_credit', 'user_remark', 'docstatus'],
+        filters: [
+          ['company', '=', normalized],
+          if (docStatus == null) ['docstatus', 'in', [0, 1, 2]] else ['docstatus', '=', docStatus],
+          if (from != null) ['posting_date', '>=', from],
+          if (to != null) ['posting_date', '<=', to],
+          if (selectedVoucherType.isNotEmpty) ['voucher_type', '=', selectedVoucherType],
+        ],
         orFilters: query.isEmpty ? null : [['name', 'like', '%$query%'], ['user_remark', 'like', '%$query%']],
         orderBy: 'modified desc, name desc', start: start, pageLength: 50);
       final response = await _sendUri('GET', uri);
@@ -245,8 +276,17 @@ mixin AccountingApiMixin on _FrappeApiCore {
       if (response.statusCode < 200 || response.statusCode >= 300) throw Exception(_message(data, 'تعذر تحميل سجل القيود اليومية.'));
       final rows = data['data'];
       if (rows is! List) throw Exception('استجابة القيود اليومية غير متوقعة.');
-      return rows.whereType<core.Map<String, dynamic>>().where((row) => row['company'] == normalized && (row['docstatus'] == 0 || row['docstatus'] == 1))
-        .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+      return rows.whereType<core.Map<String, dynamic>>().where((row) {
+        if (row['company'] != normalized) return false;
+        if (docStatus == null
+            ? !(row['docstatus'] == 0 || row['docstatus'] == 1 || row['docstatus'] == 2)
+            : row['docstatus'] != docStatus) return false;
+        final postingDate = row['posting_date']?.toString() ?? '';
+        if (from != null && postingDate.compareTo(from) < 0) return false;
+        if (to != null && postingDate.compareTo(to) > 0) return false;
+        if (selectedVoucherType.isNotEmpty && row['voucher_type'] != selectedVoucherType) return false;
+        return true;
+      }).map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
     }
 
   Future<core.Map<String, dynamic>> fetchJournalEntryDocument(String name) async {

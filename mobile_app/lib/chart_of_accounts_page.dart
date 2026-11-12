@@ -18,6 +18,8 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
   List<core.Map<String, dynamic>> rows = [];
   bool loading = false, loadingMore = false, hasMore = false;
   bool includeDisabled = false;
+  String? _rootType;
+  final Set<String> _collapsedGroups = <String>{};
   int offset = 0;
   String? error;
 
@@ -39,7 +41,7 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
     try {
       final page = await widget.api.fetchAccountingAccounts(
         company: company!, search: search.text, start: more ? offset : 0,
-        includeDisabled: includeDisabled,
+        rootType: _rootType, includeDisabled: includeDisabled,
       );
       if (!mounted) return;
       setState(() {
@@ -146,6 +148,47 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
     }
   }
 
+  List<core.Map<String, dynamic>> get _visibleAccounts {
+    final byName = <String, core.Map<String, dynamic>>{
+      for (final row in rows)
+        if (row['name']?.toString().isNotEmpty == true)
+          row['name'].toString(): row,
+    };
+    return rows.where((row) {
+      var parent = row['parent_account']?.toString() ?? '';
+      final visited = <String>{};
+      while (parent.isNotEmpty && visited.add(parent)) {
+        if (_collapsedGroups.contains(parent)) return false;
+        parent = byName[parent]?['parent_account']?.toString() ?? '';
+      }
+      return true;
+    }).toList(growable: false);
+  }
+
+  void _toggleGroup(String name) {
+    setState(() {
+      if (!_collapsedGroups.add(name)) _collapsedGroups.remove(name);
+    });
+  }
+
+  int _accountDepth(core.Map<String, dynamic> row) {
+    final byName = <String, core.Map<String, dynamic>>{
+      for (final item in rows)
+        if (item['name']?.toString().isNotEmpty == true)
+          item['name'].toString(): item,
+    };
+    var parent = row['parent_account']?.toString() ?? '';
+    var depth = 0;
+    final visited = <String>{row['name']?.toString() ?? ''};
+    while (parent.isNotEmpty && depth < 12 && visited.add(parent)) {
+      final parentRow = byName[parent];
+      if (parentRow == null) break;
+      depth++;
+      parent = parentRow['parent_account']?.toString() ?? '';
+    }
+    return depth;
+  }
+
   void showDetails(core.Map<String, dynamic> row) {
     showModalBottomSheet<void>(
       context: context, showDragHandle: true, useSafeArea: true,
@@ -245,13 +288,33 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
       )),
       Padding(padding: const EdgeInsets.fromLTRB(12, 0, 12, 8), child: TextField(
         controller: search, enabled: !loading && !loadingMore, textInputAction: TextInputAction.search,
-        onSubmitted: (_) => load(),
+        onSubmitted: (_) { setState(() { rows = []; offset = 0; hasMore = false; }); load(); },
         decoration: InputDecoration(
           labelText: 'بحث باسم الحساب أو رمزه أو نوعه',
           prefixIcon: const Icon(Icons.search),
-          suffixIcon: IconButton(onPressed: loading || loadingMore ? null : () => load(), icon: const Icon(Icons.arrow_forward)),
+          suffixIcon: IconButton(onPressed: loading || loadingMore ? null : () { setState(() { rows = []; offset = 0; hasMore = false; }); load(); }, icon: const Icon(Icons.arrow_forward)),
         ),
       )),
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: DropdownButtonFormField<String?>(
+          initialValue: _rootType,
+          isExpanded: true,
+          decoration: const InputDecoration(labelText: 'التصنيف الرئيسي'),
+          items: const [
+            DropdownMenuItem<String?>(value: null, child: Text('كل التصنيفات')),
+            DropdownMenuItem<String?>(value: 'Asset', child: Text('الأصول')),
+            DropdownMenuItem<String?>(value: 'Liability', child: Text('الالتزامات')),
+            DropdownMenuItem<String?>(value: 'Equity', child: Text('حقوق الملكية')),
+            DropdownMenuItem<String?>(value: 'Income', child: Text('الإيرادات')),
+            DropdownMenuItem<String?>(value: 'Expense', child: Text('المصروفات')),
+          ],
+          onChanged: loading || loadingMore ? null : (value) {
+            setState(() { _rootType = value; rows = []; offset = 0; hasMore = false; });
+            load();
+          },
+        ),
+      ),
       SwitchListTile(
         dense: true,
         title: const Text('عرض الحسابات المعطلة'),
@@ -271,25 +334,39 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
       Expanded(child: rows.isEmpty && !loading
         ? Center(child: Text(company == null ? 'لا توجد شركة متاحة للمستخدم.' : 'لا توجد حسابات ظاهرة أو لا تتوفر صلاحية القراءة.'))
         : ListView.separated(
-          itemCount: rows.length,
+          itemCount: _visibleAccounts.length,
           separatorBuilder: (_, __) => const Divider(height: 1),
           itemBuilder: (context, index) {
-            final row = rows[index];
+            final row = _visibleAccounts[index];
             final isGroup = row['is_group'] == 1 || row['is_group'] == true;
-            return ListTile(
-              leading: Icon(isGroup ? Icons.account_tree_outlined : Icons.account_balance_wallet_outlined),
-              title: Text(row['account_name']?.toString() ?? row['name']?.toString() ?? ''),
-              subtitle: Text([
-                row['name']?.toString() ?? '',
-                row['account_type']?.toString() ?? row['root_type']?.toString() ?? '',
-                row['parent_account']?.toString() ?? '',
-              ].where((v) => v.isNotEmpty).join(' • ')),
-              trailing: Column(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-                Text(row['account_currency']?.toString() ?? ''),
-                if (row['disabled'] == 1 || row['disabled'] == true)
-                  const Text('معطل', style: TextStyle(fontSize: 11, color: Colors.red)),
-              ]),
-              onTap: () => showDetails(row),
+            final accountName = row['name']?.toString() ?? '';
+            final isCollapsed = _collapsedGroups.contains(accountName);
+            return Padding(
+              padding: EdgeInsetsDirectional.only(start: _accountDepth(row) * 16.0),
+              child: ListTile(
+                leading: Icon(isGroup ? Icons.account_tree_outlined : Icons.account_balance_wallet_outlined),
+                title: Text(row['account_name']?.toString() ?? row['name']?.toString() ?? ''),
+                subtitle: Text([
+                  row['name']?.toString() ?? '',
+                  row['account_type']?.toString() ?? row['root_type']?.toString() ?? '',
+                  row['parent_account']?.toString() ?? '',
+                ].where((v) => v.isNotEmpty).join(' • ')),
+                trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Column(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
+                    Text(row['account_currency']?.toString() ?? ''),
+                    if (row['disabled'] == 1 || row['disabled'] == true)
+                      const Text('معطل', style: TextStyle(fontSize: 11, color: Colors.red)),
+                  ]),
+                  if (isGroup)
+                    IconButton(
+                      tooltip: isCollapsed ? 'توسيع المجموعة' : 'طي المجموعة',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: accountName.isEmpty ? null : () => _toggleGroup(accountName),
+                      icon: Icon(isCollapsed ? Icons.chevron_right : Icons.expand_more),
+                    ),
+                ]),
+                onTap: () => showDetails(row),
+              ),
             );
           },
         ),

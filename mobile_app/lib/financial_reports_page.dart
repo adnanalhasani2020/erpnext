@@ -18,10 +18,12 @@ class FinancialReportsPage extends StatefulWidget {
     super.key,
     required this.api,
     required this.companies,
+    this.initialReportName,
   });
 
   final FrappeApi api;
   final List<ErpCompany> companies;
+  final String? initialReportName;
 
   @override
   State<FinancialReportsPage> createState() => _FinancialReportsPageState();
@@ -55,7 +57,12 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
   @override
   void initState() {
     super.initState();
-    _load();
+    if (widget.initialReportName != null) {
+      _showStandardReport = true;
+      _standardReportName = widget.initialReportName!;
+    } else {
+      _load();
+    }
   }
 
   @override

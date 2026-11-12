@@ -92,6 +92,7 @@ mixin ReportsApiMixin on _FrappeApiCore {
         required List<dynamic> fields,
         required String groupBy,
         required String orderBy,
+        List<List<dynamic>>? filtersOverride,
         int start = 0,
         int pageLength = 500,
       }) async {
@@ -99,7 +100,7 @@ mixin ReportsApiMixin on _FrappeApiCore {
           queryParameters: {
             'doctype': 'Sales Invoice',
             'fields': jsonEncode(fields),
-            'filters': jsonEncode(filters),
+            'filters': jsonEncode(filtersOverride ?? filters),
             'group_by': groupBy,
             'order_by': orderBy,
             'limit_start': start.toString(),
@@ -128,7 +129,7 @@ mixin ReportsApiMixin on _FrappeApiCore {
         orderBy: 'currency asc',
         pageLength: 1000,
       );
-      final currencyTotals = <core.Map<String, dynamic>>[];
+      final totalsByCurrency = <String, core.Map<String, dynamic>>{};
       var invoiceCount = 0;
       for (final row in currencyRows) {
         final currency = row['currency']?.toString().trim() ?? '';
@@ -141,13 +142,132 @@ mixin ReportsApiMixin on _FrappeApiCore {
           throw const FormatException('أعاد ERPNext إجماليات مبيعات أو أرصدة غير صالحة.');
         }
         invoiceCount += count;
-        currencyTotals.add({
+        totalsByCurrency[currency] = {
           'currency': currency,
           'total': total,
           'outstanding': outstanding,
           'invoice_count': count,
-        });
+          'return_total': 0.0,
+          'return_invoice_count': 0,
+          'net_total': total,
+        };
       }
+      final returnRows = await groupedRows(
+        fields: const [
+          'currency',
+          {'SUM': 'grand_total', 'as': 'total'},
+          {'COUNT': 'name', 'as': 'invoice_count'},
+        ],
+        groupBy: 'currency',
+        orderBy: 'currency asc',
+        filtersOverride: [
+          ['docstatus', '=', 1],
+          ['is_return', '=', 1],
+          ['company', '=', normalizedCompany],
+          ['posting_date', 'between', [fromDate, toDate]],
+        ],
+        pageLength: 1000,
+      );
+      for (final row in returnRows) {
+        final currency = row['currency']?.toString().trim() ?? '';
+        final rawTotal = double.tryParse(row['total']?.toString() ?? '');
+        final count = int.tryParse(row['invoice_count']?.toString() ?? '');
+        if (currency.isEmpty || rawTotal == null || !rawTotal.isFinite ||
+            count == null || count < 0) {
+          throw const FormatException('أعاد ERPNext إجماليات مرتجعات غير صالحة.');
+        }
+        final returnTotal = rawTotal.abs();
+        final entry = totalsByCurrency.putIfAbsent(currency, () => {
+          'currency': currency,
+          'total': 0.0,
+          'outstanding': 0.0,
+          'invoice_count': 0,
+          'return_total': 0.0,
+          'return_invoice_count': 0,
+          'net_total': 0.0,
+        });
+        entry['return_total'] = returnTotal;
+        entry['return_invoice_count'] = count;
+        entry['net_total'] = (entry['total'] as double) - returnTotal;
+      }
+      final currencyTotals = totalsByCurrency.values.toList()
+        ..sort((a, b) => (a['currency'] as String).compareTo(b['currency'] as String));
+
+      Future<List<core.Map<String, dynamic>>> fetchDailyTotals({
+        required List<List<dynamic>> dailyFilters,
+      }) async {
+        final result = <core.Map<String, dynamic>>[];
+        var offset = 0;
+        while (true) {
+          final page = await groupedRows(
+            fields: const [
+              'posting_date',
+              'currency',
+              {'SUM': 'grand_total', 'as': 'total'},
+              {'COUNT': 'name', 'as': 'invoice_count'},
+            ],
+            groupBy: 'posting_date, currency',
+            orderBy: 'posting_date asc, currency asc',
+            filtersOverride: dailyFilters,
+            start: offset,
+            pageLength: 500,
+          );
+          result.addAll(page);
+          if (result.length > 10000) {
+            throw const FormatException('تجاوزت بيانات الاتجاه الشهري 10000 مجموعة؛ قلّص فترة التقرير.');
+          }
+          if (page.length < 500) break;
+          offset += page.length;
+        }
+        return result;
+      }
+
+      final dailySales = await fetchDailyTotals(dailyFilters: filters);
+      final dailyReturns = await fetchDailyTotals(dailyFilters: [
+        ['docstatus', '=', 1],
+        ['is_return', '=', 1],
+        ['company', '=', normalizedCompany],
+        ['posting_date', 'between', [fromDate, toDate]],
+      ]);
+      final monthlyByCurrency = <String, Map<String, core.Map<String, dynamic>>>{};
+      void addMonthlyRows(List<core.Map<String, dynamic>> rows, {required bool isReturn}) {
+        for (final row in rows) {
+          final postingDate = row['posting_date']?.toString() ?? '';
+          final currency = row['currency']?.toString().trim() ?? '';
+          final rawAmount = double.tryParse(row['total']?.toString() ?? '');
+          final count = int.tryParse(row['invoice_count']?.toString() ?? '');
+          if (postingDate.length < 7 || DateTime.tryParse(postingDate) == null ||
+              currency.isEmpty || rawAmount == null || !rawAmount.isFinite ||
+              count == null || count < 0) {
+            throw const FormatException('أعاد ERPNext تجميعاً يومياً غير صالح للوحة المبيعات.');
+          }
+          final month = postingDate.substring(0, 7);
+          final months = monthlyByCurrency.putIfAbsent(currency, () => {});
+          final entry = months.putIfAbsent(month, () => {
+            'month': month,
+            'total': 0.0,
+            'return_total': 0.0,
+            'net_total': 0.0,
+            'invoice_count': 0,
+            'return_invoice_count': 0,
+          });
+          if (isReturn) {
+            entry['return_total'] = (entry['return_total'] as double) + rawAmount.abs();
+            entry['return_invoice_count'] = (entry['return_invoice_count'] as int) + count;
+          } else {
+            entry['total'] = (entry['total'] as double) + rawAmount;
+            entry['invoice_count'] = (entry['invoice_count'] as int) + count;
+          }
+          entry['net_total'] = (entry['total'] as double) - (entry['return_total'] as double);
+        }
+      }
+      addMonthlyRows(dailySales, isReturn: false);
+      addMonthlyRows(dailyReturns, isReturn: true);
+      final monthlyTotalsByCurrency = <String, List<core.Map<String, dynamic>>>{
+        for (final entry in monthlyByCurrency.entries)
+          entry.key: entry.value.values.toList()
+            ..sort((a, b) => (a['month'] as String).compareTo(b['month'] as String)),
+      };
 
       final customerRows = <core.Map<String, dynamic>>[];
       var customerOffset = 0;
@@ -196,6 +316,7 @@ mixin ReportsApiMixin on _FrappeApiCore {
           for (final entry in customersByCurrency.entries)
             entry.key: entry.value.take(5).toList(growable: false),
         },
+        'monthly_totals_by_currency': monthlyTotalsByCurrency,
         'total_invoices': invoiceCount,
       };
     }

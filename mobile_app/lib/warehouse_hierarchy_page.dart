@@ -24,6 +24,7 @@ class _WarehouseHierarchyPageState extends State<WarehouseHierarchyPage> {
   String _query = '';
   String? _company;
   final Set<String> _selected = <String>{};
+  final Set<String> _collapsedGroups = <String>{};
   List<ErpCompany> _companies = const [];
 
   @override
@@ -35,7 +36,7 @@ class _WarehouseHierarchyPageState extends State<WarehouseHierarchyPage> {
   Future<void> _load({bool more = false, String? search}) async {
     if (_loading || _loadingMore || (more && !_hasMore)) return;
     setState(() {
-      if (more) { _loadingMore = true; } else { _loading = true; _error = null; _offset = 0; _hasMore = false; _selected.clear(); }
+      if (more) { _loadingMore = true; } else { _loading = true; _error = null; _offset = 0; _hasMore = false; _selected.clear(); _collapsedGroups.clear(); }
     });
     try {
       if (_companies.isEmpty) {
@@ -262,7 +263,7 @@ class _WarehouseHierarchyPageState extends State<WarehouseHierarchyPage> {
                 const DropdownMenuItem<String>(value: null, child: Text('كل الشركات')),
                 ...companies.map((company) => DropdownMenuItem(value: company, child: Text(company))),
               ],
-              onChanged: (value) => setState(() { _company = value; _selected.clear(); }),
+              onChanged: (value) => setState(() { _company = value; _selected.clear(); _collapsedGroups.clear(); }),
             ),
             const SizedBox(height: 8),
             TextField(
@@ -324,6 +325,24 @@ class _WarehouseHierarchyPageState extends State<WarehouseHierarchyPage> {
     );
   }
 
+  void _markDescendantsVisited(
+      String parentId,
+      core.Map<String, List<core.Map<String, dynamic>>> byParent,
+      Set<String> visited,
+    ) {
+    for (final child in byParent[parentId] ?? const <core.Map<String, dynamic>>[]) {
+      final childId = child['name']?.toString() ?? '';
+      if (childId.isEmpty || !visited.add(childId)) continue;
+      _markDescendantsVisited(childId, byParent, visited);
+    }
+  }
+
+  void _toggleGroup(String name) {
+    setState(() {
+      if (!_collapsedGroups.add(name)) _collapsedGroups.remove(name);
+    });
+  }
+
   Widget _node(core.Map<String, dynamic> row,
       core.Map<String, List<core.Map<String, dynamic>>> byParent,
       Set<String> visited, int depth) {
@@ -331,6 +350,8 @@ class _WarehouseHierarchyPageState extends State<WarehouseHierarchyPage> {
     if (id.isEmpty || !visited.add(id)) return const SizedBox.shrink();
     final children = byParent[id] ?? const <core.Map<String, dynamic>>[];
     final isGroup = row['is_group'] == 1 || row['is_group'] == true;
+    final isCollapsed = _collapsedGroups.contains(id);
+    if (isCollapsed) _markDescendantsVisited(id, byParent, visited);
     return Padding(
       padding: EdgeInsetsDirectional.only(start: depth * 16.0),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -341,10 +362,19 @@ class _WarehouseHierarchyPageState extends State<WarehouseHierarchyPage> {
             leading: Row(mainAxisSize: MainAxisSize.min, children: [Checkbox(value: _selected.contains(id), onChanged: (checked) => setState(() { if (checked == true) { _selected.add(id); } else { _selected.remove(id); } })), Icon(isGroup ? Icons.folder_outlined : Icons.warehouse_outlined)]),
             title: Text((row['warehouse_name'] ?? id).toString()),
             subtitle: Text('$id • ${row['company'] ?? 'شركة غير محددة'}${row['disabled'] == 1 || row['disabled'] == true ? ' • معطل' : ''}'),
-            trailing: Text(isGroup ? '${children.length} فرعي' : 'مخزن'),
+            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+              Text(isGroup ? '${children.length} فرعي' : 'مخزن'),
+              if (isGroup)
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: isCollapsed ? 'توسيع المجموعة' : 'طي المجموعة',
+                  onPressed: () => _toggleGroup(id),
+                  icon: Icon(isCollapsed ? Icons.chevron_right : Icons.expand_more),
+                ),
+            ]),
           ),
         ),
-        ...children.map((child) => _node(child, byParent, visited, depth + 1)),
+        if (!isCollapsed) ...children.map((child) => _node(child, byParent, visited, depth + 1)),
       ]),
     );
   }

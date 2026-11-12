@@ -134,4 +134,35 @@ void main() {
       await server.close(force: true);
     }
   });
+  testWidgets('workspace Report link opens the requested standard report preselected', (tester) async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    final requestedPaths = <String>[];
+    server.listen((request) async {
+      requestedPaths.add(request.uri.path);
+      request.response.statusCode = HttpStatus.notFound;
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'message': 'Unexpected request'}));
+      await request.response.close();
+    });
+    final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      await tester.pumpWidget(MaterialApp(
+        home: Material(
+          child: FinancialReportsPage(
+            api: api,
+            companies: const [ErpCompany(name: 'Company A', defaultCurrency: 'YER')],
+            initialReportName: 'Stock Ledger',
+          ),
+        ),
+      ));
+      await tester.pump();
+      expect(find.text('القوائم المالية'), findsOneWidget);
+      expect(find.text('دفتر حركة المخزون'), findsOneWidget);
+      expect(requestedPaths, isEmpty);
+    } finally {
+      api.dispose();
+      await server.close(force: true);
+    }
+  });
+
 }

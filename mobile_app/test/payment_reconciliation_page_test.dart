@@ -15,9 +15,15 @@ void main() {
   testWidgets('editing reconciliation filters invalidates allocations and successful reconcile clears them', (tester) async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     var reconcileCalls = 0;
+    int? invoiceLimitSent;
+    int? paymentLimitSent;
+    double? reconciledAllocationAmount;
     server.listen((request) async {
       request.response.headers.contentType = ContentType.json;
-      if (request.method == 'GET' &&
+      if (request.method == 'POST' &&
+          request.uri.pathSegments.join('/').endsWith('/payment_reconciliation.get_queries_for_dimension_filters')) {
+        request.response.write(jsonEncode({'message': []}));
+      } else if (request.method == 'GET' &&
           request.uri.pathSegments.length == 3 &&
           request.uri.pathSegments[2] == 'Account') {
         request.response.write(jsonEncode({
@@ -34,6 +40,8 @@ void main() {
         final method = body['method'] as String;
         final document = jsonDecode(body['docs'] as String) as core.Map<String, dynamic>;
         if (method == 'get_unreconciled_entries') {
+          invoiceLimitSent = document['invoice_limit'] as int?;
+          paymentLimitSent = document['payment_limit'] as int?;
           document['invoices'] = [{
             'invoice_type': 'Sales Invoice',
             'invoice_number': 'SINV-1',
@@ -57,8 +65,16 @@ void main() {
             'allocated_amount': 75,
             'currency': 'YER',
           }];
+        } else if (method == 'calculate_difference_on_allocation_change') {
+          final args = body['args'] as core.Map<String, dynamic>;
+          expect(args['allocated_amount'], 50);
+          request.response.write(jsonEncode({'docs': [document], 'message': 0}));
+          await request.response.close();
+          return;
         } else if (method == 'reconcile') {
           reconcileCalls++;
+          final allocation = document['allocation'] as List;
+          reconciledAllocationAmount = (allocation.first as core.Map)['allocated_amount'] as double;
         } else {
           fail('Unexpected method: $method');
         }
@@ -84,9 +100,28 @@ void main() {
       await tester.pumpAndSettle();
 
       final partyField = find.byType(TextField).first;
+      final limits = find.byType(DropdownButtonFormField<int>);
+      expect(limits, findsNWidgets(2));
+      await tester.tap(limits.at(0));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('500').last);
+      await tester.pumpAndSettle();
+      await tester.tap(limits.at(1));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('500').last);
+      await tester.pumpAndSettle();
       await tester.enterText(partyField, 'CUS-1');
       await tester.tap(find.text('جلب الفواتير والمدفوعات غير المسواة'));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('معاينة التوزيع التلقائي حسب الأقدمية'));
+      await tester.pumpAndSettle();
+      expect(find.text('معاينة التخصيصات (1)'), findsOneWidget);
+      expect(find.text('100.00'), findsNWidgets(2));
+      expect(find.text('75.00'), findsNWidgets(2));
+
+      await tester.tap(find.byTooltip('حذف هذا التخصيص من المعاينة'));
+      await tester.pumpAndSettle();
+      expect(find.text('معاينة التخصيصات (1)'), findsNothing);
       await tester.tap(find.text('معاينة التوزيع التلقائي حسب الأقدمية'));
       await tester.pumpAndSettle();
       expect(find.text('معاينة التخصيصات (1)'), findsOneWidget);
@@ -100,12 +135,20 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('معاينة التوزيع التلقائي حسب الأقدمية'));
       await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip('تعديل مبلغ التخصيص'));
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextFormField).first, '50');
+      await tester.tap(find.text('حفظ التخصيص'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('تأكيد التخصيص وترحيل التسوية'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('تأكيد التسوية'));
       await tester.pumpAndSettle();
 
+      expect(invoiceLimitSent, 500);
+      expect(paymentLimitSent, 500);
       expect(reconcileCalls, 1);
+      expect(reconciledAllocationAmount, 50.0);
       expect(find.text('معاينة التخصيصات (1)'), findsNothing);
       expect(find.text('تأكيد التخصيص وترحيل التسوية'), findsNothing);
       expect(find.textContaining('أكد ERPNext تنفيذ التسوية'), findsOneWidget);

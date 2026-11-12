@@ -12,6 +12,38 @@ void main() {
   tearDown(() => api.dispose());
 
 
+  test('journal entry history applies posting-date and voucher-type filters server-side', () async {
+    final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+    server.listen((request) async {
+      expect(request.method, 'GET');
+      expect(request.uri.pathSegments.last, 'Journal Entry');
+      final filters = jsonDecode(request.uri.queryParameters['filters']!) as List;
+      expect(filters.any((row) => jsonEncode(row) == jsonEncode(['posting_date', '>=', '2026-01-01'])), isTrue);
+      expect(filters.any((row) => jsonEncode(row) == jsonEncode(['posting_date', '<=', '2026-01-31'])), isTrue);
+      expect(filters.any((row) => jsonEncode(row) == jsonEncode(['voucher_type', '=', 'Bank Entry'])), isTrue);
+      request.response.headers.contentType = ContentType.json;
+      request.response.write(jsonEncode({'data': [{
+        'name': 'JV-FILTER-1', 'company': 'Company A',
+        'posting_date': '2026-01-15', 'voucher_type': 'Bank Entry',
+        'docstatus': 1, 'total_debit': 10, 'total_credit': 10,
+      }]}));
+      await request.response.close();
+    });
+    final client = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+    try {
+      final rows = await client.fetchJournalEntryDrafts(
+        company: 'Company A',
+        fromDate: '2026-01-01',
+        toDate: '2026-01-31',
+        voucherType: 'Bank Entry',
+      );
+      expect(rows.single['name'], 'JV-FILTER-1');
+    } finally {
+      client.dispose();
+      await server.close(force: true);
+    }
+  });
+
   test('creates a balanced multi-currency Journal Entry using base-currency totals', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     core.Map<String, dynamic>? submittedPayload;

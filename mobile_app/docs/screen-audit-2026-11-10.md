@@ -85,3 +85,25 @@ A passing unit/widget test or APK build does not replace live ERPNext integratio
 
 
 - CI follow-up for head `075cc6887009348613e89b2fafea37e7c2276a1e`: Documentation Required completed successfully. Android APK build and PR checks were triggered but had not completed when this note was written. No live ERPNext/HRMS acceptance environment was available.
+
+## One-to-one screen parity follow-up — 2026-11-11
+
+The dedicated DocType workspace implementation is a foundation for separate mobile routes, not proof that all ERPNext Desk screens are covered. The following source changes were added on `feature/flutter-one-to-one-screen-parity`:
+
+- Standard filters are no longer capped to the first eight metadata fields in the DocType screen.
+- Each standard filter now exposes a field-appropriate operator selector (text/link matching and numeric/date comparisons) and a clear-all action.
+- DocType detail views now expand child-table fields into individual rows and use the child DocType metadata for field labels when the current user can read that metadata.
+- Link fields use a server-backed DocType picker; Select and Check fields use appropriate native controls; Date fields use a date picker.
+- Workflow actions continue to be fetched from ERPNext and checked again by the server before application.
+
+### Explicit parity gaps — do not mark complete
+
+- ERPNext Workspaces also contain non-DocType links (Reports, Pages, Dashboards, shortcuts and other link types). The current directory filters to DocType links; dedicated routes for every other link type remain required.
+- The generic DocType editor now supports native add/edit/delete child-row workflows for Table and Table MultiSelect fields, using the child DocType metadata and preserving existing row properties. Nested child tables, dependency-aware child fields, conditional visibility and all specialized child-row actions still require additional implementation.
+- Attachments, comments, communications, activity timeline, document sharing, assignment, tags, print/ PDF, export, list-view bulk actions, saved filters, sorting controls and every DocType-specific action still require a per-screen inventory and implementation where the web screen exposes them.
+- Standard metadata filters are not equivalent to every ERPNext List View filter, custom filter, report filter or workspace shortcut. Those must be captured separately for each installed module and version.
+- The directory currently derives visible entries from Workspace metadata accessible to the logged-in user. A server/site inventory is still needed to discover hidden, permission-restricted and module-specific screens without bypassing permissions.
+- No live version-matched ERPNext/HRMS site was available for this change. Dynamic metadata, field dependencies, custom fields, permissions, workflow actions and server-side business rules remain unverified against a real site.
+- Flutter analysis, focused widget/API tests and Android APK build must pass on the latest branch head; CI completion is pending. Live-site acceptance is still mandatory after CI.
+
+Acceptance rule: a DocType route is only one row in the parity matrix. A screen is complete only when its corresponding ERPNext Web workspace/list/form/report has been inventoried and every responsibility, field, filter, action, detail section and lifecycle transition has a matching mobile implementation or a documented server-enforced reason it cannot be exposed.

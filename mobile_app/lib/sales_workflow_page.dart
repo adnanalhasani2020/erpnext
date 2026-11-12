@@ -43,6 +43,8 @@ class SalesWorkflowPage extends StatefulWidget {
     required this.warehouses,
     required this.onChanged,
     required this.onSalesInvoiceDraftCreated,
+    this.initialDoctype,
+    this.standalone = false,
   });
 
   final FrappeApi api;
@@ -52,6 +54,8 @@ class SalesWorkflowPage extends StatefulWidget {
   final List<ErpWarehouse> warehouses;
   final VoidCallback onChanged;
   final ValueChanged<core.Map<String, dynamic>> onSalesInvoiceDraftCreated;
+  final String? initialDoctype;
+  final bool standalone;
 
   @override
   State<SalesWorkflowPage> createState() => _SalesWorkflowPageState();
@@ -76,6 +80,8 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
   @override
   void initState() {
     super.initState();
+    final initial = widget.initialDoctype;
+    if (initial != null && _types.contains(initial)) _tab = _types.indexOf(initial);
     _load(reset: true);
   }
 
@@ -404,9 +410,9 @@ class _SalesWorkflowPageState extends State<SalesWorkflowPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('دورة المبيعات')),
+      appBar: AppBar(title: Text(widget.standalone ? _label : 'دورة المبيعات')),
       body: Column(children: [
-        SingleChildScrollView(
+        if (!widget.standalone) SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.all(10),
           child: Row(children: List.generate(_types.length, (i) => Padding(

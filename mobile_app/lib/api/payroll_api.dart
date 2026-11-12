@@ -47,6 +47,8 @@ mixin PayrollApiMixin on _FrappeApiCore {
   Future<List<core.Map<String, dynamic>>> fetchPayrollEntries({
       required String company,
       int start = 0,
+      String? search,
+      int? docStatus,
     }) async {
       final normalizedCompany = company.trim();
       if (normalizedCompany.isEmpty) throw const FormatException('حدد الشركة لعرض دورات الرواتب.');
@@ -58,7 +60,13 @@ mixin PayrollApiMixin on _FrappeApiCore {
           'payroll_frequency', 'status', 'docstatus', 'number_of_employees',
           'salary_slips_created', 'salary_slips_submitted', 'currency',
         ],
-        filters: [['company', '=', normalizedCompany]],
+        filters: [
+          ['company', '=', normalizedCompany],
+          if (docStatus != null) ['docstatus', '=', docStatus],
+        ],
+        orFilters: (search?.trim().isNotEmpty ?? false)
+            ? [['name', 'like', '%${search!.trim()}%']]
+            : null,
         orderBy: 'modified desc, name desc',
         start: start,
         pageLength: 50,
@@ -70,8 +78,11 @@ mixin PayrollApiMixin on _FrappeApiCore {
       }
       final rows = data['data'];
       if (rows is! List) throw const FormatException('استجابة دورات الرواتب غير متوقعة.');
+      final query = search?.trim() ?? '';
       return rows.whereType<core.Map<String, dynamic>>()
-          .where((row) => row['company'] == normalizedCompany)
+          .where((row) => row['company'] == normalizedCompany &&
+              (docStatus == null || row['docstatus'] == docStatus) &&
+              (query.isEmpty || (row['name']?.toString().toLowerCase().contains(query.toLowerCase()) ?? false)))
           .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
     }
 

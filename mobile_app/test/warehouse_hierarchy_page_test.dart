@@ -46,6 +46,23 @@ class _WarehouseTestApi extends FrappeApi {
 }
 
 void main() {
+  testWidgets('warehouse hierarchy groups can be collapsed and expanded', (tester) async {
+    final api = _WarehouseTestApi();
+    await tester.pumpWidget(MaterialApp(home: WarehouseHierarchyPage(api: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Stores'), findsOneWidget);
+    await tester.tap(find.byTooltip('طي المجموعة'));
+    await tester.pumpAndSettle();
+    expect(find.text('Stores'), findsNothing);
+
+    await tester.tap(find.byTooltip('توسيع المجموعة'));
+    await tester.pumpAndSettle();
+    expect(find.text('Stores'), findsOneWidget);
+
+    api.dispose();
+  });
+
   testWidgets('warehouse hierarchy renders parent and child warehouses', (tester) async {
     final api = _WarehouseTestApi();
     await tester.pumpWidget(MaterialApp(home: WarehouseHierarchyPage(api: api)));

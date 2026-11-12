@@ -39,6 +39,14 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
   bool _importingStatement = false;
   bool _savingStatementBalance = false;
   String? _statementImportName;
+  List<core.Map<String, dynamic>> _statementImports = [];
+  final Map<String, List<core.Map<String, dynamic>>> _statementImportLogs = {};
+  final Set<String> _loadingImportLogs = <String>{};
+  bool _loadingStatementImports = false;
+  bool _loadingMoreStatementImports = false;
+  bool _hasMoreStatementImports = false;
+  int _statementImportOffset = 0;
+  int _statementImportGeneration = 0;
   core.Map<String, dynamic>? _savedStatementBalance;
   core.Map<String, dynamic>? _balances;
   String? _error;
@@ -85,6 +93,7 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
       if (rows.isNotEmpty) {
         await _loadTransactions();
         await _loadBalances();
+        await _loadStatementImports();
       }
     } catch (error) {
       if (mounted && generation == _accountGeneration) {
@@ -261,6 +270,7 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
       final started = await widget.api.startBankStatementImport(result['name'].toString());
       if (!mounted) return;
       setState(() => _statementImportName = result['name'].toString());
+      await _loadStatementImports();
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('تمت جدولة الاستيراد في ERPNext: ${started['job_id']}')),
       );
@@ -271,9 +281,57 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
     }
   }
 
-  Future<void> _checkStatementImport() async {
-    final id = _statementImportName;
-    if (id == null || id.isEmpty) return;
+  Future<void> _loadStatementImports({bool more = false}) async {
+    final company = _company;
+    final account = _bankAccount;
+    if (company == null || account == null || account.isEmpty ||
+        _loadingMoreStatementImports || (more && (!_hasMoreStatementImports || _loadingStatementImports))) return;
+    final generation = ++_statementImportGeneration;
+    setState(() {
+      if (more) {
+        _loadingMoreStatementImports = true;
+      } else {
+        _loadingStatementImports = true;
+        _statementImportOffset = 0;
+        _hasMoreStatementImports = false;
+        _statementImports = [];
+        _statementImportLogs.clear();
+      }
+    });
+    try {
+      final rows = await widget.api.fetchBankStatementImports(
+        bankAccount: account,
+        company: company,
+        start: more ? _statementImportOffset : 0,
+      );
+      if (!mounted || generation != _statementImportGeneration ||
+          account != _bankAccount || company != _company) return;
+      setState(() {
+        if (more) {
+          _statementImports.addAll(rows);
+        } else {
+          _statementImports = rows;
+        }
+        _statementImportOffset += rows.length;
+        _hasMoreStatementImports = rows.length == 25;
+      });
+    } catch (error) {
+      if (mounted && generation == _statementImportGeneration &&
+          account == _bankAccount && company == _company) {
+        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted && generation == _statementImportGeneration) {
+        setState(() {
+          _loadingStatementImports = false;
+          _loadingMoreStatementImports = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _checkStatementImport(String id) async {
+    if (id.trim().isEmpty) return;
     try {
       final status = await widget.api.fetchBankStatementImportStatus(id);
       if (!mounted) return;
@@ -282,9 +340,26 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
           ' • فاشل: ${status['failed'] ?? 0}'
           ' • الإجمالي: ${status['total_records'] ?? 0}';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
-      if (status['status'] == 'Success' || status['status'] == 'Partial Success') await _loadTransactions();
+      await _loadStatementImports();
+      if (status['status'] == 'Success' || status['status'] == 'Partial Success') {
+        await _loadTransactions();
+      }
     } catch (error) {
       if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+    }
+  }
+
+  Future<void> _loadStatementImportLogs(String id) async {
+    if (!_loadingImportLogs.add(id)) return;
+    setState(() => _error = null);
+    try {
+      final rows = await widget.api.fetchBankStatementImportLogs(id);
+      if (!mounted) return;
+      setState(() => _statementImportLogs[id] = rows);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _loadingImportLogs.remove(id));
     }
   }
 
@@ -558,9 +633,21 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
               ),
             )).toList(),
             onChanged: _loadingAccounts || _matching ? null : (value) {
-              setState(() { _bankAccount = value; _balances = null; _savedStatementBalance = null; _statementBalance.clear(); _statementImportName = null; });
+              setState(() {
+                _statementImportGeneration++;
+                _loadingStatementImports = false;
+                _loadingMoreStatementImports = false;
+                _bankAccount = value;
+                _balances = null;
+                _savedStatementBalance = null;
+                _statementBalance.clear();
+                _statementImportName = null;
+                _statementImports = [];
+                _statementImportLogs.clear();
+              });
               _loadTransactions();
               _loadBalances();
+              _loadStatementImports();
             },
           ),
           const SizedBox(height: 10),
@@ -577,10 +664,86 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
                       : const Icon(Icons.upload_file),
                   label: Text(_importingStatement ? 'جارٍ رفع ومعاينة الملف…' : 'اختيار ملف كشف (CSV / Excel / MT940)'),
                 ),
-                if (_statementImportName != null) ...[
-                  Text('مستند الاستيراد: $_statementImportName'),
-                  TextButton.icon(onPressed: _checkStatementImport, icon: const Icon(Icons.sync), label: const Text('تحديث حالة الاستيراد')),
-                ],
+                if (_statementImportName != null)
+                  Text('آخر مستند أُنشئ: $_statementImportName'),
+                const Divider(height: 20),
+                Row(
+                  children: [
+                    const Expanded(
+                      child: Text('سجل كشوف البنك المستوردة', style: TextStyle(fontWeight: FontWeight.w600)),
+                    ),
+                    IconButton(
+                      tooltip: 'تحديث سجل الاستيراد',
+                      onPressed: _loadingStatementImports ? null : () => _loadStatementImports(),
+                      icon: const Icon(Icons.refresh),
+                    ),
+                  ],
+                ),
+                if (_loadingStatementImports) const LinearProgressIndicator(),
+                if (!_loadingStatementImports && _statementImports.isEmpty)
+                  const Text('لا توجد ملفات استيراد محفوظة لهذا الحساب.'),
+                ..._statementImports.map((row) {
+                  final id = row['name']?.toString() ?? '';
+                  final logs = _statementImportLogs[id] ?? const <core.Map<String, dynamic>>[];
+                  final loadingLogs = _loadingImportLogs.contains(id);
+                  return ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    title: Text(id, textDirection: TextDirection.ltr),
+                    subtitle: Text(
+                      '${row['status'] ?? 'غير محدد'} • ${row['reference_doctype'] ?? ''} • ${row['import_type'] ?? ''}',
+                    ),
+                    children: [
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text('الملف: ${row['import_file'] ?? 'غير متاح'}'),
+                      ),
+                      Wrap(
+                        spacing: 8,
+                        children: [
+                          TextButton.icon(
+                            onPressed: id.isEmpty ? null : () => _checkStatementImport(id),
+                            icon: const Icon(Icons.sync),
+                            label: const Text('تحديث الحالة'),
+                          ),
+                          TextButton.icon(
+                            onPressed: id.isEmpty || loadingLogs ? null : () => _loadStatementImportLogs(id),
+                            icon: loadingLogs
+                                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                : const Icon(Icons.receipt_long_outlined),
+                            label: const Text('عرض سجل الصفوف'),
+                          ),
+                        ],
+                      ),
+                      if (logs.isNotEmpty)
+                        ...logs.map((log) {
+                          final success = log['success'] == 1 || log['success'] == true;
+                          return ListTile(
+                            dense: true,
+                            leading: Icon(success ? Icons.check_circle_outline : Icons.error_outline,
+                              color: success ? Colors.green : Colors.red),
+                            title: Text(log['docname']?.toString().isNotEmpty == true
+                                ? log['docname'].toString()
+                                : success ? 'تم استيراد الصف' : 'صف لم يُستورد'),
+                            subtitle: Text(
+                              (log['exception'] ?? log['messages'] ?? '').toString(),
+                              maxLines: 3,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          );
+                        }),
+                      if (logs.isEmpty && !loadingLogs)
+                        const Padding(
+                          padding: EdgeInsetsDirectional.only(start: 12, bottom: 8),
+                          child: Text('لم تُحمّل تفاصيل الصفوف بعد.'),
+                        ),
+                    ],
+                  );
+                }),
+                if (_hasMoreStatementImports || _loadingMoreStatementImports)
+                  TextButton(
+                    onPressed: _loadingMoreStatementImports ? null : () => _loadStatementImports(more: true),
+                    child: Text(_loadingMoreStatementImports ? 'جارٍ تحميل المزيد...' : 'تحميل المزيد من كشوف البنك'),
+                  ),
               ]),
             ),
           ),

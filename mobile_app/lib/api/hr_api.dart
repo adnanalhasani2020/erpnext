@@ -445,6 +445,68 @@ mixin HrApiMixin on _FrappeApiCore {
       return core.Map<String, dynamic>.from(created);
     }
 
+  Future<core.Map<String, dynamic>> updateLeaveApplicationDraft({
+      required String name,
+      required String company,
+      required String leaveType,
+      required String fromDate,
+      required String toDate,
+      String description = '',
+    }) async {
+      final id = name.trim(), normalizedCompany = company.trim();
+      final from = DateTime.tryParse(fromDate.trim());
+      final to = DateTime.tryParse(toDate.trim());
+      if (id.isEmpty || normalizedCompany.isEmpty || from == null || to == null ||
+          from.toIso8601String().substring(0, 10) != fromDate.trim() ||
+          to.toIso8601String().substring(0, 10) != toDate.trim() ||
+          to.isBefore(from)) {
+        throw const FormatException('تحقق من رقم الطلب والشركة وتاريخ بداية الإجازة ونهايتها.');
+      }
+      final normalizedType = leaveType.trim();
+      if (normalizedType.isEmpty) throw const FormatException('حدد نوع الإجازة.');
+      final response = await _send('GET', '/api/resource/Leave%20Application/' + Uri.encodeComponent(id));
+      final data = _decode(response.body);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw Exception(_message(data, 'تعذر إعادة قراءة طلب الإجازة.'));
+      }
+      final current = data['data'];
+      if (current is! core.Map<String, dynamic> || current['doctype'] != 'Leave Application' ||
+          current['name'] != id || current['company'] != normalizedCompany ||
+          current['docstatus'] != 0 || current['employee'] is! String) {
+        throw const FormatException('يمكن تعديل مسودات طلبات الإجازة التابعة للشركة المحددة فقط.');
+      }
+      await _fetchHrEmployee(current['employee'].toString(), normalizedCompany);
+      final typeResponse = await _send('GET', '/api/resource/Leave%20Type/' + Uri.encodeComponent(normalizedType));
+      final typeData = _decode(typeResponse.body);
+      if (typeResponse.statusCode < 200 || typeResponse.statusCode >= 300) {
+        throw Exception(_message(typeData, 'تعذر التحقق من نوع الإجازة المحدد.'));
+      }
+      final type = typeData['data'];
+      if (type is! core.Map<String, dynamic> || type['doctype'] != 'Leave Type' || type['name'] != normalizedType) {
+        throw const FormatException('نوع الإجازة المحدد غير موجود في ERPNext.');
+      }
+      final payload = <String, dynamic>{
+        ...current,
+        'leave_type': normalizedType,
+        'from_date': fromDate.trim(),
+        'to_date': toDate.trim(),
+        'description': description.trim(),
+      };
+      final savedResponse = await _sendJson('POST', '/api/method/frappe.client.save', {'doc': payload});
+      final savedData = _decode(savedResponse.body);
+      if (savedResponse.statusCode < 200 || savedResponse.statusCode >= 300) {
+        throw Exception(_message(savedData, 'تعذر حفظ تعديلات طلب الإجازة.'));
+      }
+      final saved = savedData['message'];
+      if (saved is! core.Map<String, dynamic> || saved['doctype'] != 'Leave Application' ||
+          saved['name'] != id || saved['company'] != normalizedCompany ||
+          saved['docstatus'] != 0 || saved['leave_type'] != normalizedType ||
+          saved['from_date'] != fromDate.trim() || saved['to_date'] != toDate.trim()) {
+        throw const FormatException('لم يؤكد ERPNext حفظ مسودة طلب الإجازة المعدلة.');
+      }
+      return core.Map<String, dynamic>.from(saved);
+    }
+
   Future<List<core.Map<String, dynamic>>> fetchExpenseClaimTypes() async {
       final uri = FrappeApi.buildResourcePageUri(
         baseUrl: _baseUrl,
