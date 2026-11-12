@@ -23,6 +23,8 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
   final Map<String, String> _filters = {};
   final Map<String, String> _filterOperators = {};
   final Map<String, TextEditingController> _filterControllers = {};
+  final Set<String> _selectedNames = <String>{};
+  bool _bulkActionLoading = false;
   String _sortField = 'modified';
   bool _sortDescending = true;
   bool _loading = true, _more = false, _hasMore = false;
@@ -39,6 +41,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
       .map((f) => f['fieldname'].toString()).toList();
     if (!result.contains('name')) result.insert(0, 'name');
     if (!result.contains('modified')) result.add('modified');
+    if (_meta?['is_submittable'] == 1 && !result.contains('docstatus')) result.add('docstatus');
     return result;
   }
 
@@ -87,7 +90,15 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     if (_meta == null || (_loading && append) || (_more && append)) return;
     final generation = _generation;
     final start = append ? _offset : 0;
-    setState(() { if (append) { _more = true; } else { _loading = true; _error = null; } });
+    setState(() {
+      if (append) {
+        _more = true;
+      } else {
+        _loading = true;
+        _error = null;
+        _selectedNames.clear();
+      }
+    });
     try {
       final fields = _listFields;
       final activeFilters = <List<dynamic>>[];
@@ -121,6 +132,53 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     }
   }
 
+
+  Future<void> _bulkTransition(String action) async {
+    if (_bulkActionLoading || _meta?['is_submittable'] != 1) return;
+    final selectedRows = _rows.where((row) => _selectedNames.contains(row['name']?.toString())).toList();
+    final eligible = selectedRows.where((row) {
+      final status = (row['docstatus'] as num?)?.toInt() ?? -1;
+      return action == 'Submit' ? status == 0 : status == 1;
+    }).map((row) => row['name']?.toString() ?? '').where((name) => name.isNotEmpty).toList();
+    if (eligible.isEmpty) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(action == 'Submit' ? 'ترحيل المستندات المحددة' : 'إلغاء المستندات المحددة'),
+        content: Text('سيُرسل التطبيق ${eligible.length} مستنداً إلى ERPNext لتنفيذ ${action == 'Submit' ? 'الترحيل' : 'الإلغاء'} وفق صلاحيات وقواعد الخادم.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('رجوع')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('تأكيد')),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _bulkActionLoading = true);
+    var succeeded = 0;
+    final failures = <String>[];
+    try {
+      for (final name in eligible) {
+        try {
+          await widget.api.transitionDocTypeDocument(doctype: _doctype, name: name, action: action);
+          succeeded++;
+        } catch (error) {
+          if (failures.length < 4) failures.add('$name: ${error.toString().replaceFirst('Exception: ', '')}');
+        }
+      }
+      if (!mounted) return;
+      setState(() => _selectedNames.clear());
+      _generation++;
+      await _load();
+      if (!mounted) return;
+      final message = '${action == 'Submit' ? 'تم ترحيل' : 'تم إلغاء'} $succeeded من ${eligible.length} مستند.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(failures.isEmpty ? message : '$message تعذر تنفيذ بعض العمليات: ${failures.join('؛ ')}'),
+        duration: const Duration(seconds: 7),
+      ));
+    } finally {
+      if (mounted) setState(() => _bulkActionLoading = false);
+    }
+  }
 
   List<String> _filterOperatorsFor(Map<String, dynamic> field) {
     final type = field['fieldtype']?.toString() ?? '';
@@ -1503,6 +1561,38 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
             ],
           ),
         if (_loading || _more) const LinearProgressIndicator(),
+        if (_selectedNames.isNotEmpty && _meta?['is_submittable'] == 1)
+          Builder(builder: (context) {
+            final selectedRows = _rows.where((row) => _selectedNames.contains(row['name']?.toString())).toList();
+            final draftCount = selectedRows.where((row) => (row['docstatus'] as num?)?.toInt() == 0).length;
+            final submittedCount = selectedRows.where((row) => (row['docstatus'] as num?)?.toInt() == 1).length;
+            return Card(
+              margin: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Text('المحدد: ${_selectedNames.length}'),
+                  Wrap(spacing: 8, children: [
+                    if (draftCount > 0) FilledButton.tonalIcon(
+                      onPressed: _bulkActionLoading ? null : () => _bulkTransition('Submit'),
+                      icon: const Icon(Icons.check_circle_outline),
+                      label: Text('ترحيل ($draftCount)'),
+                    ),
+                    if (submittedCount > 0) OutlinedButton.icon(
+                      onPressed: _bulkActionLoading ? null : () => _bulkTransition('Cancel'),
+                      icon: const Icon(Icons.cancel_outlined),
+                      label: Text('إلغاء ($submittedCount)'),
+                    ),
+                    TextButton(
+                      onPressed: _bulkActionLoading ? null : () => setState(() => _selectedNames.clear()),
+                      child: const Text('مسح التحديد'),
+                    ),
+                  ]),
+                  if (_bulkActionLoading) const LinearProgressIndicator(),
+                ]),
+              ),
+            );
+          }),
         if (_error != null) MaterialBanner(
           content: Text(_error!),
           actions: [TextButton(onPressed: _initialize, child: const Text('إعادة المحاولة'))],
@@ -1528,7 +1618,19 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 leading: Icon(widget.definition.icon),
                 title: Text(row[title]?.toString() ?? row['name']?.toString() ?? '—'),
                 subtitle: Text(subtitle.isEmpty ? row['name']?.toString() ?? '' : subtitle),
-                trailing: const Icon(Icons.chevron_left),
+                trailing: _meta?['is_submittable'] == 1
+                  ? Row(mainAxisSize: MainAxisSize.min, children: [
+                      Checkbox(
+                        value: _selectedNames.contains(row['name']?.toString()),
+                        onChanged: _bulkActionLoading ? null : (selected) => setState(() {
+                          final name = row['name']?.toString() ?? '';
+                          if (name.isEmpty) return;
+                          if (selected == true) { _selectedNames.add(name); } else { _selectedNames.remove(name); }
+                        }),
+                      ),
+                      const Icon(Icons.chevron_left),
+                    ])
+                  : const Icon(Icons.chevron_left),
                 onTap: () => _details(row['name'].toString()),
               );
             },
