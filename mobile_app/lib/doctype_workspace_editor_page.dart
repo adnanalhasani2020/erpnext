@@ -455,7 +455,6 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     values[key] = tableValues[key] ?? <Map<String, dynamic>>[];
                     continue;
                   }
-                  final liveValues = dependencyValues();
                   if (!visibleField(f) || readOnlyField(f)) continue;
                   final requiredNow = requiredField(f);
                   if (type == 'Check') {
