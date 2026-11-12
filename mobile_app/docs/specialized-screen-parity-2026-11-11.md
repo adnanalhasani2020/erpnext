@@ -70,3 +70,12 @@ The following UI responsibilities have been extracted from the former app-shell 
 - The app shell imports the purchase and stock pages independently.
 
 This is a structural separation pass, not a claim that every business domain is now a fully independent route. The app shell still contains the legacy inventory, transaction and navigation composition; HR workflows and the financial-report hub also contain multiple responsibilities and remain candidates for further decomposition. The extracted code must pass the mobile Flutter analyzer, widget tests and Android debug build before this batch is considered validated.
+
+
+## Code organization update — 2026-11-12 (continued)
+
+- ERPNext Workspace discovery and directory rendering now live in `doctype_workspace_directory_page.dart`; the metadata-driven individual DocType list/form editor remains in `doctype_workspace_page.dart`. The latter re-exports the directory API to preserve existing imports and routes.
+- Guest-mode sample reports now live in `guest_reports_page.dart`, with the reusable guest-data banner in the same file. The app shell only selects the page and supplies the shared banner to the transaction overview.
+- The app shell no longer owns the guest report layout. Its obsolete widget imports and unused error-card helper were removed after the extraction.
+- The workspace directory continues to mirror the authenticated site's visible Workspace groups and DocType links. Dedicated mobile workflows remain mapped by DocType; generic metadata editing is only the fallback for DocTypes without a specialized workflow.
+- The previous Flutter analyzer run failed on three unused imports and one unused helper in `main.dart`. Those warnings were removed in this batch. The latest analyze, focused/widget tests and Android debug build are still pending; no successful validation is claimed until the workflow completes.
