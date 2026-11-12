@@ -52,3 +52,7 @@ Workspace discovery uses Frappe's permission-aware Desk endpoint (v16 `frappe.se
 Sales Invoice, Customer and Supplier now have dedicated mobile list pages with server-backed search/pagination and their existing details, editing and ledger actions. The combined transactions overview remains an optional dashboard route rather than the destination for these individual Workspace links.
 
 Workspace Report links and Report shortcuts for the supported standard report allowlist now open the financial reports page with the report preselected. Custom Report, Page and URL links are not yet implemented as standalone mobile destinations.
+
+## Direct access to standalone party and invoice directories — 2026-11-12
+
+The optional transaction overview now exposes explicit shortcuts to the independent Sales Invoice, Customer and Supplier directory pages. Each shortcut is wired to the app-shell navigation callback and does not create a second API/data-loading path. A widget test verifies that all three actions invoke their corresponding navigation callbacks. These remain optional dashboard/overview shortcuts; the authenticated primary navigation continues to open the ERPNext Workspace directory.
