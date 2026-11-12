@@ -192,3 +192,8 @@ The custom Sales Dashboard route and its guest-overview shortcut were removed be
 ## Report navigation alignment — 2026-11-12
 
 The standalone financial-report hub was removed from signed-in bottom navigation because it combined many separate ERPNext Query Reports into one mobile-only screen. Each report remains available from its actual Workspace link and opens its own native metadata-driven report screen. Guest demo reports remain isolated to guest mode only.
+
+
+## DocField attachment input — 2026-11-12
+
+The generic metadata-driven form now recognizes ERPNext `Attach` and `Attach Image` fields. It uses the device file picker (image-only for Attach Image), stages the selected file until the document is saved, uploads through the authenticated ERPNext `upload_file` endpoint as private by default, and writes the returned `file_url` back to the exact field through the canonical document save method. A required Attach field on a brand-new document is explicitly blocked with an explanation because the document must exist before the attachment can be linked; the user can create the document first and add the required file in edit mode.
