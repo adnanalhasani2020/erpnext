@@ -966,6 +966,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     onSearch: _searchItems,
     onLoadMore: _loadMoreItems,
     onShowDetails: _showItemDetails,
+    onRefresh: _loadInventory,
   );
 
   void _showItemDetails(ErpItem item) {
@@ -1026,6 +1027,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       warehouse: value,
     ),
     onLoadMore: _loadMoreStock,
+    onRefresh: _loadInventory,
     onShowItemDetails: (balance) {
       final matches = _items.where((item) => item.code == balance.itemCode);
       if (matches.isNotEmpty) {
