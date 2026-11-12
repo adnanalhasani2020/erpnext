@@ -263,10 +263,21 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
     // Dynamic filters contain server-side JavaScript expressions in Desk.
     // Do not evaluate or silently ignore them in Flutter; leave those cards
     // to the original Workspace WebView instead.
-    final dynamicFilters = card['dynamic_filters_json']?.toString().trim() ?? '';
-    if (dynamicFilters.isNotEmpty && dynamicFilters != '[]' && dynamicFilters != '{}') {
-      return null;
+    final rawDynamicFilters = card['dynamic_filters_json'];
+    dynamic decodedDynamicFilters = rawDynamicFilters;
+    if (rawDynamicFilters is String && rawDynamicFilters.trim().isNotEmpty) {
+      try {
+        decodedDynamicFilters = jsonDecode(rawDynamicFilters);
+      } catch (_) {
+        return null;
+      }
     }
+    final hasDynamicFilters = decodedDynamicFilters is List
+        ? decodedDynamicFilters.isNotEmpty
+        : decodedDynamicFilters is Map
+            ? decodedDynamicFilters.isNotEmpty
+            : decodedDynamicFilters != null;
+    if (hasDynamicFilters) return null;
     final filters = card['filters_json']?.toString().trim().isNotEmpty == true
         ? card['filters_json']
         : '[]';
