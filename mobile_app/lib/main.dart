@@ -23,6 +23,8 @@ import 'hr_workflows_page.dart';
 import 'payroll_page.dart';
 import 'warehouse_hierarchy_page.dart';
 import 'warehouse_list_page.dart';
+import 'item_list_page.dart';
+import 'stock_balances_page.dart';
 import 'doctype_workspace_page.dart';
 import 'models/erp_models.dart';
 import 'login_page.dart';
@@ -952,60 +954,19 @@ class _MobileHomePageState extends State<MobileHomePage> {
     return false;
   }
 
-  Widget _buildItemsPage() {
-    final query = _itemSearch.trim().toLowerCase();
-    final filtered = _items.where((item) =>
-      item.code.toLowerCase().contains(query) || item.name.toLowerCase().contains(query) ||
-      (item.group ?? '').toLowerCase().contains(query)
-    ).toList(growable: false);
-    return ListView(padding: const EdgeInsets.all(18), children: [
-      if (_isGuest) _guestDemoBanner(),
-      _pageHeader('الأصناف', 'بحث في الأصناف المحمّلة من ERPNext', Icons.sell_outlined),
-      const SizedBox(height: 16),
-      TextField(
-        controller: _itemSearchController,
-        enabled: !_inventoryLoading,
-        textInputAction: TextInputAction.search,
-        decoration: InputDecoration(
-          labelText: 'ابحث بالاسم أو الرمز',
-          prefixIcon: const Icon(Icons.search),
-          suffixIcon: _itemSearchController.text.isEmpty
-              ? null
-              : IconButton(
-                  tooltip: 'مسح البحث',
-                  onPressed: () {
-                    _itemSearchController.clear();
-                    _searchItems('');
-                  },
-                  icon: const Icon(Icons.clear),
-                ),
-        ),
-        onSubmitted: _searchItems,
-      ),
-      const SizedBox(height: 8),
-      FilledButton.tonalIcon(
-        onPressed: _inventoryLoading || _loadingMoreItems
-            ? null
-            : () => _searchItems(_itemSearchController.text),
-        icon: const Icon(Icons.search),
-        label: Text(_isGuest ? 'بحث محلي' : 'بحث في جميع الأصناف بالخادم'),
-      ),
-      const SizedBox(height: 10),
-      Text('المعروض ${filtered.length} من ${_items.length} صنف في نتيجة البحث الحالية'),
-      if (_inventoryLoading) const LinearProgressIndicator(),
-      if (_inventoryError != null) _errorCard(_inventoryError!),
-      if (filtered.isEmpty && !_inventoryLoading)
-        const Card(child: ListTile(leading: Icon(Icons.search_off), title: Text('لا توجد أصناف مطابقة'))),
-      ...filtered.map((item) => Card(child: ListTile(
-        leading: CircleAvatar(child: Icon(item.isStockItem ? Icons.inventory_2_outlined : Icons.miscellaneous_services_outlined)),
-        title: Text(item.name),
-        subtitle: Text([item.code, if (item.group != null) item.group!, if (item.stockUom != null) item.stockUom!].join(' • ')),
-        trailing: const Icon(Icons.chevron_left),
-        onTap: () => _showItemDetails(item),
-      ))),
-      if (_itemsHasMore || _loadingMoreItems) Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: FilledButton.tonal(onPressed: _loadingMoreItems ? null : _loadMoreItems, child: Text(_loadingMoreItems ? 'جارٍ تحميل المزيد...' : 'تحميل المزيد من الأصناف'))),
-    ]);
-  }
+  Widget _buildItemsPage() => ItemListPage(
+    items: _items,
+    search: _itemSearch,
+    searchController: _itemSearchController,
+    guest: _isGuest,
+    loading: _inventoryLoading,
+    loadingMore: _loadingMoreItems,
+    error: _inventoryError,
+    hasMore: _itemsHasMore,
+    onSearch: _searchItems,
+    onLoadMore: _loadMoreItems,
+    onShowDetails: _showItemDetails,
+  );
 
   void _showItemDetails(ErpItem item) {
     final balances = _stockBalances.where((row) => row.itemCode == item.code).toList(growable: false);
@@ -1045,74 +1006,37 @@ class _MobileHomePageState extends State<MobileHomePage> {
     );
   }
 
-  Widget _buildStockPage() {
-    final filtered = _stockBalances.where((row) =>
-      (_stockSearch.isEmpty || row.itemCode.toLowerCase().contains(_stockSearch.toLowerCase())) &&
-      (_selectedWarehouse == null || row.warehouse == _selectedWarehouse)
-    ).toList(growable: false);
-    final loadedWarehouses = filtered.map((row) => row.warehouse).toSet().length;
-    return ListView(padding: const EdgeInsets.all(18), children: [
-      if (_isGuest) _guestDemoBanner(),
-      _pageHeader('أرصدة المخزون', 'الكميات وقيمة المخزون ومعدل التقييم حسب المستودع', Icons.inventory_2_outlined),
-      const Text('قيمة المخزون ومعدل التقييم من سجل Bin في ERPNext وبعملة الشركة المالكة للمستودع. لا تجمع القيم بين شركات ذات عملات مختلفة.'),
-      const SizedBox(height: 16),
-      DropdownButtonFormField<String>(
-        initialValue: _selectedWarehouse, isExpanded: true,
-        decoration: const InputDecoration(labelText: 'تصفية حسب المستودع'),
-        items: [
-          const DropdownMenuItem<String>(value: null, child: Text('كل المستودعات')),
-          ..._warehouses.map((warehouse) => DropdownMenuItem<String>(value: warehouse.id, child: Text(warehouse.name, overflow: TextOverflow.ellipsis))),
-        ],
-        onChanged: (value) => _searchStockBalances(_stockSearchController.text, updateWarehouse: true, warehouse: value),
-      ),
-      const SizedBox(height: 12),
-      FilledButton.icon(
-        onPressed: _isGuest ? null : () => _openStockWorkflow(),
-        icon: const Icon(Icons.tune),
-        label: const Text('فتح عمليات المخزون المتقدمة'),
-      ),
-      const SizedBox(height: 10),
-      ServerSearchField(
-        controller: _stockSearchController,
-        label: 'ابحث برمز الصنف',
-        onSearch: _searchStockBalances,
-        loading: _inventoryLoading ,
-        buttonLabel: _isGuest ? 'بحث محلي' : 'بحث في الخادم'
-      ),
-      const SizedBox(height: 8),
-      Row(children: [
-        Expanded(child: CountCard(label: 'الأرصدة المحمّلة', count: filtered.length, icon: Icons.inventory_outlined)),
-        const SizedBox(width: 8),
-        Expanded(child: CountCard(label: 'مستودعات ضمن النتائج', count: loadedWarehouses, icon: Icons.warehouse_outlined)),
-      ]),
-      const Text('الأعداد تخص النتائج المحمّلة فقط. لا تُجمع كميات الأصناف مع اختلاف وحدات القياس.'),
-      if (_inventoryLoading) const LinearProgressIndicator(),
-      if (_inventoryError != null) _errorCard(_inventoryError!),
-      if (filtered.isEmpty && !_inventoryLoading)
-        const Card(child: ListTile(title: Text('لا توجد أرصدة مطابقة لرمز الصنف والمستودع المحددين'))),
-      ...filtered.map((balance) => Card(child: ListTile(
-        title: Text(balance.itemCode),
-        subtitle: Text('${balance.warehouse}\nمحجوز: ${balance.reservedQty} • متوقع: ${balance.projectedQty}\nقيمة المخزون: ${balance.stockValue?.toStringAsFixed(2) ?? 'غير متاحة'} • معدل التقييم: ${balance.valuationRate?.toStringAsFixed(2) ?? 'غير متاح'}'),
-        isThreeLine: true,
-        trailing: Column(mainAxisAlignment: MainAxisAlignment.center, crossAxisAlignment: CrossAxisAlignment.end, children: [
-          Text(balance.actualQty.toStringAsFixed(2), style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold)),
-          Text('متاح: ${balance.availableQty.toStringAsFixed(2)}', style: Theme.of(context).textTheme.bodySmall),
-          Text(balance.stockUom ?? '—', style: Theme.of(context).textTheme.bodySmall),
-        ]),
-        onTap: () {
-          final matches = _items.where((item) => item.code == balance.itemCode);
-          if (matches.isNotEmpty) {
-            _showItemDetails(matches.first);
-          } else {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('تفاصيل الصنف غير موجودة ضمن البيانات المحمّلة. حدّث قائمة الأصناف أولاً.')),
-            );
-          }
-        },
-      ))),
-      if (_stockHasMore || _loadingMoreStock) Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: FilledButton.tonal(onPressed: _loadingMoreStock ? null : _loadMoreStock, child: Text(_loadingMoreStock ? 'جارٍ تحميل المزيد...' : 'تحميل المزيد من الأرصدة'))),
-    ]);
-  }
+  Widget _buildStockPage() => StockBalancesPage(
+    stockBalances: _stockBalances,
+    warehouses: _warehouses,
+    items: _items,
+    search: _stockSearch,
+    searchController: _stockSearchController,
+    selectedWarehouse: _selectedWarehouse,
+    guest: _isGuest,
+    loading: _inventoryLoading,
+    loadingMore: _loadingMoreStock,
+    error: _inventoryError,
+    hasMore: _stockHasMore,
+    onSearch: _searchStockBalances,
+    onOpenStockWorkflow: _openStockWorkflow,
+    onSelectWarehouse: (value) => _searchStockBalances(
+      _stockSearchController.text,
+      updateWarehouse: true,
+      warehouse: value,
+    ),
+    onLoadMore: _loadMoreStock,
+    onShowItemDetails: (balance) {
+      final matches = _items.where((item) => item.code == balance.itemCode);
+      if (matches.isNotEmpty) {
+        _showItemDetails(matches.first);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('تفاصيل الصنف غير موجودة ضمن البيانات المحمّلة. حدّث قائمة الأصناف أولاً.')),
+        );
+      }
+    },
+  );
 
   Widget _buildWarehousesPage() => WarehouseListPage(
     warehouses: _warehouses,
