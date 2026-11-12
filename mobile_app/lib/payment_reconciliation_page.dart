@@ -1172,8 +1172,8 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
                 _linkField(_advanceAccountController, 'حساب الدفعات المقدمة', 'default_advance_account'),
                 _linkField(_costCenterController, 'مركز التكلفة', 'cost_center'),
                 _linkField(_projectController, 'المشروع', 'project'),
-                _linkField(_invoiceNameController, 'رقم فاتورة محددة', 'invoice_name'),
-                _linkField(_paymentNameController, 'رقم دفعة محددة', 'payment_name'),
+                _advancedFilter(_invoiceNameController, 'رقم فاتورة محددة'),
+                _advancedFilter(_paymentNameController, 'رقم دفعة محددة'),
                 Row(children: [
                   Expanded(child: _advancedFilter(_minimumInvoiceController, 'أقل مبلغ فاتورة', numeric: true)),
                   const SizedBox(width: 8),
