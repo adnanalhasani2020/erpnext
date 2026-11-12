@@ -289,16 +289,21 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
             'name','owner','creation','modified','modified_by','docstatus','idx',
             'parent','parenttype','parentfield'
           }.contains(key) && field['hidden'] != 1 && field['read_only'] != 1 &&
-            !const {'Section Break','Column Break','Tab Break','HTML','Button','Fold','Heading','Table','Table MultiSelect'}.contains(type);
+            !const {'Section Break','Column Break','Tab Break','HTML','Button','Fold','Heading'}.contains(type);
         }).toList();
     final controllers = <String, TextEditingController>{};
     final checks = <String, bool>{};
     final selections = <String, String?>{};
+    final tableValues = <String, List<Map<String, dynamic>>>{};
     for (final field in fields) {
       final key = field['fieldname'].toString();
       final type = field['fieldtype']?.toString() ?? '';
       final initial = source?[key] ?? field['default'];
-      if (type == 'Check') {
+      if (type == 'Table' || type == 'Table MultiSelect') {
+        tableValues[key] = initial is List
+            ? initial.whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList()
+            : <Map<String, dynamic>>[];
+      } else if (type == 'Check') {
         checks[key] = initial == 1 || initial == true || initial?.toString() == '1';
       } else if (type == 'Select') {
         selections[key] = initial?.toString();
@@ -327,6 +332,24 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 final key = field['fieldname'].toString();
                 final type = field['fieldtype']?.toString() ?? '';
                 final label = field['label']?.toString() ?? key;
+                if (type == 'Table' || type == 'Table MultiSelect') {
+                  final count = tableValues[key]?.length ?? 0;
+                  return Card(
+                    child: ListTile(
+                      leading: const Icon(Icons.table_rows_outlined),
+                      title: Text(label),
+                      subtitle: Text('$count صف'),
+                      trailing: const Icon(Icons.edit_outlined),
+                      onTap: () async {
+                        final updated = await _editChildTable(
+                          field,
+                          tableValues[key] ?? <Map<String, dynamic>>[],
+                        );
+                        if (updated != null) refresh(() => tableValues[key] = updated);
+                      },
+                    ),
+                  );
+                }
                 if (type == 'Check') {
                   return CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
@@ -429,6 +452,10 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 for (final field in fields) {
                   final key = field['fieldname'].toString();
                   final type = field['fieldtype']?.toString() ?? '';
+                  if (type == 'Table' || type == 'Table MultiSelect') {
+                    values[key] = tableValues[key] ?? <Map<String, dynamic>>[];
+                    continue;
+                  }
                   if (type == 'Check') {
                     values[key] = checks[key] == true ? 1 : 0;
                     continue;
