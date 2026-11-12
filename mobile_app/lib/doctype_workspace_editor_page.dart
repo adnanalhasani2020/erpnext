@@ -1274,6 +1274,18 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
           Text(_doctype, style: Theme.of(context).textTheme.labelSmall),
         ]),
         actions: [
+          IconButton(
+            tooltip: 'فتح قائمة ERPNext الأصلية',
+            onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => WorkspaceWebPage(
+                api: widget.api,
+                title: widget.definition.label,
+                linkType: 'DocTypeList',
+                target: _doctype,
+              ),
+            )),
+            icon: const Icon(Icons.open_in_browser),
+          ),
           IconButton(tooltip: 'إضافة سجل', onPressed: _loading ? null : () => _edit(), icon: const Icon(Icons.add)),
           IconButton(tooltip: 'تحديث', onPressed: _loading ? null : () { _generation++; _load(); }, icon: const Icon(Icons.refresh)),
         ],
