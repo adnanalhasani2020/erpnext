@@ -179,3 +179,7 @@ The native Stock Summary Page now receives and applies the same `warehouse`, `it
 Generic DocType activity attachments now open through the Android native share/open chooser after the API re-reads the File record, confirms its exact parent DocType/document, and restricts authenticated download requests to the configured ERPNext origin. The activity list includes the File MIME type; no browser or WebView is used.
 
 Workspace Quick Lists now request and display the workflow_state field when the target DocType metadata exposes it, alongside its standard status and modified timestamp. The field is not assumed or fabricated when the installed DocType does not define it.
+
+## Native Workspace chart series follow-up — 2026-11-12
+
+Standard static-filter Dashboard Charts now render every returned data series in native Flutter Bar and Line charts, with distinct series colors and a legend. Pie/Donut/Percentage charts continue to use the first returned dataset as required by their category-value layout. Report/custom/dynamic/heatmap sources remain explicitly unsupported rather than executing server JavaScript.
