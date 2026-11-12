@@ -392,7 +392,7 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
   }
 
   Future<void> _runReport() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (_filters.isNotEmpty && !(_formKey.currentState?.validate() ?? false)) return;
     for (final filter in _filters.where(_isFilterVisible)) {
       final fieldname = _fieldname(filter);
       final requiredField = filter['reqd'] == 1 || filter['reqd'] == true;
