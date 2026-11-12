@@ -482,4 +482,101 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
     return core.Map<String, dynamic>.from(uploaded);
   }
 
+  /// Fetches a standard Document Type Dashboard Chart through Frappe's
+  /// permission-checked chart endpoint. Report/custom charts and dynamic
+  /// filters are deliberately not approximated in the mobile client.
+  Future<core.Map<String, dynamic>?> fetchWorkspaceDashboardChart(String chartName) async {
+    final name = chartName.trim();
+    if (name.isEmpty) return null;
+    final generation = _sessionGeneration;
+    final chart = await fetchDocTypeDocument(doctype: 'Dashboard Chart', name: name);
+    final chartType = chart['chart_type']?.toString();
+    if (!const {'Count', 'Sum', 'Average', 'Group By'}.contains(chartType)) return null;
+    dynamic dynamicFilters = chart['dynamic_filters_json'];
+    if (dynamicFilters is String) {
+      if (dynamicFilters.trim().isEmpty) {
+        dynamicFilters = null;
+      } else {
+        try { dynamicFilters = jsonDecode(dynamicFilters); } catch (_) { return null; }
+      }
+    }
+    if (dynamicFilters is List ? dynamicFilters.isNotEmpty
+        : dynamicFilters is Map ? dynamicFilters.isNotEmpty
+        : dynamicFilters != null) return null;
+    final filters = chart['filters_json']?.toString().trim().isNotEmpty == true
+        ? chart['filters_json'].toString() : '[]';
+    final uri = Uri.parse('$_baseUrl/api/method/frappe.desk.doctype.dashboard_chart.dashboard_chart.get')
+        .replace(queryParameters: {'chart_name': name, 'filters': filters});
+    final response = await _sendUri('GET', uri);
+    if (generation != _sessionGeneration) {
+      throw const HttpException('تغيرت جلسة ERPNext أثناء تحميل المخطط.');
+    }
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل بيانات المخطط من ERPNext.'));
+    }
+    final result = data['message'];
+    if (result is! core.Map<String, dynamic>) {
+      throw const FormatException('استجابة بيانات المخطط غير متوقعة.');
+    }
+    return <String, dynamic>{'definition': chart, 'data': core.Map<String, dynamic>.from(result)};
+  }
+
+  /// Loads the same first four rows shown by ERPNext Workspace Quick Lists.
+  /// Only stored static filter tuples are accepted; no server JavaScript runs
+  /// in Flutter.
+  Future<List<core.Map<String, dynamic>>> fetchWorkspaceQuickListRows(
+    core.Map<String, dynamic> quickList,
+  ) async {
+    final doctype = quickList['document_type']?.toString().trim() ?? '';
+    if (doctype.isEmpty) throw const FormatException('نوع مستند القائمة السريعة غير محدد.');
+    final meta = await fetchDocTypeMeta(doctype);
+    final metaFields = (meta['fields'] as List? ?? const [])
+        .whereType<core.Map<String, dynamic>>()
+        .map((field) => field['fieldname']?.toString() ?? '')
+        .where((field) => field.isNotEmpty)
+        .toSet();
+    final titleField = meta['title_field']?.toString().trim() ?? '';
+    final fields = <String>['name', 'modified'];
+    if (titleField.isNotEmpty && metaFields.contains(titleField)) fields.add(titleField);
+    for (final field in const ['status', 'docstatus']) {
+      if (metaFields.contains(field)) fields.add(field);
+    }
+    dynamic rawFilters = quickList['quick_list_filter'];
+    if (rawFilters is String) {
+      if (rawFilters.trim().isEmpty) {
+        rawFilters = const [];
+      } else {
+        try { rawFilters = jsonDecode(rawFilters); } catch (_) {
+          throw const FormatException('تعريف مرشحات القائمة السريعة غير صالح.');
+        }
+      }
+    }
+    final filters = <List<dynamic>>[];
+    if (rawFilters is List) {
+      for (final raw in rawFilters) {
+        if (raw is! List) continue;
+        if (raw.length >= 4 && raw[0].toString() == doctype) {
+          filters.add([raw[1], raw[2], raw[3]]);
+        } else if (raw.length == 3) {
+          filters.add([raw[0], raw[1], raw[2]]);
+        }
+      }
+    } else if (rawFilters != null && rawFilters is! Map) {
+      throw const FormatException('صيغة مرشحات القائمة السريعة غير مدعومة.');
+    }
+    final generation = _sessionGeneration;
+    final rows = await fetchDocTypeRows(
+      doctype: doctype,
+      fields: fields.toSet().toList(),
+      filters: filters,
+      start: 0,
+      orderBy: 'creation desc',
+    );
+    if (generation != _sessionGeneration) {
+      throw const HttpException('تغيرت جلسة ERPNext أثناء تحميل القائمة السريعة.');
+    }
+    return rows.take(4).toList(growable: false);
+  }
+
 }

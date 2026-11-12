@@ -87,7 +87,7 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
 
   void _openLink(Map<String, dynamic> link) {
     final type = (link['link_type'] ?? link['type'] ?? '').toString();
-    final target = (link['link_to'] ?? '').toString().trim();
+    final target = (link['link_to'] ?? (type == 'URL' ? link['url'] : null) ?? '').toString().trim();
     if (target.isEmpty) return;
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(
       api: widget.api,
@@ -116,6 +116,7 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
     }
     final charts = workspace['charts'] is List ? workspace['charts'] as List : const [];
     final quickLists = workspace['quick_lists'] is List ? workspace['quick_lists'] as List : const [];
+    final shortcuts = workspace['shortcuts'] is List ? workspace['shortcuts'] as List : const [];
     return ListView(padding: const EdgeInsets.all(12), children: [
       Card(child: ListTile(
         leading: const Icon(Icons.dashboard_outlined),
@@ -140,26 +141,47 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
             onTap: () => _openLink(link),
           )).toList(),
         )),
+      if (shortcuts.isNotEmpty)
+        Card(child: ExpansionTile(
+          title: const Text('الاختصارات'),
+          leading: const Icon(Icons.shortcut),
+          subtitle: Text('${shortcuts.length} اختصار'),
+          children: shortcuts.whereType<Map>().map((raw) {
+            final shortcut = Map<String, dynamic>.from(raw);
+            final type = shortcut['type']?.toString() ?? '';
+            final target = (shortcut['link_to'] ?? shortcut['url'] ?? '').toString();
+            return ListTile(
+              leading: const Icon(Icons.arrow_forward_ios, size: 16),
+              title: Text((shortcut['label'] ?? target).toString()),
+              subtitle: Text(type),
+              onTap: () => _openLink({'type': type, 'link_to': shortcut['link_to'], 'url': shortcut['url'], 'route_options': shortcut['route_options'], 'label': shortcut['label']}),
+            );
+          }).toList(),
+        )),
       if (charts.isNotEmpty)
         Card(child: ExpansionTile(
+          initiallyExpanded: true,
           title: const Text('الرسوم البيانية'),
           leading: const Icon(Icons.insert_chart_outlined),
           subtitle: Text('${charts.length} مخطط'),
-          children: charts.map((chart) => ListTile(
-            leading: const Icon(Icons.bar_chart),
-            title: Text(chart is Map ? (chart['chart_name'] ?? chart['label'] ?? 'مخطط').toString() : chart.toString()),
-            subtitle: const Text('تعريف المخطط موجود في ERPNext؛ لم يُنفّذ عرض بياناته في Flutter بعد.'),
-          )).toList(),
+          children: charts.whereType<Map>().map((raw) {
+            final chart = Map<String, dynamic>.from(raw);
+            return _NativeDashboardChart(
+              api: widget.api,
+              chartName: (chart['chart_name'] ?? '').toString(),
+              label: (chart['label'] ?? chart['chart_name'] ?? 'مخطط').toString(),
+            );
+          }).toList(),
         )),
       if (quickLists.isNotEmpty)
         Card(child: ExpansionTile(
+          initiallyExpanded: true,
           title: const Text('القوائم السريعة'),
           leading: const Icon(Icons.view_list_outlined),
           subtitle: Text('${quickLists.length} قائمة'),
-          children: quickLists.map((item) => ListTile(
-            leading: const Icon(Icons.list_alt),
-            title: Text(item is Map ? (item['quick_list_name'] ?? item['label'] ?? 'قائمة').toString() : item.toString()),
-            subtitle: const Text('تعريف القائمة موجود في ERPNext؛ لم يُنفّذ جلب صفوفها في Flutter بعد.'),
+          children: quickLists.whereType<Map>().map((raw) => _NativeQuickList(
+            api: widget.api,
+            definition: Map<String, dynamic>.from(raw),
           )).toList(),
         )),
     ]);
@@ -260,5 +282,203 @@ class _NativeNumberCardState extends State<_NativeNumberCard> {
         ),
       ),
     )),
+  );
+}
+
+
+class _NativeDashboardChart extends StatefulWidget {
+  const _NativeDashboardChart({required this.api, required this.chartName, required this.label});
+  final FrappeApi api;
+  final String chartName;
+  final String label;
+
+  @override
+  State<_NativeDashboardChart> createState() => _NativeDashboardChartState();
+}
+
+class _NativeDashboardChartState extends State<_NativeDashboardChart> {
+  late Future<Map<String, dynamic>?> _future;
+  @override
+  void initState() {
+    super.initState();
+    _future = widget.api.fetchWorkspaceDashboardChart(widget.chartName);
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, dynamic>?>(
+    future: _future,
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const ListTile(title: Text('تحميل المخطط...'), subtitle: LinearProgressIndicator());
+      }
+      if (snapshot.hasError) {
+        return ListTile(
+          leading: const Icon(Icons.error_outline),
+          title: Text(widget.label),
+          subtitle: Text(snapshot.error.toString().replaceFirst('Exception: ', '')),
+        );
+      }
+      final result = snapshot.data;
+      if (result == null) {
+        return ListTile(
+          leading: const Icon(Icons.info_outline),
+          title: Text(widget.label),
+          subtitle: const Text('هذا المخطط يعتمد على تقرير أو مصدر مخصص أو مرشحات ديناميكية غير منفذة في Flutter.'),
+        );
+      }
+      final definition = result['definition'] as Map<String, dynamic>;
+      final data = result['data'] as Map<String, dynamic>;
+      final labels = (data['labels'] as List? ?? const []).map((value) => value.toString()).toList();
+      final datasets = data['datasets'] as List? ?? const [];
+      final first = datasets.isNotEmpty && datasets.first is Map ? datasets.first as Map : const {};
+      final values = (first['values'] as List? ?? const []).map((value) => (value as num?)?.toDouble() ?? 0).toList();
+      if (values.isEmpty) {
+        return ListTile(leading: const Icon(Icons.bar_chart), title: Text(widget.label), subtitle: const Text('لا توجد بيانات ضمن المرشحات الحالية.'));
+      }
+      final visualType = definition['type']?.toString() ?? 'Bar';
+      return Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text(widget.label, style: Theme.of(context).textTheme.titleSmall),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 156,
+            child: CustomPaint(
+              painter: _WorkspaceChartPainter(values: values, visualType: visualType, colors: Theme.of(context).colorScheme),
+              child: const SizedBox.expand(),
+            ),
+          ),
+          if (labels.isNotEmpty)
+            Wrap(
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                for (var i = 0; i < labels.length && i < values.length && i < 8; i++)
+                  Text('${labels[i]}: ${values[i].toStringAsFixed(0)}', style: Theme.of(context).textTheme.labelSmall),
+              ],
+            ),
+        ]),
+      );
+    },
+  );
+}
+
+class _WorkspaceChartPainter extends CustomPainter {
+  const _WorkspaceChartPainter({required this.values, required this.visualType, required this.colors});
+  final List<double> values;
+  final String visualType;
+  final ColorScheme colors;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (values.isEmpty) return;
+    final palette = [colors.primary, colors.secondary, colors.tertiary, colors.error, colors.primaryContainer];
+    final maxValue = values.reduce((a, b) => a > b ? a : b);
+    final minValue = values.reduce((a, b) => a < b ? a : b);
+    final range = (maxValue - minValue).abs() < 0.000001 ? 1.0 : maxValue - minValue;
+    final baseline = size.height - 12;
+    final grid = Paint()..color = colors.outlineVariant..strokeWidth = 1;
+    for (var i = 0; i < 4; i++) {
+      final y = 8 + (size.height - 20) * i / 3;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+    }
+    if (visualType == 'Pie' || visualType == 'Donut' || visualType == 'Percentage') {
+      final total = values.fold<double>(0, (sum, value) => sum + value.abs());
+      if (total == 0) return;
+      final side = size.height - 16;
+      final rect = Rect.fromLTWH((size.width - side) / 2, 8, side, side);
+      var start = -1.57079632679;
+      for (var i = 0; i < values.length; i++) {
+        final sweep = values[i].abs() / total * 6.28318530718;
+        final paint = Paint()..color = palette[i % palette.length]..style = PaintingStyle.fill;
+        canvas.drawArc(rect, start, sweep, true, paint);
+        start += sweep;
+      }
+      if (visualType == 'Donut') {
+        final hole = Paint()..color = colors.surface..style = PaintingStyle.fill;
+        canvas.drawCircle(rect.center, side * .22, hole);
+      }
+      return;
+    }
+    if (visualType == 'Line') {
+      final path = Path();
+      for (var i = 0; i < values.length; i++) {
+        final x = values.length == 1 ? size.width / 2 : i * size.width / (values.length - 1);
+        final y = baseline - ((values[i] - minValue) / range) * (size.height - 28);
+        if (i == 0) { path.moveTo(x, y); } else { path.lineTo(x, y); }
+      }
+      canvas.drawPath(path, Paint()..color = colors.primary..style = PaintingStyle.stroke..strokeWidth = 2.5);
+      for (var i = 0; i < values.length; i++) {
+        final x = values.length == 1 ? size.width / 2 : i * size.width / (values.length - 1);
+        final y = baseline - ((values[i] - minValue) / range) * (size.height - 28);
+        canvas.drawCircle(Offset(x, y), 3.5, Paint()..color = colors.primary);
+      }
+      return;
+    }
+    final slot = size.width / values.length;
+    final barWidth = slot * .62;
+    for (var i = 0; i < values.length; i++) {
+      final height = ((values[i] - minValue) / range) * (size.height - 30) + 4;
+      final rect = Rect.fromLTWH(i * slot + (slot - barWidth) / 2, baseline - height, barWidth, height);
+      canvas.drawRRect(RRect.fromRectAndRadius(rect, const Radius.circular(4)), Paint()..color = palette[i % palette.length]);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _WorkspaceChartPainter oldDelegate) =>
+      oldDelegate.values != values || oldDelegate.visualType != visualType || oldDelegate.colors != colors;
+}
+
+class _NativeQuickList extends StatefulWidget {
+  const _NativeQuickList({required this.api, required this.definition});
+  final FrappeApi api;
+  final Map<String, dynamic> definition;
+
+  @override
+  State<_NativeQuickList> createState() => _NativeQuickListState();
+}
+
+class _NativeQuickListState extends State<_NativeQuickList> {
+  late Future<List<Map<String, dynamic>>> _future;
+  @override
+  void initState() {
+    super.initState();
+    _future = widget.api.fetchWorkspaceQuickListRows(widget.definition);
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<List<Map<String, dynamic>>>(
+    future: _future,
+    builder: (context, snapshot) {
+      final doctype = widget.definition['document_type']?.toString() ?? '';
+      final label = widget.definition['label']?.toString() ?? doctype;
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const ListTile(title: Text('تحميل القائمة السريعة...'), subtitle: LinearProgressIndicator());
+      }
+      if (snapshot.hasError) {
+        return ListTile(leading: const Icon(Icons.error_outline), title: Text(label), subtitle: Text(snapshot.error.toString()));
+      }
+      final rows = snapshot.data ?? const <Map<String, dynamic>>[];
+      if (rows.isEmpty) return ListTile(leading: const Icon(Icons.list_alt), title: Text(label), subtitle: const Text('لا توجد سجلات مطابقة.'));
+      return Column(children: [
+        for (final row in rows)
+          ListTile(
+            dense: true,
+            leading: const Icon(Icons.description_outlined),
+            title: Text((row['title'] ?? row['name'] ?? 'مستند').toString()),
+            subtitle: Text([
+              if (row['status'] != null) row['status'].toString(),
+              if (row['modified'] != null) row['modified'].toString(),
+            ].join(' • ')),
+            trailing: const Icon(Icons.chevron_left),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(
+              api: widget.api,
+              title: label,
+              linkType: 'DocTypeDocument',
+              target: '${doctype}|${row['name']}',
+            ))),
+          ),
+      ]);
+    },
   );
 }
