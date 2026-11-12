@@ -125,7 +125,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           final supported = _workspaceLinkTypes.contains(linkType);
           final routeOptions = _routeOptions(workspace['route_options']);
           if (supported && target.isNotEmpty &&
-              seen.add('${workspaceTitle}::اختصارات::${linkType}::${target}::${jsonEncode(routeOptions)}')) {
+              seen.add('${workspaceName}::اختصارات::${linkType}::${target}::${jsonEncode(routeOptions)}')) {
             definitions.add(ErpDocTypeDefinition(
               workspaceLabel,
               workspace['title']?.toString() ?? workspace['label']?.toString() ?? target,
@@ -141,7 +141,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
         }
         if (workspace['type']?.toString() == 'URL') {
           final target = (workspace['url'] ?? workspace['link_to'] ?? '').toString().trim();
-          if (target.isNotEmpty && seen.add('${workspaceTitle}::URL::${target}')) {
+          if (target.isNotEmpty && seen.add('${workspaceName}::URL::${target}')) {
             definitions.add(ErpDocTypeDefinition(
               workspaceLabel, workspace['label']?.toString() ?? target, target,
               _workspaceIcon(workspaceLabel), 'اختصارات', 'URL', const {}, workspaceName,
@@ -159,7 +159,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
                 (shortcut['hidden'] == 1 || shortcut['hidden'] == true)) continue;
             final doctype = shortcut['link_to']?.toString().trim() ?? '';
             final routeOptions = _routeOptions(shortcut['route_options']);
-            if (doctype.isEmpty || !seen.add('${workspaceTitle}::اختصارات::${shortcutType}::${doctype}::${jsonEncode(routeOptions)}')) continue;
+            if (doctype.isEmpty || !seen.add('${workspaceName}::اختصارات::${shortcutType}::${doctype}::${jsonEncode(routeOptions)}')) continue;
             final label = shortcut['label']?.toString().trim() ?? '';
             definitions.add(ErpDocTypeDefinition(
               workspaceLabel,
@@ -199,7 +199,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           final routeOptions = _routeOptions(link['route_options']);
           if (doctype.isEmpty || !_workspaceLinkTypes.contains(linkType) ||
               (link['hidden'] == 1 || link['hidden'] == true) ||
-              !seen.add('${workspaceTitle}::${currentSection}::${linkType}::${doctype}::${jsonEncode(routeOptions)}')) continue;
+              !seen.add('${workspaceName}::${currentSection}::${linkType}::${doctype}::${jsonEncode(routeOptions)}')) continue;
           const translatedLabels = <String, String>{
             'Credit Note': 'إشعار دائن',
             'Debit Note': 'إشعار مدين',
