@@ -169,7 +169,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
               'اختصارات',
               shortcutType,
               routeOptions,
-              workspaceTitle,
+              workspaceName,
             ));
           }
         }
@@ -241,7 +241,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
             currentSection,
             linkType,
             routeOptions,
-            workspaceTitle,
+            workspaceName,
           ));
         }
       }
