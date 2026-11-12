@@ -9,11 +9,13 @@ class WorkspaceReportPage extends StatefulWidget {
     required this.api,
     required this.reportName,
     required this.companies,
+    this.initialFilters = const {},
   });
 
   final FrappeApi api;
   final String reportName;
   final List<ErpCompany> companies;
+  final Map<String, dynamic> initialFilters;
 
   @override
   State<WorkspaceReportPage> createState() => _WorkspaceReportPageState();
@@ -65,7 +67,7 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
         final fieldname = filter['fieldname']?.toString().trim() ?? '';
         if (fieldname.isEmpty) continue;
         final type = filter['fieldtype']?.toString() ?? 'Data';
-        var initial = filter['default'];
+        var initial = widget.initialFilters[fieldname] ?? filter['default'];
         if (initial is String &&
             (initial.startsWith('frappe.') || initial.startsWith('eval:') ||
              initial.contains('function('))) {
