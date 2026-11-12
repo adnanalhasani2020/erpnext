@@ -1281,7 +1281,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         return;
       case 'Item Price':
       case 'Pricing Rule':
-        _openSalesPricing();
+        _openSalesPricing(doctype: item.doctype);
         return;
       case 'Quotation':
       case 'Sales Order':
@@ -1339,14 +1339,14 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ));
   }
 
-  void _openSalesPricing() {
+  void _openSalesPricing({String? doctype}) {
     if (!_requireServerAccess('أسعار البيع')) return;
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (_) => SalesPricingPage(api: _api),
+      builder: (_) => SalesPricingPage(api: _api, initialDoctype: doctype),
     );
   }
 
