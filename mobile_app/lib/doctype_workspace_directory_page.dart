@@ -353,6 +353,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
                           for (final card in numberCards)
                             _WorkspaceNumberCard(
                               api: widget.api,
+                              workspaceName: group.key,
                               name: card['number_card_name'].toString(),
                               label: card['label']?.toString() ?? card['number_card_name'].toString(),
                             ),
@@ -398,11 +399,13 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
 class _WorkspaceNumberCard extends StatefulWidget {
   const _WorkspaceNumberCard({
     required this.api,
+    required this.workspaceName,
     required this.name,
     required this.label,
   });
 
   final FrappeApi api;
+  final String workspaceName;
   final String name;
   final String label;
 
@@ -432,7 +435,29 @@ class _WorkspaceNumberCardState extends State<_WorkspaceNumberCard> {
     return FutureBuilder<double?>(
       future: _value,
       builder: (context, snapshot) {
-        if (snapshot.hasData && snapshot.data == null) return const SizedBox.shrink();
+            if (snapshot.connectionState != ConnectionState.waiting &&
+            (snapshot.hasError || snapshot.data == null)) {
+          return SizedBox(
+            width: 156,
+            child: Card(
+              margin: EdgeInsets.zero,
+              child: ListTile(
+                dense: true,
+                title: Text(widget.label, maxLines: 2, overflow: TextOverflow.ellipsis),
+                subtitle: const Text('عرض في مساحة العمل الأصلية'),
+                trailing: const Icon(Icons.open_in_browser, size: 18),
+                onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => WorkspaceWebPage(
+                    api: widget.api,
+                    title: widget.label,
+                    linkType: 'Workspace',
+                    target: widget.workspaceName,
+                  ),
+                )),
+              ),
+            ),
+          );
+        }
         return SizedBox(
           width: 156,
           child: Card(
