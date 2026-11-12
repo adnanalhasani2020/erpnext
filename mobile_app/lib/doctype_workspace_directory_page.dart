@@ -143,7 +143,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           if (target.isNotEmpty && seen.add('${workspaceTitle}::URL::${target}')) {
             definitions.add(ErpDocTypeDefinition(
               workspaceLabel, workspace['label']?.toString() ?? target, target,
-              _workspaceIcon(workspaceLabel), 'اختصارات', 'URL',
+              _workspaceIcon(workspaceLabel), 'اختصارات', 'URL', const {}, workspaceTitle,
             ));
           }
           continue;
