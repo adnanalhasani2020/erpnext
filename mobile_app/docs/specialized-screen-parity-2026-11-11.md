@@ -103,3 +103,9 @@ The previous report allowlist has been removed for Workspace links. A standalone
 The metadata-driven DocType list now links to the original ERPNext Desk list for native list actions, and the document detail links to its original Desk form for DocType-specific controls. The generic detail also exposes File attachments, Comment timeline and Version history through the authenticated Frappe API. Workspace Report screens link to their exact original Query Report route for JavaScript-defined filters and native charts. These are parity fallbacks to the installed web implementation; they do not claim that all specialized mobile screens have become native one-to-one replicas.
 
 The Workspace directory now uses actual Workspace record identity for grouping/de-duplication and does not show the previous static 47-entry fallback when the permission-filtered Workspace API is unavailable. The static DocType catalog is retained only to provide Arabic label hints for server-returned links.
+
+## Standalone Workspace route follow-up — 2026-11-12
+
+The Item Price and Pricing Rule Workspace links now pass their exact DocType into the pricing screen. The segmented combined overview, margin-analysis shortcut and promotional-scheme shortcut are hidden in these standalone routes, leaving only the responsibility selected by the Workspace link. The general pricing overview remains unchanged for callers that do not specify a DocType.
+
+The generic DocType activity view now opens existing attachments through the original same-origin ERPNext Desk WebView. Workspace-only records with charts, quick lists, shortcuts or number cards are retained in the directory even when no document/report links exist; unsupported native widgets continue to use the original Workspace page.
