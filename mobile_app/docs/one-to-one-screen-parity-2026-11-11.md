@@ -61,3 +61,8 @@ The optional transaction overview now exposes explicit shortcuts to the independ
 ## HR responsibility UI extraction — 2026-11-12
 
 The HR workflow's list presentation is now separated into focused widgets in `hr_workflow_lists.dart`: employee directory, attendance/leave document lists, expense claims and salary slips, plus a shared pagination tile. The parent HR workflow retains the authenticated Frappe loading, session-generation guards, document creation/editing, submit/workflow actions, expense payment and salary-detail retrieval. The extracted widgets receive explicit callbacks and state, so they do not introduce duplicate API paths or move business rules out of the existing workflow controller. The five native DocType entries continue to open the selected responsibility in standalone mode.
+
+
+## Leave application draft editing — 2026-11-12
+
+Added a dedicated edit action for draft Leave Application rows. The editor loads Leave Type choices, keeps the employee identity read-only, validates the date range, and saves through a new HR API method. The API re-reads the canonical document, verifies its DocType, name, company and draft status, revalidates the employee and Leave Type, saves through `frappe.client.save`, and checks the returned document identity and updated fields. Submitted/cancelled leave documents are not editable through this path. Widget and API tests cover the draft edit action, invalid inputs, employee/company preservation, and the confirmed server response. Leave balance, allocation, overlap and approval policy remain enforced by the ERPNext server and require a live HRMS acceptance test.
