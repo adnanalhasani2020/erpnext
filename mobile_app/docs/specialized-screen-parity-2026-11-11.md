@@ -187,3 +187,8 @@ Workspace Query Report results now retain the chart object returned by ERPNext a
 ## Removal of non-parity Sales Dashboard — 2026-11-12
 
 The custom Sales Dashboard route and its guest-overview shortcut were removed because the page aggregated custom totals and was not the ERPNext Sales Analytics report. The actual Sales Analytics Query Report remains accessible through the Workspace directory and runs through the native report API. No client-side summary is presented as a substitute for the ERPNext report.
+
+
+## Report navigation alignment — 2026-11-12
+
+The standalone financial-report hub was removed from signed-in bottom navigation because it combined many separate ERPNext Query Reports into one mobile-only screen. Each report remains available from its actual Workspace link and opens its own native metadata-driven report screen. Guest demo reports remain isolated to guest mode only.
