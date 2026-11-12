@@ -629,7 +629,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     contentPadding: EdgeInsets.zero,
                     title: Text(label),
                     value: checks[key] ?? false,
-                    onChanged: (value) => refresh(() => checks[key] = value ?? false),
+                    onChanged: saving || readOnlyNow ? null : (value) => refresh(() => checks[key] = value ?? false),
                   );
                 }
                 if (type == 'Select' && options.isNotEmpty) {
@@ -699,6 +699,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                       controller.text = isDateTime
                         ? '${formattedDate} ${chosen.hour.toString().padLeft(2, '0')}:${chosen.minute.toString().padLeft(2, '0')}:00'
                         : formattedDate;
+                      refresh(() {});
                     } : null,
                     decoration: InputDecoration(
                       labelText: label,
