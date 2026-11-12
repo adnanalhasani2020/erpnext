@@ -27,6 +27,7 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
   final Map<String, dynamic> _values = {};
   List<Map<String, dynamic>> _filters = const [];
   List<dynamic> _columns = const [];
+  List<dynamic> _summary = const [];
   List<Map<String, dynamic>> _rows = const [];
   bool _loadingDefinition = true;
   bool _running = false;
@@ -448,6 +449,7 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
       _error = null;
       _rows = const [];
       _columns = const [];
+      _summary = const [];
     });
     try {
       final result = await widget.api.runStandardReport(
@@ -476,6 +478,7 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
       setState(() {
         _columns = columns;
         _rows = rows;
+        _summary = result['report_summary'] is List ? result['report_summary'] as List : const [];
       });
     } catch (error) {
       if (!mounted || generation != _generation) return;
@@ -557,6 +560,35 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
                   ),
                 ],
                 if (_running) const LinearProgressIndicator(),
+                if (_summary.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final item in _summary.whereType<Map>())
+                        SizedBox(
+                          width: 160,
+                          child: Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(12),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(item['label']?.toString() ?? ''),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    item['value']?.toString() ?? '',
+                                    style: Theme.of(context).textTheme.titleMedium,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
                 if (_rows.isNotEmpty) ...[
                   const SizedBox(height: 16),
                   Text('النتائج: ${_rows.length}', style: Theme.of(context).textTheme.titleMedium),
