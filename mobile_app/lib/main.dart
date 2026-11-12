@@ -1124,7 +1124,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
             await _loadMoreSalesInvoices();
             if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
           },
-          onOpenInvoice: (name) => _showInvoiceDetails('Sales Invoice', name),
+          onOpenInvoice: (name) async {
+            await _showInvoiceDetails('Sales Invoice', name);
+            if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
+          },
           onCreateInvoice: () async {
             await _openSalesInvoiceComposer();
             if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
@@ -1347,9 +1350,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
     );
   }
 
-  void _showInvoiceDetails(String documentType, String invoiceId) {
+  Future<void> _showInvoiceDetails(String documentType, String invoiceId) async {
     if (!_requireServerAccess('تفاصيل الفاتورة')) return;
-    showModalBottomSheet<void>(
+    await showModalBottomSheet<void>(
       context: context, isScrollControlled: true, showDragHandle: true,
       builder: (sheetContext) => SafeArea(
         child: Padding(
