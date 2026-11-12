@@ -353,6 +353,44 @@ void main() {
       );
     });
 
+    test('refuses to edit a submitted leave application', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      var saveCalled = false;
+      server.listen((request) async {
+        request.response.headers.contentType = ContentType.json;
+        if (request.method == 'GET' && request.uri.path.endsWith('/LEAVE-LOCKED')) {
+          request.response.write(jsonEncode({'data': {
+            'doctype': 'Leave Application', 'name': 'LEAVE-LOCKED',
+            'company': 'Company A', 'employee': 'EMP-001',
+            'leave_type': 'Annual Leave', 'from_date': '2026-11-10',
+            'to_date': '2026-11-11', 'docstatus': 1,
+          }}));
+        } else if (request.method == 'POST') {
+          saveCalled = true;
+          request.response.write(jsonEncode({'message': {}}));
+        } else {
+          request.response.statusCode = HttpStatus.notFound;
+          request.response.write(jsonEncode({'message': 'Not found'}));
+        }
+        await request.response.close();
+      });
+      final client = FrappeApi()..configure('http://127.0.0.1:${server.port}');
+      try {
+        await expectLater(
+          client.updateLeaveApplicationDraft(
+            name: 'LEAVE-LOCKED', company: 'Company A',
+            leaveType: 'Annual Leave', fromDate: '2026-11-15',
+            toDate: '2026-11-17',
+          ),
+          throwsA(isA<FormatException>()),
+        );
+        expect(saveCalled, isFalse);
+      } finally {
+        client.dispose();
+        await server.close(force: true);
+      }
+    });
+
     test('updates only a verified Leave Application draft and confirms the saved document', () async {
       final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
       final calls = <String>[];
