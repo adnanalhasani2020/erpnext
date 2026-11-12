@@ -1038,10 +1038,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
     );
   }
 
-  void _openBankReconciliation() {
+  void _openBankReconciliation({String? doctype}) {
     if (!_requireServerAccess('التسوية البنكية')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => BankReconciliationPage(api: _api, companies: _companies),
+      builder: (_) => BankReconciliationPage(api: _api, companies: _companies, initialDoctype: doctype),
     ));
   }
 
@@ -1271,7 +1271,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
         return;
       case 'Bank Transaction':
       case 'Bank Statement Import':
-        _openBankReconciliation();
+        _openBankReconciliation(doctype: item.doctype);
         return;
       case 'Warehouse':
         _openWarehouseHierarchy();
