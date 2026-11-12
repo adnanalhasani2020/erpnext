@@ -93,6 +93,21 @@ class _StockSummaryNativePageState extends State<StockSummaryNativePage> {
     }
   }
 
+  void _openOrFilterRecord(String doctype, String name, TextEditingController filter) {
+    if (name.trim().isEmpty) return;
+    if (filter.text.trim() == name) {
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceNativeDestinationPage(
+        api: widget.api,
+        title: name,
+        linkType: 'DocTypeDocument',
+        target: '$doctype|$name',
+      )));
+      return;
+    }
+    filter.text = name;
+    _load(reset: true);
+  }
+
   String _qty(dynamic value) => value == null ? '—' : value is num ? value.toStringAsFixed(2) : value.toString();
 
   @override
@@ -149,6 +164,20 @@ class _StockSummaryNativePageState extends State<StockSummaryNativePage> {
           subtitle: Text('${row['item_code'] ?? ''} • ${row['warehouse'] ?? ''}'),
           trailing: Text(_qty(row['actual_qty']), style: Theme.of(context).textTheme.titleSmall),
           children: [
+            ListTile(
+              title: const Text('الصنف'),
+              trailing: TextButton(
+                onPressed: () => _openOrFilterRecord('Item', (row['item_code'] ?? '').toString(), _item),
+                child: Text((row['item_code'] ?? '—').toString()),
+              ),
+            ),
+            ListTile(
+              title: const Text('المستودع'),
+              trailing: TextButton(
+                onPressed: () => _openOrFilterRecord('Warehouse', (row['warehouse'] ?? '').toString(), _warehouse),
+                child: Text((row['warehouse'] ?? '—').toString()),
+              ),
+            ),
             _value('الرصيد الفعلي', row['actual_qty'], row['stock_uom']),
             _value('الكمية المتوقعة', row['projected_qty'], row['stock_uom']),
             _value('المحجوز', row['reserved_qty'], row['stock_uom']),
@@ -217,6 +246,21 @@ class _WarehouseCapacitySummaryNativePageState extends State<WarehouseCapacitySu
     _item.dispose();
     _parentWarehouse.dispose();
     super.dispose();
+  }
+
+  void _openOrFilterRecord(String doctype, String name, TextEditingController filter) {
+    if (name.trim().isEmpty) return;
+    if (filter.text.trim() == name) {
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceNativeDestinationPage(
+        api: widget.api,
+        title: name,
+        linkType: 'DocTypeDocument',
+        target: '$doctype|$name',
+      )));
+      return;
+    }
+    filter.text = name;
+    _load(reset: true);
   }
 
   Future<void> _loadCompanies() async {
@@ -327,8 +371,16 @@ class _WarehouseCapacitySummaryNativePageState extends State<WarehouseCapacitySu
         Card(child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Text((row['warehouse'] ?? '').toString(), style: Theme.of(context).textTheme.titleMedium),
-            Text((row['item_code'] ?? '').toString(), style: Theme.of(context).textTheme.bodyMedium),
+            TextButton(
+              style: TextButton.styleFrom(alignment: AlignmentDirectional.centerStart, padding: EdgeInsets.zero),
+              onPressed: () => _openOrFilterRecord('Warehouse', (row['warehouse'] ?? '').toString(), _warehouse),
+              child: Text((row['warehouse'] ?? '').toString(), style: Theme.of(context).textTheme.titleMedium),
+            ),
+            TextButton(
+              style: TextButton.styleFrom(alignment: AlignmentDirectional.centerStart, padding: EdgeInsets.zero),
+              onPressed: () => _openOrFilterRecord('Item', (row['item_code'] ?? '').toString(), _item),
+              child: Text((row['item_code'] ?? '').toString(), style: Theme.of(context).textTheme.bodyMedium),
+            ),
             const SizedBox(height: 8),
             Row(children: [
               Expanded(child: Text('السعة: ${row['stock_capacity'] ?? 0}')),
