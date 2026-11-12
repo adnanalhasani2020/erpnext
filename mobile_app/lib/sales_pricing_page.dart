@@ -5,7 +5,6 @@ import 'dart:core' as core;
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
-import 'sales_margin_analysis_page.dart';
 import 'promotional_schemes_page.dart';
 import 'workspace_native_destination_page.dart';
 
