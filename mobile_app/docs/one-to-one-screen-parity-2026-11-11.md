@@ -142,3 +142,7 @@ Item Price and Pricing Rule links now open separate focused views. The combined 
 ## Banking Workspace route separation — 2026-11-12
 
 Bank Transaction and Bank Statement Import now pass their exact Workspace DocType into the banking page. The standalone Bank Transaction route shows transaction matching and balance reconciliation; the standalone Bank Statement Import route shows statement upload and import history. The combined reconciliation overview remains available when opened without a specific Workspace DocType, and each standalone view links to its original Desk list.
+
+## Specialized workflow Desk fallback — 2026-11-12
+
+Standalone Quotation/Sales Order/Delivery Note, Purchase Order/Purchase Invoice, stock DocType, and HR DocType routes now expose a direct link to the matching original ERPNext Desk list. This keeps native list actions and any server-installed DocType-specific behavior reachable without combining the mobile responsibilities or recreating web-only behavior in Flutter.
