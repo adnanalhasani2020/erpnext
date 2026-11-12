@@ -130,3 +130,10 @@ ERPNext Desk is a behavioral and data reference only. The Flutter app must not e
 ## Native Page parity follow-up — 2026-11-12
 
 The ERPNext Page links for Stock Summary, Warehouse Capacity Summary and Visual Plant Floor now open dedicated Flutter screens. Stock Summary and Warehouse Capacity Summary use their original whitelisted ERPNext dashboard methods, preserving server-side permission filtering, calculations, filters and sort allowlists. Visual Plant Floor uses the original `get_workstations` method and renders the six Workstation statuses natively. Remaining Visual Plant Floor differences are real-time status subscription and status-image rendering; both remain explicit gaps. No server-side Page JavaScript or embedded Desk page is used.
+
+
+## Native attachment retrieval — 2026-11-12
+
+The generic DocType activity panel now downloads an attachment through the authenticated Frappe session rather than attempting to open its URL in a browser. Before downloading, the API re-reads the canonical File document and verifies that its attached DocType and document name match the activity panel. The resolved file URL must remain on the configured ERPNext origin; session cookies are never sent to an external host. The returned bytes are handed to the Android share/open chooser using the native share API. The activity query also reads the file MIME type so the receiving application can select an appropriate handler.
+
+This closes the generic DocType attachment retrieval gap for files the current ERPNext user is permitted to read. It does not add a browser or WebView fallback, and it does not change ERPNext file permissions.
