@@ -242,4 +242,138 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
       _inFlightDocumentActions.remove(key);
     }
   }
+
+  Future<core.Map<String, List<core.Map<String, dynamic>>>> fetchDocTypeActivity({
+    required String doctype,
+    required String name,
+  }) async {
+    final reference = <List<dynamic>>[
+      ['reference_doctype', '=', doctype],
+      ['reference_name', '=', name],
+    ];
+    final attachments = await fetchDocTypeRows(
+      doctype: 'File',
+      fields: const ['file_name', 'file_url', 'file_size', 'is_private', 'creation'],
+      filters: <List<dynamic>>[
+        ['attached_to_doctype', '=', doctype],
+        ['attached_to_name', '=', name],
+      ],
+      orderBy: 'creation desc',
+    );
+    final comments = await fetchDocTypeRows(
+      doctype: 'Comment',
+      fields: const ['comment_type', 'content', 'comment_by', 'comment_email', 'creation'],
+      filters: reference,
+      orderBy: 'creation desc',
+    );
+    final versions = await fetchDocTypeRows(
+      doctype: 'Version',
+      fields: const ['data', 'owner', 'creation'],
+      filters: <List<dynamic>>[
+        ['ref_doctype', '=', doctype],
+        ['docname', '=', name],
+      ],
+      orderBy: 'creation desc',
+    );
+    return <String, List<core.Map<String, dynamic>>>{
+      'attachments': attachments,
+      'comments': comments,
+      'versions': versions,
+    };
+  }
+
+  Future<void> addDocTypeComment({
+    required String doctype,
+    required String name,
+    required String content,
+  }) async {
+    final text = content.trim();
+    if (doctype.trim().isEmpty || name.trim().isEmpty || text.isEmpty) {
+      throw const FormatException('المستند ونص التعليق مطلوبان.');
+    }
+    final response = await _sendJson(
+      'POST',
+      '/api/method/frappe.desk.form.save.add_comment',
+      {
+        'reference_doctype': doctype,
+        'reference_name': name,
+        'content': text,
+        'comment_type': 'Comment',
+      },
+    );
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'رفض ERPNext إضافة التعليق.'));
+    }
+    if (data['message'] == null) {
+      throw const FormatException('لم يؤكد ERPNext إضافة التعليق.');
+    }
+  }
+
+  Future<core.Map<String, dynamic>> uploadDocTypeAttachment({
+    required String doctype,
+    required String name,
+    required String fileName,
+    required List<int> bytes,
+    bool isPrivate = true,
+  }) async {
+    if (doctype.trim().isEmpty || name.trim().isEmpty ||
+        fileName.trim().isEmpty || bytes.isEmpty) {
+      throw const FormatException('المستند والملف ومحتوى الملف مطلوبة.');
+    }
+    if (_guestMode) {
+      throw const FormatException('وضع الضيف للقراءة فقط؛ سجّل الدخول لرفع المرفقات.');
+    }
+    final generation = _sessionGeneration;
+    final boundary = '----FrappeMobile${DateTime.now().microsecondsSinceEpoch}';
+    final safeName = fileName.replaceAll(RegExp(r'["\\\\/\\r\\n]'), '_');
+    final request = await _client.postUrl(Uri.parse('$_baseUrl/api/method/upload_file'));
+    request.followRedirects = false;
+    request.headers.contentType = ContentType(
+      'multipart',
+      'form-data',
+      parameters: {'boundary': boundary},
+    );
+    if (_cookies.isNotEmpty) {
+      request.headers.set(
+        HttpHeaders.cookieHeader,
+        _cookies.entries.map((entry) => '${entry.key}=${entry.value}').join('; '),
+      );
+      final csrfToken = _cookies['csrf_token'];
+      if (csrfToken != null && csrfToken.isNotEmpty) {
+        request.headers.set('X-Frappe-CSRF-Token', csrfToken);
+      }
+    }
+    void field(String key, String value) {
+      request.write('--$boundary\\r\\n');
+      request.write('Content-Disposition: form-data; name="$key"\\r\\n\\r\\n');
+      request.write('$value\\r\\n');
+    }
+    field('is_private', isPrivate ? '1' : '0');
+    field('doctype', doctype);
+    field('docname', name);
+    request.write('--$boundary\\r\\n');
+    request.write('Content-Disposition: form-data; name="file"; filename="$safeName"\\r\\n');
+    request.write('Content-Type: application/octet-stream\\r\\n\\r\\n');
+    request.add(bytes);
+    request.write('\\r\\n--$boundary--\\r\\n');
+    final response = await request.close().timeout(const Duration(seconds: 60));
+    final body = await utf8.decoder.bind(response).join().timeout(const Duration(seconds: 60));
+    if (generation != _sessionGeneration) {
+      throw const HttpException('تم تجاهل نتيجة رفع ملف من جلسة سابقة.');
+    }
+    _captureCookies(response);
+    final data = _decode(body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر رفع المرفق إلى ERPNext.'));
+    }
+    final uploaded = data['message'];
+    if (uploaded is! core.Map<String, dynamic> ||
+        uploaded['attached_to_doctype'] != doctype ||
+        uploaded['attached_to_name'] != name) {
+      throw const FormatException('لم يؤكد ERPNext ربط الملف بالمستند المطلوب.');
+    }
+    return core.Map<String, dynamic>.from(uploaded);
+  }
+
 }
