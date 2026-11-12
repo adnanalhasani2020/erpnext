@@ -5,16 +5,19 @@ import 'package:file_picker/file_picker.dart';
 
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
+import 'workspace_web_page.dart';
 
 class BankReconciliationPage extends StatefulWidget {
   const BankReconciliationPage({
     super.key,
     required this.api,
     required this.companies,
+    this.initialDoctype,
   });
 
   final FrappeApi api;
   final List<ErpCompany> companies;
+  final String? initialDoctype;
 
   @override
   State<BankReconciliationPage> createState() => _BankReconciliationPageState();
@@ -591,8 +594,21 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('التسوية البنكية'),
+        title: Text(widget.initialDoctype == 'Bank Statement Import' ? 'استيراد كشوف البنك' : widget.initialDoctype == 'Bank Transaction' ? 'الحركات البنكية' : 'التسوية البنكية'),
         actions: [
+          if (widget.initialDoctype != null)
+            IconButton(
+              tooltip: 'فتح شاشة ERPNext الأصلية',
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => WorkspaceWebPage(
+                  api: widget.api,
+                  title: widget.initialDoctype!,
+                  linkType: 'DocTypeList',
+                  target: widget.initialDoctype!,
+                ),
+              )),
+              icon: const Icon(Icons.open_in_browser),
+            ),
           IconButton(
             tooltip: 'تحديث الحركات',
             onPressed: _loadingAccounts || _loadingTransactions || _matching
@@ -651,6 +667,7 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
             },
           ),
           const SizedBox(height: 10),
+          if (widget.initialDoctype != 'Bank Transaction')
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -747,6 +764,7 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
               ]),
             ),
           ),
+          if (widget.initialDoctype != 'Bank Statement Import') ...[
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -871,6 +889,7 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
                 label: Text(_loadingMoreTransactions ? 'جارٍ تحميل المزيد...' : 'تحميل حركات إضافية'),
               ),
             ),
+          ],
         ],
       ),
     );
