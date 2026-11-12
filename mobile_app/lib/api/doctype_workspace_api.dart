@@ -247,6 +247,7 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
     required String doctype,
     required String name,
   }) async {
+    final generation = _sessionGeneration;
     final reference = <List<dynamic>>[
       ['reference_doctype', '=', doctype],
       ['reference_name', '=', name],
@@ -290,6 +291,9 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
         ['docname', '=', name],
       ],
     );
+    if (generation != _sessionGeneration) {
+      throw const HttpException('تغيرت جلسة ERPNext أثناء تحميل سجل المستند.');
+    }
     return <String, List<core.Map<String, dynamic>>>{
       'attachments': attachments,
       'comments': comments,
@@ -308,7 +312,11 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
     }
     // Frappe v15/v16 requires these two arguments in the method signature;
     // the server derives the authoritative identity from the authenticated session.
+    final generation = _sessionGeneration;
     final user = await currentUser();
+    if (generation != _sessionGeneration) {
+      throw const HttpException('تغيرت جلسة ERPNext قبل إرسال التعليق.');
+    }
     final response = await _sendJson(
       'POST',
       '/api/method/frappe.desk.form.utils.add_comment',
