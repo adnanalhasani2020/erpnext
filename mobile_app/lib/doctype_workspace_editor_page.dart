@@ -1006,6 +1006,17 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                         if (file['file_size'] != null) '${file['file_size']} بايت',
                         file['is_private'] == 1 || file['is_private'] == true ? 'خاص' : 'عام',
                       ].join(' • ')),
+                      trailing: file['file_url']?.toString().trim().isNotEmpty == true ? const Icon(Icons.open_in_new) : null,
+                      onTap: file['file_url']?.toString().trim().isNotEmpty == true
+                          ? () => Navigator.of(context).push(MaterialPageRoute<void>(
+                              builder: (_) => WorkspaceWebPage(
+                                api: widget.api,
+                                title: file['file_name']?.toString() ?? 'مرفق المستند',
+                                linkType: 'URL',
+                                target: file['file_url'].toString(),
+                              ),
+                            ))
+                          : null,
                     )).toList(),
               ),
               ExpansionTile(
