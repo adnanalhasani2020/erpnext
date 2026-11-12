@@ -3,6 +3,7 @@ import 'dart:core' as core;
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
+import 'workspace_web_page.dart';
 
 class SalesCommissionPage extends StatefulWidget {
   const SalesCommissionPage({super.key, required this.api});
@@ -158,6 +159,13 @@ class _SalesCommissionPageState extends State<SalesCommissionPage> {
                 Expanded(
                   child: Text('إدارة مندوبي المبيعات والعمولات',
                       style: Theme.of(context).textTheme.titleLarge),
+                ),
+                IconButton(
+                  tooltip: 'فتح قائمة ERPNext الأصلية',
+                  onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => WorkspaceWebPage(api: widget.api, title: 'Sales Person', linkType: 'DocTypeList', target: 'Sales Person'),
+                  )),
+                  icon: const Icon(Icons.open_in_browser),
                 ),
                 IconButton(
                   tooltip: 'تحديث',
