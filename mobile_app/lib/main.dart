@@ -1103,7 +1103,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     if (!_requireServerAccess('فواتير المبيعات')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => StatefulBuilder(
-        builder: (pageContext, setPageState) => SalesInvoicesPage(
+        builder: (_, setPageState) => SalesInvoicesPage(
           loading: _salesLoading,
           error: _salesError,
           invoices: _salesInvoices,
@@ -1138,7 +1138,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     if (!_requireServerAccess('العملاء')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => StatefulBuilder(
-        builder: (pageContext, setPageState) => CustomerDirectoryPage(
+        builder: (_, setPageState) => CustomerDirectoryPage(
           loading: _salesLoading,
           error: _salesError,
           customers: _customers,
@@ -1173,7 +1173,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     if (!_requireServerAccess('الموردون')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => StatefulBuilder(
-        builder: (pageContext, setPageState) => SupplierDirectoryPage(
+        builder: (_, setPageState) => SupplierDirectoryPage(
           loading: _purchaseLoading,
           error: _purchaseError,
           suppliers: _suppliers,
