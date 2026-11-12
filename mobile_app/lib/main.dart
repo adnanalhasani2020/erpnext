@@ -25,6 +25,7 @@ import 'warehouse_hierarchy_page.dart';
 import 'warehouse_list_page.dart';
 import 'item_list_page.dart';
 import 'stock_balances_page.dart';
+import 'sales_overview_page.dart';
 import 'doctype_workspace_page.dart';
 import 'models/erp_models.dart';
 import 'login_page.dart';
@@ -1625,223 +1626,68 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ));
   }
 
-  Widget _buildSalesPage() {
-    final invoiceQuery = _salesInvoiceSearch.toLowerCase();
-    final customerQuery = _customerSearch.toLowerCase();
-    final purchaseQuery = _purchaseInvoiceSearch.toLowerCase();
-    final supplierQuery = _supplierSearch.toLowerCase();
-    final visibleSalesInvoices = _salesInvoices.where((row) =>
-      invoiceQuery.isEmpty || row.id.toLowerCase().contains(invoiceQuery) || row.customerName.toLowerCase().contains(invoiceQuery)
-    ).toList(growable: false);
-    final visibleCustomers = _customers.where((row) =>
-      customerQuery.isEmpty || row.id.toLowerCase().contains(customerQuery) || row.name.toLowerCase().contains(customerQuery)
-    ).toList(growable: false);
-    final visiblePurchaseInvoices = _purchaseInvoices.where((row) =>
-      purchaseQuery.isEmpty || row.id.toLowerCase().contains(purchaseQuery) || row.supplierName.toLowerCase().contains(purchaseQuery)
-    ).toList(growable: false);
-    final visibleSuppliers = _suppliers.where((row) =>
-      supplierQuery.isEmpty || row.id.toLowerCase().contains(supplierQuery) || row.name.toLowerCase().contains(supplierQuery)
-    ).toList(growable: false);
-    return ListView(padding: const EdgeInsets.all(18), children: [
-      if (_isGuest) _guestDemoBanner(),
-      Row(children: [
-        Expanded(child: Row(children: [const CircleAvatar(child: Icon(Icons.receipt_long_outlined)), const SizedBox(width: 12), Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('المعاملات', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)), Text(_isGuest ? 'عرض عينات المبيعات والمشتريات والعملاء والموردين محلياً' : 'فواتير المبيعات وإنشاء الفواتير، مع عرض بيانات المشتريات والعملاء والموردين', style: Theme.of(context).textTheme.bodySmall)]))])),
-        IconButton(tooltip: 'تحديث المبيعات', onPressed: _isGuest || _salesLoading ? null : _loadSales, icon: const Icon(Icons.refresh)),
-        IconButton(tooltip: 'تحديث المشتريات', onPressed: _isGuest || _purchaseLoading ? null : _loadPurchases, icon: const Icon(Icons.shopping_cart_outlined)),
-      ]),
-      Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        children: [
-
-          for (final item in const [
-            ('Quotation', 'عروض الأسعار'),
-            ('Sales Order', 'أوامر البيع'),
-            ('Delivery Note', 'أذون التسليم'),
-          ])
-            OutlinedButton.icon(
-              onPressed: _isGuest || _salesLoading || _inventoryLoading ? null : () => _openSalesWorkflow(doctype: item.$1),
-              icon: const Icon(Icons.open_in_new), label: Text(item.$2),
-            ),
-
-          for (final item in const [
-            ('Purchase Order', 'أوامر الشراء'),
-            ('Purchase Invoice', 'فواتير المشتريات'),
-            ('Payment Entry', 'دفعات الموردين'),
-            ('Supplier Ledger', 'سجل دفعات الموردين'),
-          ])
-            OutlinedButton.icon(
-              onPressed: _isGuest || _purchaseLoading ? null : () => _openPurchaseWorkflow(section: item.$1),
-              icon: const Icon(Icons.open_in_new), label: Text(item.$2),
-            ),
-
-          for (final item in const [
-            ('Stock Entry', 'حركات المخزون'),
-            ('Purchase Receipt', 'إيصالات الشراء'),
-            ('Stock Reconciliation', 'الجرد والتسوية'),
-            ('Pick List', 'قوائم الالتقاط'),
-            ('Batch', 'تتبع الدفعات'),
-            ('Serial No', 'تتبع الأرقام التسلسلية'),
-            ('Item Reorder', 'تنبيهات إعادة الطلب'),
-          ])
-            OutlinedButton.icon(
-              onPressed: _isGuest || _inventoryLoading ? null : () => _openStockWorkflow(section: item.$1),
-              icon: const Icon(Icons.open_in_new), label: Text(item.$2),
-            ),
-          OutlinedButton.icon(
-            onPressed: _isGuest || _salesLoading ? null : _openSalesDashboard,
-            icon: const Icon(Icons.insights_outlined),
-            label: const Text('مؤشرات المبيعات'),
-          ),
-          OutlinedButton.icon(
-            onPressed: _isGuest || _salesLoading || _purchaseLoading ? null : _openBankReconciliation,
-            icon: const Icon(Icons.account_balance_outlined),
-            label: const Text('التسوية البنكية'),
-          ),
-          OutlinedButton.icon(
-            onPressed: _isGuest || _salesLoading || _purchaseLoading ? null : _openPayroll,
-            icon: const Icon(Icons.payments_outlined),
-            label: const Text('دورة الرواتب'),
-          ),
-
-          for (final item in const [
-            ('Employee', 'الموظفون'),
-            ('Attendance', 'الحضور'),
-            ('Leave Application', 'طلبات الإجازة'),
-            ('Expense Claim', 'مطالبات المصروفات'),
-            ('Salary Slip', 'قسائم الرواتب'),
-          ])
-            OutlinedButton.icon(
-              onPressed: _isGuest || _companies.isEmpty ? null : () => _openHrWorkflows(doctype: item.$1),
-              icon: const Icon(Icons.open_in_new), label: Text(item.$2),
-            ),
-          OutlinedButton.icon(
-            onPressed: _isGuest || _salesLoading || _purchaseLoading ? null : _openPaymentReconciliation,
-            icon: const Icon(Icons.compare_arrows_outlined),
-            label: const Text('تسوية المدفوعات'),
-          ),
-          OutlinedButton.icon(
-            onPressed: _isGuest || _salesLoading ? null : _openSalesPricing,
-            icon: const Icon(Icons.price_change_outlined),
-            label: const Text('أسعار البيع'),
-          ),
-          OutlinedButton.icon(
-            onPressed: !_isGuest && _companies.isNotEmpty ? _openChartOfAccounts : null,
-            icon: const Icon(Icons.account_tree_outlined),
-            label: const Text('دليل الحسابات'),
-          ),
-          OutlinedButton.icon(
-            onPressed: !_isGuest && _companies.isNotEmpty ? _openJournalEntries : null,
-            icon: const Icon(Icons.post_add_outlined),
-            label: const Text('القيود اليومية'),
-          ),
-          OutlinedButton.icon(
-            onPressed: _isGuest || _inventoryLoading || _purchaseLoading ? null : _openMasterData,
-            icon: const Icon(Icons.settings_suggest_outlined),
-            label: const Text('إدارة البيانات الأساسية'),
-          ),
-          OutlinedButton.icon(
-            onPressed: _isGuest || _salesLoading ? null : _openSalesCommissions,
-            icon: const Icon(Icons.percent_outlined),
-            label: const Text('العمولات'),
-          ),
-        ],
-      ),
-      const SizedBox(height: 8),
-      Align(
-        alignment: AlignmentDirectional.centerStart,
-        child: FilledButton.icon(
-          onPressed: _isGuest || _salesLoading || _inventoryLoading ? null : _openSalesInvoiceComposer,
-          icon: const Icon(Icons.add_shopping_cart),
-          label: const Text('إنشاء فاتورة مبيعات'),
-        ),
-      ),
-      if (_salesLoading) const LinearProgressIndicator(),
-      if (_salesError != null) _errorCard(_salesError!),
-      const SizedBox(height: 12),
-      ServerSearchField(
-        controller: _salesInvoiceSearchController,
-        label: 'بحث في فواتير المبيعات',
-        onSearch: _searchSalesInvoices,
-        loading: _searchingSalesInvoices ,
-        buttonLabel: _isGuest ? 'بحث محلي' : 'بحث في الخادم'
-      ),
-      Text('فواتير المبيعات (${visibleSalesInvoices.length})', style: Theme.of(context).textTheme.titleMedium),
-      if (visibleSalesInvoices.isEmpty && !_salesLoading) const Card(child: ListTile(title: Text('لا توجد فواتير ظاهرة أو تعذر تحميلها'))),
-      ...visibleSalesInvoices.map((invoice) => Card(child: ListTile(
-        leading: CircleAvatar(child: Icon(invoice.isReturn ? Icons.assignment_return_outlined : Icons.receipt_long_outlined)),
-        title: Text(invoice.isReturn ? 'مرتجع • ${invoice.id}' : invoice.id),
-        subtitle: Text('${invoice.customerName} • ${invoice.postingDate ?? '—'}${invoice.returnAgainst == null ? '' : '\nمرتبط بالفاتورة: ${invoice.returnAgainst}'}\n${invoice.status ?? 'حالة غير محددة'} • متبقٍ: ${invoice.outstandingAmount.toStringAsFixed(2)} ${invoice.currency ?? ''}'),
-        isThreeLine: true,
-        trailing: Text(invoice.grandTotal.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
-        onTap: _isGuest ? null : () => _showInvoiceDetails('Sales Invoice', invoice.id),
-      ))),
-      if (!_isGuest && (_salesInvoicesHasMore || _loadingMoreSalesInvoices)) LoadMoreButton(_loadingMoreSalesInvoices, 'تحميل المزيد من فواتير المبيعات', _loadMoreSalesInvoices),
-      const SizedBox(height: 18),
-      ServerSearchField(
-        controller: _customerSearchController,
-        label: 'بحث في العملاء',
-        onSearch: _searchCustomers,
-        loading: _searchingCustomers ,
-        buttonLabel: _isGuest ? 'بحث محلي' : 'بحث في الخادم'
-      ),
-      Text('العملاء (${visibleCustomers.length})', style: Theme.of(context).textTheme.titleMedium),
-      if (visibleCustomers.isEmpty && !_salesLoading) const Card(child: ListTile(title: Text('لا توجد بيانات عملاء ظاهرة'))),
-      ...visibleCustomers.map((customer) => Card(child: ListTile(
-        leading: const CircleAvatar(child: Icon(Icons.person_outline)),
-        title: Text(customer.name),
-        subtitle: Text([customer.id, if (customer.group != null) customer.group!, if (customer.territory != null) customer.territory!].join(' • ')),
-        trailing: IconButton(
-          tooltip: 'تعديل ملف العميل',
-          icon: const Icon(Icons.edit_outlined),
-          onPressed: _isGuest ? null : () => _editCustomerProfile(customer),
-        ),
-        onTap: _isGuest ? null : () => _showCustomerLedger(customer),
-      ))),
-      if (!_isGuest && (_customersHasMore || _loadingMoreCustomers)) LoadMoreButton(_loadingMoreCustomers, 'تحميل المزيد من العملاء', _loadMoreCustomers),
-      const Divider(height: 28),
-      if (_purchaseLoading) const LinearProgressIndicator(),
-      if (_purchaseError != null) _errorCard(_purchaseError!),
-      ServerSearchField(
-        controller: _purchaseInvoiceSearchController,
-        label: 'بحث في فواتير المشتريات',
-        onSearch: _searchPurchaseInvoices,
-        loading: _searchingPurchaseInvoices ,
-        buttonLabel: _isGuest ? 'بحث محلي' : 'بحث في الخادم'
-      ),
-      Text('فواتير المشتريات (${visiblePurchaseInvoices.length})', style: Theme.of(context).textTheme.titleMedium),
-      if (visiblePurchaseInvoices.isEmpty && !_purchaseLoading) const Card(child: ListTile(title: Text('لا توجد فواتير مشتريات ظاهرة'))),
-      ...visiblePurchaseInvoices.map((invoice) => Card(child: ListTile(
-        leading: const CircleAvatar(child: Icon(Icons.shopping_cart_outlined)),
-        title: Text(invoice.id),
-        subtitle: Text('${invoice.supplierName} • ${invoice.postingDate ?? '—'}\n${invoice.status ?? 'حالة غير محددة'} • متبقٍ: ${invoice.outstandingAmount.toStringAsFixed(2)} ${invoice.currency ?? ''}'),
-        isThreeLine: true,
-        trailing: Text(invoice.grandTotal.toStringAsFixed(2), style: const TextStyle(fontWeight: FontWeight.bold)),
-        onTap: _isGuest ? null : () => _openPurchaseWorkflow(initialInvoiceName: invoice.id),
-      ))),
-      if (!_isGuest && (_purchaseInvoicesHasMore || _loadingMorePurchaseInvoices)) LoadMoreButton(_loadingMorePurchaseInvoices, 'تحميل المزيد من فواتير المشتريات', _loadMorePurchaseInvoices),
-      const SizedBox(height: 18),
-      ServerSearchField(
-        controller: _supplierSearchController,
-        label: 'بحث في الموردين',
-        onSearch: _searchSuppliers,
-        loading: _searchingSuppliers ,
-        buttonLabel: _isGuest ? 'بحث محلي' : 'بحث في الخادم'
-      ),
-      Text('الموردون (${visibleSuppliers.length})', style: Theme.of(context).textTheme.titleMedium),
-      if (visibleSuppliers.isEmpty && !_purchaseLoading) const Card(child: ListTile(title: Text('لا توجد بيانات موردين ظاهرة'))),
-      ...visibleSuppliers.map((supplier) => Card(child: ListTile(
-        leading: const CircleAvatar(child: Icon(Icons.local_shipping_outlined)),
-        title: Text(supplier.name),
-        subtitle: Text([supplier.id, if (supplier.group != null) supplier.group!, if (supplier.type != null) supplier.type!].join(' • ')),
-        trailing: const Icon(Icons.receipt_long_outlined),
-        onTap: _isGuest ? null : () => _showSupplierLedger(supplier),
-      ))),
-      if (!_isGuest && (_suppliersHasMore || _loadingMoreSuppliers)) LoadMoreButton(_loadingMoreSuppliers, 'تحميل المزيد من الموردين', _loadMoreSuppliers),
-      const SizedBox(height: 10),
-      Text('تتم إدارة دورة المبيعات من شاشة المبيعات، ودورة المشتريات والدفعات والمرتجعات من شاشة إدارة المشتريات، مع تحديث أرصدة المخزون بعد العمليات المرحلة.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.bodySmall),
-    ]);
-  }
+  Widget _buildSalesPage() => SalesOverviewPage(
+    guest: _isGuest,
+    guestBanner: _isGuest ? _guestDemoBanner() : null,
+    salesLoading: _salesLoading,
+    purchaseLoading: _purchaseLoading,
+    inventoryLoading: _inventoryLoading,
+    salesError: _salesError,
+    purchaseError: _purchaseError,
+    salesInvoices: _salesInvoices,
+    customers: _customers,
+    purchaseInvoices: _purchaseInvoices,
+    suppliers: _suppliers,
+    salesInvoiceSearch: _salesInvoiceSearch,
+    customerSearch: _customerSearch,
+    purchaseInvoiceSearch: _purchaseInvoiceSearch,
+    supplierSearch: _supplierSearch,
+    salesInvoiceSearchController: _salesInvoiceSearchController,
+    customerSearchController: _customerSearchController,
+    purchaseInvoiceSearchController: _purchaseInvoiceSearchController,
+    supplierSearchController: _supplierSearchController,
+    searchingSalesInvoices: _searchingSalesInvoices,
+    searchingCustomers: _searchingCustomers,
+    searchingPurchaseInvoices: _searchingPurchaseInvoices,
+    searchingSuppliers: _searchingSuppliers,
+    salesInvoicesHasMore: _salesInvoicesHasMore,
+    customersHasMore: _customersHasMore,
+    purchaseInvoicesHasMore: _purchaseInvoicesHasMore,
+    suppliersHasMore: _suppliersHasMore,
+    loadingMoreSalesInvoices: _loadingMoreSalesInvoices,
+    loadingMoreCustomers: _loadingMoreCustomers,
+    loadingMorePurchaseInvoices: _loadingMorePurchaseInvoices,
+    loadingMoreSuppliers: _loadingMoreSuppliers,
+    companiesAvailable: _companies.isNotEmpty,
+    onLoadSales: _loadSales,
+    onLoadPurchases: _loadPurchases,
+    onOpenSalesWorkflow: _openSalesWorkflow,
+    onOpenPurchaseWorkflow: _openPurchaseWorkflow,
+    onOpenStockWorkflow: _openStockWorkflow,
+    onOpenSalesDashboard: _openSalesDashboard,
+    onOpenBankReconciliation: _openBankReconciliation,
+    onOpenPayroll: _openPayroll,
+    onOpenHrWorkflows: _openHrWorkflows,
+    onOpenPaymentReconciliation: _openPaymentReconciliation,
+    onOpenSalesPricing: _openSalesPricing,
+    onOpenChartOfAccounts: _openChartOfAccounts,
+    onOpenJournalEntries: _openJournalEntries,
+    onOpenMasterData: _openMasterData,
+    onOpenSalesCommissions: _openSalesCommissions,
+    onOpenSalesInvoiceComposer: _openSalesInvoiceComposer,
+    onSearchSalesInvoices: _searchSalesInvoices,
+    onSearchCustomers: _searchCustomers,
+    onSearchPurchaseInvoices: _searchPurchaseInvoices,
+    onSearchSuppliers: _searchSuppliers,
+    onLoadMoreSalesInvoices: _loadMoreSalesInvoices,
+    onLoadMoreCustomers: _loadMoreCustomers,
+    onLoadMorePurchaseInvoices: _loadMorePurchaseInvoices,
+    onLoadMoreSuppliers: _loadMoreSuppliers,
+    onShowInvoiceDetails: _showInvoiceDetails,
+    onEditCustomer: _editCustomerProfile,
+    onShowCustomerLedger: _showCustomerLedger,
+    onShowSupplierLedger: _showSupplierLedger,
+  );
 
 
 }
