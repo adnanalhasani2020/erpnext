@@ -193,12 +193,30 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
       final type = field['fieldtype']?.toString() ?? '';
       return field['fieldname'] is String && !{'Section Break','Column Break','Tab Break','HTML','Table','Table MultiSelect','Button'}.contains(type) && field['hidden'] != 1;
     }).toList();
+    final dashboardCharts = widget.linkType == 'Dashboard' && record['charts'] is List ? record['charts'] as List : const [];
+    final dashboardCards = widget.linkType == 'Dashboard' && record['cards'] is List ? record['cards'] as List : const [];
     return ListView(padding: const EdgeInsets.all(12), children: [
       Card(child: ListTile(
         leading: Icon(widget.linkType == 'Dashboard' ? Icons.dashboard : Icons.description_outlined),
         title: Text(widget.title),
         subtitle: Text('${record['doctype'] ?? widget.linkType} • ${record['name'] ?? widget.target}', textDirection: TextDirection.ltr),
       )),
+      if (dashboardCards.isNotEmpty)
+        Wrap(spacing: 8, runSpacing: 8, children: dashboardCards.whereType<Map>().map((raw) {
+          final card = Map<String, dynamic>.from(raw);
+          return _NativeNumberCard(
+            api: widget.api,
+            name: (card['card'] ?? '').toString(),
+            label: (card['label'] ?? card['card'] ?? 'مؤشر').toString(),
+          );
+        }).toList()),
+      if (dashboardCharts.isNotEmpty)
+        for (final raw in dashboardCharts.whereType<Map>())
+          _NativeDashboardChart(
+            api: widget.api,
+            chartName: (raw['chart'] ?? '').toString(),
+            label: (raw['label'] ?? raw['chart'] ?? 'مخطط').toString(),
+          ),
       for (final field in fields)
         if (record[field['fieldname']] != null && record[field['fieldname']].toString().isNotEmpty)
           Card(margin: const EdgeInsets.symmetric(vertical: 3), child: ListTile(
