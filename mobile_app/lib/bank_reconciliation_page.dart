@@ -598,7 +598,7 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
         actions: [
           if (widget.initialDoctype != null)
             IconButton(
-              tooltip: 'فتح شاشة ERPNext الأصلية',
+              tooltip: 'فتح قائمة المعاملات',
               onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
                 builder: (_) => WorkspaceNativeDestinationPage(
                   api: widget.api,
