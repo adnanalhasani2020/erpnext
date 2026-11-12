@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
+import 'widgets/server_link_field.dart';
 
 class StockSummaryNativePage extends StatefulWidget {
   const StockSummaryNativePage({super.key, required this.api});
@@ -94,11 +95,11 @@ class _StockSummaryNativePageState extends State<StockSummaryNativePage> {
       Card(child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(children: [
-          TextField(controller: _item, decoration: const InputDecoration(labelText: 'الصنف', prefixIcon: Icon(Icons.inventory_2_outlined))),
+          ServerLinkField(api: widget.api, doctype: 'Item', label: 'الصنف', controller: _item, searchFields: const ['item_name', 'item_group'], icon: Icons.inventory_2_outlined, onSelected: (_) => _load(reset: true)),
           const SizedBox(height: 8),
-          TextField(controller: _warehouse, decoration: const InputDecoration(labelText: 'المستودع', prefixIcon: Icon(Icons.warehouse_outlined))),
+          ServerLinkField(api: widget.api, doctype: 'Warehouse', label: 'المستودع', controller: _warehouse, searchFields: const ['warehouse_name', 'company'], icon: Icons.warehouse_outlined, onSelected: (_) => _load(reset: true)),
           const SizedBox(height: 8),
-          TextField(controller: _itemGroup, decoration: const InputDecoration(labelText: 'مجموعة الأصناف', prefixIcon: Icon(Icons.category_outlined))),
+          ServerLinkField(api: widget.api, doctype: 'Item Group', label: 'مجموعة الأصناف', controller: _itemGroup, searchFields: const ['item_group_name'], icon: Icons.category_outlined, onSelected: (_) => _load(reset: true)),
           const SizedBox(height: 8),
           Row(children: [
             Expanded(child: DropdownButtonFormField<String>(
@@ -271,11 +272,11 @@ class _WarehouseCapacitySummaryNativePageState extends State<WarehouseCapacitySu
             onChanged: (value) { setState(() => _company = value); _load(reset: true); },
           ),
           const SizedBox(height: 8),
-          TextField(controller: _warehouse, decoration: const InputDecoration(labelText: 'المستودع')),
+          ServerLinkField(api: widget.api, doctype: 'Warehouse', label: 'المستودع', controller: _warehouse, searchFields: const ['warehouse_name', 'company'], onSelected: (_) => _load(reset: true)),
           const SizedBox(height: 8),
-          TextField(controller: _parentWarehouse, decoration: const InputDecoration(labelText: 'المستودع الأب (مجموعة)')),
+          ServerLinkField(api: widget.api, doctype: 'Warehouse', label: 'المستودع الأب (مجموعة)', controller: _parentWarehouse, searchFields: const ['warehouse_name', 'company'], filters: const [['is_group', '=', 1], ['disabled', '=', 0]], icon: Icons.account_tree_outlined, onSelected: (_) => _load(reset: true)),
           const SizedBox(height: 8),
-          TextField(controller: _item, decoration: const InputDecoration(labelText: 'الصنف')),
+          ServerLinkField(api: widget.api, doctype: 'Item', label: 'الصنف', controller: _item, searchFields: const ['item_name', 'item_group'], onSelected: (_) => _load(reset: true)),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
             initialValue: _sortBy,
@@ -299,6 +300,7 @@ class _WarehouseCapacitySummaryNativePageState extends State<WarehouseCapacitySu
         ]),
       )),
       if (_loading) const LinearProgressIndicator(),
+      if (_companies.isEmpty && !_loading) const Card(child: ListTile(leading: Icon(Icons.business_outlined), title: Text('لا توجد شركات متاحة'), subtitle: Text('تحقق من صلاحية قراءة Company.'))),
       if (_error != null) Card(child: ListTile(leading: const Icon(Icons.error_outline), title: const Text('تعذر تحميل السعة'), subtitle: Text(_error!))),
       for (final row in _rows)
         Card(child: Padding(
