@@ -127,15 +127,18 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           if (workspace['sidebar_items'] is List) ...(workspace['sidebar_items'] as List),
         ];
         var currentSection = 'عام';
+        var hiddenCard = false;
         for (final raw in links) {
           if (raw is! Map) continue;
           final link = Map<String, dynamic>.from(raw);
           final linkType = link['type']?.toString() ?? '';
           if (linkType == 'Card Break' || linkType == 'Section Break' || linkType == 'Header') {
+            hiddenCard = link['hidden'] == 1 || link['hidden'] == true;
             final heading = link['label']?.toString().trim() ?? '';
-            if (heading.isNotEmpty) currentSection = heading;
+            if (!hiddenCard && heading.isNotEmpty) currentSection = heading;
             continue;
           }
+          if (hiddenCard) continue;
           final doctype = link['link_to']?.toString().trim() ?? '';
           if (doctype.isEmpty || link['link_type']?.toString() != 'DocType' ||
               (link['hidden'] == 1 || link['hidden'] == true) || !seen.add('${workspaceTitle}::${currentSection}::${doctype}')) continue;
