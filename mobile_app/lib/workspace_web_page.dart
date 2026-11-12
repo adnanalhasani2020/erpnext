@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:io' show Cookie;
 
 import 'package:flutter/material.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_cookie_manager_flutter/webview_cookie_manager_flutter.dart';
 
 import 'api/frappe_api.dart';
 
@@ -25,7 +27,7 @@ class WorkspaceWebPage extends StatefulWidget {
 
 class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
   late final WebViewController _controller;
-  final WebViewCookieManager _cookieManager = WebViewCookieManager();
+  final WebviewCookieManager _cookieManager = WebviewCookieManager();
   bool _loading = true;
   String? _error;
   int _progress = 0;
@@ -61,19 +63,20 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
       }
       if (_sameOrigin(target, base)) {
         final cookieHeader = widget.api.imageRequestHeaders['Cookie'] ?? '';
+        final cookies = <Cookie>[];
         for (final part in cookieHeader.split(';')) {
           final separator = part.indexOf('=');
           if (separator <= 0) continue;
           final name = part.substring(0, separator).trim();
           final value = part.substring(separator + 1).trim();
           if (name.isEmpty) continue;
-          await _cookieManager.setCookie(WebViewCookie(
-            name: name,
-            value: value,
-            domain: base.host,
-            path: '/',
-          ));
+          cookies.add(Cookie(name, value)
+            ..domain = base.host
+            ..path = '/'
+            ..secure = base.scheme == 'https'
+            ..httpOnly = name == 'sid' || name == 'session_id');
         }
+        await _cookieManager.setCookies(cookies, origin: base.origin);
       }
       await _controller.loadRequest(target);
     } catch (error) {
