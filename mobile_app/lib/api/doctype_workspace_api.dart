@@ -369,6 +369,10 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
         .replaceAll('\r', '_')
         .replaceAll('\n', '_');
     final request = await _client.postUrl(Uri.parse('$_baseUrl/api/method/upload_file'));
+    if (generation != _sessionGeneration) {
+      request.abort();
+      throw const HttpException('تغيرت جلسة ERPNext قبل بدء رفع الملف.');
+    }
     request.followRedirects = false;
     request.headers.contentType = ContentType(
       'multipart',
