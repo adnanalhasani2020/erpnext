@@ -3,6 +3,7 @@ import 'dart:core' as core;
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
+import 'workspace_web_page.dart';
 import 'master_data_page.dart';
 import 'models/erp_models.dart';
 
@@ -249,7 +250,8 @@ class _WarehouseHierarchyPageState extends State<WarehouseHierarchyPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('شجرة المستودعات'),
-        actions: [IconButton(onPressed: _loading || _loadingMore ? null : _manageWarehouses, tooltip: 'إدارة المستودعات', icon: const Icon(Icons.edit_note)), IconButton(onPressed: _loading || _loadingMore ? null : () => _load(), tooltip: 'تحديث', icon: const Icon(Icons.refresh))],
+        actions: [
+          IconButton(tooltip: 'فتح قائمة ERPNext الأصلية', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(api: widget.api, title: 'Warehouse', linkType: 'DocTypeList', target: 'Warehouse'))), icon: const Icon(Icons.open_in_browser)),IconButton(onPressed: _loading || _loadingMore ? null : _manageWarehouses, tooltip: 'إدارة المستودعات', icon: const Icon(Icons.edit_note)), IconButton(onPressed: _loading || _loadingMore ? null : () => _load(), tooltip: 'تحديث', icon: const Icon(Icons.refresh))],
       ),
       body: Column(children: [
         Padding(
