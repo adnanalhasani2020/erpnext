@@ -73,9 +73,17 @@ class _WorkspaceNativeDestinationPageState extends State<WorkspaceNativeDestinat
         setState(() { _record = doc; _meta = meta; _loading = false; });
         return;
       }
-      if (widget.linkType == 'Page' || widget.linkType == 'Dashboard') {
-        final doc = await widget.api.fetchDocTypeDocument(doctype: widget.linkType, name: widget.target);
-        final meta = await widget.api.fetchDocTypeMeta(widget.linkType);
+      if (widget.linkType == 'Page') {
+        if (!mounted) return;
+        setState(() {
+          _error = 'هذه صفحة ERPNext مخصصة ولا توجد لها شاشة Flutter مطابقة حتى الآن. لم يتم فتح WebView أو عرض نموذج مستند بديل.';
+          _loading = false;
+        });
+        return;
+      }
+      if (widget.linkType == 'Dashboard') {
+        final doc = await widget.api.fetchDocTypeDocument(doctype: 'Dashboard', name: widget.target);
+        final meta = await widget.api.fetchDocTypeMeta('Dashboard');
         if (!mounted) return;
         setState(() { _record = doc; _meta = meta; _loading = false; });
         return;
@@ -250,12 +258,6 @@ class _WorkspaceNativeDestinationPageState extends State<WorkspaceNativeDestinat
             title: Text((field['label'] ?? field['fieldname']).toString()),
             subtitle: SelectableText(record[field['fieldname']].toString()),
           )),
-      if (widget.linkType == 'Page')
-        const Card(child: ListTile(
-          leading: Icon(Icons.info_outline),
-          title: Text('محتوى الصفحة البرمجي غير منفذ'),
-          subtitle: Text('لا ينفذ التطبيق HTML أو JavaScript القادم من الخادم. يجب تحويل مسؤولية الصفحة إلى واجهة Flutter أصلية وربطها بواجهات API المعتمدة.'),
-        )),
     ]);
   }
 
