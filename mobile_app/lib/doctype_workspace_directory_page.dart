@@ -70,7 +70,7 @@ class ErpDocTypeDirectoryPage extends StatefulWidget {
 class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
   List<ErpDocTypeDefinition> _definitions = const [];
   Map<String, List<Map<String, dynamic>>> _workspaceNumberCards = const {};
-  final Set<String> _expandedWorkspaceKeys = <String>{};
+  final Map<String, bool> _workspaceExpandedState = <String, bool>{};
   bool _loading = true;
   String? _directoryError;
 
@@ -326,17 +326,11 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
               }
               final numberCards = _workspaceNumberCards[group.key] ?? const <Map<String, dynamic>>[];
               final initiallyExpanded = workspaceLabel == 'المبيعات' || workspaceLabel == 'المشتريات';
-              final showNumberCards = initiallyExpanded || _expandedWorkspaceKeys.contains(group.key);
+              final showNumberCards = _workspaceExpandedState[group.key] ?? initiallyExpanded;
               return Card(child: ExpansionTile(
                 initiallyExpanded: initiallyExpanded,
                 onExpansionChanged: (expanded) {
-                  setState(() {
-                    if (expanded) {
-                      _expandedWorkspaceKeys.add(group.key);
-                    } else {
-                      _expandedWorkspaceKeys.remove(group.key);
-                    }
-                  });
+                  setState(() => _workspaceExpandedState[group.key] = expanded);
                 },
                 leading: group.value.first.workspaceName.isEmpty
                     ? const Icon(Icons.folder_outlined)
