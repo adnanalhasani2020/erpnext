@@ -197,3 +197,8 @@ The standalone financial-report hub was removed from signed-in bottom navigation
 ## DocField attachment input — 2026-11-12
 
 The generic metadata-driven form now recognizes ERPNext `Attach` and `Attach Image` fields. It uses the device file picker (image-only for Attach Image), stages the selected file until the document is saved, uploads through the authenticated ERPNext `upload_file` endpoint as private by default, and writes the returned `file_url` back to the exact field through the canonical document save method. A required Attach field on a brand-new document is explicitly blocked with an explanation because the document must exist before the attachment can be linked; the user can create the document first and add the required file in edit mode.
+
+
+## Additional DocField control parity — 2026-11-12
+
+The generic form now masks Password values and leaves a blank Password field unchanged when editing, matching ERPNext's password-field behavior. Text, Small Text, Long Text and Text Editor inputs use multiline mobile controls; Code fields use a multiline monospace editor. These remain plain data-entry controls and do not execute server-provided scripts.
