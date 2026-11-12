@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
 import 'doctype_workspace_model.dart';
@@ -76,6 +77,17 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
     _loadWorkspaceDirectory();
   }
 
+  Map<String, dynamic> _routeOptions(dynamic raw) {
+    if (raw is Map) return Map<String, dynamic>.from(raw);
+    if (raw is! String || raw.trim().isEmpty) return const {};
+    try {
+      final decoded = jsonDecode(raw);
+      return decoded is Map ? Map<String, dynamic>.from(decoded) : const {};
+    } catch (_) {
+      return const {};
+    }
+  }
+
   Future<void> _loadWorkspaceDirectory() async {
     setState(() { _loading = true; _directoryError = null; });
     try {
@@ -109,6 +121,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           final supported = linkType == 'DocType' || linkType == 'Report';
           if (supported && target.isNotEmpty &&
               seen.add('${workspaceTitle}::اختصارات::${linkType}::${target}')) {
+            final routeOptions = _routeOptions(workspace['route_options']);
             definitions.add(ErpDocTypeDefinition(
               workspaceLabel,
               workspace['title']?.toString() ?? workspace['label']?.toString() ?? target,
@@ -116,6 +129,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
               _workspaceIcon(workspaceLabel),
               'اختصارات',
               linkType,
+              routeOptions,
             ));
           }
           continue;
@@ -130,7 +144,8 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
             if (!{'DocType', 'Report'}.contains(shortcutType) ||
                 (shortcut['hidden'] == 1 || shortcut['hidden'] == true)) continue;
             final doctype = shortcut['link_to']?.toString().trim() ?? '';
-            if (doctype.isEmpty || !seen.add('${workspaceTitle}::اختصارات::${shortcutType}::${doctype}')) continue;
+            final routeOptions = _routeOptions(shortcut['route_options']);
+            if (doctype.isEmpty || !seen.add('${workspaceTitle}::اختصارات::${shortcutType}::${doctype}::${jsonEncode(routeOptions)}')) continue;
             final label = shortcut['label']?.toString().trim() ?? '';
             definitions.add(ErpDocTypeDefinition(
               workspaceLabel,
@@ -139,6 +154,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
               _workspaceIcon(workspaceLabel),
               'اختصارات',
               shortcutType,
+              routeOptions,
             ));
           }
         }
@@ -161,9 +177,10 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           if (hiddenCard) continue;
           final doctype = link['link_to']?.toString().trim() ?? '';
           final linkType = link['link_type']?.toString() ?? '';
+          final routeOptions = _routeOptions(link['route_options']);
           if (doctype.isEmpty || !{'DocType', 'Report'}.contains(linkType) ||
               (link['hidden'] == 1 || link['hidden'] == true) ||
-              !seen.add('${workspaceTitle}::${currentSection}::${linkType}::${doctype}')) continue;
+              !seen.add('${workspaceTitle}::${currentSection}::${linkType}::${doctype}::${jsonEncode(routeOptions)}')) continue;
           const translatedLabels = <String, String>{
             'Payment Request': 'طلبات الدفع',
             'Payment Order': 'أوامر الدفع',
@@ -198,6 +215,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
             _workspaceIcon(workspaceLabel),
             currentSection,
             linkType,
+            routeOptions,
           ));
         }
       }
