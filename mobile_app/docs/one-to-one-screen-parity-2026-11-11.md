@@ -160,7 +160,7 @@ The three Page links found in the checked-in Manufacturing and Stock workspaces 
 
 - `stock-balance` → Stock Summary. Uses `erpnext.stock.dashboard.item_dashboard.get_data`, with Item, Warehouse and Item Group filters, the ERPNext sort-field set, and 20-row paging.
 - `warehouse-capacity-summary` → Warehouse Capacity Summary. Uses `erpnext.stock.dashboard.warehouse_capacity_dashboard.get_data`, requires a selected Company, supports Warehouse/Item/Parent Warehouse filters and the web page's three sort fields, and pages 10 rows at a time. ERPNext enforces Item, Putaway Rule, Warehouse and user permissions.
-- `visual-plant-floor` → Visual Plant Floor. Loads permitted Plant Floors and Workstation Types, then uses `erpnext.manufacturing.doctype.workstation.workstation.get_workstations` for server-filtered Workstation status. The native screen has manual refresh; real-time Workstation subscriptions and the web page's status images are not yet implemented.
+- `visual-plant-floor` → Visual Plant Floor. Loads permitted Plant Floors and Workstation Types, then uses `erpnext.manufacturing.doctype.workstation.workstation.get_workstations` for server-filtered Workstation status. The native screen loads the status images through same-origin authenticated image requests and supports manual refresh; real-time Workstation subscriptions remain unimplemented.
 
 These routes do not load the Page DocType's HTML/JavaScript and do not open Desk pages.
 

@@ -129,7 +129,7 @@ ERPNext Desk is a behavioral and data reference only. The Flutter app must not e
 
 ## Native Page parity follow-up — 2026-11-12
 
-The ERPNext Page links for Stock Summary, Warehouse Capacity Summary and Visual Plant Floor now open dedicated Flutter screens. Stock Summary and Warehouse Capacity Summary use their original whitelisted ERPNext dashboard methods, preserving server-side permission filtering, calculations, filters and sort allowlists. Visual Plant Floor uses the original `get_workstations` method and renders the six Workstation statuses natively. Remaining Visual Plant Floor differences are real-time status subscription and status-image rendering; both remain explicit gaps. No server-side Page JavaScript or embedded Desk page is used.
+The ERPNext Page links for Stock Summary, Warehouse Capacity Summary and Visual Plant Floor now open dedicated Flutter screens. Stock Summary and Warehouse Capacity Summary use their original whitelisted ERPNext dashboard methods, preserving server-side permission filtering, calculations, filters and sort allowlists. Visual Plant Floor uses the original `get_workstations` method and renders the six Workstation statuses natively. Workstation status images now load through authenticated same-origin image requests. Real-time Workstation status subscription remains an explicit gap. No server-side Page JavaScript or embedded Desk page is used.
 
 
 ## Native attachment retrieval — 2026-11-12
