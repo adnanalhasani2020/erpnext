@@ -1,7 +1,7 @@
-# Specialized Flutter screen parity audit — 2026-11-11
+# Specialized Flutter screen parity audit — 2026-11-12
 
 Repository: `adnanalhasani2020/erpnext`  
-Branch: `feature/flutter-one-to-one-screen-parity`  
+Branch: `feature/flutter-doctype-activity-parity`  
 Audit basis: Flutter source, Frappe API calls and ERPNext workspace/DocType source available in this repository. This is a code-level comparison, not a live-site certification.
 
 ## Status definitions
@@ -96,3 +96,10 @@ This is a structural separation pass, not a claim that every business domain is 
 The workspace directory now preserves native route options so distinct links to one DocType (for example Credit Note and Debit Note) remain separate, filtered list/form destinations. It prefers Workspace Card Break links when available and uses sidebar Section Breaks for sidebar-only workspaces to avoid duplicating the parallel navigation representations. The directory also provides a direct original-Workspace view so charts and number cards remain reachable through ERPNext Desk while the native Flutter equivalents are not implemented.
 
 The previous report allowlist has been removed for Workspace links. A standalone report page loads the report's available filter definitions, supports standard field types and server-backed Link lookups, displays returned columns/rows and report summary values, and exports CSV/Excel/PDF. It does not execute arbitrary report JavaScript in Flutter; report JS filters and chart rendering still need full parity work. Page/URL/Dashboard/Workspace destinations use a WebView with same-origin cookies marked HttpOnly for session identifiers and cleared when the view is disposed.
+
+
+## Generic DocType and original Desk parity follow-up — 2026-11-12
+
+The metadata-driven DocType list now links to the original ERPNext Desk list for native list actions, and the document detail links to its original Desk form for DocType-specific controls. The generic detail also exposes File attachments, Comment timeline and Version history through the authenticated Frappe API. Workspace Report screens link to their exact original Query Report route for JavaScript-defined filters and native charts. These are parity fallbacks to the installed web implementation; they do not claim that all specialized mobile screens have become native one-to-one replicas.
+
+The Workspace directory now uses actual Workspace record identity for grouping/de-duplication and does not show the previous static 47-entry fallback when the permission-filtered Workspace API is unavailable. The static DocType catalog is retained only to provide Arabic label hints for server-returned links.
