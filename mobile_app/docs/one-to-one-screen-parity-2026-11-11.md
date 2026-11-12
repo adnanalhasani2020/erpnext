@@ -56,3 +56,8 @@ Workspace Report links and Report shortcuts for the supported standard report al
 ## Direct access to standalone party and invoice directories — 2026-11-12
 
 The optional transaction overview now exposes explicit shortcuts to the independent Sales Invoice, Customer and Supplier directory pages. Each shortcut is wired to the app-shell navigation callback and does not create a second API/data-loading path. A widget test verifies that all three actions invoke their corresponding navigation callbacks. These remain optional dashboard/overview shortcuts; the authenticated primary navigation continues to open the ERPNext Workspace directory.
+
+
+## HR responsibility UI extraction — 2026-11-12
+
+The HR workflow's list presentation is now separated into focused widgets in `hr_workflow_lists.dart`: employee directory, attendance/leave document lists, expense claims and salary slips, plus a shared pagination tile. The parent HR workflow retains the authenticated Frappe loading, session-generation guards, document creation/editing, submit/workflow actions, expense payment and salary-detail retrieval. The extracted widgets receive explicit callbacks and state, so they do not introduce duplicate API paths or move business rules out of the existing workflow controller. The five native DocType entries continue to open the selected responsibility in standalone mode.
