@@ -197,6 +197,8 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
               (link['hidden'] == 1 || link['hidden'] == true) ||
               !seen.add('${workspaceTitle}::${currentSection}::${linkType}::${doctype}::${jsonEncode(routeOptions)}')) continue;
           const translatedLabels = <String, String>{
+            'Credit Note': 'إشعار دائن',
+            'Debit Note': 'إشعار مدين',
             'Payment Request': 'طلبات الدفع',
             'Payment Order': 'أوامر الدفع',
             'Bank Account': 'الحسابات البنكية',
@@ -220,7 +222,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           };
           final sourceLabel = link['label']?.toString().trim() ?? '';
           var displayLabel = routeOptions.isNotEmpty && sourceLabel.isNotEmpty
-              ? sourceLabel
+              ? (translatedLabels[sourceLabel] ?? sourceLabel)
               : translatedLabels[doctype] ?? (sourceLabel.isNotEmpty ? sourceLabel : doctype);
           if (routeOptions.isEmpty && (sourceLabel.isEmpty || sourceLabel == doctype)) {
             for (final known in erpDocTypeDefinitions) {
