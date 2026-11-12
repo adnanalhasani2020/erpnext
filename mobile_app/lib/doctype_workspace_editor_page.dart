@@ -355,7 +355,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     contentPadding: EdgeInsets.zero,
                     title: Text(label),
                     value: checks[key] ?? false,
-                    onChanged: (value) => refresh(() => checks[key] = value ?? false),
+                    onChanged: saving || readOnlyNow ? null : (value) => refresh(() => checks[key] = value ?? false),
                   );
                 }
                 if (type == 'Select') {
@@ -400,7 +400,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                       ? const TextInputType.numberWithOptions(decimal: true)
                       : type == 'Email' ? TextInputType.emailAddress
                       : type == 'Phone' ? TextInputType.phone : TextInputType.text,
-                    readOnly: isDate || isDateTime,
+                    readOnly: isDate || isDateTime || readOnlyNow,
                     decoration: InputDecoration(
                       labelText: label,
                       helperText: canPickLink ? 'اختر سجلاً موجوداً في ERPNext' : isDynamicLink ? 'حدد نوع المرجع أولاً' : field['reqd'] == 1 ? 'حقل إلزامي' : null,
@@ -411,7 +411,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                             onPressed: () async {
                               final target = isLink ? field['options'].toString() : dynamicLinkTarget.trim();
                               final selected = await _pickLinkValue(target);
-                              if (selected != null) controller.text = selected;
+                              if (selected != null) { controller.text = selected; refresh(() {}); }
                             },
                             icon: const Icon(Icons.search),
                           ) : null,
@@ -549,6 +549,36 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
       }
     }
 
+    Map<String, dynamic> dependencyValues() {
+      final values = <String, dynamic>{...?source};
+      for (final field in editable) {
+        final key = field['fieldname'].toString();
+        final type = field['fieldtype']?.toString() ?? '';
+        if (type == 'Check') values[key] = checks[key] == true ? 1 : 0;
+        else if (type == 'Select') values[key] = selections[key];
+        else if (type == 'Table' || type == 'Table MultiSelect') values[key] = tableValues[key];
+        else values[key] = controllers[key]?.text ?? source?[key];
+      }
+      return values;
+    }
+
+    bool visibleField(Map<String, dynamic> field) {
+      final rule = field['depends_on']?.toString() ?? '';
+      return rule.trim().isEmpty || _evaluateSimpleDocDependency(rule, dependencyValues());
+    }
+
+    bool requiredField(Map<String, dynamic> field) {
+      final rule = field['mandatory_depends_on']?.toString() ?? '';
+      return field['reqd'] == 1 || (rule.trim().isNotEmpty &&
+        _evaluateSimpleDocDependency(rule, dependencyValues()));
+    }
+
+    bool readOnlyField(Map<String, dynamic> field) {
+      final rule = field['read_only_depends_on']?.toString() ?? '';
+      return field['read_only'] == 1 || (rule.trim().isNotEmpty &&
+        _evaluateSimpleDocDependency(rule, dependencyValues()));
+    }
+
     String error = '';
     bool saving = false;
     final saved = await showDialog<bool>(
@@ -560,10 +590,13 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
           children: [
             if (error.isNotEmpty) Text(error, style: TextStyle(color: Theme.of(context).colorScheme.error)),
             for (final f in editable)
+              if (visibleField(f))
               Builder(builder: (context) {
                 final key = f['fieldname'].toString();
                 final type = f['fieldtype']?.toString() ?? '';
                 final label = f['label']?.toString() ?? key;
+                final requiredNow = requiredField(f);
+                final readOnlyNow = readOnlyField(f);
                 final options = (f['options']?.toString() ?? '').split('\n').where((v) => v.trim().isNotEmpty).toList();
                 if (type == 'Table' || type == 'Table MultiSelect') {
                   final count = tableValues[key]?.length ?? 0;
@@ -573,7 +606,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                       title: Text(label),
                       subtitle: Text('${count} صف'),
                       trailing: const Icon(Icons.edit_outlined),
-                      onTap: saving ? null : () async {
+                      onTap: saving || readOnlyNow ? null : () async {
                         final updated = await _editChildTable(f, tableValues[key] ?? <Map<String, dynamic>>[]);
                         if (updated != null) refresh(() => tableValues[key] = updated);
                       },
@@ -598,7 +631,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                       isExpanded: true,
                       decoration: InputDecoration(labelText: label),
                       items: items.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
-                      onChanged: (value) {
+                      onChanged: saving || readOnlyNow ? null : (value) {
                       clearDependentDynamicLinks(key);
                       refresh(() => selections[key] = value);
                     },
@@ -660,7 +693,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     } : null,
                     decoration: InputDecoration(
                       labelText: label,
-                      helperText: canPickLink ? 'اختر سجلاً موجوداً في ERPNext' : isDynamicLink ? 'حدد نوع المرجع أولاً' : f['reqd'] == 1 ? 'حقل إلزامي' : null,
+                      helperText: canPickLink ? 'اختر سجلاً موجوداً في ERPNext' : isDynamicLink ? 'حدد نوع المرجع أولاً' : requiredNow ? 'حقل إلزامي' : null,
                       suffixIcon: isDate
                         ? const Icon(Icons.calendar_today_outlined)
                         : canPickLink ? IconButton(
@@ -698,7 +731,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                   }
                   if (type == 'Select') {
                     final selected = selections[key]?.trim() ?? '';
-                    if (f['reqd'] == 1 && selected.isEmpty) {
+                    if (requiredField(f) && selected.isEmpty) {
                       throw FormatException('الحقل ' + (f['label']?.toString() ?? key) + ' مطلوب.');
                     }
                     if (selected.isNotEmpty) values[key] = selected;
@@ -706,7 +739,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     continue;
                   }
                   final raw = controllers[key]!.text.trim();
-                  if (f['reqd'] == 1 && raw.isEmpty) throw FormatException('الحقل ' + (f['label']?.toString() ?? key) + ' مطلوب.');
+                  if (requiredField(f) && raw.isEmpty) throw FormatException('الحقل ' + (f['label']?.toString() ?? key) + ' مطلوب.');
                   if (raw.isEmpty) {
                     if (source != null && source.containsKey(key)) values[key] = null;
                     continue;
