@@ -126,13 +126,16 @@ class _WorkspaceNativeDestinationPageState extends State<WorkspaceNativeDestinat
         : workspace['sidebar_items'] is List ? workspace['sidebar_items'] as List : const [];
     final groups = <String, List<Map<String, dynamic>>>{};
     var section = 'عام';
+    var hiddenCard = false;
     for (final raw in rawLinks) {
       if (raw is! Map) continue;
       final link = Map<String, dynamic>.from(raw);
       final type = link['type']?.toString() ?? '';
       if (type == 'Card Break' || type == 'Section Break' || type == 'Header') {
-        section = link['label']?.toString().trim().isNotEmpty == true ? link['label'].toString() : 'عام';
-      } else if (link['hidden'] != 1 && link['hidden'] != true) {
+        hiddenCard = link['hidden'] == 1 || link['hidden'] == true;
+        final heading = link['label']?.toString().trim() ?? '';
+        if (!hiddenCard && heading.isNotEmpty) section = heading;
+      } else if (!hiddenCard && link['hidden'] != 1 && link['hidden'] != true) {
         groups.putIfAbsent(section, () => []).add(link);
       }
     }
@@ -168,7 +171,9 @@ class _WorkspaceNativeDestinationPageState extends State<WorkspaceNativeDestinat
           title: const Text('الاختصارات'),
           leading: const Icon(Icons.shortcut),
           subtitle: Text('${shortcuts.length} اختصار'),
-          children: shortcuts.whereType<Map>().map((raw) {
+          children: shortcuts.whereType<Map>()
+              .where((raw) => raw['hidden'] != 1 && raw['hidden'] != true)
+              .map((raw) {
             final shortcut = Map<String, dynamic>.from(raw);
             final type = shortcut['type']?.toString() ?? '';
             final target = (shortcut['link_to'] ?? shortcut['url'] ?? '').toString();
