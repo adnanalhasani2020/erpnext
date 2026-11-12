@@ -668,16 +668,16 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (error.isNotEmpty) Text(error, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-            for (var fieldIndex = 0; fieldIndex < editable.length; fieldIndex++)
-              if (visibleField(editable[fieldIndex]))
+            for (final entry in editable.asMap().entries)
+              if (visibleField(entry.value))
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     Builder(builder: (context) {
-                      final field = editable[fieldIndex];
+                      final field = entry.value;
                       final key = field['fieldname']?.toString() ?? '';
                       final section = layoutSectionByField[key] ?? '';
-                      final alreadyShown = section.isNotEmpty && editable.take(fieldIndex).any((previous) {
+                      final alreadyShown = section.isNotEmpty && editable.take(entry.key).any((previous) {
                         final previousKey = previous['fieldname']?.toString() ?? '';
                         return visibleField(previous) && layoutSectionByField[previousKey] == section;
                       });
@@ -692,7 +692,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                       );
                     }),
                     Builder(builder: (context) {
-                final f = editable[fieldIndex];
+                final f = entry.value;
                 final key = f['fieldname'].toString();
                 final type = f['fieldtype']?.toString() ?? '';
                 final label = f['label']?.toString() ?? key;
