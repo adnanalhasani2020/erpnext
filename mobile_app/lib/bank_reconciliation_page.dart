@@ -610,9 +610,12 @@ class _BankReconciliationPageState extends State<BankReconciliationPage> {
               icon: const Icon(Icons.open_in_browser),
             ),
           IconButton(
-            tooltip: 'تحديث الحركات',
-            onPressed: _loadingAccounts || _loadingTransactions || _matching
-                ? null : _loadTransactions,
+            tooltip: widget.initialDoctype == 'Bank Statement Import' ? 'تحديث سجل الاستيراد' : 'تحديث الحركات',
+            onPressed: _loadingAccounts || _loadingTransactions || _loadingStatementImports || _matching
+                ? null
+                : widget.initialDoctype == 'Bank Statement Import'
+                    ? () => _loadStatementImports()
+                    : _loadTransactions,
             icon: const Icon(Icons.refresh),
           ),
         ],
