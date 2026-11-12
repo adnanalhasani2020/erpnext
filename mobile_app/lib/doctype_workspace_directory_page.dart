@@ -88,6 +88,8 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
     }
   }
 
+  static const _workspaceLinkTypes = {'DocType', 'Report', 'Page', 'URL', 'Dashboard', 'Workspace'};
+
   Future<void> _loadWorkspaceDirectory() async {
     setState(() { _loading = true; _directoryError = null; });
     try {
@@ -118,7 +120,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
         if (workspace['type']?.toString() == 'Link') {
           final linkType = workspace['link_type']?.toString() ?? '';
           final target = workspace['link_to']?.toString().trim() ?? '';
-          final supported = linkType == 'DocType' || linkType == 'Report';
+          final supported = _workspaceLinkTypes.contains(linkType);
           final routeOptions = _routeOptions(workspace['route_options']);
           if (supported && target.isNotEmpty &&
               seen.add('${workspaceTitle}::اختصارات::${linkType}::${target}::${jsonEncode(routeOptions)}')) {
@@ -134,14 +136,23 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           }
           continue;
         }
-        if (workspace['type']?.toString() == 'URL') continue;
+        if (workspace['type']?.toString() == 'URL') {
+          final target = (workspace['url'] ?? workspace['link_to'] ?? '').toString().trim();
+          if (target.isNotEmpty && seen.add('${workspaceTitle}::URL::${target}')) {
+            definitions.add(ErpDocTypeDefinition(
+              workspaceLabel, workspace['label']?.toString() ?? target, target,
+              _workspaceIcon(workspaceLabel), 'اختصارات', 'URL',
+            ));
+          }
+          continue;
+        }
         final shortcuts = workspace['shortcuts'];
         if (shortcuts is List) {
           for (final rawShortcut in shortcuts) {
             if (rawShortcut is! Map) continue;
             final shortcut = Map<String, dynamic>.from(rawShortcut);
             final shortcutType = shortcut['type']?.toString() ?? '';
-            if (!{'DocType', 'Report'}.contains(shortcutType) ||
+            if (!_workspaceLinkTypes.contains(shortcutType) ||
                 (shortcut['hidden'] == 1 || shortcut['hidden'] == true)) continue;
             final doctype = shortcut['link_to']?.toString().trim() ?? '';
             final routeOptions = _routeOptions(shortcut['route_options']);
@@ -182,7 +193,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           final doctype = link['link_to']?.toString().trim() ?? '';
           final linkType = link['link_type']?.toString() ?? '';
           final routeOptions = _routeOptions(link['route_options']);
-          if (doctype.isEmpty || !{'DocType', 'Report'}.contains(linkType) ||
+          if (doctype.isEmpty || !_workspaceLinkTypes.contains(linkType) ||
               (link['hidden'] == 1 || link['hidden'] == true) ||
               !seen.add('${workspaceTitle}::${currentSection}::${linkType}::${doctype}::${jsonEncode(routeOptions)}')) continue;
           const translatedLabels = <String, String>{
