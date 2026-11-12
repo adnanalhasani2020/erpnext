@@ -391,10 +391,8 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     onChanged: (_) {
                       final hasDynamicDependents = fields.any((field) =>
                         field['fieldtype'] == 'Dynamic Link' && field['options']?.toString() == key);
-                      if (hasDynamicDependents) {
-                        clearDependentDynamicLinks(key);
-                        refresh(() {});
-                      }
+                      if (hasDynamicDependents) clearDependentDynamicLinks(key);
+                      refresh(() {});
                     },
                     keyboardType: const {'Int','Float','Currency','Percent'}.contains(type)
                       ? const TextInputType.numberWithOptions(decimal: true)
@@ -416,7 +414,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                             icon: const Icon(Icons.search),
                           ) : null,
                     ),
-                    onTap: isDate || isDateTime ? () async {
+                    onTap: (isDate || isDateTime) && !readOnlyNow ? () async {
                       final initial = DateTime.tryParse(controller.text) ?? DateTime.now();
                       final picked = await showDatePicker(
                         context: context, initialDate: initial,
@@ -638,7 +636,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                       isExpanded: true,
                       decoration: InputDecoration(labelText: label),
                       items: items.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(),
-                      onChanged: (value) {
+                      onChanged: saving || readOnlyNow ? null : (value) {
                       clearDependentDynamicLinks(key);
                       refresh(() => selections[key] = value);
                     },
