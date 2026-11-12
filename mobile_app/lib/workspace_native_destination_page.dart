@@ -11,12 +11,13 @@ import 'workspace_report_page.dart';
 /// Native Flutter destination for ERPNext Desk links.
 /// ERPNext Web is consulted for metadata and server-side business rules only.
 class WorkspaceNativeDestinationPage extends StatefulWidget {
-  const WorkspaceNativeDestinationPage({super.key, required this.api, required this.title, required this.linkType, required this.target, this.routeOptions = const {}});
+  const WorkspaceNativeDestinationPage({super.key, required this.api, required this.title, required this.linkType, required this.target, this.routeOptions = const {}, this.onOpenDefinition});
   final FrappeApi api;
   final String title;
   final String linkType;
   final String target;
   final Map<String, dynamic> routeOptions;
+  final ValueChanged<ErpDocTypeDefinition>? onOpenDefinition;
 
   @override
   State<WorkspaceNativeDestinationPage> createState() => _WorkspaceNativeDestinationPageState();
@@ -119,12 +120,26 @@ class _WorkspaceNativeDestinationPageState extends State<WorkspaceNativeDestinat
       }
       return;
     }
+    if (type == 'DocType' && widget.onOpenDefinition != null) {
+      widget.onOpenDefinition!(ErpDocTypeDefinition(
+        (_workspace?['title'] ?? 'ERPNext').toString(),
+        (link['label'] ?? target).toString(),
+        target,
+        Icons.list_alt_outlined,
+        'عام',
+        type,
+        _parseRouteOptions(link['route_options']),
+        _workspace?['name']?.toString() ?? '',
+      ));
+      return;
+    }
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceNativeDestinationPage(
       api: widget.api,
       title: (link['label'] ?? target).toString(),
       linkType: type,
       target: target,
       routeOptions: _parseRouteOptions(link['route_options']),
+      onOpenDefinition: widget.onOpenDefinition,
     )));
   }
 
