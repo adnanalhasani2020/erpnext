@@ -40,7 +40,12 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
   void initState() {
     super.initState();
     _showDiscounts = widget.initialDoctype == 'Pricing Rule';
-    _loadPriceLists();
+    if (_showDiscounts) {
+      _loadingLists = false;
+      _loadDiscounts();
+    } else {
+      _loadPriceLists();
+    }
   }
 
   @override
@@ -505,7 +510,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
   }
 
   Future<void> _editDiscount({core.Map<String, dynamic>? existing}) async {
-    if (_saving || _selectedPriceList == null) return;
+    if (_saving) return;
     final values = await _showDiscountEditor(existing: existing);
     if (values == null || !mounted) return;
     setState(() {
@@ -516,7 +521,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
       await widget.api.saveSellingPricingRule(
         ruleId: existing?['name']?.toString(),
         title: values['title'] as String,
-        priceList: existing?['for_price_list']?.toString() ?? _selectedPriceList!,
+        priceList: existing?['for_price_list']?.toString() ?? _selectedPriceList ?? '',
         currency: values['currency'] as String,
         priceOrProductDiscount: values['price_or_product_discount'] as String,
         discountType: values['discount_type'] as String,
@@ -828,7 +833,9 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
             ),
           IconButton(
             tooltip: 'تحديث',
-            onPressed: _loading || _loadingLists ? null : _loadPriceLists,
+            onPressed: _loading || _loadingLists || _loadingDiscounts
+              ? null
+              : () => _showDiscounts ? _loadDiscounts() : _loadPriceLists(),
             icon: const Icon(Icons.refresh),
           ),
         ],
@@ -867,15 +874,15 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
               ),
             ),
             const SizedBox(height: 12),
-            if (_loadingLists)
+            if (!_showDiscounts && _loadingLists)
               const LinearProgressIndicator()
-            else if (_priceLists.isEmpty)
+            else if (!_showDiscounts && _priceLists.isEmpty)
               const Card(
                 child: ListTile(
                   title: Text('لا توجد قوائم أسعار بيع مفعّلة أو لا تتوفر صلاحية قراءتها.'),
                 ),
               )
-            else
+            else if (!_showDiscounts)
               DropdownButtonFormField<String>(
                 initialValue: _selectedPriceList,
                 isExpanded: true,
@@ -932,7 +939,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                   ),
                 ),
                 FilledButton.tonalIcon(
-                  onPressed: _saving || _selectedPriceList == null
+                  onPressed: _saving || (!_showDiscounts && _selectedPriceList == null)
                       ? null
                       : () => _showDiscounts ? _editDiscount() : _editPrice(),
                   icon: const Icon(Icons.add),
