@@ -1102,20 +1102,34 @@ class _MobileHomePageState extends State<MobileHomePage> {
   void _openSalesInvoices() {
     if (!_requireServerAccess('فواتير المبيعات')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => SalesInvoicesPage(
-        loading: _salesLoading,
-        error: _salesError,
-        invoices: _salesInvoices,
-        search: _salesInvoiceSearch,
-        searchController: _salesInvoiceSearchController,
-        searching: _searchingSalesInvoices,
-        hasMore: _salesInvoicesHasMore,
-        loadingMore: _loadingMoreSalesInvoices,
-        onRefresh: _loadSales,
-        onSearch: _searchSalesInvoices,
-        onLoadMore: _loadMoreSalesInvoices,
-        onOpenInvoice: (name) => _showInvoiceDetails('Sales Invoice', name),
-        onCreateInvoice: () => _openSalesInvoiceComposer(),
+      builder: (_) => StatefulBuilder(
+        builder: (pageContext, setPageState) => SalesInvoicesPage(
+          loading: _salesLoading,
+          error: _salesError,
+          invoices: _salesInvoices,
+          search: _salesInvoiceSearch,
+          searchController: _salesInvoiceSearchController,
+          searching: _searchingSalesInvoices,
+          hasMore: _salesInvoicesHasMore,
+          loadingMore: _loadingMoreSalesInvoices,
+          onRefresh: () async {
+            await _loadSales();
+            if (mounted) setPageState(() {});
+          },
+          onSearch: (value) async {
+            await _searchSalesInvoices(value);
+            if (mounted) setPageState(() {});
+          },
+          onLoadMore: () async {
+            await _loadMoreSalesInvoices();
+            if (mounted) setPageState(() {});
+          },
+          onOpenInvoice: (name) => _showInvoiceDetails('Sales Invoice', name),
+          onCreateInvoice: () async {
+            await _openSalesInvoiceComposer();
+            if (mounted) setPageState(() {});
+          },
+        ),
       ),
     ));
   }
@@ -1123,20 +1137,34 @@ class _MobileHomePageState extends State<MobileHomePage> {
   void _openCustomerDirectory() {
     if (!_requireServerAccess('العملاء')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => CustomerDirectoryPage(
-        loading: _salesLoading,
-        error: _salesError,
-        customers: _customers,
-        search: _customerSearch,
-        searchController: _customerSearchController,
-        searching: _searchingCustomers,
-        hasMore: _customersHasMore,
-        loadingMore: _loadingMoreCustomers,
-        onRefresh: _loadSales,
-        onSearch: _searchCustomers,
-        onLoadMore: _loadMoreCustomers,
-        onEdit: _editCustomerProfile,
-        onOpenLedger: _showCustomerLedger,
+      builder: (_) => StatefulBuilder(
+        builder: (pageContext, setPageState) => CustomerDirectoryPage(
+          loading: _salesLoading,
+          error: _salesError,
+          customers: _customers,
+          search: _customerSearch,
+          searchController: _customerSearchController,
+          searching: _searchingCustomers,
+          hasMore: _customersHasMore,
+          loadingMore: _loadingMoreCustomers,
+          onRefresh: () async {
+            await _loadSales();
+            if (mounted) setPageState(() {});
+          },
+          onSearch: (value) async {
+            await _searchCustomers(value);
+            if (mounted) setPageState(() {});
+          },
+          onLoadMore: () async {
+            await _loadMoreCustomers();
+            if (mounted) setPageState(() {});
+          },
+          onEdit: (customer) async {
+            await _editCustomerProfile(customer);
+            if (mounted) setPageState(() {});
+          },
+          onOpenLedger: _showCustomerLedger,
+        ),
       ),
     ));
   }
@@ -1144,19 +1172,30 @@ class _MobileHomePageState extends State<MobileHomePage> {
   void _openSupplierDirectory() {
     if (!_requireServerAccess('الموردون')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => SupplierDirectoryPage(
-        loading: _purchaseLoading,
-        error: _purchaseError,
-        suppliers: _suppliers,
-        search: _supplierSearch,
-        searchController: _supplierSearchController,
-        searching: _searchingSuppliers,
-        hasMore: _suppliersHasMore,
-        loadingMore: _loadingMoreSuppliers,
-        onRefresh: _loadPurchases,
-        onSearch: _searchSuppliers,
-        onLoadMore: _loadMoreSuppliers,
-        onOpenLedger: _showSupplierLedger,
+      builder: (_) => StatefulBuilder(
+        builder: (pageContext, setPageState) => SupplierDirectoryPage(
+          loading: _purchaseLoading,
+          error: _purchaseError,
+          suppliers: _suppliers,
+          search: _supplierSearch,
+          searchController: _supplierSearchController,
+          searching: _searchingSuppliers,
+          hasMore: _suppliersHasMore,
+          loadingMore: _loadingMoreSuppliers,
+          onRefresh: () async {
+            await _loadPurchases();
+            if (mounted) setPageState(() {});
+          },
+          onSearch: (value) async {
+            await _searchSuppliers(value);
+            if (mounted) setPageState(() {});
+          },
+          onLoadMore: () async {
+            await _loadMoreSuppliers();
+            if (mounted) setPageState(() {});
+          },
+          onOpenLedger: _showSupplierLedger,
+        ),
       ),
     ));
   }
@@ -1271,9 +1310,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
     );
   }
 
-  void _editCustomerProfile(ErpCustomer customer) {
+  Future<void> _editCustomerProfile(ErpCustomer customer) async {
     if (!_requireServerAccess('تعديل ملف العميل')) return;
-    showModalBottomSheet<void>(
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -1286,9 +1325,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
     );
   }
 
-  void _showCustomerLedger(ErpCustomer customer) {
+  Future<void> _showCustomerLedger(ErpCustomer customer) async {
     if (!_requireServerAccess('كشف حساب العميل')) return;
-    showModalBottomSheet<void>(
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -1297,9 +1336,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
     );
   }
 
-  void _showSupplierLedger(ErpSupplier supplier) {
+  Future<void> _showSupplierLedger(ErpSupplier supplier) async {
     if (!_requireServerAccess('كشف حساب المورد')) return;
-    showModalBottomSheet<void>(
+    await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
