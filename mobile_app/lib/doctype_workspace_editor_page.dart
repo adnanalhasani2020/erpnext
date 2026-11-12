@@ -355,7 +355,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     contentPadding: EdgeInsets.zero,
                     title: Text(label),
                     value: checks[key] ?? false,
-                    onChanged: saving || readOnlyNow ? null : (value) => refresh(() => checks[key] = value ?? false),
+                    onChanged: (value) => refresh(() => checks[key] = value ?? false),
                   );
                 }
                 if (type == 'Select') {
@@ -391,14 +391,16 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     onChanged: (_) {
                       final hasDynamicDependents = fields.any((field) =>
                         field['fieldtype'] == 'Dynamic Link' && field['options']?.toString() == key);
-                      if (hasDynamicDependents) clearDependentDynamicLinks(key);
-                      refresh(() {});
+                      if (hasDynamicDependents) {
+                        clearDependentDynamicLinks(key);
+                        refresh(() {});
+                      }
                     },
                     keyboardType: const {'Int','Float','Currency','Percent'}.contains(type)
                       ? const TextInputType.numberWithOptions(decimal: true)
                       : type == 'Email' ? TextInputType.emailAddress
                       : type == 'Phone' ? TextInputType.phone : TextInputType.text,
-                    readOnly: isDate || isDateTime || readOnlyNow,
+                    readOnly: isDate || isDateTime,
                     decoration: InputDecoration(
                       labelText: label,
                       helperText: canPickLink ? 'اختر سجلاً موجوداً في ERPNext' : isDynamicLink ? 'حدد نوع المرجع أولاً' : field['reqd'] == 1 ? 'حقل إلزامي' : null,
@@ -409,12 +411,12 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                             onPressed: () async {
                               final target = isLink ? field['options'].toString() : dynamicLinkTarget.trim();
                               final selected = await _pickLinkValue(target);
-                              if (selected != null) { controller.text = selected; refresh(() {}); }
+                              if (selected != null) controller.text = selected;
                             },
                             icon: const Icon(Icons.search),
                           ) : null,
                     ),
-                    onTap: (isDate || isDateTime) && !readOnlyNow ? () async {
+                    onTap: isDate || isDateTime ? () async {
                       final initial = DateTime.tryParse(controller.text) ?? DateTime.now();
                       final picked = await showDatePicker(
                         context: context, initialDate: initial,
@@ -451,16 +453,11 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                   final key = field['fieldname'].toString();
                   final type = field['fieldtype']?.toString() ?? '';
                   if (type == 'Table' || type == 'Table MultiSelect') {
-                    if (requiredNow && (tableValues[key]?.isEmpty ?? true)) throw FormatException('الحقل ' + (f['label']?.toString() ?? key) + ' مطلوب.');
                     values[key] = tableValues[key] ?? <Map<String, dynamic>>[];
                     continue;
                   }
-                  if (!visibleField(f) || readOnlyField(f)) continue;
-                  final requiredNow = requiredField(f);
                   if (type == 'Check') {
-                    final checked = checks[key] == true;
-                    if (requiredNow && !checked) throw FormatException('الحقل ' + (f['label']?.toString() ?? key) + ' مطلوب.');
-                    values[key] = checked ? 1 : 0;
+                    values[key] = checks[key] == true ? 1 : 0;
                     continue;
                   }
                   if (type == 'Select') {
@@ -710,7 +707,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                             onPressed: readOnlyNow ? null : () async {
                               final target = isLink ? f['options'].toString() : dynamicLinkTarget.trim();
                               final selected = await _pickLinkValue(target);
-                              if (selected != null) controller.text = selected;
+                              if (selected != null) { controller.text = selected; refresh(() {}); }
                             },
                             icon: const Icon(Icons.search),
                           ) : null,
@@ -730,7 +727,6 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 for (final f in editable) {
                   final key = f['fieldname'].toString();
                   final type = f['fieldtype']?.toString() ?? '';
-                  final liveValues = dependencyValues();
                   if (!visibleField(f) || readOnlyField(f)) continue;
                   final requiredNow = requiredField(f);
                   if (type == 'Table' || type == 'Table MultiSelect') {
