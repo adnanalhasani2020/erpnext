@@ -376,32 +376,40 @@ mixin ReportsApiMixin on _FrappeApiCore {
       }
     }
 
+
+  Future<core.Map<String, dynamic>> fetchWorkspaceReportDefinition({
+    required String reportName,
+  }) async {
+    final name = reportName.trim();
+    if (name.isEmpty) throw const FormatException('اسم التقرير غير صالح.');
+    final uri = Uri.parse('$_baseUrl/api/method/frappe.desk.query_report.get_script')
+        .replace(queryParameters: {'report_name': name});
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل تعريف التقرير أو صلاحية الوصول إليه.'));
+    }
+    final message = data['message'];
+    if (message is! core.Map) {
+      throw const FormatException('استجابة تعريف التقرير غير متوقعة.');
+    }
+    final rawFilters = message['filters'];
+    final filters = rawFilters is List
+        ? rawFilters.whereType<core.Map>().map((row) =>
+            core.Map<String, dynamic>.from(row)).toList(growable: false)
+        : <core.Map<String, dynamic>>[];
+    return <String, dynamic>{
+      'name': name,
+      'filters': filters,
+    };
+  }
+
   Future<core.Map<String, dynamic>> runStandardReport({
       required String reportName,
       required core.Map<String, dynamic> filters,
     }) async {
-      const allowedReports = {
-        'Profit and Loss Statement',
-        'Balance Sheet',
-        'Cash Flow',
-        'General Ledger',
-        'Trial Balance',
-        'Sales Register',
-        'Sales Analytics',
-        'Sales Person Commission Summary',
-        'Sales Person-wise Transaction Summary',
-        'Purchase Register',
-        'Bank Reconciliation Statement',
-        'Payment Ledger',
-        'Stock Balance',
-        'Stock Ledger',
-      };
-      if (!allowedReports.contains(reportName)) {
-        throw FormatException('التقرير غير مدعوم في التطبيق: $reportName');
-      }
-      final company = filters['company']?.toString().trim() ?? '';
-      if (company.isEmpty) {
-        throw const FormatException('حدد الشركة قبل تشغيل التقرير المالي.');
+      if (reportName.trim().isEmpty) {
+        throw const FormatException('اسم التقرير غير صالح.');
       }
       final response = await _sendJson(
         'POST',
