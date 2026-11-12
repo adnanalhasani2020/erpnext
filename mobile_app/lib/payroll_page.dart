@@ -113,7 +113,7 @@ class _PayrollPageState extends State<PayrollPage> {
         setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
       }
     } finally {
-      if (mounted && generation == _setupGeneration && sessionGeneration == widget.api.sessionGeneration) {
+      if (mounted && generation == _setupGeneration) {
         setState(() => _loadingSetup = false);
       }
     }
@@ -146,7 +146,7 @@ class _PayrollPageState extends State<PayrollPage> {
         setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
       }
     } finally {
-      if (mounted && generation == _entryGeneration && sessionGeneration == widget.api.sessionGeneration) setState(() => _loadingEntries = false);
+      if (mounted && generation == _entryGeneration) setState(() => _loadingEntries = false);
     }
   }
 
@@ -175,7 +175,7 @@ class _PayrollPageState extends State<PayrollPage> {
         setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
       }
     } finally {
-      if (mounted && generation == _entryGeneration && sessionGeneration == widget.api.sessionGeneration) setState(() => _loadingMoreEntries = false);
+      if (mounted && generation == _entryGeneration) setState(() => _loadingMoreEntries = false);
     }
   }
 
@@ -204,6 +204,7 @@ class _PayrollPageState extends State<PayrollPage> {
       setState(() => _error = 'أدخل سعر صرف صحيحاً أكبر من صفر.');
       return;
     }
+    final sessionGeneration = widget.api.sessionGeneration;
     setState(() {
       _saving = true;
       _error = null;
@@ -224,10 +225,11 @@ class _PayrollPageState extends State<PayrollPage> {
             : _bankAccounts.firstWhere((row) => row['name'] == _bankAccount)['account']?.toString(),
         bankAccount: _bankAccount,
       );
+      if (!mounted || sessionGeneration != widget.api.sessionGeneration) return;
       final id = created['name']?.toString() ?? '';
       final filled = await widget.api.fillPayrollEmployees(name: id, company: company);
       final employees = filled['employees'] is List ? (filled['employees'] as List).length : 0;
-      if (!mounted) return;
+      if (!mounted || sessionGeneration != widget.api.sessionGeneration) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('أُنشئت مسودة $id. عدد الموظفين المطابقين لإعدادات الرواتب: $employees. راجعها قبل الترحيل.')),
       );
@@ -235,7 +237,7 @@ class _PayrollPageState extends State<PayrollPage> {
     } catch (error) {
       if (mounted && sessionGeneration == widget.api.sessionGeneration) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
     } finally {
-      if (mounted && sessionGeneration == widget.api.sessionGeneration) setState(() => _saving = false);
+      if (mounted) setState(() => _saving = false);
     }
   }
 
@@ -250,6 +252,7 @@ class _PayrollPageState extends State<PayrollPage> {
     });
     try {
       final document = await widget.api.fetchPayrollEntryDocument(name: name, company: company);
+      if (!mounted || sessionGeneration != widget.api.sessionGeneration) return;
       final slips = await widget.api.fetchPayrollSalarySlips(payrollEntry: name, company: company);
       if (!mounted || sessionGeneration != widget.api.sessionGeneration) return;
       final action = await showModalBottomSheet<String>(
@@ -270,8 +273,9 @@ class _PayrollPageState extends State<PayrollPage> {
           'ترحيل دورة الرواتب',
           'سيقوم ERPNext بترحيل دورة الرواتب وإنشاء كشوف الرواتب للموظفين المدرجين. لا تتابع إلا بعد مراجعة الفترة والموظفين والحسابات.',
         );
-        if (confirmed) {
+        if (confirmed && mounted && sessionGeneration == widget.api.sessionGeneration) {
           final submitted = await widget.api.submitPayrollEntry(name: name, company: company);
+          if (!mounted || sessionGeneration != widget.api.sessionGeneration) return;
           final generatedSlips = await widget.api.fetchPayrollSalarySlips(
             payrollEntry: name, company: company,
           );
@@ -289,8 +293,9 @@ class _PayrollPageState extends State<PayrollPage> {
           'اعتماد كشوف الرواتب',
           'سيعتمد ERPNext كشوف الرواتب للمسودات المرتبطة بهذه الدورة وينشئ قيد استحقاق الرواتب وفق إعدادات الحسابات.',
         );
-        if (confirmed) {
+        if (confirmed && mounted && sessionGeneration == widget.api.sessionGeneration) {
           final result = await widget.api.submitPayrollSalarySlips(name: name, company: company);
+          if (!mounted || sessionGeneration != widget.api.sessionGeneration) return;
           final pending = int.tryParse(result['mobile_pending_salary_slips']?.toString() ?? '0') ?? 0;
           if (mounted && sessionGeneration == widget.api.sessionGeneration) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -305,8 +310,9 @@ class _PayrollPageState extends State<PayrollPage> {
           'إنشاء قيد صرف الرواتب',
           'سيستخدم ERPNext حساب الدفع والبنك المحددين في دورة الرواتب لإنشاء قيد الصرف. راجع حسابات الدفع قبل المتابعة.',
         );
-        if (confirmed) {
+        if (confirmed && mounted && sessionGeneration == widget.api.sessionGeneration) {
           await widget.api.createPayrollBankEntry(name: name, company: company);
+          if (!mounted || sessionGeneration != widget.api.sessionGeneration) return;
           if (mounted && sessionGeneration == widget.api.sessionGeneration) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('أعاد ERPNext استجابة إنشاء قيد صرف الرواتب. راجع القيد في النظام قبل اعتبار الرواتب مدفوعة.')),
@@ -314,9 +320,9 @@ class _PayrollPageState extends State<PayrollPage> {
           }
         }
       }
-      await _loadEntries();
+      if (mounted && sessionGeneration == widget.api.sessionGeneration) await _loadEntries();
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      if (mounted && sessionGeneration == widget.api.sessionGeneration) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
