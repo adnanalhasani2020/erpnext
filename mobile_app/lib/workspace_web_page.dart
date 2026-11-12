@@ -58,10 +58,23 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
       await _cookieManager.clearCookies();
       final target = _resolveTarget();
       final base = Uri.parse(widget.api.baseUrl);
-      final headers = _sameOrigin(target, base)
-          ? widget.api.imageRequestHeaders
-          : const <String, String>{};
-      await _controller.loadRequest(target, headers: headers);
+      if (_sameOrigin(target, base)) {
+        final cookieHeader = widget.api.imageRequestHeaders['Cookie'] ?? '';
+        for (final part in cookieHeader.split(';')) {
+          final separator = part.indexOf('=');
+          if (separator <= 0) continue;
+          final name = part.substring(0, separator).trim();
+          final value = part.substring(separator + 1).trim();
+          if (name.isEmpty) continue;
+          await _cookieManager.setCookie(WebViewCookie(
+            name: name,
+            value: value,
+            domain: base.host,
+            path: '/',
+          ));
+        }
+      }
+      await _controller.loadRequest(target);
     } catch (error) {
       if (!mounted) return;
       setState(() {
@@ -103,6 +116,11 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
         onNavigationRequest: (request) {
           final uri = Uri.tryParse(request.url);
           if (uri == null || !const {'http', 'https'}.contains(uri.scheme)) {
+            return NavigationDecision.prevent;
+          }
+          final base = Uri.tryParse(widget.api.baseUrl);
+          if (uri.scheme == 'http' &&
+              (base == null || base.scheme != 'http' || !_sameOrigin(uri, base))) {
             return NavigationDecision.prevent;
           }
           return NavigationDecision.navigate;
