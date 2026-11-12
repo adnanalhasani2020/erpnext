@@ -26,7 +26,7 @@ Audit basis: Flutter source, Frappe API calls and ERPNext workspace/DocType sour
 | Sales Analytics | ERPNext Sales Analytics Query Report | Opens through the native metadata-driven Workspace Report screen; report filters, result rows, summary values and supported chart data are sourced from ERPNext | JavaScript-defined report filters and unsupported chart types/advanced chart controls remain incomplete; the removed custom Sales Dashboard is not presented as an equivalent. |
 | Sales Pricing | Item Price and Selling Pricing Rule lists/forms | Price-list selection; paginated Item Price; create/edit price; advanced Pricing Rule scopes, discount/rate/free-item modes, conditions and disable action | Web's complete Pricing Rule form and evaluation precedence must be checked against the installed version. Promotional Schemes are a separate mobile page; combined-rule simulations and full server pricing previews are not part of this screen. |
 | Promotional Schemes | Promotional Scheme list/form | Dedicated mobile workflow exists for selling promotional schemes and their item/group/brand slabs | Full parity for every ERPNext promotional condition, stacking rule, dates, customer/territory conditions and server calculation remains unverified. |
-| Sales Commission | Sales Person and commission configuration | Active non-group Sales Person list; search/pagination; edit base commission rate | This is not a commission accounting/report screen. It does not edit Sales Team allocations already stored on invoices, commission transactions, targets, territory/team hierarchy or inactive/group Sales Persons. Invoice-level Sales Team allocation is handled in the Sales Invoice composer; reports remain ERPNext reports. |
+| Sales Person | Sales Person DocType | Opens its own native metadata-driven list/form, including commission_rate and the other fields returned by the installed ERPNext metadata | The custom commission-only page was removed because it was not the full Sales Person web form. Invoice-level Sales Team allocation remains in the Sales Invoice workflow; commission reports remain separate ERPNext reports. |
 | Sales Invoice Composer | Sales Invoice form and lifecycle | Draft create/edit, item rows, taxes/discounts and payment/party details supported by the dedicated composer; submit and return creation through ERPNext mapper; Sales Team allocation and serial/batch support are present in the project | Every Sales Invoice custom/standard field, payment schedule, dimensions, tax edge case, print/PDF, attachments/timeline and all web actions are not certified. Cancellation/return constraints must be tested against linked documents on a live site. |
 | Sales Workflow | Quotation, Sales Order and Delivery Note lists/forms | Separate DocType-specific flows; draft creation/edit; submit/cancel; conversion through ERPNext mappers; delivery tracking and source-row constraints | Still a reduced mobile form compared with each full Desk form: advanced fields, custom fields, attachments/timeline, all workflow buttons, print/PDF, list filters and bulk actions require per-DocType verification. |
 | HR Workflows | Employee, Attendance, Leave Application, Expense Claim and Salary Slip in HRMS | Standalone route support; employee create/edit/status; attendance draft create/correct/submit; leave application draft/submit; leave types; multi-line Expense Claim and payment; salary slip details; server workflow transitions | Not full HRMS module coverage: Employee Checkin, Shift Type/Assignment, Leave Allocation, Appraisal, Recruitment, Training, payroll configuration and other HRMS workspaces still use generic routes or are absent. Corrections to submitted records and HR-specific reports require dedicated workflows. |
@@ -40,7 +40,7 @@ Audit basis: Flutter source, Frappe API calls and ERPNext workspace/DocType sour
 4. Payment Reconciliation now allows per-allocation amount edits before confirmation, exposes invoice/payment fetch limits (50/100/250/500 up to the API cap of 500), and has a widget test verifying the 500/500 request values and the edited amount passed to ERPNext.
 5. Payroll Entry history now supports server-side name search and document-status filters (draft/submitted/cancelled) while preserving pagination.
 6. Item Catalog Excel import now validates required columns, missing mandatory row data and duplicate item codes before any writes; it asks for confirmation and explains that matching item codes update existing Items.
-7. The DocType directory now routes Account, Journal Entry, Payment Reconciliation, Process Payment Reconciliation and its dedicated log history, Bank Transaction, Bank Statement Import, Warehouse, Sales Person, Item Price, Pricing Rule and Sales Invoice to their specialized mobile workflows instead of the generic DocType editor.
+7. The DocType directory routes Account, Journal Entry, Payment Reconciliation, Process Payment Reconciliation and its dedicated log history, Bank Transaction, Bank Statement Import, Warehouse, Item Price, Pricing Rule and Sales Invoice to their dedicated Flutter workflows where implemented. Sales Person now opens its own metadata-driven DocType screen instead of a partial commission-only page.
 8. The mobile CI analyzer command now uses `--no-fatal-infos`: info diagnostics remain visible, while actual warnings and errors still fail the job. Flutter SDK Material imports remain on the supported `package:flutter/material.dart` path.
 9. Payment Reconciliation now displays selected invoice/payment totals by currency and allows removing individual suggested allocations before confirmation.
 10. A dedicated Process Payment Reconciliation screen now creates and submits native background jobs, supports start/resume/pause/cancel, and reads persistent job progress and allocation logs.
@@ -119,7 +119,7 @@ The standalone sales, purchasing, stock and HR workflow pages provide direct nav
 
 Standalone Chart of Accounts, Journal Entry, Payment Reconciliation, Process Payment Reconciliation and Payroll Entry screens expose direct navigation to their corresponding native Flutter DocType lists.
 
-The dedicated Item Catalog, Warehouse Hierarchy, Sales Commission and Promotional Scheme pages expose direct links to their matching native Flutter DocType lists.
+The dedicated Item Catalog, Warehouse Hierarchy and Promotional Scheme pages expose direct links to their matching native Flutter DocType lists. Sales Person uses its own metadata-driven DocType list and form.
 
 ## Native-only navigation policy — 2026-11-12
 
@@ -205,3 +205,8 @@ The generic form now masks Password values and leaves a blank Password field unc
 
 
 The generic form also uses the native time picker for ERPNext `Time` fields and stores the selected value in Frappe's `HH:mm:ss` format.
+
+
+## Sales Person screen alignment — 2026-11-12
+
+The partial Sales Commission screen was removed. The Sales Person Workspace link now opens the native metadata-driven Sales Person DocType list/form, so commission_rate and all other installed DocType fields remain available without presenting a commission-only aggregate as if it were the ERPNext web screen.
