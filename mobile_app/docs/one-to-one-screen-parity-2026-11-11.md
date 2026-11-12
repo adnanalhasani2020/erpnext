@@ -135,7 +135,7 @@ The mobile Workspace groups render Number Cards attached to each actual Workspac
 
 ## Widget-only Workspace and attachment follow-up — 2026-11-12
 
-Workspace records containing charts, quick lists, shortcuts or number cards remain visible in the Flutter directory even without DocType/Report links. Static Document Type Number Cards, standard Document Type charts with static filters, and static-filter Quick Lists are rendered natively. Unsupported chart types, dynamic/report-backed cards, and native attachment file viewing remain gaps; no embedded Desk page is used.
+Workspace records containing charts, quick lists, shortcuts or number cards remain visible in the Flutter directory even without DocType/Report links. Static Document Type Number Cards, standard Document Type charts with static filters, and static-filter Quick Lists are rendered natively. Unsupported chart types, dynamic/report-backed cards, and inline in-app attachment preview remains a gap; authenticated download/share/open through the Android chooser is implemented; no embedded Desk page is used.
 
 Item Price and Pricing Rule links now open separate focused views. The combined pricing overview remains available only when the screen is opened without a specific Workspace DocType.
 
@@ -163,3 +163,8 @@ The three Page links found in the checked-in Manufacturing and Stock workspaces 
 - `visual-plant-floor` → Visual Plant Floor. Loads permitted Plant Floors and Workstation Types, then uses `erpnext.manufacturing.doctype.workstation.workstation.get_workstations` for server-filtered Workstation status. The native screen has manual refresh; real-time Workstation subscriptions and the web page's status images are not yet implemented.
 
 These routes do not load the Page DocType's HTML/JavaScript and do not open Desk pages.
+
+
+## Native attachment download — 2026-11-12
+
+The generic DocType activity panel now retrieves attachment bytes through the authenticated Frappe session. It re-reads the canonical File document, confirms the exact parent DocType and document name, and rejects any file URL outside the configured ERPNext origin before issuing the download request. The bytes are passed to the Android share/open chooser with the server-provided MIME type. This does not use WebView or send session cookies to external hosts. Inline in-app preview remains outside this implementation.
