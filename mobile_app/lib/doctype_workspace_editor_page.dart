@@ -836,6 +836,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 final isDate = type == 'Date';
                 final isDateTime = type == 'Datetime';
                 final isTime = type == 'Time';
+                final isAttachment = type == 'Attach' || type == 'Attach Image';
                 final isLink = type == 'Link' && (f['options']?.toString().trim().isNotEmpty ?? false);
                 final dynamicLinkField = f['options']?.toString() ?? '';
                 final dynamicLinkTarget = selections[dynamicLinkField] ??
