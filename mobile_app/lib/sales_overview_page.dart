@@ -18,6 +18,7 @@ class SalesOverviewPage extends StatelessWidget {
     required this.loadingMoreSalesInvoices, required this.loadingMoreCustomers, required this.loadingMorePurchaseInvoices, required this.loadingMoreSuppliers,
     required this.companiesAvailable,
     required this.onLoadSales, required this.onLoadPurchases,
+    required this.onOpenSalesInvoices, required this.onOpenCustomers, required this.onOpenSuppliers,
     required this.onOpenSalesWorkflow, required this.onOpenPurchaseWorkflow, required this.onOpenStockWorkflow,
     required this.onOpenSalesDashboard, required this.onOpenBankReconciliation, required this.onOpenPayroll, required this.onOpenHrWorkflows,
     required this.onOpenPaymentReconciliation, required this.onOpenSalesPricing, required this.onOpenChartOfAccounts, required this.onOpenJournalEntries,
@@ -40,6 +41,7 @@ class SalesOverviewPage extends StatelessWidget {
   final bool salesInvoicesHasMore, customersHasMore, purchaseInvoicesHasMore, suppliersHasMore;
   final bool loadingMoreSalesInvoices, loadingMoreCustomers, loadingMorePurchaseInvoices, loadingMoreSuppliers;
   final VoidCallback onLoadSales, onLoadPurchases;
+  final VoidCallback onOpenSalesInvoices, onOpenCustomers, onOpenSuppliers;
   final void Function({String? doctype}) onOpenSalesWorkflow;
   final Future<void> Function({String? section, String? initialInvoiceName}) onOpenPurchaseWorkflow;
   final Future<void> Function({String? initialItemCode, String? section}) onOpenStockWorkflow;
@@ -68,6 +70,9 @@ class SalesOverviewPage extends StatelessWidget {
         IconButton(tooltip:'تحديث المشتريات',onPressed:guest||purchaseLoading?null:onLoadPurchases,icon:const Icon(Icons.shopping_cart_outlined)),
       ]),
       Wrap(spacing:8,runSpacing:8,children:[
+        OutlinedButton.icon(onPressed:guest?null:onOpenSalesInvoices,icon:const Icon(Icons.receipt_long_outlined),label:const Text('فواتير المبيعات')),
+        OutlinedButton.icon(onPressed:guest?null:onOpenCustomers,icon:const Icon(Icons.people_outline),label:const Text('دليل العملاء')),
+        OutlinedButton.icon(onPressed:guest?null:onOpenSuppliers,icon:const Icon(Icons.local_shipping_outlined),label:const Text('دليل الموردين')),
         for(final item in const [('Quotation','عروض الأسعار'),('Sales Order','أوامر البيع'),('Delivery Note','أذون التسليم')])
           OutlinedButton.icon(onPressed:guest||salesLoading||inventoryLoading?null:()=>onOpenSalesWorkflow(doctype:item.$1),icon:const Icon(Icons.open_in_new),label:Text(item.$2)),
         for(final item in const [('Purchase Order','أوامر الشراء'),('Purchase Invoice','فواتير المشتريات'),('Payment Entry','دفعات الموردين'),('Supplier Ledger','سجل دفعات الموردين')])
