@@ -68,7 +68,7 @@ class ErpDocTypeDirectoryPage extends StatefulWidget {
 }
 
 class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
-  List<ErpDocTypeDefinition> _definitions = erpDocTypeDefinitions;
+  List<ErpDocTypeDefinition> _definitions = const [];
   bool _loading = true;
   String? _directoryError;
 
@@ -295,9 +295,15 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           if (_directoryError != null) Card(child: ListTile(
             leading: const Icon(Icons.info_outline),
             title: const Text('تعذر مزامنة مساحات العمل'),
-            subtitle: Text('يعرض التطبيق الدليل الاحتياطي. $_directoryError'),
+            subtitle: Text('لم يتم تحميل روابط الشاشات من ERPNext؛ لن يعرض التطبيق قائمة افتراضية غير مؤكدة. $_directoryError'),
             trailing: IconButton(onPressed: _loadWorkspaceDirectory, icon: const Icon(Icons.refresh)),
           )),
+          if (!_loading && _directoryError == null && _definitions.isEmpty)
+            const Card(child: ListTile(
+              leading: Icon(Icons.info_outline),
+              title: Text('لا توجد روابط شاشات متاحة'),
+              subtitle: Text('لم يُرجع ERPNext أي روابط Workspace مرئية لهذا المستخدم.'),
+            )),
           for (final group in groups.entries)
             Builder(builder: (context) {
               final workspaceLabel = group.value.first.group;
