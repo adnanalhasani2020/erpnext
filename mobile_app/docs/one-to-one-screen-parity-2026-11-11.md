@@ -138,3 +138,7 @@ The mobile Workspace groups now render the Number Cards attached to each actual 
 Workspace records containing charts, quick lists, shortcuts or number cards remain visible in the Flutter directory even when they expose no DocType/Report link; the directory opens the original Workspace rather than fabricating a substitute screen. Supported static Document Type Number Cards are rendered natively; dynamic, report-backed and custom cards stay on the original Desk Workspace. Existing attachments in the generic DocType activity panel now open through the authenticated Desk WebView.
 
 Item Price and Pricing Rule links now open separate focused views. The combined pricing overview remains available only when the screen is opened without a specific Workspace DocType.
+
+## Banking Workspace route separation — 2026-11-12
+
+Bank Transaction and Bank Statement Import now pass their exact Workspace DocType into the banking page. The standalone Bank Transaction route shows transaction matching and balance reconciliation; the standalone Bank Statement Import route shows statement upload and import history. The combined reconciliation overview remains available when opened without a specific Workspace DocType, and each standalone view links to its original Desk list.
