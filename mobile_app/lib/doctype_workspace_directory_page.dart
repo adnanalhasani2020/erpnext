@@ -3,6 +3,14 @@ import 'api/frappe_api.dart';
 import 'doctype_workspace_model.dart';
 import 'doctype_workspace_editor_page.dart';
 
+const _workspaceSupportedReports = <String>{
+  'Profit and Loss Statement', 'Balance Sheet', 'Cash Flow', 'General Ledger',
+  'Trial Balance', 'Sales Register', 'Sales Analytics',
+  'Sales Person Commission Summary', 'Sales Person-wise Transaction Summary',
+  'Purchase Register', 'Bank Reconciliation Statement', 'Payment Ledger',
+  'Stock Balance', 'Stock Ledger',
+};
+
 const erpDocTypeDefinitions = <ErpDocTypeDefinition>[
   ErpDocTypeDefinition('المبيعات', 'عروض الأسعار', 'Quotation', Icons.request_quote_outlined),
   ErpDocTypeDefinition('المبيعات', 'أوامر البيع', 'Sales Order', Icons.shopping_cart_outlined),
@@ -103,16 +111,20 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           'HR': 'الموارد البشرية',
         };
         final workspaceLabel = workspaceLabels[workspaceTitle] ?? workspaceTitle;
-        if (workspace['type']?.toString() == 'Link' &&
-            workspace['link_type']?.toString() == 'DocType') {
-          final linkedDocType = workspace['link_to']?.toString().trim() ?? '';
-          if (linkedDocType.isNotEmpty && seen.add('${workspaceTitle}::اختصارات::${linkedDocType}')) {
+        if (workspace['type']?.toString() == 'Link') {
+          final linkType = workspace['link_type']?.toString() ?? '';
+          final target = workspace['link_to']?.toString().trim() ?? '';
+          final supported = linkType == 'DocType' ||
+            (linkType == 'Report' && _workspaceSupportedReports.contains(target));
+          if (supported && target.isNotEmpty &&
+              seen.add('${workspaceTitle}::اختصارات::${linkType}::${target}')) {
             definitions.add(ErpDocTypeDefinition(
               workspaceLabel,
-              workspace['title']?.toString() ?? workspace['label']?.toString() ?? linkedDocType,
-              linkedDocType,
+              workspace['title']?.toString() ?? workspace['label']?.toString() ?? target,
+              target,
               _workspaceIcon(workspaceLabel),
               'اختصارات',
+              linkType,
             ));
           }
           continue;
@@ -123,10 +135,12 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           for (final rawShortcut in shortcuts) {
             if (rawShortcut is! Map) continue;
             final shortcut = Map<String, dynamic>.from(rawShortcut);
-            if (shortcut['type']?.toString() != 'DocType' ||
+            final shortcutType = shortcut['type']?.toString() ?? '';
+            if (!{'DocType', 'Report'}.contains(shortcutType) ||
+                (shortcutType == 'Report' && !_workspaceSupportedReports.contains(shortcut['link_to']?.toString())) ||
                 (shortcut['hidden'] == 1 || shortcut['hidden'] == true)) continue;
             final doctype = shortcut['link_to']?.toString().trim() ?? '';
-            if (doctype.isEmpty || !seen.add('${workspaceTitle}::اختصارات::${doctype}')) continue;
+            if (doctype.isEmpty || !seen.add('${workspaceTitle}::اختصارات::${shortcutType}::${doctype}')) continue;
             final label = shortcut['label']?.toString().trim() ?? '';
             definitions.add(ErpDocTypeDefinition(
               workspaceLabel,
@@ -134,6 +148,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
               doctype,
               _workspaceIcon(workspaceLabel),
               'اختصارات',
+              shortcutType,
             ));
           }
         }
@@ -155,8 +170,11 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           }
           if (hiddenCard) continue;
           final doctype = link['link_to']?.toString().trim() ?? '';
-          if (doctype.isEmpty || link['link_type']?.toString() != 'DocType' ||
-              (link['hidden'] == 1 || link['hidden'] == true) || !seen.add('${workspaceTitle}::${currentSection}::${doctype}')) continue;
+          final linkType = link['link_type']?.toString() ?? '';
+          if (doctype.isEmpty || !{'DocType', 'Report'}.contains(linkType) ||
+              (linkType == 'Report' && !_workspaceSupportedReports.contains(doctype)) ||
+              (link['hidden'] == 1 || link['hidden'] == true) ||
+              !seen.add('${workspaceTitle}::${currentSection}::${linkType}::${doctype}')) continue;
           const translatedLabels = <String, String>{
             'Payment Request': 'طلبات الدفع',
             'Payment Order': 'أوامر الدفع',
@@ -190,6 +208,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
             doctype,
             _workspaceIcon(workspaceLabel),
             currentSection,
+            linkType,
           ));
         }
       }
@@ -266,7 +285,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
                           ListTile(
                             leading: Icon(item.icon),
                             title: Text(item.label),
-                            subtitle: Text(item.doctype, textDirection: TextDirection.ltr),
+                            subtitle: Text(item.linkType == 'Report' ? 'تقرير • ${item.doctype}' : item.doctype, textDirection: TextDirection.ltr),
                             trailing: const Icon(Icons.chevron_left),
                             onTap: () {
                               final open = widget.onOpenDefinition;
