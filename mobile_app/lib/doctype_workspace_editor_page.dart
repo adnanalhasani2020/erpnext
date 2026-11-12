@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'api/frappe_api.dart';
 import 'doctype_workspace_model.dart';
+import 'workspace_web_page.dart';
 
 class ErpDocTypeWorkspacePage extends StatefulWidget {
   const ErpDocTypeWorkspacePage({super.key, required this.api, required this.definition});
@@ -1019,6 +1020,21 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 Text(name, style: Theme.of(sheet).textTheme.titleLarge),
                 Text(_doctype + ' • ' + (status == 0 ? 'مسودة' : status == 1 ? 'مرحّل' : 'ملغى')),
               ])),
+              IconButton(
+                tooltip: 'فتح المستند في ERPNext Web',
+                onPressed: () {
+                  Navigator.pop(sheet);
+                  Navigator.of(context).push(MaterialPageRoute<void>(
+                    builder: (_) => WorkspaceWebPage(
+                      api: widget.api,
+                      title: '${widget.definition.label} • $name',
+                      linkType: 'DocTypeDocument',
+                      target: '$_doctype|$name',
+                    ),
+                  ));
+                },
+                icon: const Icon(Icons.open_in_browser),
+              ),
               IconButton(
                 tooltip: 'المرفقات وسجل النشاط',
                 onPressed: () { Navigator.pop(sheet); _showActivity(name); },
