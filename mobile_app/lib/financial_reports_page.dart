@@ -60,8 +60,9 @@ class _FinancialReportsPageState extends State<FinancialReportsPage> {
     if (widget.initialReportName != null) {
       _showStandardReport = true;
       _standardReportName = widget.initialReportName!;
+    } else {
+      _load();
     }
-    _load();
   }
 
   @override
