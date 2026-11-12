@@ -10,6 +10,7 @@ import 'stock_workflow_page.dart';
 import 'invoice_action_policy.dart';
 import 'financial_reports_page.dart';
 import 'workspace_report_page.dart';
+import 'workspace_web_page.dart';
 import 'sales_pricing_page.dart';
 import 'sales_commission_page.dart';
 import 'sales_dashboard_page.dart';
@@ -1217,6 +1218,18 @@ class _MobileHomePageState extends State<MobileHomePage> {
   }
 
   void _openDocTypeDefinition(ErpDocTypeDefinition item) {
+    if (const {'Page', 'URL', 'Dashboard', 'Workspace'}.contains(item.linkType)) {
+      if (!_requireServerAccess(item.label)) return;
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => WorkspaceWebPage(
+          api: _api,
+          title: item.label,
+          linkType: item.linkType,
+          target: item.doctype,
+        ),
+      ));
+      return;
+    }
     if (item.linkType == 'Report') {
       _openWorkspaceReport(item.doctype, initialFilters: item.routeOptions);
       return;
