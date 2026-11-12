@@ -161,8 +161,8 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
         for (final raw in links) {
           if (raw is! Map) continue;
           final link = Map<String, dynamic>.from(raw);
-          final linkType = link['type']?.toString() ?? '';
-          if (linkType == 'Card Break' || linkType == 'Section Break' || linkType == 'Header') {
+          final workspaceLinkKind = link['type']?.toString() ?? '';
+          if (workspaceLinkKind == 'Card Break' || workspaceLinkKind == 'Section Break' || workspaceLinkKind == 'Header') {
             hiddenCard = link['hidden'] == 1 || link['hidden'] == true;
             final heading = link['label']?.toString().trim() ?? '';
             if (!hiddenCard && heading.isNotEmpty) currentSection = heading;
