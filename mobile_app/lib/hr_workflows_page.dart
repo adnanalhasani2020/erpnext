@@ -648,7 +648,12 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
             if (!(formKey.currentState?.validate() ?? false)) return;
             final from = DateTime.tryParse(fromDate.text.trim());
             final to = DateTime.tryParse(toDate.text.trim());
-            if (from != null && to != null && to.isBefore(from)) return;
+            if (from != null && to != null && to.isBefore(from)) {
+              ScaffoldMessenger.of(dialogContext).showSnackBar(
+                const SnackBar(content: Text('تاريخ نهاية الإجازة لا يمكن أن يسبق تاريخ بدايتها.')),
+              );
+              return;
+            }
             Navigator.pop(dialogContext, true);
           }, child: const Text('حفظ المسودة')),
         ],
