@@ -349,8 +349,8 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
         .replaceAll('"', '_')
         .replaceAll('/', '_')
         .replaceAll(String.fromCharCode(92), '_')
-        .replaceAll('\\r', '_')
-        .replaceAll('\\n', '_');
+        .replaceAll('\r', '_')
+        .replaceAll('\n', '_');
     final request = await _client.postUrl(Uri.parse('$_baseUrl/api/method/upload_file'));
     request.followRedirects = false;
     request.headers.contentType = ContentType(
@@ -369,18 +369,18 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
       }
     }
     void field(String key, String value) {
-      request.write('--$boundary\\r\\n');
-      request.write('Content-Disposition: form-data; name="$key"\\r\\n\\r\\n');
-      request.write('$value\\r\\n');
+      request.write('--$boundary\r\n');
+      request.write('Content-Disposition: form-data; name="$key"\r\n\r\n');
+      request.write('$value\r\n');
     }
     field('is_private', isPrivate ? '1' : '0');
     field('doctype', doctype);
     field('docname', name);
-    request.write('--$boundary\\r\\n');
-    request.write('Content-Disposition: form-data; name="file"; filename="$safeName"\\r\\n');
-    request.write('Content-Type: application/octet-stream\\r\\n\\r\\n');
+    request.write('--$boundary\r\n');
+    request.write('Content-Disposition: form-data; name="file"; filename="$safeName"\r\n');
+    request.write('Content-Type: application/octet-stream\r\n\r\n');
     request.add(bytes);
-    request.write('\\r\\n--$boundary--\\r\\n');
+    request.write('\r\n--$boundary--\r\n');
     final response = await request.close().timeout(const Duration(seconds: 60));
     final body = await utf8.decoder.bind(response).join().timeout(const Duration(seconds: 60));
     if (generation != _sessionGeneration) {
