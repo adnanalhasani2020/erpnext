@@ -3,14 +3,6 @@ import 'api/frappe_api.dart';
 import 'doctype_workspace_model.dart';
 import 'doctype_workspace_editor_page.dart';
 
-const _workspaceSupportedReports = <String>{
-  'Profit and Loss Statement', 'Balance Sheet', 'Cash Flow', 'General Ledger',
-  'Trial Balance', 'Sales Register', 'Sales Analytics',
-  'Sales Person Commission Summary', 'Sales Person-wise Transaction Summary',
-  'Purchase Register', 'Bank Reconciliation Statement', 'Payment Ledger',
-  'Stock Balance', 'Stock Ledger',
-};
-
 const erpDocTypeDefinitions = <ErpDocTypeDefinition>[
   ErpDocTypeDefinition('المبيعات', 'عروض الأسعار', 'Quotation', Icons.request_quote_outlined),
   ErpDocTypeDefinition('المبيعات', 'أوامر البيع', 'Sales Order', Icons.shopping_cart_outlined),
@@ -114,8 +106,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
         if (workspace['type']?.toString() == 'Link') {
           final linkType = workspace['link_type']?.toString() ?? '';
           final target = workspace['link_to']?.toString().trim() ?? '';
-          final supported = linkType == 'DocType' ||
-            (linkType == 'Report' && _workspaceSupportedReports.contains(target));
+          final supported = linkType == 'DocType' || linkType == 'Report';
           if (supported && target.isNotEmpty &&
               seen.add('${workspaceTitle}::اختصارات::${linkType}::${target}')) {
             definitions.add(ErpDocTypeDefinition(
@@ -137,7 +128,6 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
             final shortcut = Map<String, dynamic>.from(rawShortcut);
             final shortcutType = shortcut['type']?.toString() ?? '';
             if (!{'DocType', 'Report'}.contains(shortcutType) ||
-                (shortcutType == 'Report' && !_workspaceSupportedReports.contains(shortcut['link_to']?.toString())) ||
                 (shortcut['hidden'] == 1 || shortcut['hidden'] == true)) continue;
             final doctype = shortcut['link_to']?.toString().trim() ?? '';
             if (doctype.isEmpty || !seen.add('${workspaceTitle}::اختصارات::${shortcutType}::${doctype}')) continue;
@@ -172,7 +162,6 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           final doctype = link['link_to']?.toString().trim() ?? '';
           final linkType = link['link_type']?.toString() ?? '';
           if (doctype.isEmpty || !{'DocType', 'Report'}.contains(linkType) ||
-              (linkType == 'Report' && !_workspaceSupportedReports.contains(doctype)) ||
               (link['hidden'] == 1 || link['hidden'] == true) ||
               !seen.add('${workspaceTitle}::${currentSection}::${linkType}::${doctype}')) continue;
           const translatedLabels = <String, String>{
