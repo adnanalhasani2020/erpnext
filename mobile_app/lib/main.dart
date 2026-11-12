@@ -1103,7 +1103,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     if (!_requireServerAccess('فواتير المبيعات')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => StatefulBuilder(
-        builder: (_, setPageState) => SalesInvoicesPage(
+        builder: (pageContext, setPageState) => SalesInvoicesPage(
           loading: _salesLoading,
           error: _salesError,
           invoices: _salesInvoices,
@@ -1114,20 +1114,20 @@ class _MobileHomePageState extends State<MobileHomePage> {
           loadingMore: _loadingMoreSalesInvoices,
           onRefresh: () async {
             await _loadSales();
-            if (mounted) setPageState(() {});
+            if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
           },
           onSearch: (value) async {
             await _searchSalesInvoices(value);
-            if (mounted) setPageState(() {});
+            if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
           },
           onLoadMore: () async {
             await _loadMoreSalesInvoices();
-            if (mounted) setPageState(() {});
+            if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
           },
           onOpenInvoice: (name) => _showInvoiceDetails('Sales Invoice', name),
           onCreateInvoice: () async {
             await _openSalesInvoiceComposer();
-            if (mounted) setPageState(() {});
+            if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
           },
         ),
       ),
@@ -1138,7 +1138,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     if (!_requireServerAccess('العملاء')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => StatefulBuilder(
-        builder: (_, setPageState) => CustomerDirectoryPage(
+        builder: (pageContext, setPageState) => CustomerDirectoryPage(
           loading: _salesLoading,
           error: _salesError,
           customers: _customers,
@@ -1149,19 +1149,19 @@ class _MobileHomePageState extends State<MobileHomePage> {
           loadingMore: _loadingMoreCustomers,
           onRefresh: () async {
             await _loadSales();
-            if (mounted) setPageState(() {});
+            if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
           },
           onSearch: (value) async {
             await _searchCustomers(value);
-            if (mounted) setPageState(() {});
+            if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
           },
           onLoadMore: () async {
             await _loadMoreCustomers();
-            if (mounted) setPageState(() {});
+            if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
           },
           onEdit: (customer) async {
             await _editCustomerProfile(customer);
-            if (mounted) setPageState(() {});
+            if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
           },
           onOpenLedger: _showCustomerLedger,
         ),
@@ -1173,7 +1173,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
     if (!_requireServerAccess('الموردون')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => StatefulBuilder(
-        builder: (_, setPageState) => SupplierDirectoryPage(
+        builder: (pageContext, setPageState) => SupplierDirectoryPage(
           loading: _purchaseLoading,
           error: _purchaseError,
           suppliers: _suppliers,
@@ -1184,15 +1184,15 @@ class _MobileHomePageState extends State<MobileHomePage> {
           loadingMore: _loadingMoreSuppliers,
           onRefresh: () async {
             await _loadPurchases();
-            if (mounted) setPageState(() {});
+            if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
           },
           onSearch: (value) async {
             await _searchSuppliers(value);
-            if (mounted) setPageState(() {});
+            if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
           },
           onLoadMore: () async {
             await _loadMoreSuppliers();
-            if (mounted) setPageState(() {});
+            if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
           },
           onOpenLedger: _showSupplierLedger,
         ),
