@@ -254,9 +254,17 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
     }
     // Custom-method and report cards can execute server-defined behavior;
     // keep those on the original Workspace instead of emulating them.
-    if (card['type'] != 'Document Type' ||
+    final cardType = card['type']?.toString().trim();
+    if ((cardType != null && cardType.isNotEmpty && cardType != 'Document Type') ||
         card['document_type'] is! String ||
         card['function'] is! String) {
+      return null;
+    }
+    // Dynamic filters contain server-side JavaScript expressions in Desk.
+    // Do not evaluate or silently ignore them in Flutter; leave those cards
+    // to the original Workspace WebView instead.
+    final dynamicFilters = card['dynamic_filters_json']?.toString().trim() ?? '';
+    if (dynamicFilters.isNotEmpty && dynamicFilters != '[]' && dynamicFilters != '{}') {
       return null;
     }
     final filters = card['filters_json']?.toString().trim().isNotEmpty == true
