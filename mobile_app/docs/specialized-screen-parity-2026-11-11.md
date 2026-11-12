@@ -202,3 +202,6 @@ The generic metadata-driven form now recognizes ERPNext `Attach` and `Attach Ima
 ## Additional DocField control parity — 2026-11-12
 
 The generic form now masks Password values and leaves a blank Password field unchanged when editing, matching ERPNext's password-field behavior. Text, Small Text, Long Text and Text Editor inputs use multiline mobile controls; Code fields use a multiline monospace editor. These remain plain data-entry controls and do not execute server-provided scripts.
+
+
+The generic form also uses the native time picker for ERPNext `Time` fields and stores the selected value in Frappe's `HH:mm:ss` format.
