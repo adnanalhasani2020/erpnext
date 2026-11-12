@@ -11,10 +11,10 @@ void main() {
     final serverTask = () async {
       await for (final request in server) {
         requestedPaths.add(request.uri.path);
-        if (request.uri.path == '/api/method/frappe.desk.desktop.get_workspaces') {
+        if (request.uri.path == '/api/method/frappe.sessions.get') {
           request.response.write(jsonEncode({
             'message': {
-              'pages': [
+              'workspace_pages': [
                 {'name': 'Selling', 'title': 'Selling'},
               ],
             },
@@ -51,7 +51,7 @@ void main() {
       expect(workspaces.single['links'], isA<List>());
       expect(workspaces.single['shortcuts'], isA<List>());
       expect(requestedPaths, [
-        '/api/method/frappe.desk.desktop.get_workspaces',
+        '/api/method/frappe.sessions.get',
         '/api/resource/Workspace/Selling',
       ]);
       expect(requestedPaths, isNot(contains('/api/resource/Workspace')));
@@ -71,7 +71,7 @@ void main() {
         if (request.uri.path == '/api/method/frappe.desk.desktop.get_workspace_sidebar_items') {
           request.response.write(jsonEncode({
             'message': {
-              'pages': [
+              'workspace_pages': [
                 {'name': 'Stock', 'title': 'Stock'},
               ],
             },
@@ -91,8 +91,8 @@ void main() {
       expect(workspaces, hasLength(1));
       expect(workspaces.single['name'], 'Stock');
       expect(requestedPaths, [
-        '/api/method/frappe.desk.desktop.get_workspaces',
         '/api/method/frappe.desk.desktop.get_workspace_sidebar_items',
+        '/api/method/frappe.sessions.get',
         '/api/resource/Workspace/Stock',
       ]);
     } finally {
