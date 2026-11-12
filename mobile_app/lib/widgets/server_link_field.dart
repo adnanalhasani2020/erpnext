@@ -32,7 +32,7 @@ class ServerLinkField extends StatelessWidget {
     displayStringForOption: (value) => value,
     optionsBuilder: (value) async {
       final query = value.text.trim();
-      if (query.isEmpty) return const Iterable<String>.empty();
+      if (query.isEmpty) return const <String>[];
       try {
         final rows = await api.fetchDocTypeRows(
           doctype: doctype,
