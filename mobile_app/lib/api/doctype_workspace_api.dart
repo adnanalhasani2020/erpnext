@@ -38,7 +38,10 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
 
     Future<core.Map<String, dynamic>> fetchWorkspaceDetail(core.Map<String, dynamic> row) async {
       final name = row['name']?.toString() ?? '';
-      if (name.isEmpty) return core.Map<String, dynamic>.from(row);
+      final pageType = row['type']?.toString() ?? 'Workspace';
+      if (name.isEmpty || pageType == 'Link' || pageType == 'URL') {
+        return core.Map<String, dynamic>.from(row);
+      }
       try {
         final detailResponse = await _send(
           'GET', '/api/resource/Workspace/' + Uri.encodeComponent(name),
