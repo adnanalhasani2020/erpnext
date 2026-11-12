@@ -51,6 +51,11 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
       final parsed = Uri.tryParse(target);
       return parsed != null && parsed.hasScheme ? parsed : base.resolve(target);
     }
+    if (widget.linkType == 'DocTypeList') {
+      final doctype = _workspaceSlug(target);
+      if (doctype.isEmpty) throw const FormatException('وجهة قائمة ERPNext غير صالحة.');
+      return base.resolve('app/$doctype');
+    }
     if (widget.linkType == 'DocTypeDocument') {
       final separator = target.indexOf('|');
       if (separator <= 0 || separator == target.length - 1) {
