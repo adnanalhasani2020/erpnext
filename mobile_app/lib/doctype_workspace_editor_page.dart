@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import 'api/frappe_api.dart';
 import 'doctype_workspace_model.dart';
 
@@ -820,6 +821,177 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     if (saved == true && mounted) { _generation++; await _load(); }
   }
 
+
+  Future<void> _showActivity(String name) async {
+    final commentController = TextEditingController();
+    Map<String, List<Map<String, dynamic>>> activity = {
+      'attachments': <Map<String, dynamic>>[],
+      'comments': <Map<String, dynamic>>[],
+      'versions': <Map<String, dynamic>>[],
+    };
+    var loading = true;
+    var busy = false;
+    var started = false;
+    String? error;
+
+    Future<void> load(StateSetter refresh) async {
+      refresh(() { loading = true; error = null; });
+      try {
+        final result = await widget.api.fetchDocTypeActivity(doctype: _doctype, name: name);
+        if (!mounted) return;
+        refresh(() { activity = result; loading = false; });
+      } catch (e) {
+        if (!mounted) return;
+        refresh(() { error = e.toString().replaceFirst('Exception: ', ''); loading = false; });
+      }
+    }
+
+    await showModalBottomSheet<void>(
+      context: context, isScrollControlled: true, useSafeArea: true, showDragHandle: true,
+      builder: (sheet) => StatefulBuilder(builder: (context, refresh) {
+        if (!started) {
+          started = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) { if (sheet.mounted) load(refresh); });
+        }
+        Future<void> addComment() async {
+          final value = commentController.text.trim();
+          if (value.isEmpty || busy) return;
+          refresh(() { busy = true; error = null; });
+          try {
+            await widget.api.addDocTypeComment(doctype: _doctype, name: name, content: value);
+            commentController.clear();
+            await load(refresh);
+          } catch (e) {
+            refresh(() => error = e.toString().replaceFirst('Exception: ', ''));
+          } finally {
+            if (sheet.mounted) refresh(() => busy = false);
+          }
+        }
+        Future<void> uploadAttachment() async {
+          if (busy) return;
+          try {
+            final picked = await FilePicker.platform.pickFiles(type: FileType.any, allowMultiple: false, withData: true);
+            if (picked == null || picked.files.isEmpty) return;
+            final file = picked.files.single;
+            final bytes = file.bytes;
+            if (bytes == null || bytes.isEmpty) throw const FormatException('تعذر قراءة محتوى الملف المحدد.');
+            refresh(() { busy = true; error = null; });
+            await widget.api.uploadDocTypeAttachment(
+              doctype: _doctype, name: name, fileName: file.name, bytes: bytes,
+            );
+            await load(refresh);
+          } catch (e) {
+            if (sheet.mounted) refresh(() => error = e.toString().replaceFirst('Exception: ', ''));
+          } finally {
+            if (sheet.mounted) refresh(() => busy = false);
+          }
+        }
+
+        final attachments = activity['attachments'] ?? const <Map<String, dynamic>>[];
+        final comments = activity['comments'] ?? const <Map<String, dynamic>>[];
+        final versions = activity['versions'] ?? const <Map<String, dynamic>>[];
+        return SizedBox(
+          height: MediaQuery.of(sheet).size.height * .86,
+          child: Column(children: [
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(16, 4, 16, 12),
+              child: Row(children: [
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('المرفقات وسجل النشاط', style: Theme.of(context).textTheme.titleLarge),
+                  Text('$_doctype • $name', style: Theme.of(context).textTheme.labelSmall),
+                ])),
+                IconButton(tooltip: 'تحديث النشاط', onPressed: loading || busy ? null : () => load(refresh), icon: const Icon(Icons.refresh)),
+              ]),
+            ),
+            if (error != null) Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: MaterialBanner(content: Text(error!), actions: [
+                TextButton(onPressed: () => load(refresh), child: const Text('إعادة المحاولة')),
+              ]),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: TextField(
+                controller: commentController, minLines: 1, maxLines: 3,
+                decoration: InputDecoration(
+                  labelText: 'إضافة تعليق إلى سجل المستند',
+                  suffixIcon: IconButton(tooltip: 'إرسال التعليق', onPressed: busy ? null : addComment, icon: const Icon(Icons.send)),
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsetsDirectional.fromSTEB(16, 8, 16, 4),
+              child: Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: OutlinedButton.icon(
+                  onPressed: busy ? null : uploadAttachment,
+                  icon: const Icon(Icons.attach_file), label: const Text('إرفاق ملف'),
+                ),
+              ),
+            ),
+            if (loading || busy) const LinearProgressIndicator(),
+            Expanded(child: ListView(children: [
+              ExpansionTile(
+                initiallyExpanded: true,
+                leading: const Icon(Icons.attach_file),
+                title: Text('المرفقات (${attachments.length})'),
+                children: attachments.isEmpty
+                  ? const [ListTile(title: Text('لا توجد مرفقات لهذا المستند.'))]
+                  : attachments.map((file) => ListTile(
+                      leading: const Icon(Icons.insert_drive_file_outlined),
+                      title: Text(file['file_name']?.toString() ?? file['name']?.toString() ?? 'ملف'),
+                      subtitle: Text([
+                        if (file['creation'] != null) file['creation'].toString(),
+                        if (file['file_size'] != null) '${file['file_size']} بايت',
+                        file['is_private'] == 1 || file['is_private'] == true ? 'خاص' : 'عام',
+                      ].join(' • ')),
+                    )).toList(),
+              ),
+              ExpansionTile(
+                initiallyExpanded: true,
+                leading: const Icon(Icons.forum_outlined),
+                title: Text('التعليقات (${comments.length})'),
+                children: comments.isEmpty
+                  ? const [ListTile(title: Text('لا توجد تعليقات.'))]
+                  : comments.map((comment) => ListTile(
+                      leading: const Icon(Icons.chat_bubble_outline),
+                      title: Text(comment['comment_by']?.toString() ?? comment['comment_email']?.toString() ?? 'مستخدم'),
+                      subtitle: Text(comment['content']?.toString() ?? ''),
+                      trailing: comment['creation'] == null ? null : Text(comment['creation'].toString(), style: Theme.of(context).textTheme.labelSmall),
+                    )).toList(),
+              ),
+              ExpansionTile(
+                leading: const Icon(Icons.history),
+                title: Text('سجل الإصدارات (${versions.length})'),
+                children: versions.isEmpty
+                  ? const [ListTile(title: Text('لا توجد إصدارات محفوظة لهذا المستند.'))]
+                  : versions.map((version) => ListTile(
+                      leading: const Icon(Icons.history_toggle_off),
+                      title: Text(version['owner']?.toString() ?? 'تعديل'),
+                      subtitle: Text(version['creation']?.toString() ?? ''),
+                      isThreeLine: true,
+                      trailing: const Icon(Icons.info_outline),
+                      onTap: () {
+                        final data = version['data']?.toString() ?? '';
+                        showDialog<void>(
+                          context: context,
+                          builder: (dialog) => AlertDialog(
+                            title: const Text('تفاصيل الإصدار'),
+                            content: SizedBox(width: 520, child: SingleChildScrollView(child: SelectableText(data))),
+                            actions: [TextButton(onPressed: () => Navigator.pop(dialog), child: const Text('إغلاق'))],
+                          ),
+                        );
+                      },
+                    )).toList(),
+              ),
+            ])),
+          ]),
+        );
+      }),
+    );
+    commentController.dispose();
+  }
+
   Future<void> _details(String name) async {
     try {
       final doc = await widget.api.fetchDocTypeDocument(doctype: _doctype, name: name);
@@ -847,6 +1019,11 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 Text(name, style: Theme.of(sheet).textTheme.titleLarge),
                 Text(_doctype + ' • ' + (status == 0 ? 'مسودة' : status == 1 ? 'مرحّل' : 'ملغى')),
               ])),
+              IconButton(
+                tooltip: 'المرفقات وسجل النشاط',
+                onPressed: () { Navigator.pop(sheet); _showActivity(name); },
+                icon: const Icon(Icons.history),
+              ),
             ])),
             Expanded(child: ListView.separated(
               itemCount: fields.length,
