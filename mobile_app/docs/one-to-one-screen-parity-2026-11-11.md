@@ -122,3 +122,8 @@ The authenticated Workspace directory no longer populates its visible screen lis
 ## Original Desk list fallback — 2026-11-12
 
 Every metadata-driven DocType list now exposes the corresponding original ERPNext Desk list route in the authenticated same-origin WebView. This preserves native list-view bulk actions, custom list scripts and installed list controls where Flutter's generic metadata list does not have a safe metadata-driven equivalent. The native list remains a separate screen and continues to use server-side filters, sorting and pagination.
+
+
+## DocType form layout parity — 2026-11-12
+
+The generic mobile editor now preserves the installed DocType metadata's Tab Break and Section Break grouping as stacked section headings, matching the web form's information hierarchy on a narrow screen. Column Break fields are kept in a single mobile column rather than being dropped. Hidden tabs/sections suppress their contained fields, in addition to each field's own hidden and dependency rules. No new fields or sections are created by the mobile app.
