@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'models/erp_models.dart';
 
 class ItemListPage extends StatelessWidget {
-  const ItemListPage({super.key, required this.items, required this.search, required this.searchController, required this.guest, required this.loading, required this.loadingMore, required this.error, required this.hasMore, required this.onSearch, required this.onLoadMore, required this.onShowDetails});
+  const ItemListPage({super.key, required this.items, required this.search, required this.searchController, required this.guest, required this.loading, required this.loadingMore, required this.error, required this.hasMore, required this.onSearch, required this.onLoadMore, required this.onShowDetails,required this.onRefresh});
   final List<ErpItem> items;
   final String search;
   final TextEditingController searchController;
@@ -12,6 +12,7 @@ class ItemListPage extends StatelessWidget {
   final ValueChanged<String> onSearch;
   final VoidCallback onLoadMore;
   final ValueChanged<ErpItem> onShowDetails;
+  final VoidCallback onRefresh;
 
   @override
   Widget build(BuildContext context) {
@@ -19,7 +20,7 @@ class ItemListPage extends StatelessWidget {
     final filtered=items.where((item)=>item.code.toLowerCase().contains(query)||item.name.toLowerCase().contains(query)||(item.group??'').toLowerCase().contains(query)).toList(growable:false);
     return ListView(padding:const EdgeInsets.all(18),children:[
       if(guest) const Card(child:ListTile(leading:Icon(Icons.science_outlined),title:Text('بيانات تجريبية محلية'),subtitle:Text('هذه سجلات وهمية للاستعراض فقط. لا يوجد اتصال بالخادم ولا يمكن حفظ معاملات.'))),
-      Row(children:[const CircleAvatar(child:Icon(Icons.sell_outlined)),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('الأصناف',style:Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight:FontWeight.bold)),Text('بحث في الأصناف المحمّلة من ERPNext',style:Theme.of(context).textTheme.bodySmall)])),IconButton(tooltip:'تحديث البيانات',onPressed:guest||loading?null:onLoadMore,icon:const Icon(Icons.refresh))]),
+      Row(children:[const CircleAvatar(child:Icon(Icons.sell_outlined)),const SizedBox(width:12),Expanded(child:Column(crossAxisAlignment:CrossAxisAlignment.start,children:[Text('الأصناف',style:Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight:FontWeight.bold)),Text('بحث في الأصناف المحمّلة من ERPNext',style:Theme.of(context).textTheme.bodySmall)])),IconButton(tooltip:'تحديث البيانات',onPressed:guest||loading?null:onRefresh,icon:const Icon(Icons.refresh))]),
       const SizedBox(height:16),
       TextField(controller:searchController,enabled:!loading,textInputAction:TextInputAction.search,decoration:InputDecoration(labelText:'ابحث بالاسم أو الرمز',prefixIcon:const Icon(Icons.search),suffixIcon:searchController.text.isEmpty?null:IconButton(tooltip:'مسح البحث',onPressed:(){searchController.clear();onSearch('');},icon:const Icon(Icons.clear))),onSubmitted:onSearch),
       const SizedBox(height:8),
