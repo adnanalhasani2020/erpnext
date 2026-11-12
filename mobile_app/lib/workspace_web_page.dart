@@ -194,7 +194,7 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.linkType == 'DocTypeList') {
+    if (widget.linkType == 'DocTypeList' || widget.linkType == 'DocType') {
       return ErpDocTypeWorkspacePage(api: widget.api, definition: ErpDocTypeDefinition('ERPNext', widget.title, widget.target, Icons.list_alt_outlined, 'عام', 'DocType', widget.routeOptions));
     }
     if (widget.linkType == 'Report') {
