@@ -177,3 +177,8 @@ No manual tests were run for this follow-up. The repository's GitHub Actions che
 
 - Warehouse Hierarchy now lazy-loads each group's direct children from the authenticated Warehouse resource on first expansion, preserves the selected company/search filters, merges by canonical Warehouse name and sorts by ERPNext NestedSet `lft`. Nested groups can be expanded independently instead of depending on the first paginated result set.
 - The standalone Pricing Rule route no longer loads or requires Item Price lists. It fetches Pricing Rules independently, hides the Item Price list selector, and permits the ERPNext Pricing Rule's optional `for_price_list` to remain empty. The combined pricing overview still loads the list when opened without a focused Workspace DocType.
+
+
+## Native report chart follow-up — 2026-11-12
+
+Workspace Query Report results now retain the chart object returned by ERPNext and render supported Bar, Line, Pie and Donut charts with native Flutter CustomPainter widgets. Report columns, rows and summary values remain sourced from the same permission-checked query-report response. Unsupported report chart types show an explicit unsupported state; the app does not execute report JavaScript or calculate chart data locally.
