@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
+import 'doctype_workspace_editor_page.dart';
+import 'doctype_workspace_model.dart';
 import 'models/erp_models.dart';
 import 'widgets/server_link_field.dart';
 
@@ -96,11 +98,10 @@ class _StockSummaryNativePageState extends State<StockSummaryNativePage> {
   void _openOrFilterRecord(String doctype, String name, TextEditingController filter) {
     if (name.trim().isEmpty) return;
     if (filter.text.trim() == name) {
-      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceNativeDestinationPage(
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ErpDocTypeWorkspacePage(
         api: widget.api,
-        title: name,
-        linkType: 'DocTypeDocument',
-        target: '$doctype|$name',
+        definition: ErpDocTypeDefinition('المخزون', doctype, doctype, Icons.inventory_2_outlined),
+        initialDocumentName: name,
       )));
       return;
     }
