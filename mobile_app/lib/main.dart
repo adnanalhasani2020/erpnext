@@ -1136,6 +1136,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       );
     },
     onLoadMore: _loadMoreWarehouses,
+    onRefresh: _loadInventory,
   );
 
   void _openSalesCommissions() {
