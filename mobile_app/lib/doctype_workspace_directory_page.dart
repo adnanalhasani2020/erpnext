@@ -103,6 +103,25 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           'HR': 'الموارد البشرية',
         };
         final workspaceLabel = workspaceLabels[workspaceTitle] ?? workspaceTitle;
+        final shortcuts = workspace['shortcuts'];
+        if (shortcuts is List) {
+          for (final rawShortcut in shortcuts) {
+            if (rawShortcut is! Map) continue;
+            final shortcut = Map<String, dynamic>.from(rawShortcut);
+            if (shortcut['type']?.toString() != 'DocType' ||
+                (shortcut['hidden'] == 1 || shortcut['hidden'] == true)) continue;
+            final doctype = shortcut['link_to']?.toString().trim() ?? '';
+            if (doctype.isEmpty || !seen.add('${workspaceTitle}::اختصارات::${doctype}')) continue;
+            final label = shortcut['label']?.toString().trim() ?? '';
+            definitions.add(ErpDocTypeDefinition(
+              workspaceLabel,
+              label.isEmpty ? doctype : label,
+              doctype,
+              _workspaceIcon(workspaceLabel),
+              'اختصارات',
+            ));
+          }
+        }
         final links = <dynamic>[
           if (workspace['links'] is List) ...(workspace['links'] as List),
           if (workspace['sidebar_items'] is List) ...(workspace['sidebar_items'] as List),
