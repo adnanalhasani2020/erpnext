@@ -520,6 +520,7 @@ class _NativeQuickListState extends State<_NativeQuickList> {
             title: Text((row['_mobile_title'] ?? row['name'] ?? 'مستند').toString()),
             subtitle: Text([
               if (row['status'] != null) row['status'].toString(),
+              if (row['workflow_state'] != null) row['workflow_state'].toString(),
               if (row['modified'] != null) row['modified'].toString(),
             ].join(' • ')),
             trailing: const Icon(Icons.chevron_left),
