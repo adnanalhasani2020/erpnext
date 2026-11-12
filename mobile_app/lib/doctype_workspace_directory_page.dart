@@ -5,7 +5,7 @@ import 'doctype_workspace_model.dart';
 import 'doctype_workspace_editor_page.dart';
 import 'workspace_web_page.dart';
 
-const erpDocTypeDefinitions = <ErpDocTypeDefinition>[
+const erpDocTypeLabelHints = <ErpDocTypeDefinition>[
   ErpDocTypeDefinition('المبيعات', 'عروض الأسعار', 'Quotation', Icons.request_quote_outlined),
   ErpDocTypeDefinition('المبيعات', 'أوامر البيع', 'Sales Order', Icons.shopping_cart_outlined),
   ErpDocTypeDefinition('المبيعات', 'أذون التسليم', 'Delivery Note', Icons.local_shipping_outlined),
@@ -229,7 +229,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
               ? (translatedLabels[sourceLabel] ?? sourceLabel)
               : translatedLabels[doctype] ?? (sourceLabel.isNotEmpty ? sourceLabel : doctype);
           if (routeOptions.isEmpty && (sourceLabel.isEmpty || sourceLabel == doctype)) {
-            for (final known in erpDocTypeDefinitions) {
+            for (final known in erpDocTypeLabelHints) {
               if (known.doctype == doctype) { displayLabel = known.label; break; }
             }
           }
