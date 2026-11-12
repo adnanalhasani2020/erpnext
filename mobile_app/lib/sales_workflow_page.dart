@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
 import 'models/serial_batch_tracking.dart';
-import 'workspace_web_page.dart';
+import 'workspace_native_destination_page.dart';
 
 core.Map<String, dynamic> buildSalesWorkflowLinePayload({
   required core.Map<String, dynamic>? sourceRow,

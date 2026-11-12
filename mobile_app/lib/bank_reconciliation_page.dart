@@ -5,7 +5,7 @@ import 'package:file_picker/file_picker.dart';
 
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
-import 'workspace_web_page.dart';
+import 'workspace_native_destination_page.dart';
 
 class BankReconciliationPage extends StatefulWidget {
   const BankReconciliationPage({

@@ -10,7 +10,7 @@ import 'stock_workflow_page.dart';
 import 'invoice_action_policy.dart';
 import 'financial_reports_page.dart';
 import 'workspace_report_page.dart';
-import 'workspace_web_page.dart';
+import 'workspace_native_destination_page.dart';
 import 'sales_pricing_page.dart';
 import 'sales_commission_page.dart';
 import 'sales_dashboard_page.dart';

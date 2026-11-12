@@ -4,7 +4,7 @@ import 'dart:core' as core;
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
-import 'workspace_web_page.dart';
+import 'workspace_native_destination_page.dart';
 import 'models/erp_models.dart';
 
 class PaymentReconciliationPage extends StatefulWidget {

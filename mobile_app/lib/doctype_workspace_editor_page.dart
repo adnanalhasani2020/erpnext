@@ -5,7 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:share_plus/share_plus.dart';
 import 'api/frappe_api.dart';
 import 'doctype_workspace_model.dart';
-import 'workspace_web_page.dart';
+import 'workspace_native_destination_page.dart';
 
 class ErpDocTypeWorkspacePage extends StatefulWidget {
   const ErpDocTypeWorkspacePage({super.key, required this.api, required this.definition});

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
 import 'models/serial_batch_tracking.dart';
-import 'workspace_web_page.dart';
+import 'workspace_native_destination_page.dart';
 
 class StockWorkflowPage extends StatefulWidget {
   const StockWorkflowPage({super.key, required this.api, required this.companies, required this.suppliers, required this.items, required this.warehouses, this.initialItemCode, this.onChanged, this.initialSection});

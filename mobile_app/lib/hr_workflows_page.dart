@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
 import 'hr_workflow_lists.dart';
-import 'workspace_web_page.dart';
+import 'workspace_native_destination_page.dart';
 
 class HrWorkflowsPage extends StatefulWidget {
   const HrWorkflowsPage({super.key, required this.api, required this.companies, this.initialDoctype, this.standalone = false});

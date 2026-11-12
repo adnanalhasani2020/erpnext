@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
 import 'doctype_workspace_model.dart';
 import 'doctype_workspace_editor_page.dart';
-import 'workspace_web_page.dart';
+import 'workspace_native_destination_page.dart';
 
 const erpDocTypeLabelHints = <ErpDocTypeDefinition>[
   ErpDocTypeDefinition('المبيعات', 'عروض الأسعار', 'Quotation', Icons.request_quote_outlined),
