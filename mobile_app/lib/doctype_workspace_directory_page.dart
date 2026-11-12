@@ -99,6 +99,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
       final seen = <String>{};
       for (final workspace in workspaces) {
         final workspaceTitle = (workspace['title'] ?? workspace['label'] ?? workspace['name'] ?? 'ERPNext').toString();
+        final workspaceName = (workspace['name'] ?? workspaceTitle).toString();
         const workspaceLabels = <String, String>{
           'Accounting': 'المحاسبة',
           'Financial Reports': 'التقارير المالية',
@@ -133,7 +134,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
               'اختصارات',
               linkType,
               routeOptions,
-              workspaceTitle,
+              workspaceName,
             ));
           }
           continue;
@@ -143,7 +144,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           if (target.isNotEmpty && seen.add('${workspaceTitle}::URL::${target}')) {
             definitions.add(ErpDocTypeDefinition(
               workspaceLabel, workspace['label']?.toString() ?? target, target,
-              _workspaceIcon(workspaceLabel), 'اختصارات', 'URL', const {}, workspaceTitle,
+              _workspaceIcon(workspaceLabel), 'اختصارات', 'URL', const {}, workspaceName,
             ));
           }
           continue;
