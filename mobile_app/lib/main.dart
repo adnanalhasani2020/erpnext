@@ -1010,7 +1010,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
   Widget _buildStockPage() => StockBalancesPage(
     stockBalances: _stockBalances,
     warehouses: _warehouses,
-    items: _items,
     search: _stockSearch,
     searchController: _stockSearchController,
     selectedWarehouse: _selectedWarehouse,
