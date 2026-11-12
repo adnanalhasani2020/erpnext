@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
+import 'hr_workflow_lists.dart';
 
 class HrWorkflowsPage extends StatefulWidget {
   const HrWorkflowsPage({super.key, required this.api, required this.companies, this.initialDoctype, this.standalone = false});
@@ -964,11 +965,11 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
             actions: [TextButton(onPressed: () => setState(() => _error = null), child: const Text('إغلاق'))],
           ),
         Expanded(child: widget.standalone ? switch (_tabs.index) {
-          0 => _employeeList(),
-          1 => _documentList(_attendance, 'Attendance'),
-          2 => _documentList(_leaveApplications, 'Leave Application'),
-          3 => _expenseList(),
-          _ => _salaryList(),
+          0 => HrEmployeeList(rows: _employees, loading: _loading, saving: _saving, onEdit: _editEmployee, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore),
+          1 => HrDocumentList(rows: _attendance, doctype: 'Attendance', loading: _loading, saving: _saving, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onEditAttendance: _editAttendance, onSubmit: _submit, onWorkflow: _runWorkflowAction),
+          2 => HrDocumentList(rows: _leaveApplications, doctype: 'Leave Application', loading: _loading, saving: _saving, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onEditAttendance: _editAttendance, onSubmit: _submit, onWorkflow: _runWorkflowAction),
+          3 => HrExpenseClaimList(rows: _expenseClaims, loading: _loading, saving: _saving, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onSubmit: _submit, onPay: _payExpenseClaim, onWorkflow: _runWorkflowAction),
+          _ => HrSalarySlipList(rows: _salarySlips, loading: _loading, hasMore: _hasMore, loadingMore: _loadingMore, onLoadMore: _loadMore, onView: _viewSalarySlip),
         } : TabBarView(controller: _tabs, children: [
           _employeeList(),
           _documentList(_attendance, 'Attendance'),
@@ -979,91 +980,6 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
       ]),
     );
   }
-
-  Widget _employeeList() {
-    if (_employees.isEmpty && !_loading) return const Center(child: Text('لا توجد سجلات موظفين أو لا تتوفر صلاحية القراءة.'));
-    return ListView.builder(
-      itemCount: _employees.length + (_hasMore ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index == _employees.length) return _loadMoreTile();
-        final row = _employees[index];
-        return Card(child: ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.badge_outlined)),
-          title: Text((row['employee_name'] ?? row['name'] ?? '—').toString()),
-          subtitle: Text([
-            row['name'], row['department'], row['designation'], row['status'],
-          ].where((value) => value != null && value.toString().isNotEmpty).join(' • ')),
-          isThreeLine: true,
-          onTap: _saving ? null : () => _editEmployee(row),
-          trailing: IconButton(
-            tooltip: 'تعديل بيانات الموظف',
-            onPressed: _saving ? null : () => _editEmployee(row),
-            icon: const Icon(Icons.edit_outlined),
-          ),
-        ));
-      },
-    );
-  }
-
-  Widget _documentList(List<core.Map<String, dynamic>> rows, String doctype) {
-    if (rows.isEmpty && !_loading) return Center(child: Text('لا توجد سجلات ${doctype == 'Attendance' ? 'حضور' : 'إجازات'} أو لا تتوفر صلاحية القراءة.'));
-    return ListView.builder(
-      itemCount: rows.length + (_hasMore ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index == rows.length) return _loadMoreTile();
-        final row = rows[index];
-        final name = row['name']?.toString() ?? '';
-        final draft = row['docstatus'] == 0 || row['docstatus'] == '0';
-        final title = doctype == 'Attendance'
-            ? '${row['employee_name'] ?? row['employee'] ?? 'موظف'} • ${row['status'] ?? '—'}'
-            : '${row['employee_name'] ?? row['employee'] ?? 'موظف'} • ${row['leave_type'] ?? 'إجازة'}';
-        final detail = doctype == 'Attendance'
-            ? row['attendance_date']?.toString() ?? ''
-            : '${row['from_date'] ?? ''} — ${row['to_date'] ?? ''} • ${row['status'] ?? 'مسودة'}';
-        return Card(child: ListTile(
-          leading: CircleAvatar(child: Icon(draft ? Icons.edit_note : Icons.check_circle_outline)),
-          title: Text(title),
-          subtitle: Text('$name\n$detail'),
-          isThreeLine: true,
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (draft && doctype == 'Attendance')
-                IconButton(
-                  tooltip: 'تصحيح مسودة الحضور',
-                  onPressed: _saving ? null : () => _editAttendance(row),
-                  icon: const Icon(Icons.edit_outlined),
-                ),
-              if (draft)
-                IconButton(
-                  tooltip: 'إرسال المسودة',
-                  onPressed: _saving ? null : () => _submit(doctype, row),
-                  icon: const Icon(Icons.send_outlined),
-                ),
-              IconButton(
-                tooltip: 'إجراءات سير العمل حسب صلاحيات ERPNext',
-                onPressed: _saving ? null : () => _runWorkflowAction(doctype, row),
-                icon: const Icon(Icons.rule_outlined),
-              ),
-            ],
-          ),
-        ));
-      },
-    );
-  }
-
-
-  Widget _loadMoreTile() => Padding(
-    padding: const EdgeInsets.all(12),
-    child: Center(child: OutlinedButton.icon(
-      onPressed: _loadingMore ? null : _loadMore,
-      icon: _loadingMore
-        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
-        : const Icon(Icons.expand_more),
-      label: Text(_loadingMore ? 'جارٍ تحميل المزيد...' : 'تحميل المزيد'),
-    )),
-  );
-
 
   Future<void> _viewSalarySlip(core.Map<String, dynamic> row) async {
     final id = row['name']?.toString() ?? '';
@@ -1131,75 +1047,7 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
     }
   }
 
-  Widget _salaryList() {
-    if (_salarySlips.isEmpty && !_loading) {
-      return const Center(child: Text('لا توجد كشوف رواتب ظاهرة أو لا تتوفر صلاحية القراءة.'));
-    }
-    return ListView.builder(
-      itemCount: _salarySlips.length + (_hasMore ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index == _salarySlips.length) return _loadMoreTile();
-        final row = _salarySlips[index];
-        final currency = row['currency']?.toString() ?? '';
-        String money(String key) {
-          final value = row[key];
-          if (value is num) return '${value.toStringAsFixed(2)} $currency';
-          return '${value ?? '—'} $currency';
-        }
-        return Card(child: ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.payments_outlined)),
-          title: Text((row['employee_name'] ?? row['employee'] ?? row['name'] ?? 'موظف').toString()),
-          subtitle: Text('${row['name']} • ${row['start_date'] ?? ''} — ${row['end_date'] ?? ''}\nالإجمالي: ${money('gross_pay')} • الاستقطاعات: ${money('total_deduction')}'),
-          isThreeLine: true,
-          onTap: () => _viewSalarySlip(row),
-          trailing: Text(money('net_pay'), textAlign: TextAlign.end),
-        ));
-      },
-    );
-  }
 
-  Widget _expenseList() {
-    if (_expenseClaims.isEmpty && !_loading) {
-      return const Center(child: Text('لا توجد مطالبات مصروفات أو لا تتوفر صلاحية القراءة. إنشاء المطالبات واعتمادها يتطلب إعداد أنواع المصروفات والحسابات ومراكز التكلفة في ERPNext.'));
-    }
-    return ListView.builder(
-      itemCount: _expenseClaims.length + (_hasMore ? 1 : 0),
-      itemBuilder: (context, index) {
-        if (index == _expenseClaims.length) return _loadMoreTile();
-        final row = _expenseClaims[index];
-        return Card(child: ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.receipt_long_outlined)),
-          title: Text((row['employee_name'] ?? row['employee'] ?? row['name'] ?? 'مطالبة').toString()),
-          subtitle: Text('${row['name']} • ${row['posting_date'] ?? ''}\n${row['approval_status'] ?? row['status'] ?? '—'}'),
-          isThreeLine: true,
-          trailing: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (row['docstatus'] == 0 || row['docstatus'] == '0')
-                IconButton(
-                  tooltip: 'إرسال المسودة',
-                  onPressed: _saving ? null : () => _submit('Expense Claim', row),
-                  icon: const Icon(Icons.send_outlined),
-                ),
-              if ((row['docstatus'] == 1 || row['docstatus'] == '1') &&
-                  row['approval_status'] == 'Approved' &&
-                  row['status'] != 'Paid')
-                IconButton(
-                  tooltip: 'سداد المطالبة',
-                  onPressed: _saving ? null : () => _payExpenseClaim(row),
-                  icon: const Icon(Icons.payments_outlined),
-                ),
-              IconButton(
-                tooltip: 'إجراءات سير العمل حسب صلاحيات ERPNext',
-                onPressed: _saving ? null : () => _runWorkflowAction('Expense Claim', row),
-                icon: const Icon(Icons.rule_outlined),
-              ),
-            ],
-          ),
-        ));
-      },
-    );
-  }
 }
 
  
