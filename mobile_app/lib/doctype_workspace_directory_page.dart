@@ -119,9 +119,9 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           final linkType = workspace['link_type']?.toString() ?? '';
           final target = workspace['link_to']?.toString().trim() ?? '';
           final supported = linkType == 'DocType' || linkType == 'Report';
+          final routeOptions = _routeOptions(workspace['route_options']);
           if (supported && target.isNotEmpty &&
-              seen.add('${workspaceTitle}::اختصارات::${linkType}::${target}')) {
-            final routeOptions = _routeOptions(workspace['route_options']);
+              seen.add('${workspaceTitle}::اختصارات::${linkType}::${target}::${jsonEncode(routeOptions)}')) {
             definitions.add(ErpDocTypeDefinition(
               workspaceLabel,
               workspace['title']?.toString() ?? workspace['label']?.toString() ?? target,
@@ -203,10 +203,14 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
             'Quality Action': 'إجراءات الجودة',
             'Non Conformance': 'حالات عدم المطابقة',
           };
-          var displayLabel = translatedLabels[doctype] ??
-            ((link['label']?.toString().trim().isNotEmpty ?? false) ? link['label'].toString() : doctype);
-          for (final known in erpDocTypeDefinitions) {
-            if (known.doctype == doctype) { displayLabel = known.label; break; }
+          final sourceLabel = link['label']?.toString().trim() ?? '';
+          var displayLabel = routeOptions.isNotEmpty && sourceLabel.isNotEmpty
+              ? sourceLabel
+              : translatedLabels[doctype] ?? (sourceLabel.isNotEmpty ? sourceLabel : doctype);
+          if (routeOptions.isEmpty && (sourceLabel.isEmpty || sourceLabel == doctype)) {
+            for (final known in erpDocTypeDefinitions) {
+              if (known.doctype == doctype) { displayLabel = known.label; break; }
+            }
           }
           definitions.add(ErpDocTypeDefinition(
             workspaceLabel,
