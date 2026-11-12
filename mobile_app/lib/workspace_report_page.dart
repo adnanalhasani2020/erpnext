@@ -162,6 +162,18 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
   bool _isFilterVisible(Map<String, dynamic> filter) =>
       _evaluateFilterDependency(filter['depends_on']?.toString());
 
+  bool _isFilterRequired(Map<String, dynamic> filter) {
+    final rule = filter['mandatory_depends_on']?.toString() ?? '';
+    return filter['reqd'] == 1 || filter['reqd'] == true ||
+        (rule.trim().isNotEmpty && _evaluateFilterDependency(rule));
+  }
+
+  bool _isFilterReadOnly(Map<String, dynamic> filter) {
+    final rule = filter['read_only_depends_on']?.toString() ?? '';
+    return filter['read_only'] == 1 || filter['read_only'] == true ||
+        (rule.trim().isNotEmpty && _evaluateFilterDependency(rule));
+  }
+
   List<String> _options(Map<String, dynamic> filter) {
     final raw = filter['options'];
     if (raw is List) {
@@ -309,14 +321,15 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
     if (fieldname.isEmpty) return const SizedBox.shrink();
     final label = _label(filter);
     final type = filter['fieldtype']?.toString() ?? 'Data';
-    final requiredField = filter['reqd'] == 1 || filter['reqd'] == true;
+    final requiredField = _isFilterRequired(filter);
+    final readOnlyNow = _isFilterReadOnly(filter);
 
     if (type == 'Check') {
       return CheckboxListTile(
         contentPadding: EdgeInsets.zero,
         title: Text(label),
         value: _values[fieldname] == true,
-        onChanged: (value) => setState(() => _values[fieldname] = value ?? false),
+        onChanged: readOnlyNow ? null : (value) => setState(() => _values[fieldname] = value ?? false),
       );
     }
 
@@ -332,7 +345,7 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
               FilterChip(
                 label: Text(option),
                 selected: selected.contains(option),
-                onSelected: (checked) => setState(() {
+                onSelected: readOnlyNow ? null : (checked) => setState(() {
                   final next = Set<String>.from(selected);
                   if (checked) { next.add(option); } else { next.remove(option); }
                   _values[fieldname] = next.toList();
@@ -357,7 +370,7 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
         validator: requiredField
             ? (value) => value == null || value.isEmpty ? 'هذا الحقل مطلوب' : null
             : null,
-        onChanged: (value) => setState(() => _values[fieldname] = value ?? ''),
+        onChanged: readOnlyNow ? null : (value) => setState(() => _values[fieldname] = value ?? ''),
       );
     }
 
@@ -372,7 +385,7 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
         validator: requiredField
             ? (value) => value == null || value.trim().isEmpty ? 'هذا الحقل مطلوب' : null
             : null,
-        onTap: () => _pickDate(fieldname, dateTime: type == 'Datetime'),
+        onTap: readOnlyNow ? null : () => _pickDate(fieldname, dateTime: type == 'Datetime'),
       );
     }
 
@@ -382,6 +395,7 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
         : (filter['options']?.toString() ?? '');
     return TextFormField(
       controller: _controllers[fieldname],
+      readOnly: readOnlyNow,
       keyboardType: const {
         'Int', 'Float', 'Currency', 'Percent', 'Rating'
       }.contains(type) ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
@@ -392,7 +406,7 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
             : isLink ? linkTarget : null,
         suffixIcon: isLink ? IconButton(
           tooltip: 'اختيار سجل',
-          onPressed: _linkSearchLoading || linkTarget.isEmpty ? null : () async {
+          onPressed: readOnlyNow || _linkSearchLoading || linkTarget.isEmpty ? null : () async {
             setState(() => _linkSearchLoading = true);
             try {
               final selected = await _pickLinkValue(linkTarget);
@@ -437,7 +451,7 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
     if (_filters.isNotEmpty && !(_formKey.currentState?.validate() ?? false)) return;
     for (final filter in _filters.where(_isFilterVisible)) {
       final fieldname = _fieldname(filter);
-      final requiredField = filter['reqd'] == 1 || filter['reqd'] == true;
+      final requiredField = _isFilterRequired(filter);
       if (requiredField && filter['fieldtype']?.toString() == 'Check' &&
           _values[fieldname] != true) {
         setState(() => _error = 'الحقل ${_label(filter)} مطلوب.');
