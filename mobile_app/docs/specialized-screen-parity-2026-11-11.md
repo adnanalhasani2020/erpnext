@@ -119,3 +119,5 @@ Bank Transaction and Bank Statement Import no longer open an undifferentiated co
 The standalone sales, purchasing, stock and HR workflow pages now provide direct navigation to the matching original ERPNext Desk list for the selected DocType. This preserves the native Desk action surface for controls not implemented in the focused mobile view, without changing the underlying API workflow or adding mobile-only business actions.
 
 Standalone Chart of Accounts, Journal Entry, Payment Reconciliation, Process Payment Reconciliation and Payroll Entry screens now also expose direct links to their matching original ERPNext Desk lists. This keeps native server-defined actions available alongside the focused mobile workflows.
+
+The dedicated Item Catalog, Warehouse Hierarchy, Sales Commission and Promotional Scheme pages now also expose direct links to their matching ERPNext Desk lists, keeping native Desk actions available from the specialized mobile routes.
