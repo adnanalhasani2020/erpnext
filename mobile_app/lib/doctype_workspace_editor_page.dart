@@ -511,6 +511,39 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     var rule = expression?.trim() ?? '';
     if (rule.isEmpty) return true;
     if (rule.startsWith('eval:')) rule = rule.substring(5).trim();
+
+    final orParts = rule.split('||');
+    if (orParts.length > 1) {
+      return orParts.any((part) => _evaluateSimpleDocDependency(part, values));
+    }
+    final andParts = rule.split('&&');
+    if (andParts.length > 1) {
+      return andParts.every((part) => _evaluateSimpleDocDependency(part, values));
+    }
+
+    String? operator;
+    var operatorIndex = -1;
+    for (final candidate in const ['===', '!==', '==', '!=']) {
+      final index = rule.indexOf(candidate);
+      if (index >= 0) {
+        operator = candidate;
+        operatorIndex = index;
+        break;
+      }
+    }
+    if (operator != null) {
+      var field = rule.substring(0, operatorIndex).trim();
+      if (field.startsWith('doc.')) field = field.substring(4);
+      var expected = rule.substring(operatorIndex + operator.length).trim();
+      if (expected.length >= 2 &&
+          ((expected.startsWith("'") && expected.endsWith("'")) ||
+           (expected.startsWith('"') && expected.endsWith('"')))) {
+        expected = expected.substring(1, expected.length - 1);
+      }
+      final equal = values[field]?.toString() == expected;
+      return operator.startsWith('!') ? !equal : equal;
+    }
+
     var negate = false;
     if (rule.startsWith('!')) {
       negate = true;
