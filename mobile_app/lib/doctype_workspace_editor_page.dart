@@ -976,7 +976,7 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                 );
                 final attachmentValues = <String, dynamic>{};
                 final savedName = savedDocument['name']?.toString() ?? source?['name']?.toString() ?? '';
-                for (final entry in pendingAttachments.entries) {
+                for (final entry in pendingAttachments.entries.toList()) {
                   final bytes = entry.value.bytes;
                   if (savedName.isEmpty || bytes == null || bytes.isEmpty) {
                     throw const FormatException('تعذر إكمال رفع مرفق الحقل.');
@@ -991,6 +991,8 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                   final fileUrl = uploaded['file_url']?.toString().trim() ?? '';
                   if (fileUrl.isEmpty) throw const FormatException('رفع الملف لم يُرجع مسار المرفق من ERPNext.');
                   attachmentValues[entry.key] = fileUrl;
+                  controllers[entry.key]?.text = fileUrl;
+                  pendingAttachments.remove(entry.key);
                 }
                 if (attachmentValues.isNotEmpty) {
                   await widget.api.saveDocTypeDocument(
