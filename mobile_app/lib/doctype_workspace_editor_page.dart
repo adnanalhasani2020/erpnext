@@ -575,19 +575,26 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
     // Preserve the Desk form's Tab Break / Section Break hierarchy in the
     // mobile editor. Columns are intentionally stacked on narrow screens.
     final layoutSectionByField = <String, String>{};
+    final hiddenLayoutFields = <String>{};
     var currentTab = 'عام';
     var currentSection = '';
+    var hiddenTab = false;
+    var hiddenSection = false;
     for (final field in _fields) {
       final type = field['fieldtype']?.toString() ?? '';
       final label = field['label']?.toString().trim() ?? '';
       if (type == 'Tab Break') {
         currentTab = label.isEmpty ? 'عام' : label;
         currentSection = '';
+        hiddenTab = field['hidden'] == 1 || field['hidden'] == true;
+        hiddenSection = false;
       } else if (type == 'Section Break') {
         currentSection = label;
+        hiddenSection = field['hidden'] == 1 || field['hidden'] == true;
       } else {
         final key = field['fieldname']?.toString() ?? '';
         if (key.isNotEmpty) {
+          if (hiddenTab || hiddenSection) hiddenLayoutFields.add(key);
           layoutSectionByField[key] = [
             if (currentTab.isNotEmpty) currentTab,
             if (currentSection.isNotEmpty) currentSection,
@@ -637,6 +644,8 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
       return values;
     }
     bool visibleField(Map<String, dynamic> field) {
+      final key = field['fieldname']?.toString() ?? '';
+      if (hiddenLayoutFields.contains(key) || field['hidden'] == 1 || field['hidden'] == true) return false;
       final rule = field['depends_on']?.toString() ?? '';
       return rule.trim().isEmpty || _evaluateSimpleDocDependency(rule, dependencyValues());
     }
