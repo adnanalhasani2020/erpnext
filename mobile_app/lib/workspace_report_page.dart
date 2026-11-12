@@ -66,6 +66,11 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
         if (fieldname.isEmpty) continue;
         final type = filter['fieldtype']?.toString() ?? 'Data';
         var initial = filter['default'];
+        if (initial is String &&
+            (initial.startsWith('frappe.') || initial.startsWith('eval:') ||
+             initial.contains('function('))) {
+          initial = null;
+        }
         if ((initial == null || initial.toString().isEmpty) &&
             fieldname == 'company' && widget.companies.isNotEmpty) {
           initial = widget.companies.first.name;
@@ -91,6 +96,56 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
       });
     }
   }
+
+  bool _evaluateFilterDependency(String? expression) {
+    var rule = expression?.trim() ?? '';
+    if (rule.isEmpty) return true;
+    if (rule.startsWith('eval:')) rule = rule.substring(5).trim();
+    final orParts = rule.split('||');
+    if (orParts.length > 1) {
+      return orParts.any(_evaluateFilterDependency);
+    }
+    final andParts = rule.split('&&');
+    if (andParts.length > 1) {
+      return andParts.every(_evaluateFilterDependency);
+    }
+    String? comparisonOperator;
+    var operatorIndex = -1;
+    for (final candidate in const ['===', '!==', '==', '!=']) {
+      final index = rule.indexOf(candidate);
+      if (index >= 0) {
+        comparisonOperator = candidate;
+        operatorIndex = index;
+        break;
+      }
+    }
+    if (comparisonOperator != null) {
+      var field = rule.substring(0, operatorIndex).trim();
+      if (field.startsWith('doc.')) field = field.substring(4);
+      var expected = rule.substring(operatorIndex + comparisonOperator.length).trim();
+      if (expected.length >= 2 &&
+          ((expected.startsWith("'") && expected.endsWith("'")) ||
+           (expected.startsWith('"') && expected.endsWith('"')))) {
+        expected = expected.substring(1, expected.length - 1);
+      }
+      final equal = _values[field]?.toString() == expected;
+      return comparisonOperator.startsWith('!') ? !equal : equal;
+    }
+    var negate = false;
+    if (rule.startsWith('!')) {
+      negate = true;
+      rule = rule.substring(1).trim();
+    }
+    if (rule.startsWith('doc.')) rule = rule.substring(4);
+    if (rule.contains(' ')) return true;
+    final value = _values[rule];
+    final truthy = value != null && value != false && value != 0 &&
+        value.toString().isNotEmpty && value.toString() != '0';
+    return negate ? !truthy : truthy;
+  }
+
+  bool _isFilterVisible(Map<String, dynamic> filter) =>
+      _evaluateFilterDependency(filter['depends_on']?.toString());
 
   List<String> _options(Map<String, dynamic> filter) {
     final raw = filter['options'];
@@ -338,9 +393,18 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
 
   Future<void> _runReport() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
+    for (final filter in _filters.where(_isFilterVisible)) {
+      final fieldname = _fieldname(filter);
+      final requiredField = filter['reqd'] == 1 || filter['reqd'] == true;
+      if (requiredField && filter['fieldtype']?.toString() == 'Check' &&
+          _values[fieldname] != true) {
+        setState(() => _error = 'الحقل ${_label(filter)} مطلوب.');
+        return;
+      }
+    }
     final generation = ++_generation;
     final filters = <String, dynamic>{};
-    for (final filter in _filters) {
+    for (final filter in _filters.where(_isFilterVisible)) {
       final fieldname = _fieldname(filter);
       if (fieldname.isEmpty) continue;
       final value = _normalizedFilterValue(filter);
@@ -433,7 +497,7 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
                     key: _formKey,
                     child: Column(
                       children: [
-                        for (final filter in _filters) _buildFilter(filter),
+                        for (final filter in _filters.where(_isFilterVisible)) _buildFilter(filter),
                         const SizedBox(height: 12),
                         FilledButton.icon(
                           onPressed: _running ? null : _runReport,
