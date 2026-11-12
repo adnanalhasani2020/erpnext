@@ -79,3 +79,6 @@ This is a structural separation pass, not a claim that every business domain is 
 - The app shell no longer owns the guest report layout. Its obsolete widget imports and unused error-card helper were removed after the extraction.
 - The workspace directory continues to mirror the authenticated site's visible Workspace groups and DocType links. Dedicated mobile workflows remain mapped by DocType; generic metadata editing is only the fallback for DocTypes without a specialized workflow.
 - The previous Flutter analyzer run failed on three unused imports and one unused helper in `main.dart`. Those warnings were removed in this batch. The latest analyze, focused/widget tests and Android debug build are still pending; no successful validation is claimed until the workflow completes.
+
+- The primary bottom-navigation entry formerly labeled "المعاملات" now opens the authenticated ERPNext Workspace directory and uses its native workspace grouping. The former combined transaction overview remains reachable from the dashboard as a separate "ملخص المعاملات" route; guest mode keeps the local sample overview rather than showing server workspaces.
+- The shared DocType definition model is isolated in `doctype_workspace_model.dart`, avoiding a directory/editor import cycle while preserving the old editor library's exports for existing callers.
