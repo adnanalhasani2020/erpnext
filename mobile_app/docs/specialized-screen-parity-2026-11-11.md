@@ -82,3 +82,6 @@ This is a structural separation pass, not a claim that every business domain is 
 
 - The primary bottom-navigation entry formerly labeled "المعاملات" now opens the authenticated ERPNext Workspace directory and uses its native workspace grouping. The former combined transaction overview remains reachable from the dashboard as a separate "ملخص المعاملات" route; guest mode keeps the local sample overview rather than showing server workspaces.
 - The shared DocType definition model is isolated in `doctype_workspace_model.dart`, avoiding a directory/editor import cycle while preserving the old editor library's exports for existing callers.
+
+- Workspace discovery now calls the permission-aware Desk endpoint first: `frappe.desk.desktop.get_workspaces` (ERPNext/Frappe v16), then falls back to `get_workspace_sidebar_items` (v15). It no longer enumerates all Workspace records with a broad resource query, avoiding exposure of hidden or another user's private workspaces.
+- Workspace detail links retain native Card Break sections; hidden cards are skipped, and DocType shortcuts are presented in a distinct "اختصارات" section. The API test covers v16 discovery and the v15 fallback.
