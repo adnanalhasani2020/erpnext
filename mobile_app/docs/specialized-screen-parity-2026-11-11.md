@@ -159,3 +159,15 @@ The standalone Sales Margin Analysis widget was removed from the mobile source a
 ## Workspace nested-link routing correction — 2026-11-12
 
 Opening a Workspace's own Flutter page now preserves the app-shell DocType route resolver for its nested DocType links and Number Card workspace shortcuts. A nested Sales Invoice, Customer, Supplier, Item, Account, Journal Entry, Bank Transaction, Payroll Entry or other specialized DocType therefore opens its existing dedicated Flutter workflow instead of silently falling back to the generic metadata editor. Report links remain on the native report screen; no web view is introduced.
+
+
+## Native parity implementation follow-up — 2026-11-12
+
+- The Account tree now fetches direct child accounts from the authenticated ERPNext Account resource when a group is first expanded. Results are merged by canonical account name and sorted by ERPNext NestedSet `lft` order; subsequent collapse/expand uses the loaded child rows. Company, root-type, disabled and search filters are preserved. This removes the previous loaded-page-only limitation for nested expansion.
+- The generic DocType list now supports multi-select Submit and Cancel for metadata-marked submittable DocTypes. Each selected record is re-read and transitioned through ERPNext's canonical lifecycle endpoint. Failures are collected and reported per batch; no direct status writes are used. This is not a claim that every DocType-specific bulk action is implemented.
+- Dashboard Chart Heatmap visualization now has a native Flutter cell-grid renderer in addition to the existing Bar, Line, Pie, Donut and Percentage renderers. Report-backed/custom charts and dynamic JavaScript filters remain unsupported.
+- Item Catalog now exposes the complete metadata-driven Item form for editing an existing item and creating a new one. The specialized catalog remains the list/stock/price/barcode view; the metadata editor loads the installed Item DocType fields and child-table metadata from ERPNext. Arbitrary client scripts and unsupported field widgets remain outside the mobile implementation.
+- Item Price and Pricing Rule now open as full-screen standalone Flutter routes. The prior pricing page was a bottom-sheet composition and is no longer used as a modal-only screen.
+- The client-side margin estimate was removed because it was not an ERPNext standard screen or authoritative profitability report.
+
+No manual tests were run for this follow-up. The repository's GitHub Actions checks must validate Dart analysis and Android compilation; a live ERPNext/HRMS site is still required for permissions, role-specific workflows, accounting and stock acceptance.
