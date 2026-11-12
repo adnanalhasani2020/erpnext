@@ -274,9 +274,12 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Keep separate ERPNext Workspace records separate even when their
+    // translated titles happen to be identical (for example, ERPNext and HRMS).
     final groups = <String, List<ErpDocTypeDefinition>>{};
     for (final item in _definitions) {
-      groups.putIfAbsent(item.group, () => []).add(item);
+      final workspaceKey = item.workspaceName.isEmpty ? item.group : item.workspaceName;
+      groups.putIfAbsent(workspaceKey, () => []).add(item);
     }
     return Scaffold(
       appBar: AppBar(title: const Text('مساحات العمل'), actions: [IconButton(tooltip: 'مزامنة شاشات ERPNext', onPressed: _loading ? null : _loadWorkspaceDirectory, icon: const Icon(Icons.sync))]),
@@ -297,12 +300,13 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
           )),
           for (final group in groups.entries)
             Builder(builder: (context) {
+              final workspaceLabel = group.value.first.group;
               final sections = <String, List<ErpDocTypeDefinition>>{};
               for (final item in group.value) {
                 sections.putIfAbsent(item.section, () => []).add(item);
               }
               return Card(child: ExpansionTile(
-                initiallyExpanded: group.key == 'المبيعات' || group.key == 'المشتريات',
+                initiallyExpanded: workspaceLabel == 'المبيعات' || workspaceLabel == 'المشتريات',
                 leading: group.value.first.workspaceName.isEmpty
                     ? const Icon(Icons.folder_outlined)
                     : IconButton(
@@ -317,7 +321,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
                         )),
                         icon: const Icon(Icons.open_in_browser),
                       ),
-                title: Text(group.key),
+                title: Text(workspaceLabel),
                 subtitle: Text(group.value.length.toString() + ' شاشة'),
                 children: [
                   for (final section in sections.entries)
