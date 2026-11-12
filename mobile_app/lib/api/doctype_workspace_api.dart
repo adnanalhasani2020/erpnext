@@ -2,13 +2,13 @@ part of 'frappe_api.dart';
 
 mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
   Future<List<core.Map<String, dynamic>>> fetchWorkspaceDirectory() async {
-    // Use Desk's own permission-aware workspace endpoint. Version 16 exposes
-    // get_workspaces; version 15 used get_workspace_sidebar_items.
+    // Use permission-filtered Desk boot data on v16 and the dedicated sidebar
+    // endpoint on v15. get_workspaces() itself is not a whitelisted v16 method.
     core.Map<String, dynamic>? workspaceMessage;
     Object? lastError;
     for (final method in const [
-      'frappe.desk.desktop.get_workspaces',
       'frappe.desk.desktop.get_workspace_sidebar_items',
+      'frappe.sessions.get',
     ]) {
       try {
         final uri = Uri.parse('$_baseUrl/api/method/' + method);
@@ -18,10 +18,14 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
           throw Exception(_message(data, 'تعذر تحميل مساحات العمل المسموح بها.'));
         }
         final message = data['message'];
-        if (message is! core.Map<String, dynamic> || message['pages'] is! List) {
+        if (message is! core.Map<String, dynamic>) {
           throw const FormatException('استجابة مساحات العمل غير متوقعة.');
         }
-        workspaceMessage = message;
+        final pages = message['pages'] ?? message['workspace_pages'];
+        if (pages is! List) {
+          throw const FormatException('قائمة مساحات العمل غير متاحة في استجابة الخادم.');
+        }
+        workspaceMessage = <String, dynamic>{...message, 'pages': pages};
         break;
       } catch (error) {
         lastError = error;
