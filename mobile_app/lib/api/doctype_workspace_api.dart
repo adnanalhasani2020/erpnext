@@ -576,7 +576,7 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
     if (generation != _sessionGeneration) {
       throw const HttpException('تغيرت جلسة ERPNext أثناء تحميل القائمة السريعة.');
     }
-    return rows.take(4).toList(growable: false);
+    return rows.take(4).map((row) => <String, dynamic>{...row, '_mobile_title': titleField.isNotEmpty ? (row[titleField] ?? row['name']) : row['name']}).toList(growable: false);
   }
 
 }

@@ -354,6 +354,9 @@ class _NativeDashboardChartState extends State<_NativeDashboardChart> {
         return ListTile(leading: const Icon(Icons.bar_chart), title: Text(widget.label), subtitle: const Text('لا توجد بيانات ضمن المرشحات الحالية.'));
       }
       final visualType = definition['type']?.toString() ?? 'Bar';
+      if (visualType == 'Heatmap') {
+        return ListTile(leading: const Icon(Icons.grid_on), title: Text(widget.label), subtitle: const Text('عرض Heatmap الأصلي لم يُنفّذ بعد في Flutter.'));
+      }
       return Padding(
         padding: const EdgeInsets.all(12),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -483,7 +486,7 @@ class _NativeQuickListState extends State<_NativeQuickList> {
           ListTile(
             dense: true,
             leading: const Icon(Icons.description_outlined),
-            title: Text((row['title'] ?? row['name'] ?? 'مستند').toString()),
+            title: Text((row['_mobile_title'] ?? row['name'] ?? 'مستند').toString()),
             subtitle: Text([
               if (row['status'] != null) row['status'].toString(),
               if (row['modified'] != null) row['modified'].toString(),
