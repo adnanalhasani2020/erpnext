@@ -89,6 +89,17 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
     context: context, isScrollControlled: true, useSafeArea: true, showDragHandle: true,
     builder: (_) => ItemCatalogDetailsSheet(api: widget.api, itemCode: code));
 
+  Future<void> _createFullItem() async {
+    await Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => ErpDocTypeWorkspacePage(
+        api: widget.api,
+        definition: const ErpDocTypeDefinition('المخزون', 'الأصناف', 'Item', Icons.inventory_2_outlined),
+        initialCreate: true,
+      ),
+    ));
+    if (mounted) _load();
+  }
+
   Future<void> _edit([String? code]) async {
     final saved = await showModalBottomSheet<bool>(
       context: context, isScrollControlled: true, useSafeArea: true, showDragHandle: true,
@@ -251,7 +262,7 @@ class _ItemCatalogPageState extends State<ItemCatalogPage> {
           PopupMenuItem(value:'other',child:Text('بيانات أساسية أخرى')),
         ]),
     ]),
-    floatingActionButton: FloatingActionButton.extended(onPressed:_loading?null:()=>_edit(), icon:const Icon(Icons.add), label:const Text('صنف جديد')),
+    floatingActionButton: FloatingActionButton.extended(onPressed:_loading?null:_createFullItem, icon:const Icon(Icons.add), label:const Text('صنف جديد')),
     body: Column(children:[
       Padding(padding:const EdgeInsets.fromLTRB(12,10,12,6),child:TextField(
         controller:_search,textInputAction:TextInputAction.search,onSubmitted:(_)=>_load(),
