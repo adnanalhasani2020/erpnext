@@ -102,3 +102,8 @@ This closes the generic editor's first attachment/comment/version gap only. Spec
 ## Original Desk form fallback — 2026-11-12
 
 The generic DocType detail panel now exposes the exact ERPNext Desk form for the selected record through the authenticated, same-origin WebView. This is the parity path for DocType-specific buttons, client-script behavior and form controls that cannot be safely recreated from static DocField metadata. The mobile metadata editor remains a separate route for supported native field editing; the Desk route is the original web form, not a new mobile-only workflow.
+
+
+## Original Desk report fallback — 2026-11-12
+
+Each metadata-driven Workspace Report screen now also links to that exact ERPNext Desk Query Report route. This keeps the Flutter filter/result view available while providing the original web chart rendering, JavaScript-defined filter behavior and any installed report-specific controls without attempting to execute arbitrary server-provided JavaScript in the mobile client.
