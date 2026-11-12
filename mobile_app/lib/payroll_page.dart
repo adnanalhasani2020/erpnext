@@ -42,6 +42,7 @@ class _PayrollPageState extends State<PayrollPage> {
   bool _hasMoreEntries = false;
   int _entryOffset = 0;
   int _entryGeneration = 0;
+  int _setupGeneration = 0;
   bool _saving = false;
   String? _error;
 
@@ -75,6 +76,8 @@ class _PayrollPageState extends State<PayrollPage> {
   Future<void> _loadSetup() async {
     final company = _company;
     if (company == null || company.isEmpty) return;
+    final generation = ++_setupGeneration;
+    final sessionGeneration = widget.api.sessionGeneration;
     setState(() {
       _loadingSetup = true;
       _error = null;
@@ -91,7 +94,8 @@ class _PayrollPageState extends State<PayrollPage> {
         widget.api.fetchAccountingAccounts(company: company),
         widget.api.fetchBankAccounts(company: company),
       ]);
-      if (!mounted || company != _company) return;
+      if (!mounted || generation != _setupGeneration || company != _company ||
+          sessionGeneration != widget.api.sessionGeneration) return;
       final accounts = results[1].where((row) =>
         row['account_type'] == 'Payable' &&
         row['is_group'] != 1 && row['is_group'] != true
@@ -105,9 +109,13 @@ class _PayrollPageState extends State<PayrollPage> {
         _bankAccount = _bankAccounts.isEmpty ? null : _bankAccounts.first['name']?.toString();
       });
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      if (mounted && generation == _setupGeneration && sessionGeneration == widget.api.sessionGeneration) {
+        setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      }
     } finally {
-      if (mounted) setState(() => _loadingSetup = false);
+      if (mounted && generation == _setupGeneration && sessionGeneration == widget.api.sessionGeneration) {
+        setState(() => _loadingSetup = false);
+      }
     }
   }
 
@@ -115,6 +123,7 @@ class _PayrollPageState extends State<PayrollPage> {
     final company = _company;
     if (company == null || company.isEmpty) return;
     final generation = ++_entryGeneration;
+    final sessionGeneration = widget.api.sessionGeneration;
     setState(() {
       _loadingEntries = true;
       _loadingMoreEntries = false;
@@ -125,18 +134,19 @@ class _PayrollPageState extends State<PayrollPage> {
     });
     try {
       final rows = await widget.api.fetchPayrollEntries(company: company, start: 0, search: _entrySearch.text, docStatus: _entryDocStatus);
-      if (!mounted || generation != _entryGeneration || company != _company) return;
+      if (!mounted || generation != _entryGeneration || company != _company ||
+          sessionGeneration != widget.api.sessionGeneration) return;
       setState(() {
         _entries = rows;
         _entryOffset = rows.length;
         _hasMoreEntries = rows.length == 50;
       });
     } catch (error) {
-      if (mounted && generation == _entryGeneration) {
+      if (mounted && generation == _entryGeneration && sessionGeneration == widget.api.sessionGeneration) {
         setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
       }
     } finally {
-      if (mounted && generation == _entryGeneration) setState(() => _loadingEntries = false);
+      if (mounted && generation == _entryGeneration && sessionGeneration == widget.api.sessionGeneration) setState(() => _loadingEntries = false);
     }
   }
 
@@ -147,11 +157,13 @@ class _PayrollPageState extends State<PayrollPage> {
       return;
     }
     final generation = _entryGeneration;
+    final sessionGeneration = widget.api.sessionGeneration;
     final offset = _entryOffset;
     setState(() => _loadingMoreEntries = true);
     try {
       final rows = await widget.api.fetchPayrollEntries(company: company, start: offset, search: _entrySearch.text, docStatus: _entryDocStatus);
-      if (!mounted || generation != _entryGeneration || company != _company) return;
+      if (!mounted || generation != _entryGeneration || company != _company ||
+          sessionGeneration != widget.api.sessionGeneration) return;
       setState(() {
         final known = _entries.map((row) => row['name']?.toString()).toSet();
         _entries.addAll(rows.where((row) => !known.contains(row['name']?.toString())));
@@ -159,11 +171,11 @@ class _PayrollPageState extends State<PayrollPage> {
         _hasMoreEntries = rows.length == 50;
       });
     } catch (error) {
-      if (mounted && generation == _entryGeneration) {
+      if (mounted && generation == _entryGeneration && sessionGeneration == widget.api.sessionGeneration) {
         setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
       }
     } finally {
-      if (mounted && generation == _entryGeneration) setState(() => _loadingMoreEntries = false);
+      if (mounted && generation == _entryGeneration && sessionGeneration == widget.api.sessionGeneration) setState(() => _loadingMoreEntries = false);
     }
   }
 
@@ -219,11 +231,11 @@ class _PayrollPageState extends State<PayrollPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('أُنشئت مسودة $id. عدد الموظفين المطابقين لإعدادات الرواتب: $employees. راجعها قبل الترحيل.')),
       );
-      await _loadEntries();
+      if (mounted && sessionGeneration == widget.api.sessionGeneration) await _loadEntries();
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+      if (mounted && sessionGeneration == widget.api.sessionGeneration) setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted && sessionGeneration == widget.api.sessionGeneration) setState(() => _saving = false);
     }
   }
 
@@ -231,6 +243,7 @@ class _PayrollPageState extends State<PayrollPage> {
     final company = _company;
     final name = row['name']?.toString() ?? '';
     if (company == null || name.isEmpty || _saving) return;
+    final sessionGeneration = widget.api.sessionGeneration;
     setState(() {
       _saving = true;
       _error = null;
@@ -238,7 +251,7 @@ class _PayrollPageState extends State<PayrollPage> {
     try {
       final document = await widget.api.fetchPayrollEntryDocument(name: name, company: company);
       final slips = await widget.api.fetchPayrollSalarySlips(payrollEntry: name, company: company);
-      if (!mounted) return;
+      if (!mounted || sessionGeneration != widget.api.sessionGeneration) return;
       final action = await showModalBottomSheet<String>(
         context: context,
         isScrollControlled: true,
@@ -250,7 +263,7 @@ class _PayrollPageState extends State<PayrollPage> {
           onAction: (value) => Navigator.pop(sheetContext, value),
         ),
       );
-      if (action == null || !mounted) return;
+      if (action == null || !mounted || sessionGeneration != widget.api.sessionGeneration) return;
       setState(() => _saving = true);
       if (action == 'submit_entry') {
         final confirmed = await _confirm(
@@ -263,7 +276,7 @@ class _PayrollPageState extends State<PayrollPage> {
             payrollEntry: name, company: company,
           );
           final queued = submitted['status']?.toString() == 'Queued' || generatedSlips.isEmpty;
-          if (mounted) {
+          if (mounted && sessionGeneration == widget.api.sessionGeneration) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(queued
               ? 'رحّل ERPNext الدورة ووضع إنشاء كشوف الرواتب في قائمة المعالجة. حدّث الشاشة بعد اكتمال المهمة الخلفية.'
@@ -279,7 +292,7 @@ class _PayrollPageState extends State<PayrollPage> {
         if (confirmed) {
           final result = await widget.api.submitPayrollSalarySlips(name: name, company: company);
           final pending = int.tryParse(result['mobile_pending_salary_slips']?.toString() ?? '0') ?? 0;
-          if (mounted) {
+          if (mounted && sessionGeneration == widget.api.sessionGeneration) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text(pending > 0
               ? 'قبل ERPNext الطلب، وما زال $pending كشفاً قيد المعالجة أو ينتظر الاعتماد.'
@@ -294,7 +307,7 @@ class _PayrollPageState extends State<PayrollPage> {
         );
         if (confirmed) {
           await widget.api.createPayrollBankEntry(name: name, company: company);
-          if (mounted) {
+          if (mounted && sessionGeneration == widget.api.sessionGeneration) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('أعاد ERPNext استجابة إنشاء قيد صرف الرواتب. راجع القيد في النظام قبل اعتبار الرواتب مدفوعة.')),
             );
