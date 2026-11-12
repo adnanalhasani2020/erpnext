@@ -243,6 +243,43 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
     }
   }
 
+
+  Future<double?> fetchWorkspaceNumberCardValue(String numberCardName) async {
+    final name = numberCardName.trim();
+    if (name.isEmpty) return null;
+    final generation = _sessionGeneration;
+    final card = await fetchDocTypeDocument(doctype: 'Number Card', name: name);
+    if (generation != _sessionGeneration) {
+      throw const HttpException('تغيرت جلسة ERPNext أثناء تحميل بطاقة المؤشر.');
+    }
+    // Custom-method and report cards can execute server-defined behavior;
+    // keep those on the original Workspace instead of emulating them.
+    if (card['type'] != 'Document Type' ||
+        card['document_type'] is! String ||
+        card['function'] is! String) {
+      return null;
+    }
+    final filters = card['filters_json']?.toString().trim().isNotEmpty == true
+        ? card['filters_json']
+        : '[]';
+    final response = await _sendJson(
+      'POST',
+      '/api/method/frappe.desk.doctype.number_card.number_card.get_result',
+      {'doc': card, 'filters': filters},
+    );
+    if (generation != _sessionGeneration) {
+      throw const HttpException('تغيرت جلسة ERPNext أثناء حساب بطاقة المؤشر.');
+    }
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل بطاقة المؤشر من ERPNext.'));
+    }
+    final raw = data['message'];
+    if (raw is num) return raw.toDouble();
+    if (raw is String) return double.tryParse(raw);
+    return null;
+  }
+
   Future<core.Map<String, List<core.Map<String, dynamic>>>> fetchDocTypeActivity({
     required String doctype,
     required String name,
