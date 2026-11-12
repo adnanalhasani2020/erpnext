@@ -154,4 +154,4 @@ The APK is written to `build/app/outputs/flutter-apk/app-debug.apk`.
 
 ## Screen parity and routing
 
-The DocType directory discovers visible DocType links from the connected ERPNext Workspaces and preserves dedicated mobile routes for sales, purchasing, stock, HR and payroll workflows. See [the parity report](docs/one-to-one-screen-parity-2026-11-11.md) for coverage and remaining form differences.
+The DocType directory discovers visible DocType links from the connected ERPNext Workspaces and preserves native workspace grouping and dedicated mobile routes for sales, purchasing, stock, HR and payroll workflows. Workspace directory UI is isolated in `lib/doctype_workspace_directory_page.dart`; each generic DocType list/form editor remains in `lib/doctype_workspace_page.dart`. Guest sample reports are isolated in `lib/guest_reports_page.dart`. See [the parity report](docs/one-to-one-screen-parity-2026-11-11.md) for coverage and remaining form differences.
