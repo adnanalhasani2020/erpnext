@@ -90,10 +90,27 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
     }
   }
 
-  void _openLink(Map<String, dynamic> link) {
+  Future<void> _openLink(Map<String, dynamic> link) async {
     final type = (link['link_type'] ?? link['type'] ?? '').toString();
     final target = (link['link_to'] ?? (type == 'URL' ? link['url'] : null) ?? '').toString().trim();
     if (target.isEmpty) return;
+    if (type == 'Report') {
+      try {
+        final companies = await widget.api.fetchCompanies();
+        if (!mounted) return;
+        Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceReportPage(
+          api: widget.api,
+          companies: companies,
+          reportName: target,
+          initialFilters: _parseRouteOptions(link['route_options']),
+        )));
+      } catch (error) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+        );
+      }
+      return;
+    }
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(
       api: widget.api,
       title: (link['label'] ?? target).toString(),
@@ -143,7 +160,7 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
             leading: const Icon(Icons.arrow_forward_ios, size: 16),
             title: Text((link['label'] ?? link['link_to'] ?? '').toString()),
             subtitle: Text((link['link_type'] ?? '').toString()),
-            onTap: () => _openLink(link),
+            onTap: () { _openLink(link); },
           )).toList(),
         )),
       if (shortcuts.isNotEmpty)
@@ -159,7 +176,7 @@ class _WorkspaceWebPageState extends State<WorkspaceWebPage> {
               leading: const Icon(Icons.arrow_forward_ios, size: 16),
               title: Text((shortcut['label'] ?? target).toString()),
               subtitle: Text(type),
-              onTap: () => _openLink({'type': type, 'link_to': shortcut['link_to'], 'url': shortcut['url'], 'route_options': shortcut['route_options'], 'label': shortcut['label']}),
+              onTap: () { _openLink({'type': type, 'link_to': shortcut['link_to'], 'url': shortcut['url'], 'route_options': shortcut['route_options'], 'label': shortcut['label']}); },
             );
           }).toList(),
         )),
