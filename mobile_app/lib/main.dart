@@ -1357,13 +1357,9 @@ class _MobileHomePageState extends State<MobileHomePage> {
 
   void _openSalesPricing({String? doctype}) {
     if (!_requireServerAccess('أسعار البيع')) return;
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
+    Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => SalesPricingPage(api: _api, initialDoctype: doctype),
-    );
+    ));
   }
 
   Future<void> _editCustomerProfile(ErpCustomer customer) async {
