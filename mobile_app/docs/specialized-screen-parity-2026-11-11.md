@@ -58,3 +58,15 @@ The mobile screen passes native Payment Reconciliation filters and discovered ac
 - The app uses ERPNext APIs; no direct database writes are used for these workflows.
 - No live ERPNext/HRMS site was available for this audit. Server-side permissions, customizations, workflows, tax calculations, GL entries, payroll and stock effects remain unverified.
 - CI was triggered for this branch after the changes. The latest Flutter analyze/test/Android debug-build job had not completed at the time this document was authored; do not treat the build as passed until GitHub Actions reports success.
+
+## Code organization update — 2026-11-12
+
+The following UI responsibilities have been extracted from the former app-shell and combined workflow files into dedicated Dart files without changing their business logic or Frappe API calls:
+
+- Login form → `login_page.dart`; authentication and guest-mode orchestration remain in `main.dart`.
+- Home dashboard → `dashboard_page.dart`; data loading and navigation callbacks remain in the app shell.
+- Customer ledger, supplier ledger and customer profile editor → separate sheet files.
+- Purchase workflow and stock workflow → `purchase_workflow_page.dart` and `stock_workflow_page.dart`. The former `purchase_inventory_workflows.dart` remains as a compatibility export so existing imports continue to resolve.
+- The app shell imports the purchase and stock pages independently.
+
+This is a structural separation pass, not a claim that every business domain is now a fully independent route. The app shell still contains the legacy inventory, transaction and navigation composition; HR workflows and the financial-report hub also contain multiple responsibilities and remain candidates for further decomposition. The extracted code must pass the mobile Flutter analyzer, widget tests and Android debug build before this batch is considered validated.
