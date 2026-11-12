@@ -224,7 +224,7 @@ mixin MasterDataApiMixin on _FrappeApiCore {
         orFilters: query == null || query.isEmpty
             ? null
             : searchable.map((field) => [field, 'like', '%$query%']).toList(),
-        orderBy: 'modified desc, name asc',
+        orderBy: doctype == 'Warehouse' ? 'lft asc, name asc' : 'modified desc, name asc',
         start: start,
       );
       final response = await _sendUri('GET', uri);
@@ -237,6 +237,43 @@ mixin MasterDataApiMixin on _FrappeApiCore {
       return rows.whereType<core.Map<String, dynamic>>()
           .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
     }
+
+  Future<List<core.Map<String, dynamic>>> fetchWarehouseChildren({
+    required String parentWarehouse,
+    String? company,
+    String? search,
+    int start = 0,
+  }) async {
+    final parent = parentWarehouse.trim();
+    if (parent.isEmpty) throw const FormatException('حدد المجموعة الأب لعرض المستودعات الفرعية.');
+    final query = search?.trim();
+    final uri = FrappeApi.buildResourcePageUri(
+      baseUrl: _baseUrl,
+      resource: 'Warehouse',
+      fields: const ['name', 'warehouse_name', 'parent_warehouse', 'company', 'is_group', 'disabled', 'lft', 'rgt'],
+      filters: [
+        ['parent_warehouse', '=', parent],
+        if (company != null && company.trim().isNotEmpty) ['company', '=', company.trim()],
+      ],
+      orFilters: query == null || query.isEmpty ? null : [
+        ['name', 'like', '%$query%'],
+        ['warehouse_name', 'like', '%$query%'],
+      ],
+      orderBy: 'lft asc, name asc',
+      start: start,
+      pageLength: FrappeApi.pageSize,
+    );
+    final response = await _sendUri('GET', uri);
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل المستودعات الفرعية من ERPNext.'));
+    }
+    final rows = data['data'];
+    if (rows is! List) throw const FormatException('استجابة المستودعات الفرعية غير متوقعة.');
+    return rows.whereType<core.Map<String, dynamic>>()
+      .where((row) => row['parent_warehouse']?.toString() == parent)
+      .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+  }
 
   Future<core.Map<String, dynamic>> fetchMasterDataDocument({
       required String doctype,

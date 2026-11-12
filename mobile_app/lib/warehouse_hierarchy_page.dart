@@ -238,8 +238,13 @@ class _WarehouseHierarchyPageState extends State<WarehouseHierarchyPage> {
       byParent.putIfAbsent(parent, () => []).add(row);
     }
     for (final group in byParent.values) {
-      group.sort((a, b) => (a['warehouse_name'] ?? a['name'] ?? '')
-        .toString().compareTo((b['warehouse_name'] ?? b['name'] ?? '').toString()));
+      group.sort((a, b) {
+        final leftOrder = (a['lft'] as num?)?.toInt() ?? 0;
+        final rightOrder = (b['lft'] as num?)?.toInt() ?? 0;
+        final order = leftOrder.compareTo(rightOrder);
+        return order != 0 ? order : (a['warehouse_name'] ?? a['name'] ?? '')
+          .toString().compareTo((b['warehouse_name'] ?? b['name'] ?? '').toString());
+      });
     }
     final ids = rows.map((row) => row['name']?.toString() ?? '').toSet();
     final roots = rows.where((row) {
