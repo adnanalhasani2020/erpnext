@@ -8,9 +8,10 @@ import 'doctype_workspace_model.dart';
 import 'workspace_native_destination_page.dart';
 
 class ErpDocTypeWorkspacePage extends StatefulWidget {
-  const ErpDocTypeWorkspacePage({super.key, required this.api, required this.definition});
+  const ErpDocTypeWorkspacePage({super.key, required this.api, required this.definition, this.initialDocumentName});
   final FrappeApi api;
   final ErpDocTypeDefinition definition;
+  final String? initialDocumentName;
   @override
   State<ErpDocTypeWorkspacePage> createState() => _ErpDocTypeWorkspacePageState();
 }
@@ -81,6 +82,11 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
         }
       });
       await _load();
+      final initialName = widget.initialDocumentName?.trim() ?? '';
+      if (initialName.isNotEmpty && mounted) {
+        final document = await widget.api.fetchDocTypeDocument(doctype: _doctype, name: initialName);
+        if (mounted) await _edit(source: document);
+      }
     } catch (e) {
       if (mounted) setState(() { _error = e.toString().replaceFirst('Exception: ', ''); _loading = false; });
     }

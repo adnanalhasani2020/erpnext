@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:share_plus/share_plus.dart';
 import 'api/frappe_api.dart';
+import 'doctype_workspace_editor_page.dart';
+import 'doctype_workspace_model.dart';
 import 'workspace_native_destination_page.dart';
 import 'master_data_page.dart';
 import 'models/erp_models.dart';
@@ -359,6 +361,17 @@ class _ItemCatalogDetailsSheetState extends State<ItemCatalogDetailsSheet> {
             Text(widget.itemCode),Text(d['brand']?.toString()??'بدون علامة'),
           ])),
         ]),
+        FilledButton.icon(
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+            builder: (_) => ErpDocTypeWorkspacePage(
+              api: widget.api,
+              definition: const ErpDocTypeDefinition('المخزون', 'الأصناف', 'Item', Icons.inventory_2_outlined),
+              initialDocumentName: widget.itemCode,
+            ),
+          )),
+          icon: const Icon(Icons.edit_note),
+          label: const Text('تحرير نموذج الصنف الكامل'),
+        ),
         const Divider(height:28),Text('التفاصيل الكاملة',style:Theme.of(context).textTheme.titleMedium),
         ...labels.entries.where((e)=>d[e.value]!=null&&d[e.value].toString().isNotEmpty)
           .map((e)=>ListTile(dense:true,title:Text(e.key),subtitle:Text(d[e.value].toString()))),
