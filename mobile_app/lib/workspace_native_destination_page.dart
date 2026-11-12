@@ -260,7 +260,7 @@ class _WorkspaceNativeDestinationPageState extends State<WorkspaceNativeDestinat
       return StockSummaryNativePage(api: widget.api, routeOptions: widget.routeOptions);
     }
     if (widget.linkType == 'Page' && widget.target == 'warehouse-capacity-summary') {
-      return WarehouseCapacitySummaryNativePage(api: widget.api);
+      return WarehouseCapacitySummaryNativePage(api: widget.api, routeOptions: widget.routeOptions);
     }
     if (widget.linkType == 'Page' && widget.target == 'visual-plant-floor') {
       return VisualPlantFloorNativePage(api: widget.api);
