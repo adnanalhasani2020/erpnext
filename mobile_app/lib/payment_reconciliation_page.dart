@@ -410,7 +410,7 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
             return AlertDialog(
               title: Text('اختيار $label'),
               content: SizedBox(
-                width: 520,
+                width: MediaQuery.of(dialogContext).size.width * 0.82,
                 height: 420,
                 child: Column(
                   children: [
