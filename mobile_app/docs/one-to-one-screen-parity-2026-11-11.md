@@ -51,7 +51,7 @@ Workspace discovery uses Frappe's permission-aware Desk endpoint (v16 `frappe.se
 
 Sales Invoice, Customer and Supplier now have dedicated mobile list pages with server-backed search/pagination and their existing details, editing and ledger actions. The combined transactions overview remains an optional dashboard route rather than the destination for these individual Workspace links.
 
-Every visible Workspace Report link and Report shortcut now opens its own metadata-driven report screen. The screen loads filter definitions through Frappe `frappe.desk.query_report.get_script`, renders the returned filter fields (including server-search Link/Dynamic Link selectors), and runs the selected report through the permission-checked native query-report endpoint; the former hard-coded 14-report allowlist has been removed. Page, URL, Dashboard and Workspace links now open their original ERPNext Desk destination in a session-bound WebView; same-origin session cookies are supplied from the in-memory API session and cleared when the WebView screen is disposed. Workspace Number Cards of type Document Type with static filters now load their value through the native Number Card API; report/custom cards and cards with dynamic JavaScript filters remain on the original Workspace route. Workspace charts and quick-list content still do not have native Flutter equivalents.
+Every visible Workspace Report link and Report shortcut opens a native metadata-driven Flutter report screen. It loads filter definitions through Frappe and runs the selected report through the permission-checked query-report API. Page, Dashboard and Workspace destinations use native Flutter metadata views; external URL shortcuts are not opened in-app. Supported static Document Type Number Cards, standard Document Type charts with static filters, and Workspace Quick Lists with static filters load through Frappe APIs. Report/custom/dynamic/heatmap charts and advanced Quick List filter editing remain gaps.
 
 ## Direct access to standalone party and invoice directories — 2026-11-12
 
@@ -84,12 +84,12 @@ The workspace directory now preserves each visible DocType and Report link from 
 
 Every Report link now routes to a standalone report page that retrieves its available filter metadata from Frappe, supports the declared filter field types and server-backed Link lookups, and invokes the same report through ERPNext's permission-checked report API. The older financial-report overview remains available as a separate app navigation destination. No new business DocTypes or workspace links are fabricated.
 
-Remaining workspace parity: native Workspace chart, number-card and quick-list content still do not have Flutter equivalents. Page/URL/Dashboard/Workspace links are available through the original Desk WebView rather than native Flutter controls. HRMS workspace definitions are supplied by the installed HRMS site and cannot be certified from this ERPNext-only repository snapshot.
+Remaining workspace parity: standard Document Type charts with static filters and Workspace Quick Lists with static filters are native. Report/custom/dynamic/heatmap charts, interactive Quick List filter editing, external URL shortcuts, and full Page/Dashboard-specific behavior remain incomplete. HRMS workspace definitions are supplied by the installed HRMS site and cannot be certified from this ERPNext-only repository snapshot.
 
 
 ## Native Desk Page destinations — 2026-11-12
 
-Workspace links of type Page, URL, Dashboard and Workspace are no longer silently omitted from the mobile directory. They open the corresponding original Desk route in a WebView rather than a fabricated Flutter implementation. The WebView starts with the active in-memory Frappe cookies scoped to the configured ERPNext origin and clears its cookie store when the destination screen is disposed. Non-HTTP(S) navigation and insecure cross-origin HTTP navigation are blocked. This preserves existing web functionality while native equivalents are not available; Workspace charts, number cards and quick lists remain separate parity gaps.
+Workspace links of type Page, URL, Dashboard and Workspace are no longer silently omitted. Workspace and Dashboard links open native Flutter metadata views, while Page links show safe metadata and an explicit notice when the page requires server HTML/JavaScript. External URL shortcuts are not opened in-app. Native Page-specific behavior remains incomplete until implemented with Flutter and Frappe APIs.
 
 
 ## Generic document activity parity — 2026-11-12
@@ -106,7 +106,7 @@ The generic DocType detail panel now exposes the exact ERPNext Desk form for the
 
 ## Original Desk report fallback — 2026-11-12
 
-Each metadata-driven Workspace Report screen now also links to that exact ERPNext Desk Query Report route. This keeps the Flutter filter/result view available while providing the original web chart rendering, JavaScript-defined filter behavior and any installed report-specific controls without attempting to execute arbitrary server-provided JavaScript in the mobile client.
+Metadata-driven Workspace Report screens remain native Flutter. They do not link back to an embedded Desk Query Report. Native report chart rendering and JavaScript-defined report filters remain explicit gaps.
 
 
 ## Workspace identity preservation — 2026-11-12
@@ -135,7 +135,7 @@ The mobile Workspace groups now render the Number Cards attached to each actual 
 
 ## Widget-only Workspace and attachment follow-up — 2026-11-12
 
-Workspace records containing charts, quick lists, shortcuts or number cards remain visible in the Flutter directory even when they expose no DocType/Report link; the directory opens the original Workspace rather than fabricating a substitute screen. Supported static Document Type Number Cards are rendered natively; dynamic, report-backed and custom cards stay on the original Desk Workspace. Existing attachments in the generic DocType activity panel now open through the authenticated Desk WebView.
+Workspace records containing charts, quick lists, shortcuts or number cards remain visible in the Flutter directory even without DocType/Report links. Static Document Type Number Cards, standard Document Type charts with static filters, and static-filter Quick Lists are rendered natively. Unsupported chart types, dynamic/report-backed cards, and native attachment file viewing remain gaps; no embedded Desk page is used.
 
 Item Price and Pricing Rule links now open separate focused views. The combined pricing overview remains available only when the screen is opened without a specific Workspace DocType.
 

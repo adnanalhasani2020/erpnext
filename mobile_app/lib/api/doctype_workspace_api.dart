@@ -562,7 +562,7 @@ mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
           filters.add([raw[0], raw[1], raw[2]]);
         }
       }
-    } else if (rawFilters != null && rawFilters is! Map) {
+    } else if (rawFilters != null) {
       throw const FormatException('صيغة مرشحات القائمة السريعة غير مدعومة.');
     }
     final generation = _sessionGeneration;
