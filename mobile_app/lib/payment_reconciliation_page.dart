@@ -316,8 +316,14 @@ class _PaymentReconciliationPageState extends State<PaymentReconciliationPage> {
     } else if (raw is List) {
       for (final row in raw) {
         if (row is! List || row.length < 3) continue;
-        final value = resolveValue(row.last);
-        if (value != null) filters.add([row[0], row[1], value]);
+        final isDoctypeTuple = row.length >= 4 && row[0]?.toString() == 'Payment Reconciliation';
+        final fieldname = isDoctypeTuple ? row[1] : row[0];
+        final operator = isDoctypeTuple ? row[2] : row[1];
+        final rawValue = row.last;
+        final value = resolveValue(rawValue);
+        if (fieldname != null && operator != null && value != null) {
+          filters.add([fieldname, operator, value]);
+        }
       }
     }
     return filters;
