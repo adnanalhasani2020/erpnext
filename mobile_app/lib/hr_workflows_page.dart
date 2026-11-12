@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
 import 'hr_workflow_lists.dart';
+import 'workspace_web_page.dart';
 
 class HrWorkflowsPage extends StatefulWidget {
   const HrWorkflowsPage({super.key, required this.api, required this.companies, this.initialDoctype, this.standalone = false});
@@ -988,6 +989,8 @@ class _HrWorkflowsPageState extends State<HrWorkflowsPage>
       appBar: AppBar(
         title: Text(widget.standalone ? switch (_tabs.index) { 0 => 'الموظفون', 1 => 'الحضور', 2 => 'طلبات الإجازة', 3 => 'مطالبات المصروفات', _ => 'قسائم الرواتب' } : 'الموارد البشرية'),
         actions: [
+          if (widget.initialDoctype != null)
+            IconButton(tooltip: 'فتح قائمة ERPNext الأصلية', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceWebPage(api: widget.api, title: widget.initialDoctype!, linkType: 'DocTypeList', target: widget.initialDoctype!))), icon: const Icon(Icons.open_in_browser)),
           IconButton(onPressed: _loading ? null : _load, tooltip: 'تحديث', icon: const Icon(Icons.refresh)),
           if (_tabs.index == 2)
             IconButton(
