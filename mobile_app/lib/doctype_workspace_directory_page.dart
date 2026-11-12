@@ -354,6 +354,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
                             title: group.key,
                             linkType: 'Workspace',
                             target: group.value.first.workspaceName,
+                            onOpenDefinition: widget.onOpenDefinition,
                           ),
                         )),
                         icon: const Icon(Icons.arrow_forward),
@@ -374,6 +375,7 @@ class _ErpDocTypeDirectoryPageState extends State<ErpDocTypeDirectoryPage> {
                               workspaceName: group.key,
                               name: card['number_card_name'].toString(),
                               label: card['label']?.toString() ?? card['number_card_name'].toString(),
+                              onOpenDefinition: widget.onOpenDefinition,
                             ),
                         ],
                       ),
@@ -420,12 +422,14 @@ class _WorkspaceNumberCard extends StatefulWidget {
     required this.workspaceName,
     required this.name,
     required this.label,
+    this.onOpenDefinition,
   });
 
   final FrappeApi api;
   final String workspaceName;
   final String name;
   final String label;
+  final ValueChanged<ErpDocTypeDefinition>? onOpenDefinition;
 
   @override
   State<_WorkspaceNumberCard> createState() => _WorkspaceNumberCardState();
@@ -470,6 +474,7 @@ class _WorkspaceNumberCardState extends State<_WorkspaceNumberCard> {
                     title: widget.label,
                     linkType: 'Workspace',
                     target: widget.workspaceName,
+                    onOpenDefinition: widget.onOpenDefinition,
                   ),
                 )),
               ),
