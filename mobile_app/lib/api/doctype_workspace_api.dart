@@ -2,49 +2,63 @@ part of 'frappe_api.dart';
 
 mixin DocTypeWorkspaceApiMixin on _FrappeApiCore {
   Future<List<core.Map<String, dynamic>>> fetchWorkspaceDirectory() async {
-    final summaries = <core.Map<String, dynamic>>[];
-    var start = 0;
-    while (start < 500) {
-      final uri = FrappeApi.buildResourcePageUri(
-        baseUrl: _baseUrl,
-        resource: 'Workspace',
-        fields: const ['name','title','label','module','is_hidden'],
-        filters: const [['is_hidden', '=', 0]],
-        orderBy: 'title asc, name asc',
-        start: start,
-        pageLength: 100,
-      );
-      final response = await _sendUri('GET', uri);
-      final data = _decode(response.body);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw Exception(_message(data, 'تعذر تحميل مساحات العمل من ERPNext.'));
+    // Use Desk's own permission-aware workspace endpoint. Version 16 exposes
+    // get_workspaces; version 15 used get_workspace_sidebar_items.
+    core.Map<String, dynamic>? workspaceMessage;
+    Object? lastError;
+    for (final method in const [
+      'frappe.desk.desktop.get_workspaces',
+      'frappe.desk.desktop.get_workspace_sidebar_items',
+    ]) {
+      try {
+        final uri = Uri.parse('$_baseUrl/api/method/' + method);
+        final response = await _sendUri('GET', uri);
+        final data = _decode(response.body);
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          throw Exception(_message(data, 'تعذر تحميل مساحات العمل المسموح بها.'));
+        }
+        final message = data['message'];
+        if (message is! core.Map<String, dynamic> || message['pages'] is! List) {
+          throw const FormatException('استجابة مساحات العمل غير متوقعة.');
+        }
+        workspaceMessage = message;
+        break;
+      } catch (error) {
+        lastError = error;
       }
-      final rows = data['data'];
-      if (rows is! List) throw const FormatException('استجابة مساحات العمل غير متوقعة.');
-      final page = rows.whereType<core.Map<String, dynamic>>().toList();
-      summaries.addAll(page);
-      if (page.length < 100) break;
-      start += page.length;
     }
+    if (workspaceMessage == null) {
+      throw Exception(lastError?.toString() ?? 'تعذر تحميل مساحات العمل.');
+    }
+
+    final summaries = (workspaceMessage['pages'] as List)
+      .whereType<core.Map<String, dynamic>>()
+      .map((row) => core.Map<String, dynamic>.from(row))
+      .toList(growable: false);
+
     Future<core.Map<String, dynamic>> fetchWorkspaceDetail(core.Map<String, dynamic> row) async {
       final name = row['name']?.toString() ?? '';
       if (name.isEmpty) return core.Map<String, dynamic>.from(row);
-      final detailResponse = await _send(
-        'GET', '/api/resource/Workspace/' + Uri.encodeComponent(name),
-      );
-      final detailData = _decode(detailResponse.body);
-      if (detailResponse.statusCode < 200 || detailResponse.statusCode >= 300) {
+      try {
+        final detailResponse = await _send(
+          'GET', '/api/resource/Workspace/' + Uri.encodeComponent(name),
+        );
+        final detailData = _decode(detailResponse.body);
+        if (detailResponse.statusCode < 200 || detailResponse.statusCode >= 300) {
+          return core.Map<String, dynamic>.from(row);
+        }
+        final document = detailData['data'];
+        if (document is! core.Map<String, dynamic> ||
+            document['doctype'] != 'Workspace' || document['name'] != name) {
+          return core.Map<String, dynamic>.from(row);
+        }
+        return core.Map<String, dynamic>.from(document);
+      } catch (_) {
         return core.Map<String, dynamic>.from(row);
       }
-      final document = detailData['data'];
-      if (document is! core.Map<String, dynamic> ||
-          document['doctype'] != 'Workspace' || document['name'] != name) {
-        return core.Map<String, dynamic>.from(row);
-      }
-      return core.Map<String, dynamic>.from(document);
     }
 
-    // Bound concurrent detail reads so a site with many Workspaces is not flooded.
+    // Preserve Desk ordering while bounding concurrent detail reads.
     final details = <core.Map<String, dynamic>>[];
     for (var offset = 0; offset < summaries.length; offset += 8) {
       final end = (offset + 8 < summaries.length) ? offset + 8 : summaries.length;
