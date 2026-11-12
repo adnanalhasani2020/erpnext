@@ -418,8 +418,14 @@ class _NativeDashboardChartState extends State<_NativeDashboardChart> {
               spacing: 8,
               runSpacing: 4,
               children: [
-                for (var i = 0; i < labels.length && i < seriesValues.first.length && i < 8; i++)
-                  Text('${labels[i]}: ${seriesValues.first[i].toStringAsFixed(0)}', style: Theme.of(context).textTheme.labelSmall),
+                for (var seriesIndex = 0; seriesIndex < seriesValues.length; seriesIndex++)
+                  for (var pointIndex = 0;
+                      pointIndex < labels.length && pointIndex < seriesValues[seriesIndex].length;
+                      pointIndex++)
+                    Text(
+                      '${seriesNames.length > 1 ? '${seriesNames[seriesIndex]} • ' : ''}${labels[pointIndex]}: ${seriesValues[seriesIndex][pointIndex].toStringAsFixed(0)}',
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
               ],
             ),
           if (seriesNames.length > 1)
