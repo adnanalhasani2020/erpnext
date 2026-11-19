@@ -135,6 +135,7 @@ jobs:
       - name: Install Android API 36
         shell: bash
         run: |
+          set +o pipefail
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36"
 
       - name: Remove Flutter-generated placeholder test
