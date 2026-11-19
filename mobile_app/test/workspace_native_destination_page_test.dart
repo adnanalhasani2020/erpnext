@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:erpnext_mobile/api/frappe_api.dart';
 import 'package:erpnext_mobile/workspace_native_destination_page.dart';
+import 'package:erpnext_mobile/doctype_workspace_model.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -32,7 +33,7 @@ void main() {
               'title': 'المبيعات',
               'links': [
                 {'type': 'Card Break', 'label': 'الطلبات'},
-                {'type': 'Link', 'link_type': 'DocType', 'link_to': 'Sales Order', 'label': 'Sales Order'},
+                {'type': 'Link', 'link_type': 'DocType', 'link_to': 'Sales Order', 'label': 'Sales Order', 'route_options': {'company': 'Test Company'}},
               ],
               'shortcuts': [],
               'charts': [],
@@ -49,6 +50,7 @@ void main() {
     }();
 
     final api = FrappeApi();
+    ErpDocTypeDefinition? openedDefinition;
     api.configure('http://127.0.0.1:${server.port}');
     try {
       await tester.pumpWidget(MaterialApp(
@@ -57,6 +59,7 @@ void main() {
           title: 'المبيعات',
           linkType: 'Workspace',
           target: 'Selling',
+          onOpenDefinition: (definition) => openedDefinition = definition,
         ),
       ));
       await tester.pumpAndSettle();
@@ -64,6 +67,10 @@ void main() {
       expect(find.text('المبيعات'), findsOneWidget);
       expect(find.text('الطلبات'), findsOneWidget);
       expect(find.text('Sales Order'), findsOneWidget);
+      await tester.tap(find.text('Sales Order'));
+      await tester.pump();
+      expect(openedDefinition?.doctype, 'Sales Order');
+      expect(openedDefinition?.routeOptions['company'], 'Test Company');
       expect(requestedPaths, contains('/api/resource/Workspace/Selling'));
       expect(requestedPaths, isNot(contains('/api/resource/Workspace')));
     } finally {
