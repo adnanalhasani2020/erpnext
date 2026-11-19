@@ -1,5 +1,3 @@
-import 'dart:core' as core;
-
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
@@ -99,7 +97,7 @@ class _StockSummaryNativePageState extends State<StockSummaryNativePage> {
 
   bool _actionLoading = false;
 
-  Future<void> _createStockEntryFromSummary(core.Map<String, dynamic> row, {required bool move}) async {
+  Future<void> _createStockEntryFromSummary(Map<String, dynamic> row, {required bool move}) async {
     final itemCode = row['item_code']?.toString() ?? '';
     final warehouse = row['warehouse']?.toString() ?? '';
     final actualQty = double.tryParse(row['actual_qty']?.toString() ?? '') ?? 0;
@@ -115,9 +113,9 @@ class _StockSummaryNativePageState extends State<StockSummaryNativePage> {
     final qtyController = TextEditingController();
     final rateController = TextEditingController(text: row['valuation_rate']?.toString() ?? '0');
     final targetController = TextEditingController();
-    core.Map<String, dynamic>? quickValues;
+    Map<String, dynamic>? quickValues;
     if (!disableQuickEntry) {
-      quickValues = await showDialog<core.Map<String, dynamic>>(
+      quickValues = await showDialog<Map<String, dynamic>>(
         context: context,
         builder: (dialogContext) {
           var error = '';
@@ -498,7 +496,7 @@ class _WarehouseCapacitySummaryNativePageState extends State<WarehouseCapacitySu
     }
   }
 
-  Future<void> _openPutawayRule(core.Map<String, dynamic> row) async {
+  Future<void> _openPutawayRule(Map<String, dynamic> row) async {
     final itemCode = row['item_code']?.toString() ?? '';
     final warehouse = row['warehouse']?.toString() ?? '';
     final company = row['company']?.toString() ?? '';
