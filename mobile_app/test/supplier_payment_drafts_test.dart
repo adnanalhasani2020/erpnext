@@ -12,6 +12,7 @@ void main() {
   test('fetches supplier payment drafts and submits only the canonical draft', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     final calls = <String>[];
+    Object? serverError;
     final draft = <String, dynamic>{
       'doctype': 'Payment Entry',
       'name': 'PAY-DRAFT-1',
@@ -28,16 +29,19 @@ void main() {
       }],
     };
     server.listen((request) async {
-      calls.add('${request.method} /${request.uri.pathSegments.join('/')}');
-      request.response.headers.contentType = ContentType.json;
+      try {
+        calls.add('${request.method} /${request.uri.pathSegments.join('/')}');
+        request.response.headers.contentType = ContentType.json;
       if (request.method == 'GET' && request.uri.pathSegments.length == 3 && request.uri.pathSegments[2] == 'Payment Entry') {
         final fields = jsonDecode(request.uri.queryParameters['fields']!) as List;
         expect(fields, contains('payment_type'));
         expect(fields, contains('party_type'));
         final filters = jsonDecode(request.uri.queryParameters['filters']!) as List;
-        expect(filters, contains(['payment_type', '=', 'Pay']));
-        expect(filters, contains(['party_type', '=', 'Supplier']));
-        expect(filters, contains(['docstatus', '=', 0]));
+        bool hasFilter(String field, Object value) => filters.any((row) =>
+            row is List && row.length == 3 && row[0] == field && row[1] == '=' && row[2] == value);
+        expect(hasFilter('payment_type', 'Pay'), isTrue);
+        expect(hasFilter('party_type', 'Supplier'), isTrue);
+        expect(hasFilter('docstatus', 0), isTrue);
         expect(request.uri.queryParameters['limit_start'], '25');
         request.response.write(jsonEncode({'data': [{
           'name': 'PAY-DRAFT-1',
@@ -67,7 +71,13 @@ void main() {
         request.response.statusCode = HttpStatus.notFound;
         request.response.write(jsonEncode({'message': 'Unexpected request'}));
       }
-      await request.response.close();
+      } catch (error) {
+        serverError = error;
+        request.response.statusCode = HttpStatus.internalServerError;
+        request.response.write(jsonEncode({'message': error.toString()}));
+      } finally {
+        await request.response.close();
+      }
     });
     final api = FrappeApi()..configure('http://127.0.0.1:${server.port}');
     try {
@@ -77,6 +87,7 @@ void main() {
       expect(loaded['docstatus'], 0);
       final submitted = await api.submitSupplierPaymentDraft(loaded);
       expect(submitted['docstatus'], 1);
+      expect(serverError, isNull);
       expect(calls, [
         'GET /api/resource/Payment Entry',
         'GET /api/resource/Payment Entry/PAY-DRAFT-1',
