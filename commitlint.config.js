@@ -14,6 +14,7 @@ module.exports = {
 				"Make warehouse hierarchy widget test deterministic",
 				"Scroll guest transaction list in smoke test",
 				"Fix sales invoice composer widget test scrolling",
+				"remove(mobile): route Sales Person to its native DocType form",
 			].includes(message.trim()),
 	],
 	rules: {
