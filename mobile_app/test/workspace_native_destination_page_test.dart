@@ -32,7 +32,7 @@ void main() {
               'title': 'المبيعات',
               'links': [
                 {'type': 'Card Break', 'label': 'الطلبات'},
-                {'type': 'Link', 'link_type': 'DocType', 'link_to': 'Sales Order', 'label': 'طلبات البيع'},
+                {'type': 'Link', 'link_type': 'DocType', 'link_to': 'Sales Order', 'label': 'Sales Order'},
               ],
               'shortcuts': [],
               'charts': [],
@@ -62,7 +62,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('المبيعات'), findsOneWidget);
-      expect(find.text('طلبات البيع'), findsOneWidget);
+      expect(find.text('الطلبات'), findsOneWidget);
       expect(find.text('Sales Order'), findsOneWidget);
       expect(requestedPaths, contains('/api/resource/Workspace/Selling'));
       expect(requestedPaths, isNot(contains('/api/resource/Workspace')));
