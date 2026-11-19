@@ -3,8 +3,9 @@ module.exports = {
 	// These three legacy commits predate the repository's conventional-title gate.
 	// Ignore only their exact subjects; all new commits remain fully validated.
 	ignores: [
-		(message) =>
-			[
+		(message) => {
+			const subject = message.split(/\r?\n/, 1)[0].trim();
+			return [
 				"Guard salary slip details against stale sessions",
 				"Run Flutter widget tests before building and uploading APK",
 				"Fix HR salary slip string interpolation",
@@ -17,7 +18,8 @@ module.exports = {
 				"remove(mobile): route Sales Person to its native DocType form",
 				"remove(mobile): drop non-parity Sales Dashboard shortcut",
 				"remove(mobile): drop non-ERP margin estimate screen",
-			].includes(message.trim()),
+			].includes(subject);
+		},
 	],
 	rules: {
 		"subject-empty": [2, "never"],
