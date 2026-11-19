@@ -30,6 +30,7 @@ on:
       - feature/flutter-hr-warehouse-workflows
       - feature/flutter-accounting-hr-operations
       - feature/flutter-mobile-integration
+      - feature/flutter-doctype-activity-parity
     paths:
       - "mobile_app/lib/**"
       - "mobile_app/test/**"
