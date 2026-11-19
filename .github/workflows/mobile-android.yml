@@ -123,11 +123,6 @@ jobs:
         working-directory: mobile_app
         run: flutter analyze --no-pub --no-fatal-infos
 
-      - name: Run widget tests
-        timeout-minutes: 20
-        working-directory: mobile_app
-        run: flutter test --no-pub
-
       - name: Build installable debug APK
         timeout-minutes: 20
         working-directory: mobile_app
@@ -158,6 +153,11 @@ jobs:
           path: mobile_app/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Run widget tests
+        timeout-minutes: 20
+        working-directory: mobile_app
+        run: flutter test --no-pub
 
       - name: Publish GitHub Release
         if: ${{ inputs.release_tag != '' }}
