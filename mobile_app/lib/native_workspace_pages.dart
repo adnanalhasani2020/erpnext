@@ -1,3 +1,5 @@
+import 'dart:core' as core;
+
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
@@ -223,10 +225,10 @@ class _StockSummaryNativePageState extends State<StockSummaryNativePage> {
       final draft = await widget.api.createStockEntryDraftFromItemDashboard(
         itemCode: itemCode,
         sourceWarehouse: move ? warehouse : null,
-        targetWarehouse: move ? quickValues?['targetWarehouse']?.toString() : warehouse,
+        targetWarehouse: move ? quickValues['targetWarehouse']?.toString() : warehouse,
         stockEntryType: move ? 'Material Transfer' : 'Material Receipt',
-        qty: (quickValues?['qty'] as num?)?.toDouble(),
-        rate: (quickValues?['rate'] as num?)?.toDouble(),
+        qty: (quickValues['qty'] as num?)?.toDouble(),
+        rate: (quickValues['rate'] as num?)?.toDouble(),
       );
       if (!mounted) return;
       final definition = ErpDocTypeDefinition(
