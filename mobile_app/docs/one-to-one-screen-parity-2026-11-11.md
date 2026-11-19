@@ -199,3 +199,7 @@ Native Page route options are now forwarded through the app-shell route for both
 ## Native Stock Summary and capacity actions — 2026-11-12
 
 Stock Summary Move/Add and Warehouse Capacity Summary Edit Capacity are now available in Flutter. Move/Add call the same ERPNext whitelisted draft factory used by the Desk page, then open the returned Stock Entry values in the native DocType form. Warehouse capacity editing resolves the matching Putaway Rule and opens its native form. All writes continue through canonical Frappe document APIs and ERPNext permission checks.
+
+## Nested Workspace route regression coverage — 2026-11-20
+
+A Flutter widget test now exercises the native Workspace destination against a local mock Frappe server. It verifies the permission-filtered Workspace response is loaded before the canonical Workspace document, only server-returned links are rendered, and tapping a nested DocType link forwards its exact DocType and route options to the app-shell destination resolver. This test does not replace live-site verification of role permissions or installed Workspace customizations.
