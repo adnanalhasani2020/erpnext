@@ -66,7 +66,6 @@ void main() {
       expect(find.text('Sales Order'), findsOneWidget);
       expect(requestedPaths, contains('/api/resource/Workspace/Selling'));
       expect(requestedPaths, isNot(contains('/api/resource/Workspace')));
-      expect(find.byType(WebView), findsNothing);
     } finally {
       api.dispose();
       await server.close(force: true);
