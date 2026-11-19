@@ -91,7 +91,7 @@ void main() {
       expect(calls, [
         'GET /api/resource/Payment Entry',
         'GET /api/resource/Payment Entry/PAY-DRAFT-1',
-        'GET /api/resource/Payment%20Entry/PAY-DRAFT-1',
+        'GET /api/resource/Payment Entry/PAY-DRAFT-1',
         'POST /api/method/frappe.client.submit',
       ]);
     } finally {
