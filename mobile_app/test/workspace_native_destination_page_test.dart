@@ -64,7 +64,7 @@ void main() {
       ));
       await tester.pumpAndSettle();
 
-      expect(find.text('المبيعات'), findsOneWidget);
+      expect(find.text('المبيعات'), findsNWidgets(2));
       expect(find.text('الطلبات'), findsOneWidget);
       expect(find.text('Sales Order'), findsOneWidget);
       await tester.tap(find.text('Sales Order'));
