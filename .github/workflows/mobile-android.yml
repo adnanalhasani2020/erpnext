@@ -93,6 +93,29 @@ jobs:
               content = content.replace(marker, mirror + "\n" + marker, 1)
               settings.write_text(content)
 
+          # Recent Android plugins used by the app require API 36 at compile time.
+          # Keep minSdk/targetSdk unchanged so Android 12 devices remain supported.
+          app_gradle = Path("android/app/build.gradle.kts")
+          if app_gradle.exists():
+              content = app_gradle.read_text()
+              updated = content.replace(
+                  "compileSdk = flutter.compileSdkVersion",
+                  "compileSdk = 36",
+              )
+              if "compileSdk = 36" not in updated:
+                  raise SystemExit(f"Could not set compileSdk 36 in {app_gradle}")
+              app_gradle.write_text(updated)
+          else:
+              app_gradle = Path("android/app/build.gradle")
+              content = app_gradle.read_text()
+              updated = content.replace(
+                  "compileSdkVersion flutter.compileSdkVersion",
+                  "compileSdkVersion 36",
+              )
+              if "compileSdkVersion 36" not in updated:
+                  raise SystemExit(f"Could not set compileSdk 36 in {app_gradle}")
+              app_gradle.write_text(updated)
+
           wrapper = Path("android/gradle/wrapper/gradle-wrapper.properties")
           properties = wrapper.read_text()
           properties = properties.replace("-all.zip", "-bin.zip")
