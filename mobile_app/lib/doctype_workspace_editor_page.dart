@@ -517,8 +517,8 @@ class _ErpDocTypeWorkspacePageState extends State<ErpDocTypeWorkspacePage> {
                     }),
                   ],
                 ),
-          ],
-        ))),
+          ),
+        ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('رجوع')),
           FilledButton(
