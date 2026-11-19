@@ -57,7 +57,7 @@ void main() {
           request.uri.pathSegments.length == 4 && request.uri.pathSegments[2] == 'Payment Entry' && request.uri.pathSegments[3] == 'PAY-DRAFT-1') {
         request.response.write(jsonEncode({'data': draft}));
       } else if (request.method == 'POST' &&
-          request.uri.pathSegments.length == 4 && request.uri.pathSegments[2] == 'method' && request.uri.pathSegments[3] == 'frappe.client.submit') {
+          request.uri.pathSegments.length == 3 && request.uri.pathSegments[1] == 'method' && request.uri.pathSegments[2] == 'frappe.client.submit') {
         final body = jsonDecode(await utf8.decoder.bind(request).join()) as core.Map<String, dynamic>;
         final submittedDoc = body['doc'] as core.Map<String, dynamic>;
         expect(submittedDoc['name'], 'PAY-DRAFT-1');
