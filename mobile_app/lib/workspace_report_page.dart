@@ -765,6 +765,7 @@ class _WorkspaceReportPageState extends State<WorkspaceReportPage> {
                                 ),
                               )),
                           ]),
+                      ],
                     ),
                   ),
                 ] else if (!_running && _columns.isNotEmpty)
