@@ -15,6 +15,8 @@ module.exports = {
 				"Scroll guest transaction list in smoke test",
 				"Fix sales invoice composer widget test scrolling",
 				"remove(mobile): route Sales Person to its native DocType form",
+				"remove(mobile): drop non-parity Sales Dashboard shortcut",
+				"remove(mobile): drop non-ERP margin estimate screen",
 			].includes(message.trim()),
 	],
 	rules: {
