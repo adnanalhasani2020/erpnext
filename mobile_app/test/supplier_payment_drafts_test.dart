@@ -28,7 +28,7 @@ void main() {
         'allocated_amount': 250,
       }],
     };
-    server.listen((request) async {
+    final subscription = server.listen((request) async {
       try {
         calls.add('${request.method} /${request.uri.pathSegments.join('/')}');
         request.response.headers.contentType = ContentType.json;
@@ -96,6 +96,7 @@ void main() {
       ]);
     } finally {
       api.dispose();
+      await subscription.cancel();
       await server.close(force: true);
     }
   });
