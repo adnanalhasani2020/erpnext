@@ -81,8 +81,8 @@ void main() {
       expect(requestedPaths, isNot(contains('/api/resource/Workspace')));
     } finally {
       api.dispose();
-      await subscription.cancel();
       await server.close(force: true);
+      await subscription.cancel();
     }
   });
 }
