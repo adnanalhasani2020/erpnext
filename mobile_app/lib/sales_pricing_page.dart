@@ -5,13 +5,14 @@ import 'dart:core' as core;
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
-import 'sales_margin_analysis_page.dart';
 import 'promotional_schemes_page.dart';
+import 'workspace_native_destination_page.dart';
 
 class SalesPricingPage extends StatefulWidget {
-  const SalesPricingPage({super.key, required this.api});
+  const SalesPricingPage({super.key, required this.api, this.initialDoctype});
 
   final FrappeApi api;
+  final String? initialDoctype;
 
   @override
   State<SalesPricingPage> createState() => _SalesPricingPageState();
@@ -37,7 +38,13 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
   @override
   void initState() {
     super.initState();
-    _loadPriceLists();
+    _showDiscounts = widget.initialDoctype == 'Pricing Rule';
+    if (_showDiscounts) {
+      _loadingLists = false;
+      _loadDiscounts();
+    } else {
+      _loadPriceLists();
+    }
   }
 
   @override
@@ -59,6 +66,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
         _selectedPriceList = lists.isEmpty ? null : lists.first['name']?.toString();
       });
       if (_selectedPriceList != null) await _loadPrices();
+      if (_showDiscounts) await _loadDiscounts();
     } catch (error) {
       if (mounted) {
         setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
@@ -501,7 +509,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
   }
 
   Future<void> _editDiscount({core.Map<String, dynamic>? existing}) async {
-    if (_saving || _selectedPriceList == null) return;
+    if (_saving) return;
     final values = await _showDiscountEditor(existing: existing);
     if (values == null || !mounted) return;
     setState(() {
@@ -512,7 +520,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
       await widget.api.saveSellingPricingRule(
         ruleId: existing?['name']?.toString(),
         title: values['title'] as String,
-        priceList: existing?['for_price_list']?.toString() ?? _selectedPriceList!,
+        priceList: existing?['for_price_list']?.toString() ?? _selectedPriceList ?? '',
         currency: values['currency'] as String,
         priceOrProductDiscount: values['price_or_product_discount'] as String,
         discountType: values['discount_type'] as String,
@@ -805,32 +813,42 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: MediaQuery.of(context).size.height * .92,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(
-            16, 8, 16, MediaQuery.of(context).viewInsets.bottom + 16),
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.initialDoctype == 'Pricing Rule' ? 'قواعد خصومات البيع' : 'أسعار الأصناف'),
+        actions: [
+          if (widget.initialDoctype != null)
+            IconButton(
+              tooltip: 'فتح قائمة الجوال',
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => WorkspaceNativeDestinationPage(
+                  api: widget.api,
+                  title: widget.initialDoctype!,
+                  linkType: 'DocTypeList',
+                  target: widget.initialDoctype!,
+                ),
+              )),
+              icon: const Icon(Icons.list_alt_outlined),
+            ),
+          IconButton(
+            tooltip: 'تحديث',
+            onPressed: _loading || _loadingLists || _loadingDiscounts
+              ? null
+              : () => _showDiscounts ? _loadDiscounts() : _loadPriceLists(),
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: EdgeInsets.fromLTRB(16, 8, 16, MediaQuery.of(context).viewInsets.bottom + 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text('إدارة أسعار البيع',
-                      style: Theme.of(context).textTheme.titleLarge),
-                ),
-                IconButton(
-                  tooltip: 'تحديث',
-                  onPressed: _loading || _loadingLists ? null : _loadPriceLists,
-                  icon: const Icon(Icons.refresh),
-                ),
-              ],
-            ),
-            const Text(
+            if (widget.initialDoctype == null) const Text(
               'إدارة أسعار الأصناف وقواعد خصومات البيع داخل ERPNext وفق صلاحيات المستخدم.',
             ),
-            const SizedBox(height: 8),
-            SegmentedButton<bool>(
+            if (widget.initialDoctype == null) const SizedBox(height: 8),
+            if (widget.initialDoctype == null) SegmentedButton<bool>(
               segments: const [
                 ButtonSegment(value: false, label: Text('أسعار الأصناف')),
                 ButtonSegment(value: true, label: Text('قواعد الخصم')),
@@ -842,19 +860,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                 if (next && _discountRules.isEmpty) _loadDiscounts();
               },
             ),
-            if (_selectedPriceList != null) Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: OutlinedButton.icon(
-                onPressed: _loading || _saving ? null : () {
-                  Navigator.of(context).push(MaterialPageRoute<void>(
-                    builder: (_) => SalesMarginAnalysisPage(api: widget.api, priceList: _selectedPriceList!),
-                  ));
-                },
-                icon: const Icon(Icons.query_stats),
-                label: const Text('تحليل أثر الخصومات على هامش الربح'),
-              ),
-            ),
-            Align(
+            if (widget.initialDoctype == null) Align(
               alignment: AlignmentDirectional.centerStart,
               child: OutlinedButton.icon(
                 onPressed: _loading || _saving ? null : () {
@@ -867,15 +873,15 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
               ),
             ),
             const SizedBox(height: 12),
-            if (_loadingLists)
+            if (!_showDiscounts && _loadingLists)
               const LinearProgressIndicator()
-            else if (_priceLists.isEmpty)
+            else if (!_showDiscounts && _priceLists.isEmpty)
               const Card(
                 child: ListTile(
                   title: Text('لا توجد قوائم أسعار بيع مفعّلة أو لا تتوفر صلاحية قراءتها.'),
                 ),
               )
-            else
+            else if (!_showDiscounts)
               DropdownButtonFormField<String>(
                 initialValue: _selectedPriceList,
                 isExpanded: true,
@@ -932,7 +938,7 @@ class _SalesPricingPageState extends State<SalesPricingPage> {
                   ),
                 ),
                 FilledButton.tonalIcon(
-                  onPressed: _saving || _selectedPriceList == null
+                  onPressed: _saving || (!_showDiscounts && _selectedPriceList == null)
                       ? null
                       : () => _showDiscounts ? _editDiscount() : _editPrice(),
                   icon: const Icon(Icons.add),

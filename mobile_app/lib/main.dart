@@ -8,12 +8,9 @@ import 'sales_workflow_page.dart';
 import 'purchase_workflow_page.dart';
 import 'stock_workflow_page.dart';
 import 'invoice_action_policy.dart';
-import 'financial_reports_page.dart';
 import 'workspace_report_page.dart';
-import 'workspace_web_page.dart';
+import 'workspace_native_destination_page.dart';
 import 'sales_pricing_page.dart';
-import 'sales_commission_page.dart';
-import 'sales_dashboard_page.dart';
 import 'payment_reconciliation_page.dart';
 import 'process_payment_reconciliation_page.dart';
 import 'process_payment_reconciliation_log_page.dart';
@@ -851,15 +848,20 @@ class _MobileHomePageState extends State<MobileHomePage> {
         ),
       ),
       bottomNavigationBar: _user == null ? null : NavigationBar(
-        selectedIndex: _selectedTab,
+        selectedIndex: _selectedTab.clamp(0, _isGuest ? 5 : 4).toInt(),
         onDestinationSelected: (index) => setState(() => _selectedTab = index),
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'الرئيسية'),
-          NavigationDestination(icon: Icon(Icons.sell_outlined), selectedIcon: Icon(Icons.sell), label: 'الأصناف'),
-          NavigationDestination(icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2), label: 'الأرصدة'),
-          NavigationDestination(icon: Icon(Icons.warehouse_outlined), selectedIcon: Icon(Icons.warehouse), label: 'المستودعات'),
-          NavigationDestination(icon: Icon(Icons.apps_outlined), selectedIcon: Icon(Icons.apps), label: 'مساحات العمل'),
-          NavigationDestination(icon: Icon(Icons.assessment_outlined), selectedIcon: Icon(Icons.assessment), label: 'التقارير'),
+        destinations: [
+          const NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'الرئيسية'),
+          const NavigationDestination(icon: Icon(Icons.sell_outlined), selectedIcon: Icon(Icons.sell), label: 'الأصناف'),
+          const NavigationDestination(icon: Icon(Icons.inventory_2_outlined), selectedIcon: Icon(Icons.inventory_2), label: 'الأرصدة'),
+          const NavigationDestination(icon: Icon(Icons.warehouse_outlined), selectedIcon: Icon(Icons.warehouse), label: 'المستودعات'),
+          NavigationDestination(
+            icon: const Icon(Icons.apps_outlined),
+            selectedIcon: const Icon(Icons.apps),
+            label: _isGuest ? 'المعاملات' : 'مساحات العمل',
+          ),
+          if (_isGuest)
+            const NavigationDestination(icon: Icon(Icons.assessment_outlined), selectedIcon: Icon(Icons.assessment), label: 'التقارير'),
         ],
       ),
     );
@@ -873,7 +875,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
       case 2: return _buildStockPage();
       case 3: return _buildWarehousesPage();
       case 4: return _isGuest ? _buildSalesPage() : ErpDocTypeDirectoryPage(api: _api, onOpenDefinition: _openDocTypeDefinition);
-      case 5: return _isGuest ? const GuestReportsPage() : FinancialReportsPage(api: _api, companies: _companies);
+      case 5: return _isGuest ? const GuestReportsPage() : ErpDocTypeDirectoryPage(api: _api, onOpenDefinition: _openDocTypeDefinition);
       default: return DashboardPage(
         user: _user,
         isGuest: _isGuest,
@@ -890,18 +892,8 @@ class _MobileHomePageState extends State<MobileHomePage> {
         warehouses: _warehouses,
         stockBalances: _stockBalances,
         onOpenDocTypeDirectory: _openDocTypeDirectory,
-        onOpenTransactions: _openSalesOverview,
       );
     }
-  }
-
-  void _openSalesOverview() {
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => Scaffold(
-        appBar: AppBar(title: const Text('ملخص المعاملات')),
-        body: _buildSalesPage(),
-      ),
-    ));
   }
 
   Widget _guestDemoBanner() => const GuestDemoBanner();
@@ -1027,21 +1019,10 @@ class _MobileHomePageState extends State<MobileHomePage> {
     onRefresh: _loadInventory,
   );
 
-  void _openSalesCommissions() {
-    if (!_requireServerAccess('العمولات')) return;
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (_) => SalesCommissionPage(api: _api),
-    );
-  }
-
-  void _openBankReconciliation() {
+  void _openBankReconciliation({String? doctype}) {
     if (!_requireServerAccess('التسوية البنكية')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => BankReconciliationPage(api: _api, companies: _companies),
+      builder: (_) => BankReconciliationPage(api: _api, companies: _companies, initialDoctype: doctype),
     ));
   }
 
@@ -1063,13 +1044,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
     if (!_requireServerAccess('سجلات التسوية الآلية للمدفوعات')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => ProcessPaymentReconciliationLogPage(api: _api),
-    ));
-  }
-
-  void _openSalesDashboard() {
-    if (!_requireServerAccess('مؤشرات المبيعات')) return;
-    Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => SalesDashboardPage(api: _api, companies: _companies),
     ));
   }
 
@@ -1098,6 +1072,18 @@ class _MobileHomePageState extends State<MobileHomePage> {
     if (!_requireServerAccess('شاشات ERPNext المستقلة')) return;
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => ErpDocTypeDirectoryPage(api: _api, onOpenDefinition: _openDocTypeDefinition),
+    ));
+  }
+
+  void _openOriginalDocTypeList(String doctype) {
+    if (!_requireServerAccess(doctype)) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => WorkspaceNativeDestinationPage(
+        api: _api,
+        title: doctype,
+        linkType: 'DocTypeList',
+        target: doctype,
+      ),
     ));
   }
 
@@ -1130,6 +1116,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
             await _showInvoiceDetails('Sales Invoice', name);
             if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
           },
+          onOpenDesk: () => _openOriginalDocTypeList('Sales Invoice'),
           onCreateInvoice: () async {
             await _openSalesInvoiceComposer();
             if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
@@ -1169,6 +1156,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
             if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
           },
           onOpenLedger: _showCustomerLedger,
+          onOpenDesk: () => _openOriginalDocTypeList('Customer'),
         ),
       ),
     ));
@@ -1200,6 +1188,7 @@ class _MobileHomePageState extends State<MobileHomePage> {
             if (ModalRoute.of(pageContext)?.isCurrent ?? false) setPageState(() {});
           },
           onOpenLedger: _showSupplierLedger,
+          onOpenDesk: () => _openOriginalDocTypeList('Supplier'),
         ),
       ),
     ));
@@ -1221,11 +1210,12 @@ class _MobileHomePageState extends State<MobileHomePage> {
     if (const {'Page', 'URL', 'Dashboard', 'Workspace'}.contains(item.linkType)) {
       if (!_requireServerAccess(item.label)) return;
       Navigator.of(context).push(MaterialPageRoute<void>(
-        builder: (_) => WorkspaceWebPage(
+        builder: (_) => WorkspaceNativeDestinationPage(
           api: _api,
           title: item.label,
           linkType: item.linkType,
           target: item.doctype,
+          routeOptions: item.routeOptions,
         ),
       ));
       return;
@@ -1271,17 +1261,14 @@ class _MobileHomePageState extends State<MobileHomePage> {
         return;
       case 'Bank Transaction':
       case 'Bank Statement Import':
-        _openBankReconciliation();
+        _openBankReconciliation(doctype: item.doctype);
         return;
       case 'Warehouse':
         _openWarehouseHierarchy();
         return;
-      case 'Sales Person':
-        _openSalesCommissions();
-        return;
       case 'Item Price':
       case 'Pricing Rule':
-        _openSalesPricing();
+        _openSalesPricing(doctype: item.doctype);
         return;
       case 'Quotation':
       case 'Sales Order':
@@ -1339,15 +1326,11 @@ class _MobileHomePageState extends State<MobileHomePage> {
     ));
   }
 
-  void _openSalesPricing() {
+  void _openSalesPricing({String? doctype}) {
     if (!_requireServerAccess('أسعار البيع')) return;
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      showDragHandle: true,
-      builder: (_) => SalesPricingPage(api: _api),
-    );
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => SalesPricingPage(api: _api, initialDoctype: doctype),
+    ));
   }
 
   Future<void> _editCustomerProfile(ErpCustomer customer) async {
@@ -1774,7 +1757,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
     onOpenSalesWorkflow: _openSalesWorkflow,
     onOpenPurchaseWorkflow: _openPurchaseWorkflow,
     onOpenStockWorkflow: _openStockWorkflow,
-    onOpenSalesDashboard: _openSalesDashboard,
     onOpenBankReconciliation: _openBankReconciliation,
     onOpenPayroll: _openPayroll,
     onOpenHrWorkflows: _openHrWorkflows,
@@ -1783,7 +1765,6 @@ class _MobileHomePageState extends State<MobileHomePage> {
     onOpenChartOfAccounts: _openChartOfAccounts,
     onOpenJournalEntries: _openJournalEntries,
     onOpenMasterData: _openMasterData,
-    onOpenSalesCommissions: _openSalesCommissions,
     onOpenSalesInvoiceComposer: _openSalesInvoiceComposer,
     onSearchSalesInvoices: _searchSalesInvoices,
     onSearchCustomers: _searchCustomers,

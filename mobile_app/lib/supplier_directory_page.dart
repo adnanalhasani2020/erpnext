@@ -7,7 +7,7 @@ class SupplierDirectoryPage extends StatelessWidget {
   const SupplierDirectoryPage({super.key, required this.loading, required this.error, required this.suppliers,
     required this.search, required this.searchController, required this.searching, required this.hasMore,
     required this.loadingMore, required this.onRefresh, required this.onSearch, required this.onLoadMore,
-    required this.onOpenLedger});
+    required this.onOpenLedger, this.onOpenDesk});
   final bool loading, searching, hasMore, loadingMore;
   final String? error;
   final List<ErpSupplier> suppliers;
@@ -17,6 +17,7 @@ class SupplierDirectoryPage extends StatelessWidget {
   final VoidCallback onLoadMore;
   final ValueChanged<String> onSearch;
   final ValueChanged<ErpSupplier> onOpenLedger;
+  final VoidCallback? onOpenDesk;
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +26,7 @@ class SupplierDirectoryPage extends StatelessWidget {
       supplier.id.toLowerCase().contains(query) || supplier.name.toLowerCase().contains(query)).toList(growable: false);
     return Scaffold(
       appBar: AppBar(title: const Text('الموردون'), actions: [
+        if (onOpenDesk != null) IconButton(tooltip: 'فتح قائمة الجوال', onPressed: onOpenDesk, icon: const Icon(Icons.arrow_forward)),
         IconButton(tooltip: 'تحديث', onPressed: loading ? null : () => onRefresh(), icon: const Icon(Icons.refresh)),
       ]),
       body: RefreshIndicator(

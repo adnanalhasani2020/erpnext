@@ -3,6 +3,7 @@ import 'dart:core' as core;
 import 'package:flutter/material.dart';
 
 import 'api/frappe_api.dart';
+import 'workspace_native_destination_page.dart';
 import 'master_data_page.dart';
 import 'models/erp_models.dart';
 
@@ -25,6 +26,9 @@ class _WarehouseHierarchyPageState extends State<WarehouseHierarchyPage> {
   String? _company;
   final Set<String> _selected = <String>{};
   final Set<String> _collapsedGroups = <String>{};
+  final Set<String> _loadedChildGroups = <String>{};
+  final Set<String> _loadingChildGroups = <String>{};
+  int _treeGeneration = 0;
   List<ErpCompany> _companies = const [];
 
   @override
@@ -36,7 +40,19 @@ class _WarehouseHierarchyPageState extends State<WarehouseHierarchyPage> {
   Future<void> _load({bool more = false, String? search}) async {
     if (_loading || _loadingMore || (more && !_hasMore)) return;
     setState(() {
-      if (more) { _loadingMore = true; } else { _loading = true; _error = null; _offset = 0; _hasMore = false; _selected.clear(); _collapsedGroups.clear(); }
+      if (more) {
+        _loadingMore = true;
+      } else {
+        _loading = true;
+        _error = null;
+        _offset = 0;
+        _hasMore = false;
+        _selected.clear();
+        _collapsedGroups.clear();
+        _loadedChildGroups.clear();
+        _loadingChildGroups.clear();
+        _treeGeneration++;
+      }
     });
     try {
       if (_companies.isEmpty) {
@@ -237,8 +253,13 @@ class _WarehouseHierarchyPageState extends State<WarehouseHierarchyPage> {
       byParent.putIfAbsent(parent, () => []).add(row);
     }
     for (final group in byParent.values) {
-      group.sort((a, b) => (a['warehouse_name'] ?? a['name'] ?? '')
-        .toString().compareTo((b['warehouse_name'] ?? b['name'] ?? '').toString()));
+      group.sort((a, b) {
+        final leftOrder = (a['lft'] as num?)?.toInt() ?? 0;
+        final rightOrder = (b['lft'] as num?)?.toInt() ?? 0;
+        final order = leftOrder.compareTo(rightOrder);
+        return order != 0 ? order : (a['warehouse_name'] ?? a['name'] ?? '')
+          .toString().compareTo((b['warehouse_name'] ?? b['name'] ?? '').toString());
+      });
     }
     final ids = rows.map((row) => row['name']?.toString() ?? '').toSet();
     final roots = rows.where((row) {
@@ -249,7 +270,8 @@ class _WarehouseHierarchyPageState extends State<WarehouseHierarchyPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('شجرة المستودعات'),
-        actions: [IconButton(onPressed: _loading || _loadingMore ? null : _manageWarehouses, tooltip: 'إدارة المستودعات', icon: const Icon(Icons.edit_note)), IconButton(onPressed: _loading || _loadingMore ? null : () => _load(), tooltip: 'تحديث', icon: const Icon(Icons.refresh))],
+        actions: [
+          IconButton(tooltip: 'فتح قائمة الجوال', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceNativeDestinationPage(api: widget.api, title: 'Warehouse', linkType: 'DocTypeList', target: 'Warehouse'))), icon: const Icon(Icons.arrow_forward)),IconButton(onPressed: _loading || _loadingMore ? null : _manageWarehouses, tooltip: 'إدارة المستودعات', icon: const Icon(Icons.edit_note)), IconButton(onPressed: _loading || _loadingMore ? null : () => _load(), tooltip: 'تحديث', icon: const Icon(Icons.refresh))],
       ),
       body: Column(children: [
         Padding(
@@ -263,7 +285,14 @@ class _WarehouseHierarchyPageState extends State<WarehouseHierarchyPage> {
                 const DropdownMenuItem<String>(value: null, child: Text('كل الشركات')),
                 ...companies.map((company) => DropdownMenuItem(value: company, child: Text(company))),
               ],
-              onChanged: (value) => setState(() { _company = value; _selected.clear(); _collapsedGroups.clear(); }),
+              onChanged: (value) => setState(() {
+                _company = value;
+                _selected.clear();
+                _collapsedGroups.clear();
+                _loadedChildGroups.clear();
+                _loadingChildGroups.clear();
+                _treeGeneration++;
+              }),
             ),
             const SizedBox(height: 8),
             TextField(
@@ -337,7 +366,53 @@ class _WarehouseHierarchyPageState extends State<WarehouseHierarchyPage> {
     }
   }
 
-  void _toggleGroup(String name) {
+  Future<void> _toggleGroup(String name) async {
+    if (_loadingChildGroups.contains(name)) return;
+    if (!_loadedChildGroups.contains(name)) {
+      final generation = _treeGeneration;
+      setState(() => _loadingChildGroups.add(name));
+      try {
+        final children = <core.Map<String, dynamic>>[];
+        var start = 0;
+        while (true) {
+          final page = await widget.api.fetchWarehouseChildren(
+            parentWarehouse: name,
+            company: _company,
+            search: _query,
+            start: start,
+          );
+          children.addAll(page);
+          if (page.length < FrappeApi.pageSize) break;
+          start += page.length;
+        }
+        if (!mounted || generation != _treeGeneration) return;
+        setState(() {
+          final byName = <String, core.Map<String, dynamic>>{
+            for (final row in _rows)
+              if (row['name']?.toString().isNotEmpty == true) row['name'].toString(): row,
+          };
+          for (final child in children) {
+            final id = child['name']?.toString() ?? '';
+            if (id.isNotEmpty) byName[id] = child;
+          }
+          _rows = byName.values.toList()
+            ..sort((left, right) {
+              final leftOrder = (left['lft'] as num?)?.toInt() ?? 0;
+              final rightOrder = (right['lft'] as num?)?.toInt() ?? 0;
+              final order = leftOrder.compareTo(rightOrder);
+              return order != 0 ? order : (left['name']?.toString() ?? '').compareTo(right['name']?.toString() ?? '');
+            });
+          _loadedChildGroups.add(name);
+        });
+      } catch (error) {
+        if (mounted && generation == _treeGeneration) {
+          setState(() => _error = 'تعذر تحميل المستودعات الفرعية لـ $name: ${error.toString().replaceFirst('Exception: ', '')}');
+        }
+      } finally {
+        if (mounted && generation == _treeGeneration) setState(() => _loadingChildGroups.remove(name));
+      }
+      return;
+    }
     setState(() {
       if (!_collapsedGroups.add(name)) _collapsedGroups.remove(name);
     });
@@ -363,7 +438,10 @@ class _WarehouseHierarchyPageState extends State<WarehouseHierarchyPage> {
             title: Text((row['warehouse_name'] ?? id).toString()),
             subtitle: Text('$id • ${row['company'] ?? 'شركة غير محددة'}${row['disabled'] == 1 || row['disabled'] == true ? ' • معطل' : ''}'),
             trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-              Text(isGroup ? '${children.length} فرعي' : 'مخزن'),
+              if (isGroup && _loadingChildGroups.contains(id))
+                const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              else
+                Text(isGroup ? '${children.length} فرعي' : 'مخزن'),
               if (isGroup)
                 IconButton(
                   visualDensity: VisualDensity.compact,

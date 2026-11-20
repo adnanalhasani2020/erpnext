@@ -922,4 +922,137 @@ mixin InventoryApiMixin on _FrappeApiCore {
       if (rows is! List) throw Exception('استجابة سجل الحركات غير متوقعة.');
       return rows.whereType<core.Map<String, dynamic>>().toList(growable: false);
     }
+  Future<core.Map<String, dynamic>> createStockEntryDraftFromItemDashboard({
+    required String itemCode,
+    String? sourceWarehouse,
+    String? targetWarehouse,
+    String? stockEntryType,
+    double? qty,
+    double? rate,
+  }) async {
+    final item = itemCode.trim();
+    if (item.isEmpty) throw const FormatException('حدد الصنف لإنشاء حركة المخزون.');
+    if (sourceWarehouse != null && sourceWarehouse.trim().isEmpty) sourceWarehouse = null;
+    if (targetWarehouse != null && targetWarehouse.trim().isEmpty) targetWarehouse = null;
+    if (sourceWarehouse != null && targetWarehouse != null && sourceWarehouse == targetWarehouse) {
+      throw const FormatException('مستودع المصدر والهدف يجب أن يكونا مختلفين.');
+    }
+    if (qty != null && (!qty.isFinite || qty < 0)) {
+      throw const FormatException('كمية حركة المخزون غير صحيحة.');
+    }
+    if (rate != null && (!rate.isFinite || rate < 0)) {
+      throw const FormatException('معدل التقييم غير صحيح.');
+    }
+    final args = <String, dynamic>{
+      'item_code': item,
+      if (sourceWarehouse != null) 'source_warehouse': sourceWarehouse,
+      if (targetWarehouse != null) 'target_warehouse': targetWarehouse,
+      if (stockEntryType != null && stockEntryType.trim().isNotEmpty) 'stock_entry_type': stockEntryType.trim(),
+      if (qty != null) 'qty': qty,
+      if (rate != null) 'rate': rate,
+    };
+    final generation = _sessionGeneration;
+    final response = await _sendJson(
+      'POST',
+      '/api/method/erpnext.stock.dashboard.item_dashboard.make_stock_entry',
+      args,
+    );
+    if (generation != _sessionGeneration) {
+      throw Exception('تغيرت جلسة ERPNext أثناء تجهيز حركة المخزون.');
+    }
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تجهيز حركة المخزون من ERPNext.'));
+    }
+    final document = data['message'];
+    if (document is! core.Map) {
+      throw const FormatException('ERPNext لم يُرجع مسودة Stock Entry صالحة.');
+    }
+    final draft = core.Map<String, dynamic>.from(document);
+    if (draft['doctype']?.toString() != 'Stock Entry' || draft['company'] == null ||
+        draft['items'] is! List || (draft['items'] as List).isEmpty) {
+      throw const FormatException('مسودة Stock Entry التي أعادها ERPNext غير مكتملة.');
+    }
+    return draft;
+  }
+
+  Future<List<core.Map<String, dynamic>>> fetchStockSummary({
+    String? itemCode,
+    String? warehouse,
+    String? itemGroup,
+    int start = 0,
+    String sortBy = 'projected_qty',
+    String sortOrder = 'asc',
+  }) async {
+    const allowedSorts = {
+      'projected_qty', 'reserved_qty', 'reserved_qty_for_production',
+      'reserved_qty_for_sub_contract', 'reserved_qty_for_production_plan',
+      'reserved_stock', 'ordered_qty', 'indented_qty', 'planned_qty', 'actual_qty',
+    };
+    if (!allowedSorts.contains(sortBy) || !{'asc', 'desc'}.contains(sortOrder) || start < 0) {
+      throw const FormatException('خيارات ترتيب ملخص المخزون غير صحيحة.');
+    }
+    final generation = _sessionGeneration;
+    final uri = Uri.parse('$_baseUrl/api/method/erpnext.stock.dashboard.item_dashboard.get_data')
+        .replace(queryParameters: {
+      if (itemCode?.trim().isNotEmpty == true) 'item_code': itemCode!.trim(),
+      if (warehouse?.trim().isNotEmpty == true) 'warehouse': warehouse!.trim(),
+      if (itemGroup?.trim().isNotEmpty == true) 'item_group': itemGroup!.trim(),
+      'start': '$start',
+      'sort_by': sortBy,
+      'sort_order': sortOrder,
+    });
+    final response = await _sendUri('GET', uri);
+    if (generation != _sessionGeneration) {
+      throw const HttpException('تغيرت جلسة ERPNext أثناء تحميل ملخص المخزون.');
+    }
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل ملخص المخزون من ERPNext.'));
+    }
+    final rows = data['message'];
+    if (rows is! List) throw const FormatException('استجابة ملخص المخزون غير متوقعة.');
+    return rows.whereType<core.Map<String, dynamic>>()
+        .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+  }
+
+  Future<List<core.Map<String, dynamic>>> fetchWarehouseCapacitySummary({
+    required String company,
+    String? warehouse,
+    String? itemCode,
+    String? parentWarehouse,
+    int start = 0,
+    String sortBy = 'stock_capacity',
+    String sortOrder = 'desc',
+  }) async {
+    const allowedSorts = {'stock_capacity', 'actual_qty', 'percent_occupied'};
+    if (company.trim().isEmpty || !allowedSorts.contains(sortBy) ||
+        !{'asc', 'desc'}.contains(sortOrder) || start < 0) {
+      throw const FormatException('حدد الشركة وتحقق من خيارات ترتيب سعة المستودعات.');
+    }
+    final generation = _sessionGeneration;
+    final uri = Uri.parse('$_baseUrl/api/method/erpnext.stock.dashboard.warehouse_capacity_dashboard.get_data')
+        .replace(queryParameters: {
+      'company': company.trim(),
+      if (warehouse?.trim().isNotEmpty == true) 'warehouse': warehouse!.trim(),
+      if (itemCode?.trim().isNotEmpty == true) 'item_code': itemCode!.trim(),
+      if (parentWarehouse?.trim().isNotEmpty == true) 'parent_warehouse': parentWarehouse!.trim(),
+      'start': '$start',
+      'sort_by': sortBy,
+      'sort_order': sortOrder,
+    });
+    final response = await _sendUri('GET', uri);
+    if (generation != _sessionGeneration) {
+      throw const HttpException('تغيرت جلسة ERPNext أثناء تحميل سعة المستودعات.');
+    }
+    final data = _decode(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception(_message(data, 'تعذر تحميل سعة المستودعات من ERPNext.'));
+    }
+    final rows = data['message'];
+    if (rows is! List) throw const FormatException('استجابة سعة المستودعات غير متوقعة.');
+    return rows.whereType<core.Map<String, dynamic>>()
+        .map((row) => core.Map<String, dynamic>.from(row)).toList(growable: false);
+  }
+
 }

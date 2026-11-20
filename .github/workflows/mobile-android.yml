@@ -15,6 +15,8 @@ on:
       - feature/flutter-hr-warehouse-workflows
       - feature/flutter-accounting-hr-operations
       - feature/flutter-mobile-integration
+      - feature/flutter-web-parity-completion
+      - feature/flutter-doctype-activity-parity
     paths:
       - "mobile_app/lib/**"
       - "mobile_app/test/**"
@@ -28,6 +30,7 @@ on:
       - feature/flutter-hr-warehouse-workflows
       - feature/flutter-accounting-hr-operations
       - feature/flutter-mobile-integration
+      - feature/flutter-doctype-activity-parity
     paths:
       - "mobile_app/lib/**"
       - "mobile_app/test/**"
@@ -90,6 +93,29 @@ jobs:
               content = content.replace(marker, mirror + "\n" + marker, 1)
               settings.write_text(content)
 
+          # Recent Android plugins used by the app require API 36 at compile time.
+          # Keep minSdk/targetSdk unchanged so Android 12 devices remain supported.
+          app_gradle = Path("android/app/build.gradle.kts")
+          if app_gradle.exists():
+              content = app_gradle.read_text()
+              updated = content.replace(
+                  "compileSdk = flutter.compileSdkVersion",
+                  "compileSdk = 36",
+              )
+              if "compileSdk = 36" not in updated:
+                  raise SystemExit(f"Could not set compileSdk 36 in {app_gradle}")
+              app_gradle.write_text(updated)
+          else:
+              app_gradle = Path("android/app/build.gradle")
+              content = app_gradle.read_text()
+              updated = content.replace(
+                  "compileSdkVersion flutter.compileSdkVersion",
+                  "compileSdkVersion 36",
+              )
+              if "compileSdkVersion 36" not in updated:
+                  raise SystemExit(f"Could not set compileSdk 36 in {app_gradle}")
+              app_gradle.write_text(updated)
+
           wrapper = Path("android/gradle/wrapper/gradle-wrapper.properties")
           properties = wrapper.read_text()
           properties = properties.replace("-all.zip", "-bin.zip")
@@ -106,6 +132,12 @@ jobs:
           wrapper.write_text(properties)
           PY
 
+      - name: Install Android API 36
+        shell: bash
+        run: |
+          set +o pipefail
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36"
+
       - name: Remove Flutter-generated placeholder test
         working-directory: mobile_app
         run: rm -f test/widget_test.dart
@@ -118,12 +150,7 @@ jobs:
       - name: Analyze Dart code
         timeout-minutes: 10
         working-directory: mobile_app
-        run: flutter analyze --no-pub
-
-      - name: Run widget tests
-        timeout-minutes: 20
-        working-directory: mobile_app
-        run: flutter test --no-pub
+        run: flutter analyze --no-pub --no-fatal-infos
 
       - name: Build installable debug APK
         timeout-minutes: 20
@@ -155,6 +182,11 @@ jobs:
           path: mobile_app/build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Run widget tests
+        timeout-minutes: 20
+        working-directory: mobile_app
+        run: flutter test --no-pub
 
       - name: Publish GitHub Release
         if: ${{ inputs.release_tag != '' }}

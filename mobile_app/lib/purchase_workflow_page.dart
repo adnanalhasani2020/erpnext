@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
 import 'models/erp_models.dart';
 import 'models/serial_batch_tracking.dart';
+import 'workspace_native_destination_page.dart';
 
 class PurchaseWorkflowPage extends StatefulWidget {
   const PurchaseWorkflowPage({super.key, required this.api, required this.companies, required this.suppliers, required this.items, required this.warehouses, this.initialInvoiceName, this.onChanged, this.initialSection});
@@ -1169,7 +1170,14 @@ class _PurchaseWorkflowPageState extends State<PurchaseWorkflowPage> {
 
   Widget _field(TextEditingController c, String label, {bool number = false}) => Padding(padding: const EdgeInsets.only(bottom: 8), child: TextField(controller: c, keyboardType: number ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text, decoration: InputDecoration(labelText: label)));
   @override Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(widget.initialSection == 'Purchase Order' ? 'أوامر الشراء' : widget.initialSection == 'Purchase Invoice' ? 'فواتير المشتريات' : widget.initialSection == 'Payment Entry' ? 'دفعات الموردين' : widget.initialSection == 'Supplier Ledger' ? 'سجل دفعات الموردين' : 'إدارة المشتريات'), actions: [IconButton(onPressed: load, icon: const Icon(Icons.refresh))]),
+    appBar: AppBar(
+      title: Text(widget.initialSection == 'Purchase Order' ? 'أوامر الشراء' : widget.initialSection == 'Purchase Invoice' ? 'فواتير المشتريات' : widget.initialSection == 'Payment Entry' ? 'دفعات الموردين' : widget.initialSection == 'Supplier Ledger' ? 'سجل دفعات الموردين' : 'إدارة المشتريات'),
+      actions: [
+        if (widget.initialSection != null && const {'Purchase Order', 'Purchase Invoice'}.contains(widget.initialSection))
+          IconButton(tooltip: 'فتح قائمة الجوال', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceNativeDestinationPage(api: widget.api, title: widget.initialSection!, linkType: 'DocTypeList', target: widget.initialSection!))), icon: const Icon(Icons.arrow_forward)),
+        IconButton(onPressed: load, icon: const Icon(Icons.refresh)),
+      ],
+    ),
     floatingActionButton: _show('Purchase Invoice') ? FloatingActionButton.extended(onPressed: () => compose(), icon: const Icon(Icons.add), label: const Text('فاتورة مشتريات')) : null,
     body: ListView(padding: const EdgeInsets.all(16), children: [
       if (widget.initialSection == null) const Text('إدارة أوامر الشراء وفواتير الموردين والاستلام والدفعات والمرتجعات.'),

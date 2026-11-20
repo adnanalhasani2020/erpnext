@@ -2,6 +2,7 @@ import 'dart:core';
 import 'dart:core' as core;
 import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
+import 'workspace_native_destination_page.dart';
 import 'models/erp_models.dart';
 
 class ChartOfAccountsPage extends StatefulWidget {
@@ -20,6 +21,9 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
   bool includeDisabled = false;
   String? _rootType;
   final Set<String> _collapsedGroups = <String>{};
+  final Set<String> _loadedChildGroups = <String>{};
+  final Set<String> _loadingChildGroups = <String>{};
+  int _treeGeneration = 0;
   int offset = 0;
   String? error;
 
@@ -37,7 +41,18 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
 
   Future<void> load({bool more = false}) async {
     if (company == null || loading || loadingMore || (more && !hasMore)) return;
-    setState(() { if (more) { loadingMore = true; } else { loading = true; error = null; } });
+    setState(() {
+      if (more) {
+        loadingMore = true;
+      } else {
+        loading = true;
+        error = null;
+        _treeGeneration++;
+        _loadedChildGroups.clear();
+        _loadingChildGroups.clear();
+        _collapsedGroups.clear();
+      }
+    });
     try {
       final page = await widget.api.fetchAccountingAccounts(
         company: company!, search: search.text, start: more ? offset : 0,
@@ -165,7 +180,58 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
     }).toList(growable: false);
   }
 
-  void _toggleGroup(String name) {
+  Future<void> _toggleGroup(String name) async {
+    if (_loadingChildGroups.contains(name)) return;
+    if (!_loadedChildGroups.contains(name)) {
+      final generation = _treeGeneration;
+      setState(() => _loadingChildGroups.add(name));
+      try {
+        final children = <core.Map<String, dynamic>>[];
+        var start = 0;
+        while (true) {
+          final page = await widget.api.fetchAccountingAccounts(
+            company: company!,
+            search: search.text,
+            start: start,
+            rootType: _rootType,
+            includeDisabled: includeDisabled,
+            parentAccount: name,
+          );
+          children.addAll(page);
+          if (page.length < 200) break;
+          start += page.length;
+        }
+        if (!mounted || generation != _treeGeneration) return;
+        setState(() {
+          final byName = <String, core.Map<String, dynamic>>{
+            for (final row in rows)
+              if (row['name']?.toString().isNotEmpty == true) row['name'].toString(): row,
+          };
+          for (final child in children) {
+            final key = child['name']?.toString() ?? '';
+            if (key.isNotEmpty) byName[key] = child;
+          }
+          rows = byName.values.toList()
+            ..sort((left, right) {
+              final leftOrder = (left['lft'] as num?)?.toInt() ?? 0;
+              final rightOrder = (right['lft'] as num?)?.toInt() ?? 0;
+              final order = leftOrder.compareTo(rightOrder);
+              return order != 0 ? order : (left['name']?.toString() ?? '').compareTo(right['name']?.toString() ?? '');
+            });
+          offset = rows.length;
+          _loadedChildGroups.add(name);
+        });
+      } catch (e) {
+        if (mounted && generation == _treeGeneration) {
+          setState(() => error = 'تعذر تحميل الحسابات الفرعية لـ $name: ${e.toString().replaceFirst('Exception: ', '')}');
+        }
+      } finally {
+        if (mounted && generation == _treeGeneration) {
+          setState(() => _loadingChildGroups.remove(name));
+        }
+      }
+      return;
+    }
     setState(() {
       if (!_collapsedGroups.add(name)) _collapsedGroups.remove(name);
     });
@@ -272,6 +338,7 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('دليل الحسابات'), actions: [
+      IconButton(tooltip: 'فتح قائمة الجوال', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceNativeDestinationPage(api: widget.api, title: 'Account', linkType: 'DocTypeList', target: 'Account'))), icon: const Icon(Icons.arrow_forward)),
       IconButton(onPressed: loading ? null : () => load(), icon: const Icon(Icons.refresh)),
       IconButton(onPressed: company == null || loading || loadingMore ? null : () => showAccountEditor(),
         tooltip: 'إضافة حساب', icon: const Icon(Icons.add)),
@@ -362,7 +429,9 @@ class _ChartOfAccountsPageState extends State<ChartOfAccountsPage> {
                       tooltip: isCollapsed ? 'توسيع المجموعة' : 'طي المجموعة',
                       visualDensity: VisualDensity.compact,
                       onPressed: accountName.isEmpty ? null : () => _toggleGroup(accountName),
-                      icon: Icon(isCollapsed ? Icons.chevron_right : Icons.expand_more),
+                      icon: _loadingChildGroups.contains(accountName)
+                          ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                          : Icon(isCollapsed ? Icons.chevron_right : Icons.expand_more),
                     ),
                 ]),
                 onTap: () => showDetails(row),

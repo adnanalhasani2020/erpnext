@@ -2,6 +2,7 @@ import 'dart:core';
 import 'dart:core' as core;
 import 'package:flutter/material.dart';
 import 'api/frappe_api.dart';
+import 'workspace_native_destination_page.dart';
 import 'models/erp_models.dart';
 
 class JournalEntriesPage extends StatefulWidget {
@@ -307,7 +308,9 @@ class _JournalEntriesPageState extends State<JournalEntriesPage> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('القيود اليومية')),
+    appBar: AppBar(title: const Text('القيود اليومية'), actions: [
+      IconButton(tooltip: 'فتح قائمة الجوال', onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => WorkspaceNativeDestinationPage(api: widget.api, title: 'Journal Entry', linkType: 'DocTypeList', target: 'Journal Entry'))), icon: const Icon(Icons.arrow_forward)),
+    ]),
     body: ListView(padding: const EdgeInsets.all(14), children: [
       DropdownButtonFormField<String>(
         initialValue: _company, isExpanded: true,
