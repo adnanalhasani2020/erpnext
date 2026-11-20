@@ -96,8 +96,8 @@ void main() {
       ]);
     } finally {
       api.dispose();
-      await subscription.cancel();
       await server.close(force: true);
+      await subscription.cancel();
     }
   });
 
